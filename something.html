@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endless Visual Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 2;
+            max-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, button, input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        #message-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 255, 150, 0.8);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 3;
+            display: none;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="controls">
+        <h2 class="text-xl font-bold mb-4">Visual Creator</h2>
+
+        <div class="control-group">
+            <label for="visual-type">Visual Type</label>
+            <select id="visual-type">
+                <option value="glowing-orbs">Glowing Orbs (3D)</option>
+                <option value="futuristic-grid">Futuristic Grid (3D)</option>
+                <option value="peaceful-particles">Peaceful Particles (2D)</option>
+                <option value="star-field">Star Field (3D)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="sound-type">Soundscape</label>
+            <select id="sound-type">
+                <option value="off">Off</option>
+                <option value="ambient-drone">Ambient Drone</option>
+                <option value="synth-arpeggio">Synth Arpeggio</option>
+                <option value="peaceful-pad">Peaceful Pad</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="color-palette">Color Palette</label>
+            <select id="color-palette">
+                <option value="neon">Neon</option>
+                <option value="pastel">Pastel</option>
+                <option value="fire">Fire</option>
+                <option value="ice">Ice</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <button id="randomize-btn">Randomize</button>
+        </div>
+
+        <div class="control-group">
+            <button id="record-btn">Start Recording</button>
+        </div>
+    </div>
+
+    <div id="message-box"></div>
+
+    <script>
+        // --- Global Variables ---
+        let scene, camera, perspectiveCamera, orthographicCamera, renderer, currentVisual, currentSound;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        const canvasContainer = document.getElementById('canvas-container');
+        const messageBox = document.getElementById('message-box');
+        
+        // --- UI Elements ---
+        const visualTypeSelect = document.getElementById('visual-type');
+        const soundTypeSelect = document.getElementById('sound-type');
+        const colorPaletteSelect = document.getElementById('color-palette');
+        const randomizeBtn = document.getElementById('randomize-btn');
+        const recordBtn = document.getElementById('record-btn');
+
+        // --- Palettes ---
+        const palettes = {
+            neon: [0xff00ff, 0x00ffff, 0x00ff00, 0xffff00],
+            pastel: [0xffd1dc, 0xa0c4ff, 0xb5e48c, 0xffe1a0],
+            fire: [0xff4800, 0xff7900, 0xffa600, 0xfee100],
+            ice: [0xade8f4, 0x48cae4, 0x0096c7, 0x0077b6]
+        };
+        let currentPalette = palettes.neon;
+
+        // --- Initialization ---
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+
+            // Cameras
+            perspectiveCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            orthographicCamera = new THREE.OrthographicCamera(-window.innerWidth / 2, window.innerWidth / 2, window.innerHeight / 2, -window.innerHeight / 2, 1, 1000);
+            camera = perspectiveCamera; // Start with perspective camera
+            camera.position.z = 5;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            visualTypeSelect.addEventListener('change', setupVisuals);
+            soundTypeSelect.addEventListener('change', setupSound);
+            colorPaletteSelect.addEventListener('change', (e) => {
+                currentPalette = palettes[e.target.value];
+                setupVisuals();
+            });
+            randomizeBtn.addEventListener('click', randomize);
+            recordBtn.addEventListener('click', toggleRecording);
+            
+            setupVisuals();
+            setupSound();
+            animate();
+        }
+
+        // --- Window Resize ---
+        function onWindowResize() {
+            // Update perspective camera
+            perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+            perspectiveCamera.updateProjectionMatrix();
+            
+            // Update orthographic camera
+            orthographicCamera.left = -window.innerWidth / 2;
+            orthographicCamera.right = window.innerWidth / 2;
+            orthographicCamera.top = window.innerHeight / 2;
+            orthographicCamera.bottom = -window.innerHeight / 2;
+            orthographicCamera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (currentVisual && currentVisual.onResize) {
+                currentVisual.onResize();
+            }
+        }
+
+        // --- Visuals Setup ---
+        function setupVisuals() {
+            if (currentVisual && currentVisual.destroy) {
+                currentVisual.destroy();
+            }
+            scene.children = []; // Clear previous scene objects
+
+            const visualType = visualTypeSelect.value;
+            
+            // FIX: Set camera based on visual type
+            if (visualType === 'peaceful-particles') {
+                camera = orthographicCamera;
+            } else {
+                camera = perspectiveCamera;
+            }
+            camera.position.z = 5; // Reset camera z position
+
+            switch(visualType) {
+                case 'glowing-orbs':
+                    currentVisual = new GlowingOrbs();
+                    break;
+                case 'futuristic-grid':
+                    currentVisual = new FuturisticGrid();
+                    break;
+                case 'peaceful-particles':
+                    currentVisual = new PeacefulParticles();
+                    break;
+                case 'star-field':
+                    currentVisual = new StarField();
+                    break;
+            }
+            if (currentVisual.init) currentVisual.init();
+        }
+        
+        // --- Sound Setup ---
+        async function setupSound() {
+            if (currentSound && currentSound.stop) {
+                currentSound.stop();
+                currentSound.dispose();
+            }
+            
+            await Tone.start(); // Required for audio context
+            const soundType = soundTypeSelect.value;
+            if(Tone.Transport.state === 'started') {
+                 Tone.Transport.stop();
+                 Tone.Transport.cancel();
+            }
+
+            switch(soundType) {
+                case 'ambient-drone':
+                    currentSound = new Tone.FatOscillator("C2", "sawtooth", 40).toDestination().start();
+                    currentSound.volume.value = -24;
+                    break;
+                case 'synth-arpeggio':
+                    const synth = new Tone.Synth().toDestination();
+                    currentSound = new Tone.Pattern((time, note) => {
+                        synth.triggerAttackRelease(note, "8n", time);
+                    }, ["C4", "E4", "G4", "B4"], "up").start(0);
+                    Tone.Transport.start();
+                    break;
+                case 'peaceful-pad':
+                     const pad = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: "fatsine" },
+                        envelope: { attack: 2, decay: 0.1, sustain: 0.3, release: 5 }
+                    }).toDestination();
+                    pad.volume.value = -12;
+                    currentSound = new Tone.Loop(time => {
+                        pad.triggerAttackRelease(["C3", "G3", "C4"], "4m", time);
+                    }, "2m").start(0);
+                    Tone.Transport.start();
+                    break;
+                case 'off':
+                default:
+                    // Handled at the top of the function
+                    break;
+            }
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (currentVisual && currentVisual.update) {
+                currentVisual.update();
+            }
+            renderer.render(scene, camera);
+        }
+
+        // --- Visual Classes ---
+
+        class GlowingOrbs {
+            init() {
+                const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+                this.lights = [];
+                for (let i = 0; i < 10; i++) {
+                    const material = new THREE.MeshBasicMaterial({ color: currentPalette[i % currentPalette.length] });
+                    const sphere = new THREE.Mesh(geometry, material);
+                    
+                    const light = new THREE.PointLight(material.color, 2, 5);
+                    
+                    sphere.position.set(
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 10
+                    );
+                    light.position.copy(sphere.position);
+
+                    scene.add(sphere);
+                    scene.add(light);
+                    const velocity = new THREE.Vector3(
+                        Math.random() * 2 - 1,
+                        Math.random() * 2 - 1,
+                        Math.random() * 2 - 1
+                    ).normalize().multiplyScalar(0.01);
+                    this.lights.push({ sphere, light, velocity: velocity });
+                }
+                camera.position.z = 15;
+            }
+            update() {
+                this.lights.forEach(item => {
+                    item.sphere.position.add(item.velocity);
+                    item.light.position.copy(item.sphere.position);
+
+                    if (Math.abs(item.sphere.position.x) > 8) item.velocity.x *= -1;
+                    if (Math.abs(item.sphere.position.y) > 5) item.velocity.y *= -1;
+                    if (Math.abs(item.sphere.position.z) > 8) item.velocity.z *= -1;
+                });
+            }
+            destroy() { /* Scene is cleared in setupVisuals */ }
+        }
+        
+        class FuturisticGrid {
+            init() {
+                this.grid = new THREE.GridHelper(100, 50, currentPalette[0], currentPalette[1]);
+                this.grid.rotation.x = Math.PI / 2;
+                scene.add(this.grid);
+
+                const planeGeo = new THREE.PlaneGeometry(100, 100);
+                const planeMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+                this.plane = new THREE.Mesh(planeGeo, planeMat);
+                scene.add(this.plane);
+                
+                camera.position.set(0, 0, 20);
+                camera.lookAt(scene.position);
+            }
+            update() {
+                this.grid.position.z += 0.05;
+                if (this.grid.position.z > 2) {
+                    this.grid.position.z = 0;
+                }
+            }
+            destroy() { /* Scene is cleared in setupVisuals */ }
+        }
+
+        class PeacefulParticles {
+            init() {
+                this.canvas = document.createElement('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.onResize(); // Call onResize to set initial size and particles
+
+                const canvasTexture = new THREE.CanvasTexture(this.canvas);
+                const planeGeometry = new THREE.PlaneGeometry(window.innerWidth, window.innerHeight);
+                const planeMaterial = new THREE.MeshBasicMaterial({ map: canvasTexture, transparent: true });
+                this.screen = new THREE.Mesh(planeGeometry, planeMaterial);
+                
+                scene.add(this.screen);
+            }
+            update() {
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0 || p.x > this.canvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > this.canvas.height) p.vy *= -1;
+
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.fill();
+                });
+                
+                this.screen.material.map.needsUpdate = true;
+            }
+            onResize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+
+                if (this.screen) {
+                    this.screen.scale.set(window.innerWidth, window.innerHeight, 1);
+                }
+
+                this.particles = [];
+                for (let i = 0; i < 100; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        radius: Math.random() * 3 + 1,
+                        color: `rgba(${parseInt(currentPalette[i % currentPalette.length].toString(16).substring(0,2), 16)}, ${parseInt(currentPalette[i % currentPalette.length].toString(16).substring(2,4), 16)}, ${parseInt(currentPalette[i % currentPalette.length].toString(16).substring(4,6), 16)}, ${Math.random()})`
+                    });
+                }
+            }
+            destroy() {
+                // FIX: No need to manage camera here, it's handled in setupVisuals
+            }
+        }
+
+        class StarField {
+            init() {
+                const vertices = [];
+                for (let i = 0; i < 10000; i++) {
+                    const x = THREE.MathUtils.randFloatSpread(2000);
+                    const y = THREE.MathUtils.randFloatSpread(2000);
+                    const z = THREE.MathUtils.randFloatSpread(2000);
+                    vertices.push(x, y, z);
+                }
+
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+                const material = new THREE.PointsMaterial({ 
+                    color: currentPalette[1], 
+                    size: 1.5,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending
+                });
+
+                this.stars = new THREE.Points(geometry, material);
+                scene.add(this.stars);
+                camera.position.z = 1;
+            }
+            update() {
+                this.stars.rotation.x += 0.0001;
+                this.stars.rotation.y += 0.0002;
+            }
+            destroy() { /* Scene is cleared in setupVisuals */ }
+        }
+
+        // --- Randomize ---
+        function randomize() {
+            const visualOptions = visualTypeSelect.options;
+            const soundOptions = soundTypeSelect.options;
+            const colorOptions = colorPaletteSelect.options;
+
+            visualTypeSelect.selectedIndex = Math.floor(Math.random() * visualOptions.length);
+            soundTypeSelect.selectedIndex = Math.floor(Math.random() * soundOptions.length);
+            colorPaletteSelect.selectedIndex = Math.floor(Math.random() * colorOptions.length);
+            
+            // Trigger change events
+            visualTypeSelect.dispatchEvent(new Event('change'));
+            soundTypeSelect.dispatchEvent(new Event('change'));
+            colorPaletteSelect.dispatchEvent(new Event('change'));
+            
+            showMessage("Randomized!");
+        }
+
+        // --- Recording ---
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            const stream = renderer.domElement.captureStream(60); // 60 fps
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `visual-creation-${Date.now()}.webm`; // .webm is better supported for canvas recording
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                recordedChunks = [];
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            recordBtn.textContent = 'Stop Recording';
+            recordBtn.style.backgroundColor = '#ff4444';
+            showMessage("Recording started...");
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            isRecording = false;
+            recordBtn.textContent = 'Start Recording';
+            recordBtn.style.backgroundColor = '#333';
+            showMessage("Recording stopped. Saving file...");
+        }
+
+        // --- Utility ---
+        function showMessage(text) {
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        }
+
+        // --- Start Everything ---
+        init();
+
+    </script>
+</body>
+</html>

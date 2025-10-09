@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Synesthesia Experience</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+        }
+        
+        #info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            transition: opacity 0.3s;
+        }
+        
+        #spectrum-analyzer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-panel {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            max-width: 250px;
+        }
+        
+        .slider-container {
+            margin: 10px 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+            transition: background 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        button:hover {
+            background: #444;
+        }
+        
+        .button-active {
+            background: #0066cc;
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        #gesture-trail {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 1s ease-out;
+        }
+        
+        .loading-text {
+            font-size: 24px;
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+        }
+        
+        .loading-bar-container {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00ffcc, #0099ff);
+            transition: width 0.3s;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #00ffcc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 20px;
+        }
+        
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .welcome-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 900;
+            max-width: 600px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .welcome-message h2 {
+            margin-bottom: 20px;
+            color: #00ffcc;
+        }
+        
+        .welcome-message p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            color: #ddd;
+        }
+        
+        .welcome-message button {
+            background: linear-gradient(90deg, #00ffcc, #0099ff);
+            color: black;
+            font-weight: bold;
+            padding: 12px 30px;
+            border-radius: 30px;
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .welcome-message button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 153, 255, 0.4);
+        }
+        
+        .help-button {
+            position: absolute;
+            bottom: 120px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .help-button:hover {
+            background: rgba(0, 153, 255, 0.4);
+        }
+        
+        .neuro-data {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 100;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ffcc;
+            max-width: 300px;
+            overflow: hidden;
+        }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                right: 5px;
+                top: 5px;
+                padding: 10px;
+                max-width: 200px;
+            }
+            
+            #info-panel {
+                top: 5px;
+                left: 5px;
+                padding: 10px;
+            }
+            
+            .welcome-message {
+                padding: 20px;
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen">
+        <div class="loading-text">INITIALIZING NEURAL SYNESTHESIA</div>
+        <div class="loading-bar-container">
+            <div class="loading-bar"></div>
+        </div>
+        <div class="spinner"></div>
+    </div>
+    
+    <div class="welcome-message">
+        <h2>Neural Synesthesia Experience</h2>
+        <p>Welcome to a unique sensory journey where your movements create both visual and auditory patterns through an AI-inspired neural mapping system.</p>
+        <p>Move your mouse or touch the screen to generate evolving patterns. The position, speed, and gesture patterns influence both the visuals and the generated soundscape.</p>
+        <p>Use the control panel to adjust parameters and experiment with different presets to discover unique sensory combinations.</p>
+        <button id="start-experience">BEGIN EXPERIENCE</button>
+    </div>
+    
+    <div id="canvas-container">
+        <canvas id="gesture-trail"></canvas>
+    </div>
+    
+    <div id="info-panel">
+        <h3>Neural Synesthesia</h3>
+        <p id="coordinates">X: 0, Y: 0</p>
+        <p id="activity-level">Activity: 0%</p>
+        <p id="harmony-index">Harmony Index: 0.0</p>
+    </div>
+    
+    <div class="control-panel">
+        <h3>Neural Controls</h3>
+        
+        <div class="slider-container">
+            <label for="visual-complexity">Visual Complexity</label>
+            <input type="range" id="visual-complexity" min="1" max="100" value="50">
+            <span id="visual-complexity-value">50</span>
+        </div>
+        
+        <div class="slider-container">
+            <label for="audio-intensity">Audio Intensity</label>
+            <input type="range" id="audio-intensity" min="1" max="100" value="70">
+            <span id="audio-intensity-value">70</span>
+        </div>
+        
+        <div class="slider-container">
+            <label for="color-mode">Color Harmony</label>
+            <input type="range" id="color-mode" min="1" max="100" value="60">
+            <span id="color-mode-value">60</span>
+        </div>
+        
+        <div class="slider-container">
+            <label for="pattern-volatility">Pattern Volatility</label>
+            <input type="range" id="pattern-volatility" min="1" max="100" value="40">
+            <span id="pattern-volatility-value">40</span>
+        </div>
+        
+        <button id="toggle-audio">Audio: ON</button>
+        <button id="toggle-trail">Gesture Trail: ON</button>
+        
+        <h4 style="margin-top: 15px; margin-bottom: 5px;">Presets</h4>
+        <div class="preset-buttons">
+            <button class="preset" data-preset="cosmic">Cosmic</button>
+            <button class="preset" data-preset="organic">Organic</button>
+            <button class="preset" data-preset="geometric">Geometric</button>
+            <button class="preset" data-preset="liquid">Liquid</button>
+        </div>
+    </div>
+    
+    <div class="help-button">?</div>
+    
+    <div class="neuro-data">
+        <div>Neural Net Status: Active</div>
+        <div>Synaptic Connections: 1,245</div>
+        <div>Pattern Recognition: Enhanced</div>
+        <div id="pattern-signature">Pattern Signature: Undefined</div>
+    </div>
+    
+    <script>
+        // Main application logic
+        document.addEventListener('DOMContentLoaded', function() {
+            // Simulate loading sequence
+            const loadingScreen = document.querySelector('.loading-screen');
+            const loadingBar = document.querySelector('.loading-bar');
+            const welcomeMessage = document.querySelector('.welcome-message');
+            
+            let loadProgress = 0;
+            const loadInterval = setInterval(() => {
+                loadProgress += Math.random() * 5;
+                if (loadProgress >= 100) {
+                    loadProgress = 100;
+                    clearInterval(loadInterval);
+                    
+                    setTimeout(() => {
+                        loadingScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                            welcomeMessage.style.opacity = '1';
+                        }, 1000);
+                    }, 500);
+                }
+                loadingBar.style.width = loadProgress + '%';
+            }, 100);
+            
+            // Start experience button
+            document.getElementById('start-experience').addEventListener('click', function() {
+                welcomeMessage.style.opacity = '0';
+                setTimeout(() => {
+                    welcomeMessage.style.display = 'none';
+                    startExperience();
+                }, 500);
+            });
+
+            // Main experience logic
+            function startExperience() {
+                // Set up THREE.js scene
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.z = 5;
+                
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.getElementById('canvas-container').appendChild(renderer.domElement);
+                
+                // Particles system
+                const particlesGeometry = new THREE.BufferGeometry();
+                const particleCount = 2000;
+                
+                const positions = new Float32Array(particleCount * 3);
+                const colors = new Float32Array(particleCount * 3);
+                const sizes = new Float32Array(particleCount);
+                
+                for (let i = 0; i < particleCount; i++) {
+                    positions[i * 3] = (Math.random() - 0.5) * 10;
+                    positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+                    
+                    colors[i * 3] = Math.random();
+                    colors[i * 3 + 1] = Math.random();
+                    colors[i * 3 + 2] = Math.random();
+                    
+                    sizes[i] = Math.random() * 0.1;
+                }
+                
+                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                particlesGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                
+                const particlesMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        mousePosition: { value: new THREE.Vector2(0, 0) },
+                        complexity: { value: 0.5 },
+                        volatility: { value: 0.4 },
+                        colorHarmony: { value: 0.6 }
+                    },
+                    vertexShader: `
+                        attribute float size;
+                        varying vec3 vColor;
+                        uniform float time;
+                        uniform vec2 mousePosition;
+                        uniform float complexity;
+                        uniform float volatility;
+                        
+                        void main() {
+                            vColor = color;
+                            
+                            // Create a dynamic movement based on time and position
+                            vec3 newPosition = position;
+                            
+                            // Apply wave patterns based on complexity
+                            float waveFactor = sin(position.x * complexity + time) * 
+                                              cos(position.y * complexity + time) * 
+                                              sin(position.z * complexity + time);
+                            
+                            // Apply mouse influence
+                            float dist = length(position.xy - mousePosition);
+                            float influence = clamp(1.0 - dist * 0.2, 0.0, 1.0);
+                            
+                            // Dynamic pattern mutations
+                            newPosition.x += sin(time * 0.5 + position.y * 2.0) * volatility * 0.3;
+                            newPosition.y += cos(time * 0.7 + position.z * 2.0) * volatility * 0.3;
+                            newPosition.z += sin(time * 0.3 + position.x * 2.0) * volatility * 0.3;
+                            
+                            // Mouse attraction
+                            vec2 attractDir = mousePosition - position.xy;
+                            newPosition.xy += attractDir * influence * 0.01;
+                            
+                            vec4 mvPosition = modelViewMatrix * vec4(newPosition, 1.0);
+                            
+                            // Size varies with mouse proximity and time
+                            float dynamicSize = size * (1.0 + influence * 2.0) * (1.0 + sin(time + position.x * 10.0) * 0.3);
+                            
+                            gl_PointSize = dynamicSize * (300.0 / -mvPosition.z);
+                            gl_Position = projectionMatrix * mvPosition;
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        uniform float colorHarmony;
+                        
+                        void main() {
+                            // Calculate distance from center of point
+                            float r = length(gl_PointCoord - vec2(0.5, 0.5));
+                            
+                            // Smooth circle with soft edges
+                            float circle = smoothstep(0.5, 0.4, r);
+                            
+                            // Color harmonization
+                            vec3 harmonizedColor = mix(
+                                vColor,
+                                vec3(0.0, 0.6, 1.0), // Target cyan-blue color
+                                colorHarmony
+                            );
+                            
+                            if (circle < 0.1) discard; // Create particles with holes
+                            
+                            gl_FragColor = vec4(harmonizedColor, circle);
+                        }
+                    `,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                
+                const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+                scene.add(particles);
+                
+                // Add some background gradients
+                const bgGeometry = new THREE.PlaneGeometry(20, 20);
+                const bgMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        mousePosition: { value: new THREE.Vector2(0, 0) },
+                        colorHarmony: { value: 0.6 }
+                    },
+                    vertexShader: `
+                        varying vec2 vUv;
+                        
+                        void main() {
+                            vUv = uv;
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec2 vUv;
+                        uniform float time;
+                        uniform vec2 mousePosition;
+                        uniform float colorHarmony;
+                        
+                        void main() {
+                            vec2 p = vUv * 2.0 - 1.0;
+                            
+                            float dist = length(p - mousePosition * 0.1);
+                            
+                            vec3 color1 = vec3(0.0, 0.0, 0.1); // Dark blue
+                            vec3 color2 = vec3(0.0, 0.1, 0.2); // Slightly lighter blue
+                            
+                            // Create subtle gradient waves
+                            float pattern = sin(p.x * 5.0 + time * 0.2) * sin(p.y * 5.0 + time * 0.3) * 0.5 + 0.5;
+                            
+                            vec3 color = mix(color1, color2, pattern);
+                            
+                            // Add glow around mouse position
+                            float glow = smoothstep(1.0, 0.0, dist) * 0.2;
+                            color += vec3(0.0, 0.3, 0.6) * glow;
+                            
+                            gl_FragColor = vec4(color, 0.8);
+                        }
+                    `,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                
+                const background = new THREE.Mesh(bgGeometry, bgMaterial);
+                background.position.z = -5;
+                scene.add(background);
+                
+                // Set up audio with Tone.js
+                let audioEnabled = true;
+                const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                const reverb = new Tone.Reverb(3).toDestination();
+                synth.connect(reverb);
+                
+                // FX processors
+                const chorus = new Tone.Chorus(4, 2.5, 0.5).toDestination();
+                const delay = new Tone.PingPongDelay("8n", 0.2).toDestination();
+                synth.connect(chorus);
+                synth.connect(delay);
+                
+                // Ambient pad sound
+                const padSynth = new Tone.FMSynth({
+                    harmonicity: 3,
+                    modulationIndex: 10,
+                    detune: 0,
+                    oscillator: {
+                        type: "sine"
+                    },
+                    envelope: {
+                        attack: 0.5,
+                        decay: 0.5,
+                        sustain: 0.7,
+                        release: 2
+                    },
+                    modulation: {
+                        type: "sine"
+                    },
+                    modulationEnvelope: {
+                        attack: 0.5,
+                        decay: 0.5,
+                        sustain: 0.2,
+                        release: 2
+                    }
+                }).toDestination();
+                
+                padSynth.connect(reverb);
+                
+                // Mouse/touch tracking variables
+                let mouseX = 0;
+                let mouseY = 0;
+                let lastMouseX = 0;
+                let lastMouseY = 0;
+                let mouseSpeed = 0;
+                let activityLevel = 0;
+                
+                // Trail canvas setup
+                const trailCanvas = document.getElementById('gesture-trail');
+                trailCanvas.width = window.innerWidth;
+                trailCanvas.height = window.innerHeight;
+                const trailCtx = trailCanvas.getContext('2d');
+                let showTrail = true;
+                
+                const trail = [];
+                const maxTrailLength = 50;
+                
+                // UI controls
+                const visualComplexitySlider = document.getElementById('visual-complexity');
+                const audioIntensitySlider = document.getElementById('audio-intensity');
+                const colorModeSlider = document.getElementById('color-mode');
+                const patternVolatilitySlider = document.getElementById('pattern-volatility');
+                
+                const visualComplexityValue = document.getElementById('visual-complexity-value');
+                const audioIntensityValue = document.getElementById('audio-intensity-value');
+                const colorModeValue = document.getElementById('color-mode-value');
+                const patternVolatilityValue = document.getElementById('pattern-volatility-value');
+                
+                const toggleAudioButton = document.getElementById('toggle-audio');
+                const toggleTrailButton = document.getElementById('toggle-trail');
+                
+                const presetButtons = document.querySelectorAll('.preset');
+                
+                // Main animation loop
+                let clock = new THREE.Clock();
+                let lastNoteTime = 0;
+                
+                function animate() {
+                    requestAnimationFrame(animate);
+                    
+                    const time = clock.getElapsedTime();
+                    particlesMaterial.uniforms.time.value = time;
+                    bgMaterial.uniforms.time.value = time;
+                    
+                    // Calculate mouse speed and activity level
+                    const dx = mouseX - lastMouseX;
+                    const dy = mouseY - lastMouseY;
+                    mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Smooth activity level
+                    activityLevel = activityLevel * 0.95 + mouseSpeed * 0.05;
+                    const activityPercent = Math.min(100, Math.floor(activityLevel * 100));
+                    
+                    // Update UI
+                    document.getElementById('coordinates').textContent = `X: ${Math.floor(mouseX)}, Y: ${Math.floor(mouseY)}`;
+                    document.getElementById('activity-level').textContent = `Activity: ${activityPercent}%`;
+                    
+                    // Update harmony index based on a combination of factors
+                    const harmonyIndex = ((Math.sin(time * 0.2) + 1) * 0.5 * 0.3) + 
+                                          (mouseSpeed * 0.01) + 
+                                          (Math.cos(mouseX * 0.01) * Math.sin(mouseY * 0.01) * 0.3);
+                    
+                    document.getElementById('harmony-index').textContent = `Harmony Index: ${harmonyIndex.toFixed(2)}`;
+                    
+                    // Update pattern signature
+                    if (time % 2 < 0.1) {
+                        const patterns = [
+                            "Fractal Symmetry",
+                            "Chaotic Attractor",
+                            "Fibonacci Sequence",
+                            "Cellular Automata",
+                            "Quantum Entanglement",
+                            "Emergent Complexity"
+                        ];
+                        document.getElementById('pattern-signature').textContent = 
+                            `Pattern Signature: ${patterns[Math.floor(Math.random() * patterns.length)]}`;
+                    }
+                    
+                    // Generate audio based on movement and time
+                    if (audioEnabled && mouseSpeed > 0.5) {
+                        // Only trigger notes periodically, based on activity level
+                        const noteTriggerThreshold = 0.1 - (activityLevel * 0.05);
+                        if (time - lastNoteTime > noteTriggerThreshold) {
+                            lastNoteTime = time;
+                            
+                            // Map mouse position to pitch
+                            const mappedX = Math.floor(mouseX / window.innerWidth * 12);
+                            const mappedY = Math.floor(mouseY / window.innerHeight * 5);
+                            
+                            // Create a scale based on position
+                            const scales = [
+                                ["C4", "D4", "E4", "G4", "A4"], // Pentatonic
+                                ["C4", "D4", "Eb4", "G4", "Bb4"], // Minor pentatonic
+                                ["C4", "E4", "G4", "B4", "D5"], // Major 7
+                                ["C4", "Eb4", "G4", "Bb4", "D5"], // Minor 9
+                            ];
+                            
+                            const scaleIndex = Math.floor((mappedX + mappedY) % scales.length);
+                            const noteIndex = (mappedX + mappedY) % scales[scaleIndex].length;
+                            const note = scales[scaleIndex][noteIndex];
+                            
+                            // Adjust velocity based on activity
+                            const velocity = 0.1 + (activityLevel * 0.2);
+                            
+                            // Adjust duration based on position
+                            const duration = "16n";
+                            
+                            // Play the note
+                            const audioIntensity = audioIntensitySlider.value / 100;
+                            synth.triggerAttackRelease(note, duration, undefined, velocity * audioIntensity);
+                            
+                            // Occasionally play ambient pad notes
+                            if (Math.random() < 0.1) {
+                                const padNote = scales[scaleIndex][Math.floor(Math.random() * scales[scaleIndex].length)];
+                                padSynth.triggerAttackRelease(padNote, "2n", undefined, 0.05 * audioIntensity);
+                            }
+                        }
+                    }
+                    
+                    // Draw trail
+                    if (showTrail && mouseSpeed > 0) {
+                        trail.push({
+                            x: mouseX,
+                            y: mouseY,
+                            size: 3 + activityLevel * 5,
+                            life: 1,
+                            hue: (time * 10) % 360
+                        });
+                        
+                        if (trail.length > maxTrailLength) {
+                            trail.shift();
+                        }
+                        
+                        trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                        
+                        for (let i = 0; i < trail.length; i++) {
+                            const point = trail[i];
+                            point.life -= 0.02;
+                            
+                            if (point.life > 0) {
+                                const size = point.size * point.life;
+                                trailCtx.beginPath();
+                                trailCtx.arc(point.x, point.y, size, 0, Math.PI * 2);
+                                trailCtx.fillStyle = `hsla(${point.hue}, 100%, 70%, ${point.life})`;
+                                trailCtx.fill();
+                            }
+                        }
+                    }
+                    
+                    lastMouseX = mouseX;
+                    lastMouseY = mouseY;
+                    
+                    renderer.render(scene, camera);
+                }
+                
+                // Event listeners
+                function updateMousePosition(e) {
+                    const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+                    const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+                    
+                    mouseX = x;
+                    mouseY = y;
+                    
+                    // Normalize coordinates for shaders
+                    const normX = (x / window.innerWidth) * 2 - 1;
+                    const normY = (-(y / window.innerHeight) * 2 + 1);
+                    
+                    particlesMaterial.uniforms.mousePosition.value.set(normX, normY);
+                    bgMaterial.uniforms.mousePosition.value.set(normX, normY);
+                }
+                
+                window.addEventListener('mousemove', updateMousePosition);
+                window.addEventListener('touchmove', updateMousePosition);
+                
+                //
+                // Resize handler
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    
+                    trailCanvas.width = window.innerWidth;
+                    trailCanvas.height = window.innerHeight;
+                }
+                
+                window.addEventListener('resize', onWindowResize);
+                
+                // Control panel event listeners
+                visualComplexitySlider.addEventListener('input', function() {
+                    const value = this.value;
+                    visualComplexityValue.textContent = value;
+                    particlesMaterial.uniforms.complexity.value = value / 100;
+                });
+                
+                audioIntensitySlider.addEventListener('input', function() {
+                    const value = this.value;
+                    audioIntensityValue.textContent = value;
+                    // Audio intensity is applied when generating sounds
+                });
+                
+                colorModeSlider.addEventListener('input', function() {
+                    const value = this.value;
+                    colorModeValue.textContent = value;
+                    particlesMaterial.uniforms.colorHarmony.value = value / 100;
+                    bgMaterial.uniforms.colorHarmony.value = value / 100;
+                });
+                
+                patternVolatilitySlider.addEventListener('input', function() {
+                    const value = this.value;
+                    patternVolatilityValue.textContent = value;
+                    particlesMaterial.uniforms.volatility.value = value / 100;
+                });
+                
+                toggleAudioButton.addEventListener('click', function() {
+                    audioEnabled = !audioEnabled;
+                    this.textContent = `Audio: ${audioEnabled ? 'ON' : 'OFF'}`;
+                    this.classList.toggle('button-active', audioEnabled);
+                    
+                    if (audioEnabled) {
+                        Tone.start();
+                    }
+                });
+                
+                toggleTrailButton.addEventListener('click', function() {
+                    showTrail = !showTrail;
+                    this.textContent = `Gesture Trail: ${showTrail ? 'ON' : 'OFF'}`;
+                    this.classList.toggle('button-active', showTrail);
+                    
+                    if (!showTrail) {
+                        trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                    }
+                });
+                
+                // Preset button handlers
+                presetButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const preset = this.dataset.preset;
+                        
+                        // Remove active class from all presets
+                        presetButtons.forEach(btn => btn.classList.remove('button-active'));
+                        // Add active class to clicked preset
+                        this.classList.add('button-active');
+                        
+                        switch(preset) {
+                            case 'cosmic':
+                                visualComplexitySlider.value = 75;
+                                audioIntensitySlider.value = 80;
+                                colorModeSlider.value = 40;
+                                patternVolatilitySlider.value = 60;
+                                break;
+                            case 'organic':
+                                visualComplexitySlider.value = 30;
+                                audioIntensitySlider.value = 60;
+                                colorModeSlider.value = 80;
+                                patternVolatilitySlider.value = 20;
+                                break;
+                            case 'geometric':
+                                visualComplexitySlider.value = 90;
+                                audioIntensitySlider.value = 50;
+                                colorModeSlider.value = 30;
+                                patternVolatilitySlider.value = 10;
+                                break;
+                            case 'liquid':
+                                visualComplexitySlider.value = 40;
+                                audioIntensitySlider.value = 70;
+                                colorModeSlider.value = 60;
+                                patternVolatilitySlider.value = 85;
+                                break;
+                        }
+                        
+                        // Trigger input events to update the values
+                        visualComplexitySlider.dispatchEvent(new Event('input'));
+                        audioIntensitySlider.dispatchEvent(new Event('input'));
+                        colorModeSlider.dispatchEvent(new Event('input'));
+                        patternVolatilitySlider.dispatchEvent(new Event('input'));
+                    });
+                });
+                
+                // Help button
+                document.querySelector('.help-button').addEventListener('click', function() {
+                    welcomeMessage.style.display = 'block';
+                    setTimeout(() => {
+                        welcomeMessage.style.opacity = '1';
+                    }, 10);
+                });
+                
+                // Start the animation
+                animate();
+                
+                // Start Tone.js audio context on first user interaction
+                document.body.addEventListener('click', function() {
+                    if (Tone.context.state !== 'running') {
+                        Tone.start();
+                    }
+                }, { once: true });
+            }
+        });
+    </script>
+</body>
+</html>
