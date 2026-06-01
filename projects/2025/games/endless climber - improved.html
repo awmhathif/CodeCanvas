@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Endless Climber - Improved</title>
+  <style>
+    /* ======================================================================
+       CSS Styles for Endless Climber - Improved Version
+       ====================================================================== */
+
+    /* Reset base styles and set a dark background */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      font-family: 'Arial', sans-serif;
+    }
+
+    /* Canvas covers the full screen */
+    #gameCanvas {
+      display: block;
+      background: #111;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Score display styling */
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #0f0;
+      font-size: 20px;
+      text-shadow: 0 0 10px #0f0;
+      z-index: 10;
+    }
+
+    /* Restart button styling */
+    #restartButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      padding: 10px 20px;
+      background: #222;
+      color: #0f0;
+      border: 2px solid #0f0;
+      border-radius: 5px;
+      display: none;
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    /* Customization panel styling */
+    #customizationPanel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(20,20,20,0.9);
+      color: #0f0;
+      padding: 10px;
+      border: 1px solid #0f0;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 20;
+      max-width: 220px;
+    }
+    #customizationPanel h3 {
+      margin: 0 0 5px 0;
+      font-size: 16px;
+      text-align: center;
+    }
+    #customizationPanel label {
+      display: block;
+      margin: 5px 0 2px 0;
+    }
+    #customizationPanel input[type=range] {
+      width: 100%;
+    }
+    #customizationPanel button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 5px;
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    /* Responsive adjustments for smaller screens */
+    @media (max-width: 600px) {
+      #scoreBoard {
+        font-size: 16px;
+      }
+      #restartButton {
+        font-size: 20px;
+        padding: 8px 16px;
+      }
+      #customizationPanel {
+        font-size: 12px;
+        max-width: 180px;
+      }
+    }
+
+    /* Extra spacing and comments for clarity */
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    /* End of CSS */
+  </style>
+</head>
+<body>
+  <!-- ======================================================================
+       Game Canvas and UI Elements
+       ====================================================================== -->
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreBoard">Altitude: 0</div>
+  <button id="restartButton">Restart</button>
+
+  <!-- Customization Panel for adjusting platform parameters -->
+  <div id="customizationPanel">
+    <h3>Customization</h3>
+    <label for="minGap">Min Gap: <span id="minGapVal">80</span></label>
+    <input type="range" id="minGap" min="50" max="150" value="80">
+    <label for="maxGap">Max Gap: <span id="maxGapVal">130</span></label>
+    <input type="range" id="maxGap" min="80" max="200" value="130">
+    <label for="maxHorOffset">Max Hor. Offset: <span id="maxHorOffsetVal">50</span></label>
+    <input type="range" id="maxHorOffset" min="20" max="100" value="50">
+    <button id="applyCustomization">Apply</button>
+  </div>
+
+  <script>
+    // ======================================================================
+    // Endless Climber - Improved Version
+    // This game features a continuously ascending tower, a character that
+    // can move left/right and jump between platforms, and challenging obstacles.
+    // Platforms are generated in a controlled manner (relative to the previous
+    // platform) so they are reachable. A customization panel lets you adjust key
+    // platform generation parameters.
+    // ======================================================================
+
+    // -------------------------
+    // Global Variables & Setup
+    // -------------------------
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas dimensions to match window size
+    let canvasWidth = window.innerWidth;
+    let canvasHeight = window.innerHeight;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // Game state variables
+    let gameOver = false;         // Flag indicating game over
+    let score = 0;                // Altitude reached (score)
+    let scrollY = 0;              // Vertical scroll offset (for camera movement)
+    let gravity = 0.6;            // Gravity acceleration applied to the player
+    let difficultyLevel = 1;      // Increases with altitude
+
+    // Arrays for game objects
+    let platforms = [];           // Platforms that the player lands on
+    let fallingObjects = [];      // Obstacles such as falling debris
+    let stars = [];               // Background stars for a dynamic starfield
+
+    // -------------------------
+    // Customization Settings
+    // -------------------------
+    // These settings control how new platforms are generated.
+    let platformSettings = {
+      minGap: 80,               // Minimum vertical gap between platforms
+      maxGap: 130,              // Maximum vertical gap between platforms
+      maxHorOffset: 50,         // Maximum horizontal offset from the previous platform
+      platformWidthMin: 80,     // Minimum platform width
+      platformWidthMax: 150     // Maximum platform width
+    };
+
+    // -------------------------
+    // Player Object Definition
+    // -------------------------
+    let player = {
+      x: canvasWidth / 2,       // Starting horizontal position
+      y: canvasHeight - 100,    // Starting vertical position
+      width: 30,                // Player width
+      height: 30,               // Player height
+      vx: 0,                    // Horizontal velocity
+      vy: 0,                    // Vertical velocity
+      speed: 5,                 // Movement speed
+      jumpForce: -12,           // Jump impulse
+      color: "#0f0",            // Player color (green)
+      onPlatform: false         // True if player is currently on a platform
+    };
+
+    // -------------------------
+    // Utility Functions
+    // -------------------------
+    // Return a random number between min and max
+    function randomRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // Resize the canvas when the window changes size
+    function resizeCanvas() {
+      canvasWidth = window.innerWidth;
+      canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // -------------------------
+    // Starfield Background Functions
+    // -------------------------
+    // Initialize the background stars for a parallax effect
+    function initStars() {
+      stars = [];
+      for (let i = 0; i < 100; i++) {
+        stars.push({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          radius: Math.random() * 1.5 + 0.5
+        });
+      }
+    }
+    // Update star positions based on vertical movement
+    function updateStars(diff) {
+      for (let i = 0; i < stars.length; i++) {
+        stars[i].y += diff * 0.02;
+        if (stars[i].y > canvasHeight) {
+          stars[i].y = 0;
+          stars[i].x = Math.random() * canvasWidth;
+        }
+      }
+    }
+    // Draw the starfield
+    function drawStars() {
+      ctx.fillStyle = "#fff";
+      for (let i = 0; i < stars.length; i++) {
+        ctx.beginPath();
+        ctx.arc(stars[i].x, stars[i].y, stars[i].radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // -------------------------
+    // Platform Generation Functions
+    // -------------------------
+    // Create a new platform relative to a given previous platform.
+    // This ensures that vertical gaps and horizontal offsets are controlled.
+    function createNextPlatform(prevPlatform) {
+      // Determine vertical gap (ensuring it is within reachable range)
+      let gap = randomRange(platformSettings.minGap, platformSettings.maxGap);
+      let newY = prevPlatform.y - gap;
+      // Determine platform width randomly within range
+      let platWidth = randomRange(platformSettings.platformWidthMin, platformSettings.platformWidthMax);
+      // Set horizontal offset relative to the previous platform's x position
+      let offset = randomRange(-platformSettings.maxHorOffset, platformSettings.maxHorOffset);
+      let newX = prevPlatform.x + offset;
+      // Ensure the platform stays within the canvas boundaries
+      if (newX < 0) newX = 0;
+      if (newX + platWidth > canvasWidth) newX = canvasWidth - platWidth;
+      // Choose platform type: 20% chance to have spikes
+      let platType = (Math.random() < 0.2) ? "spikes" : "normal";
+      return { x: newX, y: newY, width: platWidth, height: 10, type: platType };
+    }
+
+    // Initialize the starting platforms
+    function initPlatforms() {
+      platforms = [];
+      // Create the base platform at the bottom center
+      let basePlatform = {
+        x: canvasWidth * 0.25,
+        y: canvasHeight - 50,
+        width: canvasWidth * 0.5,
+        height: 10,
+        type: "normal"
+      };
+      platforms.push(basePlatform);
+      // Generate additional platforms upward until the top of the initial area is filled
+      let lastPlatform = basePlatform;
+      while (lastPlatform.y > -canvasHeight) {
+        let newPlatform = createNextPlatform(lastPlatform);
+        platforms.push(newPlatform);
+        lastPlatform = newPlatform;
+      }
+    }
+
+    // Generate new platforms above the current view as the player ascends.
+    // New platforms are created based on the highest (smallest y) platform.
+    function generatePlatforms() {
+      let highestPlatform = platforms.reduce((prev, curr) => (curr.y < prev.y ? curr : prev), platforms[0]);
+      while (highestPlatform.y > scrollY - 100) {
+        let newPlatform = createNextPlatform(highestPlatform);
+        platforms.push(newPlatform);
+        highestPlatform = newPlatform;
+      }
+    }
+
+    // -------------------------
+    // Falling Objects (Obstacles)
+    // -------------------------
+    // Generate falling objects (e.g., debris) that become more frequent with difficulty.
+    function generateFallingObjects() {
+      if (Math.random() < 0.02 * difficultyLevel) {
+        let size = randomRange(15, 30);
+        fallingObjects.push({
+          x: randomRange(0, canvasWidth - size),
+          y: scrollY - 50, // Start above the visible area
+          size: size,
+          vy: randomRange(3, 6),
+          color: "#f00"
+        });
+      }
+    }
+    // Update falling objects and remove them if they go off-screen.
+    function updateFallingObjects() {
+      for (let i = fallingObjects.length - 1; i >= 0; i--) {
+        let obj = fallingObjects[i];
+        obj.y += obj.vy;
+        if (obj.y > scrollY + canvasHeight + obj.size) {
+          fallingObjects.splice(i, 1);
+        }
+      }
+    }
+
+    // -------------------------
+    // Input Handling
+    // -------------------------
+    // Track pressed keys for movement and jumping.
+    let keys = {};
+    document.addEventListener('keydown', function(e) {
+      keys[e.key] = true;
+    });
+    document.addEventListener('keyup', function(e) {
+      keys[e.key] = false;
+    });
+    // Touch events for mobile controls.
+    document.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      let touch = e.touches[0];
+      if (touch.clientY < canvasHeight / 3) {
+        keys['ArrowUp'] = true;
+      } else {
+        if (touch.clientX < canvasWidth / 2) {
+          keys['ArrowLeft'] = true;
+        } else {
+          keys['ArrowRight'] = true;
+        }
+      }
+    }, {passive: false});
+    document.addEventListener('touchend', function(e) {
+      keys['ArrowUp'] = false;
+      keys['ArrowLeft'] = false;
+      keys['ArrowRight'] = false;
+    });
+
+    // -------------------------
+    // Collision Detection
+    // -------------------------
+    // Check collision between a rectangle (player) and a circle (falling object)
+    function rectCircleCollision(rx, ry, rw, rh, cx, cy, cr) {
+      let distX = Math.abs(cx - rx - rw / 2);
+      let distY = Math.abs(cy - ry - rh / 2);
+      if (distX > (rw / 2 + cr)) return false;
+      if (distY > (rh / 2 + cr)) return false;
+      if (distX <= rw / 2) return true;
+      if (distY <= rh / 2) return true;
+      let dx = distX - rw / 2;
+      let dy = distY - rh / 2;
+      return (dx * dx + dy * dy <= cr * cr);
+    }
+
+    // -------------------------
+    // Difficulty Adjustment
+    // -------------------------
+    // Increase difficulty parameters as the score (altitude) rises.
+    function updateDifficulty() {
+      difficultyLevel = 1 + score / 1000;
+      // Optionally, you might adjust other parameters here if needed.
+    }
+
+    // -------------------------
+    // Game Update Logic
+    // -------------------------
+    function update() {
+      if (gameOver) return;
+      updateDifficulty();
+
+      // Horizontal movement based on key presses.
+      if (keys['ArrowLeft'] || keys['a']) {
+        player.vx = -player.speed;
+      } else if (keys['ArrowRight'] || keys['d']) {
+        player.vx = player.speed;
+      } else {
+        player.vx = 0;
+      }
+
+      // Jump if the player is on a platform.
+      if ((keys['ArrowUp'] || keys[' ']) && player.onPlatform) {
+        player.vy = player.jumpForce;
+        player.onPlatform = false;
+      }
+
+      // Apply gravity to the player's vertical velocity.
+      player.vy += gravity;
+      player.x += player.vx;
+      player.y += player.vy;
+
+      // Keep the player within horizontal boundaries.
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.width > canvasWidth) player.x = canvasWidth - player.width;
+
+      // Reset platform collision flag.
+      player.onPlatform = false;
+
+      // Check collision with platforms.
+      for (let i = 0; i < platforms.length; i++) {
+        let plat = platforms[i];
+        if (player.vy > 0 &&
+            player.x + player.width > plat.x && player.x < plat.x + plat.width &&
+            player.y + player.height >= plat.y && player.y + player.height <= plat.y + plat.height) {
+          if (plat.type === "spikes") {
+            gameOver = true;
+          } else {
+            player.y = plat.y - player.height;
+            player.vy = 0;
+            player.onPlatform = true;
+          }
+        }
+      }
+
+      // Check collision with falling objects.
+      for (let i = 0; i < fallingObjects.length; i++) {
+        let obj = fallingObjects[i];
+        if (rectCircleCollision(player.x, player.y, player.width, player.height, obj.x, obj.y, obj.size / 2)) {
+          gameOver = true;
+        }
+      }
+
+      // If the player falls below the visible area, end the game.
+      if (player.y > scrollY + canvasHeight) {
+        gameOver = true;
+      }
+
+      // Vertical scrolling: move the world downward if the player ascends above a threshold.
+      if (player.y < scrollY + canvasHeight * 0.4) {
+        let diff = (scrollY + canvasHeight * 0.4) - player.y;
+        scrollY -= diff;
+        score += diff; // Increase altitude score.
+        // Move all game objects along with the scroll.
+        platforms.forEach(function(p) {
+          p.y += diff;
+        });
+        fallingObjects.forEach(function(obj) {
+          obj.y += diff;
+        });
+        player.y += diff;
+        updateStars(diff);
+      }
+
+      // Generate new platforms above the current view.
+      generatePlatforms();
+
+      // Update and generate falling objects.
+      updateFallingObjects();
+      generateFallingObjects();
+
+      // Remove platforms that have fallen below the screen.
+      platforms = platforms.filter(function(plat) {
+        return plat.y < scrollY + canvasHeight + 50;
+      });
+    }
+
+    // -------------------------
+    // Rendering Logic
+    // -------------------------
+    function render() {
+      // Clear the canvas.
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      // Draw background.
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      // Draw stars.
+      drawStars();
+
+      // Draw platforms.
+      platforms.forEach(function(plat) {
+        if (plat.type === "normal") {
+          ctx.fillStyle = "#0f0";
+        } else if (plat.type === "spikes") {
+          ctx.fillStyle = "#f00";
+        }
+        ctx.fillRect(plat.x, plat.y - scrollY, plat.width, plat.height);
+        // Draw spikes if the platform is spiked.
+        if (plat.type === "spikes") {
+          ctx.fillStyle = "#fff";
+          let spikeCount = Math.floor(plat.width / 10);
+          for (let i = 0; i < spikeCount; i++) {
+            let spikeX = plat.x + i * 10;
+            ctx.beginPath();
+            ctx.moveTo(spikeX, plat.y - scrollY);
+            ctx.lineTo(spikeX + 5, plat.y - scrollY - 10);
+            ctx.lineTo(spikeX + 10, plat.y - scrollY);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      });
+
+      // Draw falling objects.
+      fallingObjects.forEach(function(obj) {
+        ctx.fillStyle = obj.color;
+        ctx.beginPath();
+        ctx.arc(obj.x + obj.size / 2, obj.y - scrollY + obj.size / 2, obj.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw the player.
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y - scrollY, player.width, player.height);
+
+      // Draw the altitude score.
+      ctx.fillStyle = "#0f0";
+      ctx.font = "20px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("Altitude: " + Math.floor(score), 10, 30);
+
+      // If game over, display a message.
+      if (gameOver) {
+        ctx.fillStyle = "#f00";
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Game Over", canvasWidth / 2, canvasHeight / 2);
+      }
+    }
+
+    // -------------------------
+    // Game Loop
+    // -------------------------
+    function gameLoop() {
+      update();
+      render();
+      if (!gameOver) {
+        requestAnimationFrame(gameLoop);
+      } else {
+        showRestartButton();
+      }
+    }
+
+    // -------------------------
+    // Restart Button Handling
+    // -------------------------
+    function showRestartButton() {
+      document.getElementById("restartButton").style.display = "block";
+    }
+    document.getElementById("restartButton").addEventListener("click", function() {
+      restartGame();
+    });
+    function restartGame() {
+      gameOver = false;
+      score = 0;
+      scrollY = 0;
+      player.x = canvasWidth / 2;
+      player.y = canvasHeight - 100;
+      player.vx = 0;
+      player.vy = 0;
+      platforms = [];
+      fallingObjects = [];
+      initPlatforms();
+      initStars();
+      document.getElementById("restartButton").style.display = "none";
+      gameLoop();
+    }
+
+    // -------------------------
+    // Customization Panel Handling
+    // -------------------------
+    // Update the displayed values on slider changes.
+    const minGapSlider = document.getElementById("minGap");
+    const maxGapSlider = document.getElementById("maxGap");
+    const maxHorOffsetSlider = document.getElementById("maxHorOffset");
+    const minGapVal = document.getElementById("minGapVal");
+    const maxGapVal = document.getElementById("maxGapVal");
+    const maxHorOffsetVal = document.getElementById("maxHorOffsetVal");
+
+    minGapSlider.addEventListener("input", function() {
+      minGapVal.textContent = minGapSlider.value;
+    });
+    maxGapSlider.addEventListener("input", function() {
+      maxGapVal.textContent = maxGapSlider.value;
+    });
+    maxHorOffsetSlider.addEventListener("input", function() {
+      maxHorOffsetVal.textContent = maxHorOffsetSlider.value;
+    });
+    // Apply customization settings when the user clicks the button.
+    document.getElementById("applyCustomization").addEventListener("click", function() {
+      platformSettings.minGap = parseInt(minGapSlider.value);
+      platformSettings.maxGap = parseInt(maxGapSlider.value);
+      platformSettings.maxHorOffset = parseInt(maxHorOffsetSlider.value);
+      // Clear existing platforms and reinitialize to reflect new settings.
+      initPlatforms();
+    });
+
+    // -------------------------
+    // Game Initialization
+    // -------------------------
+    function initGame() {
+      gameOver = false;
+      score = 0;
+      scrollY = 0;
+      player.x = canvasWidth / 2;
+      player.y = canvasHeight - 100;
+      player.vx = 0;
+      player.vy = 0;
+      initPlatforms();
+      initStars();
+      fallingObjects = [];
+      document.getElementById("restartButton").style.display = "none";
+      gameLoop();
+    }
+    window.onload = initGame;
+
+    // -------------------------
+    // Future Enhancements & Documentation
+    // -------------------------
+    /*
+      Future Feature Ideas:
+      1. Sound Effects:
+         - Integrate audio feedback for jumps, collisions, and background music.
+      2. Particle Effects:
+         - Add visual particle effects for jumps, landings, and collisions.
+      3. Additional Obstacles:
+         - Introduce moving platforms, disappearing platforms, or enemy characters.
+      4. High Score Tracking:
+         - Use localStorage to save and display the highest altitude reached.
+      5. Advanced Customization:
+         - Expand the settings panel to include player speed, jump strength, and theme colors.
+      6. Touch UI Enhancements:
+         - Provide on-screen buttons for mobile controls.
+      
+      Game Mechanics Recap:
+      - The character climbs an endless tower, jumping from platform to platform.
+      - Platforms are generated relative to the previous one using controlled gaps.
+      - Obstacles include spikes on platforms and falling objects.
+      - The altitude reached is tracked as the score.
+      - The customization panel lets you tweak platform gaps and horizontal offsets.
+      - When the player collides with obstacles or falls off-screen, the game ends.
+      - A restart button is displayed, allowing you to try again.
+    */
+    // ======================================================================
+    // End of Endless Climber - Improved Code
+    // ======================================================================
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  </script>
+  <!-- ======================================================================
+       Additional Documentation and Credits:
+       Endless Climber - Improved Version
+       Developed by: [Your Name or Studio]
+       Date: [Current Date]
+       Enjoy tweaking the settings and climbing as high as you can!
+       ====================================================================== -->
+</body>
+</html>

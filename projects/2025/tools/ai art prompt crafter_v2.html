@@ -1,0 +1,740 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Art Prompt Crafter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e6ed;
+            overflow-x: hidden;
+        }
+        
+        .glow-border {
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .glow-border:hover {
+            border-color: rgba(139, 92, 246, 0.6);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.7);
+        }
+        
+        .option-button {
+            background: linear-gradient(145deg, #1e1e3f, #2a2a5a);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            color: #e0e6ed;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 4px;
+            font-size: 14px;
+        }
+        
+        .option-button:hover {
+            background: linear-gradient(145deg, #2a2a5a, #3a3a7a);
+            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .option-button.selected {
+            background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+            border-color: #a855f7;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+        }
+        
+        .category-tab {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #e0e6ed;
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .category-tab:hover {
+            background: rgba(139, 92, 246, 0.2);
+        }
+        
+        .category-tab.active {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: #8b5cf6;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+        }
+        
+        .prompt-box {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 2px solid rgba(139, 92, 246, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 120px;
+            color: #e0e6ed;
+            font-size: 16px;
+            line-height: 1.6;
+            box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.1);
+        }
+        
+        .glass-panel {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+        }
+        
+        .neon-button {
+            background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        
+        .neon-button:hover {
+            background: linear-gradient(145deg, #7c3aed, #6d28d9);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(139, 92, 246, 0.4);
+            border-radius: 50%;
+            animation: float 6s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+        
+        .scroll-container {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(139, 92, 246, 0.5) rgba(26, 26, 46, 0.5);
+        }
+        
+        .scroll-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scroll-container::-webkit-scrollbar-track {
+            background: rgba(26, 26, 46, 0.5);
+            border-radius: 6px;
+        }
+        
+        .scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.5);
+            border-radius: 6px;
+        }
+        
+        .scroll-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.7);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Floating Particles Background -->
+    <div class="floating-particles" id="particles"></div>
+    
+    <!-- Header -->
+    <header class="text-center py-8 relative">
+        <h1 class="text-5xl font-bold neon-text mb-4">AI Art Prompt Crafter</h1>
+        <p class="text-xl text-gray-300 max-w-3xl mx-auto px-4">
+            Build extraordinary AI art prompts with infinite creative possibilities. 
+            Mix and match styles, themes, lighting, and elements to craft prompts beyond imagination.
+        </p>
+        <div class="mt-6">
+            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/1743fc5c-660b-4d4c-b05c-3810a3acbcd4.png" alt="Abstract digital art banner showing swirling neon purple and blue energy patterns against a cosmic dark background with floating geometric shapes" class="mx-auto rounded-lg glow-border" />
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 pb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Controls Panel -->
+            <div class="lg:col-span-2">
+                <div class="glass-panel p-6 mb-8">
+                    <!-- Category Tabs -->
+                    <div class="flex flex-wrap mb-6 border-b border-purple-500/20">
+                        <button class="category-tab active" onclick="switchCategory('styles')">Styles</button>
+                        <button class="category-tab" onclick="switchCategory('themes')">Themes</button>
+                        <button class="category-tab" onclick="switchCategory('lighting')">Lighting</button>
+                        <button class="category-tab" onclick="switchCategory('elements')">Elements</button>
+                        <button class="category-tab" onclick="switchCategory('scenes')">Scenes</button>
+                        <button class="category-tab" onclick="switchCategory('colors')">Colors</button>
+                        <button class="category-tab" onclick="switchCategory('moods')">Moods</button>
+                        <button class="category-tab" onclick="switchCategory('technical')">Technical</button>
+                    </div>
+
+                    <!-- Options Container -->
+                    <div class="scroll-container">
+                        <div id="options-container" class="flex flex-wrap gap-2 p-4">
+                            <!-- Options will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Controls -->
+                <div class="glass-panel p-6">
+                    <h3 class="text-xl font-semibold mb-4 neon-text">Advanced Options</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Creativity Level</label>
+                            <input type="range" id="creativity" min="1" max="10" value="7" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>Conservative</span>
+                                <span>Experimental</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Detail Level</label>
+                            <input type="range" id="detail" min="1" max="10" value="6" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>Simple</span>
+                                <span>Ultra-detailed</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button class="neon-button" onclick="generateRandomPrompt()">Random Prompt</button>
+                        <button class="neon-button" onclick="enhancePrompt()">Enhance Current</button>
+                        <button class="neon-button" onclick="clearPrompt()">Clear All</button>
+                        <button class="neon-button" onclick="savePrompt()">Save Prompt</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompt Display Panel -->
+            <div class="lg:col-span-1">
+                <div class="glass-panel p-6 sticky top-4">
+                    <h3 class="text-xl font-semibold mb-4 neon-text">Your AI Art Prompt</h3>
+                    
+                    <!-- Prompt Display -->
+                    <div class="prompt-box mb-4" contenteditable="true" id="prompt-display" placeholder="Your prompt will appear here...">
+                        Click options below to start building your prompt...
+                    </div>
+                    
+                    <!-- Prompt Stats -->
+                    <div class="mb-4 text-sm text-gray-400">
+                        <div class="flex justify-between">
+                            <span>Words: <span id="word-count">0</span></span>
+                            <span>Characters: <span id="char-count">0</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300" id="prompt-progress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="space-y-3">
+                        <button class="neon-button w-full" onclick="copyToClipboard()">Copy to Clipboard</button>
+                        <button class="neon-button w-full" onclick="exportPrompt()">Export as JSON</button>
+                        <button class="neon-button w-full" onclick="sharePrompt()">Share Prompt</button>
+                    </div>
+                    
+                    <!-- Saved Prompts -->
+                    <div class="mt-6">
+                        <h4 class="text-lg font-medium mb-3">Saved Prompts</h4>
+                        <div id="saved-prompts" class="space-y-2 max-h-40 overflow-y-auto">
+                            <!-- Saved prompts will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Prompt building system
+        let currentPrompt = [];
+        let selectedOptions = new Set();
+        let currentCategory = 'styles';
+        
+        // Comprehensive options database
+        const promptOptions = {
+            styles: [
+                "photorealistic", "hyperrealistic", "oil painting", "watercolor", "digital art", "concept art", "3D render",
+                "anime", "manga", "cartoon", "minimalist", "abstract", "surreal", "impressionist", "expressionist",
+                "art nouveau", "art deco", "baroque", "renaissance", "gothic", "steampunk", "cyberpunk", "dieselpunk",
+                "pixel art", "low poly", "vector art", "line art", "sketch", "charcoal drawing", "pencil drawing",
+                "pastel", "acrylic painting", "fresco", "mosaic", "stained glass", "pop art", "street art", "graffiti",
+                "art brut", "naive art", "folk art", "tribal art", "photojournalism", "documentary style", "film noir",
+                "vintage photography", "polaroid", "lomography", "tilt-shift", "HDR", "long exposure", "macro photography"
+            ],
+            themes: [
+                "fantasy", "sci-fi", "horror", "mystery", "adventure", "romance", "historical", "futuristic",
+                "apocalyptic", "post-apocalyptic", "utopian", "dystopian", "space opera", "urban fantasy",
+                "high fantasy", "dark fantasy", "cosmic horror", "body horror", "psychological thriller",
+                "western", "noir", "retro", "vintage", "modern", "contemporary", "ancient", "medieval",
+                "renaissance", "victorian", "industrial", "atomic age", "space age", "digital age",
+                "mythology", "folklore", "fairy tale", "legend", "epic", "saga", "chronicle", "biography",
+                "nature documentary", "wildlife", "underwater", "aerial", "microscopic", "astronomical"
+            ],
+            lighting: [
+                "golden hour", "blue hour", "harsh sunlight", "soft diffused light", "dramatic lighting",
+                "cinematic lighting", "studio lighting", "natural lighting", "artificial lighting", "neon lighting",
+                "candlelight", "firelight", "moonlight", "starlight", "aurora", "lightning", "sunset", "sunrise",
+                "overcast", "foggy", "misty", "hazy", "clear", "bright", "dim", "dark", "shadowy", "silhouette",
+                "backlighting", "side lighting", "front lighting", "rim lighting", "key lighting", "fill lighting",
+                "ambient lighting", "mood lighting", "colored lighting", "RGB lighting", "LED lighting",
+                "fluorescent", "tungsten", "halogen", "laser light", "strobe light", "disco lighting",
+                "underwater lighting", "street lighting", "window light", "skylight", "spotlight", "floodlight"
+            ],
+            elements: [
+                "flowers", "trees", "mountains", "ocean", "clouds", "rain", "snow", "fire", "smoke", "mist",
+                "crystals", "gems", "metals", "glass", "fabric", "leather", "fur", "feathers", "scales",
+                "wings", "horns", "claws", "teeth", "eyes", "hair", "skin", "bones", "blood", "tears",
+                "jewelry", "armor", "weapons", "tools", "machinery", "electronics", "circuits", "wires",
+                "gears", "engines", "vehicles", "buildings", "ruins", "monuments", "statues", "paintings",
+                "books", "scrolls", "maps", "instruments", "potions", "magic", "spells", "runes", "symbols",
+                "planets", "stars", "galaxies", "nebulae", "black holes", "comets", "meteors", "aliens"
+            ],
+            scenes: [
+                "forest glade", "mountain peak", "ocean depths", "desert oasis", "city skyline", "village square",
+                "castle courtyard", "dungeon chamber", "space station", "alien planet", "underwater city",
+                "floating island", "hidden valley", "secret garden", "ancient temple", "abandoned mansion",
+                "bustling marketplace", "quiet library", "workshop", "laboratory", "observatory", "greenhouse",
+                "battlefield", "peaceful meadow", "stormy sea", "calm lake", "rushing river", "waterfall",
+                "cave system", "ice cavern", "volcanic crater", "crystal cave", "mushroom forest", "bamboo grove",
+                "cherry blossom park", "autumn forest", "winter wonderland", "summer beach", "spring garden",
+                "urban rooftop", "subway station", "airport terminal", "train platform", "highway", "bridge"
+            ],
+            colors: [
+                "vibrant", "muted", "pastel", "neon", "earth tones", "jewel tones", "monochromatic", "complementary",
+                "triadic", "analogous", "warm colors", "cool colors", "neutral colors", "black and white",
+                "sepia", "infrared", "ultraviolet", "rainbow", "gradient", "ombre", "metallic", "iridescent",
+                "holographic", "bioluminescent", "phosphorescent", "fluorescent", "saturated", "desaturated",
+                "high contrast", "low contrast", "color splash", "selective color", "duotone", "tritone",
+                "crimson", "scarlet", "burgundy", "azure", "cerulean", "turquoise", "emerald", "jade",
+                "amber", "gold", "silver", "copper", "bronze", "platinum", "obsidian", "pearl", "ivory"
+            ],
+            moods: [
+                "peaceful", "chaotic", "mysterious", "ominous", "hopeful", "melancholic", "joyful", "angry",
+                "serene", "turbulent", "nostalgic", "futuristic", "ancient", "timeless", "fleeting", "eternal",
+                "intimate", "grand", "epic", "subtle", "bold", "delicate", "powerful", "gentle", "fierce",
+                "calm", "energetic", "dynamic", "static", "flowing", "rigid", "organic", "geometric",
+                "harmonious", "discordant", "balanced", "unstable", "symmetrical", "asymmetrical", "ordered",
+                "random", "precise", "loose", "tight", "open", "closed", "expansive", "confined", "light",
+                "heavy", "airy", "dense", "transparent", "opaque", "reflective", "absorbent", "smooth", "rough"
+            ],
+            technical: [
+                "8K resolution", "4K ultra HD", "high definition", "ultra wide", "macro lens", "telephoto",
+                "wide angle", "fish eye", "portrait lens", "prime lens", "zoom lens", "shallow depth of field",
+                "deep focus", "bokeh", "motion blur", "freeze motion", "panning", "tracking shot", "crane shot",
+                "drone shot", "bird's eye view", "worm's eye view", "dutch angle", "rule of thirds", "golden ratio",
+                "leading lines", "frame within frame", "negative space", "pattern", "texture", "symmetry",
+                "asymmetry", "color grading", "film grain", "noise", "chromatic aberration", "lens flare",
+                "vignette", "split toning", "cross processing", "bleach bypass", "desaturation", "oversaturation",
+                "HDR processing", "tone mapping", "exposure fusion", "focus stacking", "panorama", "360 degree"
+            ]
+        };
+
+        // Initialize the application
+        function init() {
+            createFloatingParticles();
+            switchCategory('styles');
+            updatePromptStats();
+            loadSavedPrompts();
+            
+            // Set up prompt display event listeners
+            const promptDisplay = document.getElementById('prompt-display');
+            promptDisplay.addEventListener('input', updatePromptFromDisplay);
+            promptDisplay.addEventListener('keyup', updatePromptStats);
+        }
+
+        // Create floating particle animation
+        function createFloatingParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.animationDelay = Math.random() * 6 + 's';
+                    particle.style.animationDuration = (Math.random() * 3 + 6) + 's';
+                    container.appendChild(particle);
+                    
+                    // Remove particle after animation
+                    setTimeout(() => {
+                        if (container.contains(particle)) {
+                            container.removeChild(particle);
+                        }
+                    }, 9000);
+                }, i * 100);
+            }
+            
+            // Continue creating particles
+            setTimeout(createFloatingParticles, 2000);
+        }
+
+        // Switch between categories
+        function switchCategory(category) {
+            currentCategory = category;
+            
+            // Update tab appearance
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load options for the category
+            loadCategoryOptions(category);
+        }
+
+        // Load options for a specific category
+        function loadCategoryOptions(category) {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            const options = promptOptions[category] || [];
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'option-button';
+                button.textContent = option;
+                button.onclick = () => toggleOption(option, button);
+                
+                if (selectedOptions.has(option)) {
+                    button.classList.add('selected');
+                }
+                
+                container.appendChild(button);
+            });
+        }
+
+        // Toggle option selection
+        function toggleOption(option, button) {
+            if (selectedOptions.has(option)) {
+                selectedOptions.delete(option);
+                button.classList.remove('selected');
+                removeFromPrompt(option);
+            } else {
+                selectedOptions.add(option);
+                button.classList.add('selected');
+                addToPrompt(option);
+            }
+        }
+
+        // Add option to prompt
+        function addToPrompt(option) {
+            currentPrompt.push(option);
+            updatePromptDisplay();
+        }
+
+        // Remove option from prompt
+        function removeFromPrompt(option) {
+            currentPrompt = currentPrompt.filter(item => item !== option);
+            updatePromptDisplay();
+        }
+
+        // Update the prompt display
+        function updatePromptDisplay() {
+            const display = document.getElementById('prompt-display');
+            if (currentPrompt.length === 0) {
+                display.innerHTML = 'Click options below to start building your prompt...';
+            } else {
+                display.innerHTML = currentPrompt.join(', ');
+            }
+            updatePromptStats();
+        }
+
+        // Update prompt from manual editing
+        function updatePromptFromDisplay() {
+            const display = document.getElementById('prompt-display');
+            const text = display.textContent;
+            currentPrompt = text.split(',').map(item => item.trim()).filter(item => item);
+            
+            // Update selected options
+            selectedOptions.clear();
+            currentPrompt.forEach(item => selectedOptions.add(item));
+            
+            // Refresh current category display
+            loadCategoryOptions(currentCategory);
+        }
+
+        // Update prompt statistics
+        function updatePromptStats() {
+            const display = document.getElementById('prompt-display');
+            const text = display.textContent;
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const chars = text.length;
+            
+            document.getElementById('word-count').textContent = words;
+            document.getElementById('char-count').textContent = chars;
+            
+            // Update progress bar (based on estimated ideal length)
+            const progress = Math.min((words / 20) * 100, 100);
+            document.getElementById('prompt-progress').style.width = progress + '%';
+        }
+
+        // Generate random prompt
+        function generateRandomPrompt() {
+            clearPrompt();
+            
+            const creativityLevel = parseInt(document.getElementById('creativity').value);
+            const detailLevel = parseInt(document.getElementById('detail').value);
+            
+            const numOptions = Math.floor((creativityLevel + detailLevel) / 2) + 3;
+            const categories = Object.keys(promptOptions);
+            
+            for (let i = 0; i < numOptions; i++) {
+                const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+                const options = promptOptions[randomCategory];
+                const randomOption = options[Math.floor(Math.random() * options.length)];
+                
+                if (!selectedOptions.has(randomOption)) {
+                    selectedOptions.add(randomOption);
+                    currentPrompt.push(randomOption);
+                }
+            }
+            
+            updatePromptDisplay();
+            loadCategoryOptions(currentCategory);
+        }
+
+        // Enhance current prompt
+        function enhancePrompt() {
+            const detailLevel = parseInt(document.getElementById('detail').value);
+            const enhancementWords = [
+                'highly detailed', 'masterpiece', 'award-winning', 'professional', 'stunning',
+                'breathtaking', 'magnificent', 'extraordinary', 'intricate', 'elaborate',
+                'sophisticated', 'refined', 'elegant', 'gorgeous', 'spectacular'
+            ];
+            
+            const technicalTerms = [
+                '8K resolution', 'ultra HD', 'cinematic', 'dramatic lighting', 'perfect composition',
+                'sharp focus', 'vivid colors', 'high contrast', 'professional photography'
+            ];
+            
+            const numEnhancements = Math.floor(detailLevel / 3) + 1;
+            
+            for (let i = 0; i < numEnhancements; i++) {
+                const useEnhancement = Math.random() > 0.5;
+                const terms = useEnhancement ? enhancementWords : technicalTerms;
+                const randomTerm = terms[Math.floor(Math.random() * terms.length)];
+                
+                if (!selectedOptions.has(randomTerm)) {
+                    selectedOptions.add(randomTerm);
+                    currentPrompt.unshift(randomTerm);
+                }
+            }
+            
+            updatePromptDisplay();
+            loadCategoryOptions(currentCategory);
+        }
+
+        // Clear all prompt content
+        function clearPrompt() {
+            currentPrompt = [];
+            selectedOptions.clear();
+            updatePromptDisplay();
+            loadCategoryOptions(currentCategory);
+        }
+
+        // Copy prompt to clipboard
+        async function copyToClipboard() {
+            const text = document.getElementById('prompt-display').textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+                showNotification('Prompt copied to clipboard!', 'success');
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('Prompt copied to clipboard!', 'success');
+            }
+        }
+
+        // Save current prompt
+        function savePrompt() {
+            const promptText = document.getElementById('prompt-display').textContent;
+            if (!promptText || promptText === 'Click options below to start building your prompt...') {
+                showNotification('No prompt to save!', 'error');
+                return;
+            }
+            
+            const savedPrompts = JSON.parse(localStorage.getItem('aiPrompts') || '[]');
+            const newPrompt = {
+                id: Date.now(),
+                text: promptText,
+                timestamp: new Date().toLocaleString(),
+                options: Array.from(selectedOptions)
+            };
+            
+            savedPrompts.unshift(newPrompt);
+            
+            // Keep only last 10 prompts
+            if (savedPrompts.length > 10) {
+                savedPrompts.splice(10);
+            }
+            
+            localStorage.setItem('aiPrompts', JSON.stringify(savedPrompts));
+            loadSavedPrompts();
+            showNotification('Prompt saved successfully!', 'success');
+        }
+
+        // Load saved prompts
+        function loadSavedPrompts() {
+            const container = document.getElementById('saved-prompts');
+            const savedPrompts = JSON.parse(localStorage.getItem('aiPrompts') || '[]');
+            
+            container.innerHTML = '';
+            
+            savedPrompts.forEach(prompt => {
+                const promptDiv = document.createElement('div');
+                promptDiv.className = 'glass-panel p-3 cursor-pointer hover:bg-purple-500/10 transition-all';
+                promptDiv.innerHTML = `
+                    <div class="text-sm truncate mb-1">${prompt.text}</div>
+                    <div class="text-xs text-gray-400">${prompt.timestamp}</div>
+                `;
+                promptDiv.onclick = () => loadSavedPrompt(prompt);
+                container.appendChild(promptDiv);
+            });
+        }
+
+        // Load a saved prompt
+        function loadSavedPrompt(prompt) {
+            clearPrompt();
+            currentPrompt = prompt.text.split(',').map(item => item.trim()).filter(item => item);
+            selectedOptions = new Set(prompt.options);
+            updatePromptDisplay();
+            loadCategoryOptions(currentCategory);
+            showNotification('Prompt loaded!', 'success');
+        }
+
+        // Export prompt as JSON
+        function exportPrompt() {
+            const promptData = {
+                prompt: document.getElementById('prompt-display').textContent,
+                options: Array.from(selectedOptions),
+                categories: Object.keys(promptOptions).reduce((acc, cat) => {
+                    acc[cat] = Array.from(selectedOptions).filter(opt => promptOptions[cat].includes(opt));
+                    return acc;
+                }, {}),
+                timestamp: new Date().toISOString(),
+                creativity: document.getElementById('creativity').value,
+                detail: document.getElementById('detail').value
+            };
+            
+            const dataStr = JSON.stringify(promptData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-prompt-${Date.now()}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            showNotification('Prompt exported as JSON!', 'success');
+        }
+
+        // Share prompt
+        function sharePrompt() {
+            const promptText = document.getElementById('prompt-display').textContent;
+            const shareUrl = `${window.location.origin}${window.location.pathname}?prompt=${encodeURIComponent(promptText)}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'AI Art Prompt',
+                    text: promptText,
+                    url: shareUrl
+                });
+            } else {
+                copyToClipboard();
+                showNotification('Prompt copied! Share it with others.', 'success');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg text-white max-w-sm transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            }`;
+            notification.style.transform = 'translateX(100%)';
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Check for shared prompt in URL
+        function checkSharedPrompt() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedPrompt = urlParams.get('prompt');
+            if (sharedPrompt) {
+                document.getElementById('prompt-display').textContent = sharedPrompt;
+                updatePromptFromDisplay();
+                showNotification('Shared prompt loaded!', 'success');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+            checkSharedPrompt();
+        });
+
+        // Handle category tab clicks
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('category-tab')) {
+                const categoryName = e.target.textContent.toLowerCase();
+                switchCategory(categoryName);
+            }
+        });
+    </script>
+</body>
+</html>
+

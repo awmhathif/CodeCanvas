@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SonicVerse — 3D Music Player</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0a12;--panel:rgba(10,10,18,0.92);--accent:#00e5ff;--accent2:#ff006e;
+--accent3:#ffbe0b;--text:#e0e0e0;--dim:#666;--border:rgba(255,255,255,0.08);
+--glow:0 0 20px rgba(0,229,255,0.3);--radius:10px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:13px;user-select:none}
+canvas#gl{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;display:flex;flex-direction:column}
+#ui>*{pointer-events:auto}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--panel);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+#topbar .brand{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+#topbar .brand span{font-weight:400;font-size:11px;opacity:0.6;-webkit-text-fill-color:var(--dim);margin-left:6px}
+.btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:all 0.2s}
+.btn:hover{background:rgba(255,255,255,0.12);border-color:var(--accent)}
+.btn.active{background:rgba(0,229,255,0.15);border-color:var(--accent);color:var(--accent)}
+.icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:50%;cursor:pointer;transition:all 0.2s;font-size:14px}
+.icon-btn:hover{background:rgba(255,255,255,0.15);border-color:var(--accent);box-shadow:var(--glow)}
+#middle{flex:1;display:flex;pointer-events:none;position:relative}
+#sidebar{width:320px;background:var(--panel);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;pointer-events:auto;transition:transform 0.3s;overflow:hidden}
+#sidebar.hidden{transform:translateX(-320px);width:0;min-width:0;border:none}
+#sidebar .stab{display:flex;border-bottom:1px solid var(--border)}
+#sidebar .stab .tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s}
+#sidebar .stab .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+#sidebar .content{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#sidebar .content::-webkit-scrollbar{width:4px}
+#sidebar .content::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.playlist-item{display:flex;align-items:center;padding:8px 12px;cursor:pointer;transition:background 0.15s;gap:10px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.playlist-item:hover{background:rgba(255,255,255,0.05)}
+.playlist-item.active{background:rgba(0,229,255,0.08);border-left:3px solid var(--accent)}
+.playlist-item .art{width:40px;height:40px;border-radius:6px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden}
+.playlist-item .art img{width:100%;height:100%;object-fit:cover}
+.playlist-item .info{flex:1;min-width:0}
+.playlist-item .info .name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.playlist-item .info .meta{font-size:10px;color:var(--dim);margin-top:2px}
+.playlist-item .dur{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+#drop-zone{position:fixed;top:0;left:0;width:100%;height:100%;z-index:100;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;flex-direction:column}
+#drop-zone.show{display:flex}
+#drop-zone .ring{width:200px;height:200px;border:3px dashed var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:48px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.05);opacity:1}}
+#drop-zone p{margin-top:20px;font-size:16px;color:var(--accent)}
+#player-bar{background:var(--panel);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 16px;display:flex;flex-direction:column;gap:6px}
+#seek-row{display:flex;align-items:center;gap:8px}
+#seek-row .time{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:40px}
+#seek-row .time:last-child{text-align:right}
+.slider-wrap{flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;cursor:pointer;position:relative}
+.slider-wrap .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));position:relative;transition:width 0.1s}
+.slider-wrap .fill::after{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:12px;height:12px;background:#fff;border-radius:50%;opacity:0;transition:opacity 0.2s;box-shadow:0 0 6px rgba(0,229,255,0.5)}
+.slider-wrap:hover .fill::after{opacity:1}
+.ab-marker{position:absolute;top:-4px;width:2px;height:14px;background:var(--accent3);border-radius:1px;z-index:2}
+#controls-row{display:flex;align-items:center;justify-content:space-between}
+#controls-row .left,#controls-row .right{display:flex;align-items:center;gap:6px}
+#controls-row .center{display:flex;align-items:center;gap:10px}
+#now-playing{display:flex;align-items:center;gap:10px;min-width:0;max-width:240px}
+#now-playing .np-art{width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;overflow:hidden}
+#now-playing .np-art img{width:100%;height:100%;object-fit:cover}
+#now-playing .np-info{min-width:0}
+#now-playing .np-info .np-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#now-playing .np-info .np-artist{font-size:10px;color:var(--dim)}
+.vol-wrap{display:flex;align-items:center;gap:4px}
+.vol-wrap .slider-wrap{width:80px;flex:none}
+.mini-slider{width:70px;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;cursor:pointer;position:relative}
+.mini-slider .fill{height:100%;border-radius:2px;background:var(--accent)}
+#fx-panel{position:fixed;right:16px;bottom:80px;width:300px;background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:none;z-index:10;pointer-events:auto;max-height:60vh;overflow-y:auto}
+#fx-panel.show{display:block}
+#fx-panel h3{font-size:13px;margin-bottom:12px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.fx-group{margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.fx-group:last-child{border:none;margin:0;padding:0}
+.fx-group label{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim);margin-bottom:6px}
+.fx-group label span{color:var(--text);font-variant-numeric:tabular-nums}
+.fx-group input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:rgba(255,255,255,0.08);border-radius:2px;outline:none}
+.fx-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px rgba(0,229,255,0.4)}
+#scene-panel{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius);padding:10px;display:none;z-index:10;pointer-events:auto}
+#scene-panel.show{display:flex;gap:8px}
+.scene-card{width:80px;padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;text-align:center;transition:all 0.2s}
+.scene-card:hover,.scene-card.active{border-color:var(--accent);background:rgba(0,229,255,0.08)}
+.scene-card .icon{font-size:24px;margin-bottom:4px}
+.scene-card .label{font-size:10px;color:var(--dim)}
+#keys-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius);padding:20px;display:none;z-index:20;pointer-events:auto;max-height:80vh;overflow-y:auto}
+#keys-panel.show{display:block}
+#keys-panel h3{font-size:14px;margin-bottom:14px;color:var(--accent)}
+.key-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.key-row .key{color:var(--accent);font-family:monospace;font-size:11px;background:rgba(0,229,255,0.1);padding:2px 6px;border-radius:4px}
+#search-input{width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none;margin-bottom:2px}
+#search-input:focus{border-color:var(--accent)}
+#search-input::placeholder{color:var(--dim)}
+.eq-band{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.eq-band label{width:50px;font-size:10px;color:var(--dim);text-align:right}
+.eq-band input{flex:1}
+.eq-band span{width:36px;font-size:10px;font-variant-numeric:tabular-nums}
+#toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,0.15);border:1px solid var(--accent);color:var(--accent);padding:8px 20px;border-radius:20px;font-size:12px;z-index:50;opacity:0;transition:opacity 0.3s;pointer-events:none}
+#toast.show{opacity:1}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="drop-zone"><div class="ring">🎵</div><p>Drop audio files here</p></div>
+<div id="ui">
+<div id="topbar">
+<div style="display:flex;align-items:center;gap:12px">
+<div class="brand">SonicVerse<span>3D Player</span></div>
+<div class="icon-btn" id="btn-sidebar" title="Toggle Sidebar">☰</div>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<div class="icon-btn" id="btn-scene" title="Visual Scenes">🎨</div>
+<div class="icon-btn" id="btn-orbit" title="Auto Orbit">🔄</div>
+<div class="icon-btn" id="btn-fx" title="Effects">⚡</div>
+<div class="icon-btn" id="btn-keys" title="Shortcuts">⌨</div>
+<div class="icon-btn" id="btn-add" title="Add Files">+</div>
+<input type="file" id="file-input" multiple accept="audio/*" style="display:none">
+</div>
+</div>
+<div id="middle">
+<div id="sidebar">
+<div class="stab">
+<div class="tab active" data-tab="playlist">Playlist</div>
+<div class="tab" data-tab="queue">Queue</div>
+</div>
+<div style="padding:8px 12px"><input id="search-input" placeholder="Search tracks..."></div>
+<div class="content" id="playlist-list"></div>
+</div>
+</div>
+<div id="player-bar">
+<div id="seek-row">
+<span class="time" id="time-cur">0:00</span>
+<div class="slider-wrap" id="seek-bar"><div class="fill" id="seek-fill" style="width:0%"></div></div>
+<span class="time" id="time-dur">0:00</span>
+</div>
+<div id="controls-row">
+<div class="left">
+<div id="now-playing"><div class="np-art" id="np-art">🎵</div><div class="np-info"><div class="np-title" id="np-title">No track loaded</div><div class="np-artist" id="np-artist">Drop or add audio files</div></div></div>
+</div>
+<div class="center">
+<div class="icon-btn" id="btn-shuffle" title="Shuffle">🔀</div>
+<div class="icon-btn" id="btn-prev" title="Previous">⏮</div>
+<div class="icon-btn" style="width:44px;height:44px;font-size:20px" id="btn-play" title="Play/Pause">▶</div>
+<div class="icon-btn" id="btn-next" title="Next">⏭</div>
+<div class="icon-btn" id="btn-loop" title="Loop">🔁</div>
+</div>
+<div class="right">
+<div class="icon-btn" id="btn-ab" title="A-B Loop" style="font-size:10px;font-weight:700">AB</div>
+<div class="vol-wrap"><span style="font-size:14px">🔊</span><div class="slider-wrap" id="vol-bar"><div class="fill" id="vol-fill" style="width:80%"></div></div></div>
+<select id="speed-sel" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select>
+</div>
+</div>
+</div>
+</div>
+
+<div id="fx-panel">
+<h3>Audio Effects</h3>
+<div class="fx-group">
+<label>5-Band EQ</label>
+<div class="eq-band"><label>60 Hz</label><input type="range" min="-12" max="12" value="0" data-eq="0"><span>0 dB</span></div>
+<div class="eq-band"><label>230 Hz</label><input type="range" min="-12" max="12" value="0" data-eq="1"><span>0 dB</span></div>
+<div class="eq-band"><label>910 Hz</label><input type="range" min="-12" max="12" value="0" data-eq="2"><span>0 dB</span></div>
+<div class="eq-band"><label>3.6 kHz</label><input type="range" min="-12" max="12" value="0" data-eq="3"><span>0 dB</span></div>
+<div class="eq-band"><label>14 kHz</label><input type="range" min="-12" max="12" value="0" data-eq="4"><span>0 dB</span></div>
+</div>
+<div class="fx-group">
+<label>Reverb <span id="reverb-val">0%</span></label>
+<input type="range" id="reverb-slider" min="0" max="100" value="0">
+</div>
+<div class="fx-group">
+<label>Distortion <span id="dist-val">0%</span></label>
+<input type="range" id="dist-slider" min="0" max="100" value="0">
+</div>
+<div class="fx-group">
+<label>Compressor Threshold <span id="comp-val">-24 dB</span></label>
+<input type="range" id="comp-slider" min="-100" max="0" value="-24">
+</div>
+<div class="fx-group">
+<label>Stereo Pan <span id="pan-val">0</span></label>
+<input type="range" id="pan-slider" min="-100" max="100" value="0">
+</div>
+<div class="fx-group">
+<label>Crossfade <span id="xfade-val">2s</span></label>
+<input type="range" id="xfade-slider" min="0" max="10" value="2">
+</div>
+</div>
+
+<div id="scene-panel">
+<div class="scene-card active" data-scene="neon"><div class="icon">🌃</div><div class="label">Neon City</div></div>
+<div class="scene-card" data-scene="space"><div class="icon">🌌</div><div class="label">Space</div></div>
+<div class="scene-card" data-scene="ocean"><div class="icon">🌊</div><div class="label">Ocean</div></div>
+<div class="scene-card" data-scene="forest"><div class="icon">🌲</div><div class="label">Forest</div></div>
+<div class="scene-card" data-scene="fire"><div class="icon">🔥</div><div class="label">Inferno</div></div>
+<div class="scene-card" data-scene="crystal"><div class="icon">💎</div><div class="label">Crystal</div></div>
+</div>
+
+<div id="keys-panel">
+<h3>Keyboard Shortcuts</h3>
+<div class="key-row"><span>Play / Pause</span><span class="key">Space</span></div>
+<div class="key-row"><span>Next Track</span><span class="key">N</span></div>
+<div class="key-row"><span>Previous Track</span><span class="key">P</span></div>
+<div class="key-row"><span>Volume Up</span><span class="key">↑</span></div>
+<div class="key-row"><span>Volume Down</span><span class="key">↓</span></div>
+<div class="key-row"><span>Seek Forward 5s</span><span class="key">→</span></div>
+<div class="key-row"><span>Seek Back 5s</span><span class="key">←</span></div>
+<div class="key-row"><span>Toggle Shuffle</span><span class="key">S</span></div>
+<div class="key-row"><span>Toggle Loop</span><span class="key">L</span></div>
+<div class="key-row"><span>Toggle Sidebar</span><span class="key">Tab</span></div>
+<div class="key-row"><span>Toggle Effects</span><span class="key">E</span></div>
+<div class="key-row"><span>Toggle Scenes</span><span class="key">V</span></div>
+<div class="key-row"><span>Toggle Auto-Orbit</span><span class="key">O</span></div>
+<div class="key-row"><span>Set A-B Loop Points</span><span class="key">A</span></div>
+<div class="key-row"><span>Speed Up</span><span class="key">]</span></div>
+<div class="key-row"><span>Slow Down</span><span class="key">[</span></div>
+<div class="key-row"><span>Mute / Unmute</span><span class="key">M</span></div>
+<div class="key-row"><span>Shortcuts Panel</span><span class="key">?</span></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ===== UTILITY ===== */
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const fmt=t=>{if(isNaN(t)||!isFinite(t))return'0:00';const m=Math.floor(t/60),s=Math.floor(t%60);return m+':'+String(s).padStart(2,'0')};
+function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2000)}
+
+/* ===== STATE ===== */
+const state={
+  playlist:[],queue:[],currentIdx:-1,playing:false,shuffle:false,loop:0,
+  volume:0.8,speed:1,abA:null,abB:null,abActive:false,
+  scene:'neon',autoOrbit:true,sidebarOpen:true,fxOpen:false,sceneOpen:false,keysOpen:false,
+  activeTab:'playlist',crossfade:2,
+  cam:{theta:0.5,phi:0.4,dist:6,target:[0,0,0],autoTheta:0},
+  settings:{}
+};
+
+function saveState(){
+  try{
+    const s={volume:state.volume,speed:state.speed,scene:state.scene,loop:state.loop,shuffle:state.shuffle,crossfade:state.crossfade,autoOrbit:state.autoOrbit,sidebarOpen:state.sidebarOpen};
+    localStorage.setItem('sonicverse_settings',JSON.stringify(s));
+    const pl=state.playlist.map(t=>({name:t.name,artist:t.artist,duration:t.duration}));
+    localStorage.setItem('sonicverse_playlist',JSON.stringify(pl));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const s=JSON.parse(localStorage.getItem('sonicverse_settings'));
+    if(s){Object.assign(state,s);$('#vol-fill').style.width=(state.volume*100)+'%';$('#speed-sel').value=state.speed}
+    const pl=JSON.parse(localStorage.getItem('sonicverse_playlist'));
+    if(pl&&pl.length){}  // metadata only, files need re-adding
+  }catch(e){}
+}
+
+/* ===== WEB AUDIO ===== */
+let audioCtx,analyser,gainNode,pannerNode,eqNodes=[],distNode,compNode,convolverNode,dryGain,wetGain,sourceNode,currentAudioEl;
+const FFT_SIZE=2048;
+let freqData,timeData;
+
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  analyser=audioCtx.createAnalyser();
+  analyser.fftSize=FFT_SIZE;
+  analyser.smoothingTimeConstant=0.82;
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  timeData=new Uint8Array(analyser.fftSize);
+
+  // EQ: 5-band
+  const freqs=[60,230,910,3600,14000];
+  const types=['lowshelf','peaking','peaking','peaking','highshelf'];
+  eqNodes=freqs.map((f,i)=>{const n=audioCtx.createBiquadFilter();n.type=types[i];n.frequency.value=f;n.gain.value=0;n.Q&&(n.Q.value=1);return n});
+
+  gainNode=audioCtx.createGain();gainNode.gain.value=state.volume;
+  pannerNode=audioCtx.createStereoPanner();pannerNode.pan.value=0;
+  distNode=audioCtx.createWaveShaper();distNode.curve=makeDistCurve(0);distNode.oversample='4x';
+  compNode=audioCtx.createDynamicsCompressor();compNode.threshold.value=-24;compNode.knee.value=30;compNode.ratio.value=12;compNode.attack.value=0.003;compNode.release.value=0.25;
+
+  // Reverb convolver
+  convolverNode=audioCtx.createConvolver();
+  dryGain=audioCtx.createGain();dryGain.gain.value=1;
+  wetGain=audioCtx.createGain();wetGain.gain.value=0;
+  generateImpulse();
+
+  // Chain: source -> eq0 -> eq1 -> eq2 -> eq3 -> eq4 -> dist -> comp -> gain -> panner -> [dry+wet] -> analyser -> dest
+}
+
+function generateImpulse(){
+  const rate=audioCtx?audioCtx.sampleRate:44100;
+  const len=rate*3;
+  const buf=audioCtx.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++){d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5)}
+  }
+  convolverNode.buffer=buf;
+}
+
+function makeDistCurve(amount){
+  const n=44100,curve=new Float32Array(n);
+  const k=amount*100;
+  for(let i=0;i<n;i++){const x=i*2/n-1;curve[i]=k>0?(3+k)*x*20*(Math.PI/180)/(Math.PI+k*Math.abs(x)):x}
+  return curve;
+}
+
+function connectSource(audioEl){
+  if(sourceNode){try{sourceNode.disconnect()}catch(e){}}
+  sourceNode=audioCtx.createMediaElementSource(audioEl);
+  let chain=sourceNode;
+  eqNodes.forEach(n=>{chain.connect(n);chain=n});
+  chain.connect(distNode);distNode.connect(compNode);compNode.connect(gainNode);gainNode.connect(pannerNode);
+  // Split dry/wet for reverb
+  pannerNode.connect(dryGain);
+  pannerNode.connect(convolverNode);convolverNode.connect(wetGain);
+  dryGain.connect(analyser);wetGain.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+/* ===== FILE HANDLING ===== */
+function addFiles(files){
+  initAudio();
+  const newTracks=[];
+  Array.from(files).forEach(f=>{
+    if(!f.type.startsWith('audio/')&&!f.name.match(/\.(mp3|wav|ogg|flac|aac|m4a|webm)$/i))return;
+    const url=URL.createObjectURL(f);
+    const name=f.name.replace(/\.[^.]+$/,'');
+    const track={id:Date.now()+Math.random(),name,artist:'Unknown',url,file:f,duration:0,artUrl:null};
+    // Try to get duration
+    const tmp=new Audio();tmp.src=url;
+    tmp.addEventListener('loadedmetadata',()=>{track.duration=tmp.duration;renderPlaylist()});
+    // Try ID3 art extraction
+    extractArt(f,track);
+    newTracks.push(track);
+    state.playlist.push(track);
+  });
+  renderPlaylist();saveState();
+  if(newTracks.length)toast(newTracks.length+' track(s) added');
+  if(state.currentIdx===-1&&state.playlist.length>0){state.currentIdx=0;loadTrack(0)}
+}
+
+function extractArt(file,track){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const buf=new Uint8Array(e.target.result);
+    // Simple ID3v2 APIC extraction
+    if(buf[0]===0x49&&buf[1]===0x44&&buf[2]===0x33){
+      const sz=((buf[6]&0x7f)<<21)|((buf[7]&0x7f)<<14)|((buf[8]&0x7f)<<7)|(buf[9]&0x7f);
+      let pos=10;
+      if(buf[5]&0x40)pos+=((buf[pos]<<24)|(buf[pos+1]<<16)|(buf[pos+2]<<8)|buf[pos+3])+4;
+      while(pos<sz+10&&pos<buf.length-10){
+        const fid=String.fromCharCode(buf[pos],buf[pos+1],buf[pos+2],buf[pos+3]);
+        const fsz=(buf[pos+4]<<24)|(buf[pos+5]<<16)|(buf[pos+6]<<8)|buf[pos+7];
+        if(fsz<=0||pos+10+fsz>buf.length)break;
+        if(fid==='APIC'){
+          let dp=pos+10;
+          const enc=buf[dp++];
+          let mime='';while(buf[dp]!==0&&dp<pos+10+fsz)mime+=String.fromCharCode(buf[dp++]);dp++;
+          dp++;// pic type
+          while(buf[dp]!==0&&dp<pos+10+fsz)dp++;dp++;// description
+          if(enc===1||enc===2){while(!(buf[dp]===0&&buf[dp+1]===0)&&dp<pos+10+fsz)dp+=2;dp+=2}
+          const imgData=buf.slice(dp,pos+10+fsz);
+          if(imgData.length>100){
+            const blob=new Blob([imgData],{type:mime||'image/jpeg'});
+            track.artUrl=URL.createObjectURL(blob);
+            renderPlaylist();updateNowPlaying();
+          }
+          break;
+        }
+        pos+=10+fsz;
+      }
+      // Also try to get title/artist from ID3
+      pos=10;
+      while(pos<sz+10&&pos<buf.length-10){
+        const fid=String.fromCharCode(buf[pos],buf[pos+1],buf[pos+2],buf[pos+3]);
+        const fsz=(buf[pos+4]<<24)|(buf[pos+5]<<16)|(buf[pos+6]<<8)|buf[pos+7];
+        if(fsz<=0||pos+10+fsz>buf.length)break;
+        if(fid==='TIT2'||fid==='TPE1'){
+          let dp=pos+10;
+          const enc=buf[dp++];
+          let txt='';
+          if(enc===0||enc===3){for(let i=dp;i<pos+10+fsz;i++){if(buf[i]>0)txt+=String.fromCharCode(buf[i])}}
+          else if(enc===1||enc===2){dp+=2;for(let i=dp;i<pos+10+fsz-1;i+=2){const c=(buf[i]<<8)|buf[i+1];if(c>0)txt+=String.fromCharCode(c)}}
+          if(txt.trim()){
+            if(fid==='TIT2')track.name=txt.trim();
+            else track.artist=txt.trim();
+            renderPlaylist();updateNowPlaying();
+          }
+        }
+        pos+=10+fsz;
+      }
+    }
+  };
+  reader.readAsArrayBuffer(file.slice(0,Math.min(file.size,512000)));
+}
+
+/* ===== PLAYBACK ===== */
+function loadTrack(idx){
+  if(idx<0||idx>=state.playlist.length)return;
+  const track=state.playlist[idx];
+  state.currentIdx=idx;
+  if(currentAudioEl){currentAudioEl.pause();currentAudioEl.src=''}
+  currentAudioEl=new Audio();
+  currentAudioEl.crossOrigin='anonymous';
+  currentAudioEl.src=track.url;
+  currentAudioEl.playbackRate=state.speed;
+  currentAudioEl.addEventListener('ended',onTrackEnd);
+  currentAudioEl.addEventListener('loadedmetadata',()=>{track.duration=currentAudioEl.duration;renderPlaylist()});
+  initAudio();
+  connectSource(currentAudioEl);
+  updateNowPlaying();renderPlaylist();
+  if(state.playing)currentAudioEl.play().catch(()=>{});
+}
+
+function togglePlay(){
+  if(!currentAudioEl||state.playlist.length===0)return;
+  initAudio();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  if(state.playing){currentAudioEl.pause();state.playing=false;$('#btn-play').textContent='▶'}
+  else{currentAudioEl.play().catch(()=>{});state.playing=true;$('#btn-play').textContent='⏸'}
+}
+
+function onTrackEnd(){
+  state.abA=null;state.abB=null;state.abActive=false;$('#btn-ab').classList.remove('active');
+  removeABMarkers();
+  if(state.loop===2){currentAudioEl.currentTime=0;currentAudioEl.play();return}
+  playNext();
+}
+
+function playNext(){
+  if(state.playlist.length===0)return;
+  let next;
+  if(state.shuffle){next=Math.floor(Math.random()*state.playlist.length)}
+  else{next=(state.currentIdx+1)%state.playlist.length}
+  if(next===state.currentIdx&&state.loop===0&&!state.shuffle&&state.playlist.length>1){next=(next+1)%state.playlist.length}
+  if(next===0&&state.loop===0&&!state.shuffle){state.playing=false;$('#btn-play').textContent='▶';return}
+  state.playing=true;$('#btn-play').textContent='⏸';
+  loadTrack(next);
+  if(state.playing)currentAudioEl.play().catch(()=>{});
+}
+
+function playPrev(){
+  if(state.playlist.length===0)return;
+  if(currentAudioEl&&currentAudioEl.currentTime>3){currentAudioEl.currentTime=0;return}
+  let prev=state.currentIdx-1;if(prev<0)prev=state.playlist.length-1;
+  state.playing=true;$('#btn-play').textContent='⏸';
+  loadTrack(prev);currentAudioEl.play().catch(()=>{});
+}
+
+function updateNowPlaying(){
+  const track=state.playlist[state.currentIdx];
+  if(!track){$('#np-title').textContent='No track loaded';$('#np-artist').textContent='Drop or add audio files';$('#np-art').innerHTML='🎵';return}
+  $('#np-title').textContent=track.name;
+  $('#np-artist').textContent=track.artist;
+  if(track.artUrl){$('#np-art').innerHTML='<img src="'+track.artUrl+'">';} else {$('#np-art').innerHTML='🎵'}
+}
+
+/* ===== A-B LOOP ===== */
+function toggleAB(){
+  if(!currentAudioEl)return;
+  if(!state.abActive&&state.abA===null){state.abA=currentAudioEl.currentTime;toast('A point set: '+fmt(state.abA));showABMarker('a',state.abA,currentAudioEl.duration);return}
+  if(!state.abActive&&state.abA!==null&&state.abB===null){state.abB=currentAudioEl.currentTime;if(state.abB<state.abA){let t=state.abA;state.abA=state.abB;state.abB=t}state.abActive=true;$('#btn-ab').classList.add('active');toast('A-B Loop: '+fmt(state.abA)+' → '+fmt(state.abB));showABMarker('b',state.abB,currentAudioEl.duration);return}
+  state.abA=null;state.abB=null;state.abActive=false;$('#btn-ab').classList.remove('active');removeABMarkers();toast('A-B Loop cleared');
+}
+function showABMarker(which,time,dur){
+  const pct=(time/dur)*100;
+  const m=document.createElement('div');m.className='ab-marker';m.id='ab-'+which;m.style.left=pct+'%';
+  $('#seek-bar').appendChild(m);
+}
+function removeABMarkers(){const a=$('#ab-a'),b=$('#ab-b');if(a)a.remove();if(b)b.remove()}
+
+/* ===== PLAYLIST UI ===== */
+function renderPlaylist(){
+  const list=$('#playlist-list');list.innerHTML='';
+  const filter=$('#search-input').value.toLowerCase();
+  const src=state.activeTab==='queue'?state.queue:state.playlist;
+  src.forEach((t,i)=>{
+    if(filter&&!t.name.toLowerCase().includes(filter)&&!t.artist.toLowerCase().includes(filter))return;
+    const el=document.createElement('div');el.className='playlist-item'+(state.activeTab==='playlist'&&i===state.currentIdx?' active':'');
+    el.draggable=true;
+    el.innerHTML=`<div class="art">${t.artUrl?'<img src="'+t.artUrl+'">':'🎵'}</div><div class="info"><div class="name">${t.name}</div><div class="meta">${t.artist}</div></div><div class="dur">${fmt(t.duration)}</div>`;
+    el.addEventListener('click',()=>{
+      if(state.activeTab==='queue'){
+        const qi=state.playlist.findIndex(p=>p.id===t.id);
+        if(qi>=0){state.playing=true;$('#btn-play').textContent='⏸';loadTrack(qi);currentAudioEl.play().catch(()=>{});}
+        state.queue.splice(i,1);renderPlaylist();
+      } else {
+        state.playing=true;$('#btn-play').textContent='⏸';loadTrack(i);currentAudioEl.play().catch(()=>{});
+      }
+    });
+    // Drag reorder
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',i);el.style.opacity='0.4'});
+    el.addEventListener('dragend',()=>{el.style.opacity='1'});
+    el.addEventListener('dragover',e=>{e.preventDefault();el.style.borderTop='2px solid var(--accent)'});
+    el.addEventListener('dragleave',()=>{el.style.borderTop=''});
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.style.borderTop='';
+      const from=parseInt(e.dataTransfer.getData('text/plain'));
+      const arr=state.activeTab==='queue'?state.queue:state.playlist;
+      if(from===i||isNaN(from))return;
+      const item=arr.splice(from,1)[0];
+      arr.splice(i,0,item);
+      if(state.activeTab==='playlist'){
+        if(state.currentIdx===from)state.currentIdx=i;
+        else if(from<state.currentIdx&&i>=state.currentIdx)state.currentIdx--;
+        else if(from>state.currentIdx&&i<=state.currentIdx)state.currentIdx++;
+      }
+      renderPlaylist();
+    });
+    list.appendChild(el);
+  });
+}
+
+/* ===== FX CONTROLS ===== */
+
+$$('[data-eq]').forEach(inp=>{
+  inp.addEventListener('input',()=>{
+    const idx=parseInt(inp.dataset.eq);
+    const val=parseFloat(inp.value);
+    inp.nextElementSibling.textContent=val+' dB';
+    if(eqNodes[idx])eqNodes[idx].gain.value=val;
+  });
+});
+$('#reverb-slider').addEventListener('input',e=>{
+  const v=e.target.value/100;
+  $('#reverb-val').textContent=Math.round(v*100)+'%';
+  if(wetGain)wetGain.gain.value=v;
+  if(dryGain)dryGain.gain.value=1-v*0.5;
+});
+$('#dist-slider').addEventListener('input',e=>{
+  const v=e.target.value/100;
+  $('#dist-val').textContent=Math.round(v*100)+'%';
+  if(distNode)distNode.curve=makeDistCurve(v);
+});
+$('#comp-slider').addEventListener('input',e=>{
+  const v=parseFloat(e.target.value);
+  $('#comp-val').textContent=v+' dB';
+  if(compNode)compNode.threshold.value=v;
+});
+$('#pan-slider').addEventListener('input',e=>{
+  const v=e.target.value/100;
+  $('#pan-val').textContent=v.toFixed(2);
+  if(pannerNode)pannerNode.pan.value=v;
+});
+$('#xfade-slider').addEventListener('input',e=>{
+  state.crossfade=parseInt(e.target.value);
+  $('#xfade-val').textContent=state.crossfade+'s';
+});
+
+/* ===== EVENTS ===== */
+$('#btn-add').onclick=()=>$('#file-input').click();
+$('#file-input').onchange=e=>addFiles(e.target.files);
+$('#btn-play').onclick=()=>{initAudio();togglePlay()};
+$('#btn-next').onclick=playNext;
+$('#btn-prev').onclick=playPrev;
+$('#btn-shuffle').onclick=()=>{state.shuffle=!state.shuffle;$('#btn-shuffle').classList.toggle('active');toast('Shuffle '+(state.shuffle?'ON':'OFF'));saveState()};
+$('#btn-loop').onclick=()=>{state.loop=(state.loop+1)%3;const labels=['Off','All','One'];$('#btn-loop').textContent=['🔁','🔁','🔂'][state.loop];$('#btn-loop').classList.toggle('active',state.loop>0);toast('Loop: '+labels[state.loop]);saveState()};
+$('#btn-ab').onclick=toggleAB;
+$('#btn-sidebar').onclick=()=>{state.sidebarOpen=!state.sidebarOpen;$('#sidebar').classList.toggle('hidden');saveState()};
+$('#btn-fx').onclick=()=>{state.fxOpen=!state.fxOpen;$('#fx-panel').classList.toggle('show');$('#scene-panel').classList.remove('show');$('#keys-panel').classList.remove('show')};
+$('#btn-scene').onclick=()=>{state.sceneOpen=!state.sceneOpen;$('#scene-panel').classList.toggle('show');$('#fx-panel').classList.remove('show');$('#keys-panel').classList.remove('show')};
+$('#btn-keys').onclick=()=>{state.keysOpen=!state.keysOpen;$('#keys-panel').classList.toggle('show');$('#fx-panel').classList.remove('show');$('#scene-panel').classList.remove('show')};
+$('#btn-orbit').onclick=()=>{state.autoOrbit=!state.autoOrbit;$('#btn-orbit').classList.toggle('active');toast('Auto Orbit '+(state.autoOrbit?'ON':'OFF'))};
+$('#speed-sel').onchange=e=>{state.speed=parseFloat(e.target.value);if(currentAudioEl)currentAudioEl.playbackRate=state.speed;saveState()};
+$('#search-input').oninput=renderPlaylist;
+
+
+$$('#sidebar .stab .tab').forEach(t=>{
+  t.onclick=()=>{$$('#sidebar .stab .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');state.activeTab=t.dataset.tab;renderPlaylist()};
+});
+
+
+$$('.scene-card').forEach(c=>{
+  c.onclick=()=>{$$('.scene-card').forEach(x=>x.classList.remove('active'));c.classList.add('active');state.scene=c.dataset.scene;saveState()};
+});
+
+// Seek bar
+$('#seek-bar').addEventListener('click',e=>{
+  if(!currentAudioEl)return;
+  const r=$('#seek-bar').getBoundingClientRect();
+  const pct=clamp((e.clientX-r.left)/r.width,0,1);
+  currentAudioEl.currentTime=pct*currentAudioEl.duration;
+});
+// Volume bar
+$('#vol-bar').addEventListener('click',e=>{
+  const r=$('#vol-bar').getBoundingClientRect();
+  state.volume=clamp((e.clientX-r.left)/r.width,0,1);
+  $('#vol-fill').style.width=(state.volume*100)+'%';
+  if(gainNode)gainNode.gain.value=state.volume;
+  saveState();
+});
+
+// Drag and drop
+document.addEventListener('dragover',e=>{e.preventDefault();$('#drop-zone').classList.add('show')});
+document.addEventListener('dragleave',e=>{if(e.relatedTarget===null)$('#drop-zone').classList.remove('show')});
+$('#drop-zone').addEventListener('dragover',e=>e.preventDefault());
+$('#drop-zone').addEventListener('drop',e=>{e.preventDefault();$('#drop-zone').classList.remove('show');addFiles(e.dataTransfer.files)});
+document.addEventListener('drop',e=>{e.preventDefault();$('#drop-zone').classList.remove('show')});
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  const k=e.key.toLowerCase();
+  if(k===' '){e.preventDefault();initAudio();togglePlay()}
+  else if(k==='n')playNext();
+  else if(k==='p')playPrev();
+  else if(k==='arrowup'){e.preventDefault();state.volume=clamp(state.volume+0.05,0,1);$('#vol-fill').style.width=(state.volume*100)+'%';if(gainNode)gainNode.gain.value=state.volume}
+  else if(k==='arrowdown'){e.preventDefault();state.volume=clamp(state.volume-0.05,0,1);$('#vol-fill').style.width=(state.volume*100)+'%';if(gainNode)gainNode.gain.value=state.volume}
+  else if(k==='arrowright'&&currentAudioEl){currentAudioEl.currentTime=Math.min(currentAudioEl.duration,currentAudioEl.currentTime+5)}
+  else if(k==='arrowleft'&&currentAudioEl){currentAudioEl.currentTime=Math.max(0,currentAudioEl.currentTime-5)}
+  else if(k==='s'){$('#btn-shuffle').click()}
+  else if(k==='l'){$('#btn-loop').click()}
+  else if(k==='tab'){e.preventDefault();$('#btn-sidebar').click()}
+  else if(k==='e'){$('#btn-fx').click()}
+  else if(k==='v'){$('#btn-scene').click()}
+  else if(k==='o'){$('#btn-orbit').click()}
+  else if(k==='a'){toggleAB()}
+  else if(k==='m'){state.volume=state.volume>0?0:0.8;$('#vol-fill').style.width=(state.volume*100)+'%';if(gainNode)gainNode.gain.value=state.volume}
+  else if(k===']'){
+    const speeds=[0.25,0.5,0.75,1,1.25,1.5,2,3,4];
+    const ci=speeds.indexOf(state.speed);
+    if(ci<speeds.length-1){state.speed=speeds[ci+1];$('#speed-sel').value=state.speed;if(currentAudioEl)currentAudioEl.playbackRate=state.speed;toast('Speed: '+state.speed+'×')}
+  }
+  else if(k==='['){
+    const speeds=[0.25,0.5,0.75,1,1.25,1.5,2,3,4];
+    const ci=speeds.indexOf(state.speed);
+    if(ci>0){state.speed=speeds[ci-1];$('#speed-sel').value=state.speed;if(currentAudioEl)currentAudioEl.playbackRate=state.speed;toast('Speed: '+state.speed+'×')}
+  }
+  else if(k==='?'||k==='/'){$('#btn-keys').click()}
+});
+
+/* ===== WebGL 3D ENGINE ===== */
+const canvas=$('#gl');
+const gl=canvas.getContext('webgl2',{antialias:true,alpha:false});
+let W,H;
+
+function resize(){
+  W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;
+  gl.viewport(0,0,W,H);
+}
+window.addEventListener('resize',resize);resize();
+
+// Shader compilation
+function compileShader(src,type){
+  const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));gl.deleteShader(s);return null}
+  return s;
+}
+function createProgram(vs,fs){
+  const p=gl.createProgram();gl.attachShader(p,compileShader(vs,gl.VERTEX_SHADER));gl.attachShader(p,compileShader(fs,gl.FRAGMENT_SHADER));
+  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){console.error(gl.getProgramInfoLog(p));return null}
+  return p;
+}
+
+// Matrix utilities
+function mat4(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])}
+function mat4Perspective(fov,asp,near,far){
+  const f=1/Math.tan(fov/2),nf=1/(near-far);
+  return new Float32Array([f/asp,0,0,0,0,f,0,0,0,0,(far+near)*nf,-1,0,0,2*far*near*nf,0]);
+}
+function mat4LookAt(eye,center,up){
+  let zx=eye[0]-center[0],zy=eye[1]-center[1],zz=eye[2]-center[2];
+  let l=1/Math.sqrt(zx*zx+zy*zy+zz*zz);zx*=l;zy*=l;zz*=l;
+  let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx;
+  l=Math.sqrt(xx*xx+xy*xy+xz*xz);if(l){l=1/l;xx*=l;xy*=l;xz*=l}
+  let yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;
+  return new Float32Array([xx,yx,zx,0,xy,yy,zy,0,xz,yz,zz,0,-(xx*eye[0]+xy*eye[1]+xz*eye[2]),-(yx*eye[0]+yy*eye[1]+yz*eye[2]),-(zx*eye[0]+zy*eye[1]+zz*eye[2]),1]);
+}
+function mat4Mul(a,b){
+  const o=new Float32Array(16);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s;}return o;
+}
+function mat4RotY(a){const c=Math.cos(a),s=Math.sin(a);const m=mat4();m[0]=c;m[2]=-s;m[8]=s;m[10]=c;return m}
+function mat4RotX(a){const c=Math.cos(a),s=Math.sin(a);const m=mat4();m[5]=c;m[6]=s;m[9]=-s;m[10]=c;return m}
+function mat4Trans(x,y,z){const m=mat4();m[12]=x;m[13]=y;m[14]=z;return m}
+function mat4Scale(x,y,z){const m=mat4();m[0]=x;m[5]=y;m[10]=z;return m}
+
+// Full-screen quad shader for raymarched background + visualizer
+const bgVS=`#version 300 es
+in vec2 a_pos;out vec2 v_uv;void main(){v_uv=a_pos*0.5+0.5;gl_Position=vec4(a_pos,0,1);}`;
+
+const bgFS=`#version 300 es
+precision highp float;
+in vec2 v_uv;out vec4 fragColor;
+uniform float u_time;
+uniform int u_scene;
+uniform float u_bass;
+uniform float u_mid;
+uniform float u_high;
+uniform float u_energy;
+uniform vec2 u_res;
+
+#define PI 3.14159265
+
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float v=0.0,a=0.5;for(int i=0;i<5;i++){v+=a*noise(p);p*=2.0;a*=0.5;}return v;}
+
+vec3 neonCity(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=vec3(0.02,0.01,0.05);
+  // Grid floor
+  float gy=0.3/(abs(p.y+0.4)+0.01);
+  float gz=mod(p.x*8.0-t*2.0,1.0);gz=smoothstep(0.02,0.0,abs(gz-0.5)-0.48)*0.3;
+  col+=vec3(0.0,gz*gy*0.4,gz*gy*0.8)*step(0.0,-p.y-0.1);
+  // Buildings
+  for(float i=0.0;i<12.0;i++){
+    float bx=hash(vec2(i,1.0))*2.0-1.0;
+    float bh=hash(vec2(i,2.0))*0.6+0.2+u_bass*0.2;
+    float bw=0.04+hash(vec2(i,3.0))*0.05;
+    if(abs(p.x-bx)<bw&&p.y<bh-0.3&&p.y>-0.3){
+      col=vec3(0.03,0.02,0.06);
+      float wy=mod(p.y*20.0,1.0);float wx=mod((p.x-bx+bw)*25.0,1.0);
+      if(wy>0.3&&wy<0.8&&wx>0.2&&wx<0.8){
+        float lit=hash(vec2(i,floor(p.y*20.0)+floor((p.x-bx+bw)*25.0)));
+        if(lit>0.4)col+=vec3(1.0,0.8,0.3)*0.15*(0.5+0.5*sin(t+lit*10.0));
+      }
+    }
+  }
+  // Neon glow
+  col+=vec3(0.0,0.3,1.0)*u_energy*0.15*exp(-length(p-vec2(0.0,0.2))*2.0);
+  col+=vec3(1.0,0.0,0.4)*u_bass*0.2*exp(-length(p-vec2(-0.5,0.0))*3.0);
+  // Stars
+  float stars=pow(hash(floor(uv*300.0)),20.0)*step(0.0,p.y+0.1);
+  col+=stars*0.5;
+  return col;
+}
+
+vec3 space(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=vec3(0.005,0.005,0.02);
+  // Stars
+  for(float i=1.0;i<4.0;i++){
+    vec2 sp=p*100.0*i;
+    float star=pow(hash(floor(sp)),22.0-i*2.0);
+    col+=star*(0.5+0.5*sin(t*0.5+hash(floor(sp))*6.28))*vec3(0.8,0.9,1.0);
+  }
+  // Nebula
+  float n=fbm(p*2.0+t*0.1)*fbm(p*3.0-t*0.05);
+  col+=vec3(0.4,0.1,0.6)*n*0.3*(1.0+u_energy*0.5);
+  col+=vec3(0.1,0.3,0.6)*fbm(p*1.5+vec2(t*0.05,0.0))*0.2;
+  // Central orb
+  float d=length(p);
+  float orb=0.06/(d+0.01)*(0.5+u_bass*0.5);
+  col+=vec3(0.3,0.5,1.0)*orb*0.1;
+  col+=vec3(1.0,0.5,0.2)*(0.02/(d*d+0.01))*u_mid*0.3;
+  return col;
+}
+
+vec3 ocean(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=vec3(0.0);
+  float horizon=0.0;
+  if(p.y>horizon){
+    // Sky
+    col=mix(vec3(0.7,0.4,0.2),vec3(0.1,0.1,0.3),uv.y);
+    float sun=0.04/(length(p-vec2(0.0,0.4))+0.01);
+    col+=vec3(1.0,0.6,0.2)*sun*0.05;
+  }else{
+    // Water
+    float wave=sin(p.x*6.0+t*1.5)*0.02+sin(p.x*15.0-t*2.5)*0.008;
+    wave+=u_bass*sin(p.x*3.0+t)*0.03;
+    float wy=p.y-wave;
+    col=mix(vec3(0.0,0.15,0.3),vec3(0.0,0.05,0.15),clamp(-wy*3.0,0.0,1.0));
+    // Reflection
+    float ref=0.03/(abs(wy)+0.01);
+    col+=vec3(1.0,0.5,0.2)*ref*0.02;
+    // Foam
+    float foam=smoothstep(0.0,0.01,abs(wy)-abs(sin(p.x*20.0+t*3.0)*0.005));
+    col+=vec3(0.5,0.7,0.8)*(1.0-foam)*0.1*step(abs(wy),0.02);
+  }
+  col+=vec3(0.0,0.2,0.4)*u_energy*0.1;
+  return col;
+}
+
+vec3 forest(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=mix(vec3(0.02,0.05,0.02),vec3(0.01,0.02,0.05),uv.y);
+  // Trees
+  for(float i=0.0;i<15.0;i++){
+    float tx=hash(vec2(i,0.0))*3.0-1.5;
+    float th=hash(vec2(i,1.0))*0.5+0.3;
+    float tw=0.015+hash(vec2(i,2.0))*0.01;
+    if(abs(p.x-tx)<tw&&p.y>-0.5&&p.y<th-0.5){col=vec3(0.15,0.08,0.03);}
+    // Canopy
+    float cd=length(vec2(p.x-tx,p.y-th+0.5)*vec2(1.0,2.0));
+    float canopy=smoothstep(0.15+u_bass*0.05,0.0,cd);
+    col=mix(col,vec3(0.05,0.2+hash(vec2(i,3.0))*0.1,0.05)*(1.0+u_energy*0.3),canopy);
+  }
+  // Fireflies
+  for(float i=0.0;i<20.0;i++){
+    vec2 fp=vec2(hash(vec2(i,10.0))*3.0-1.5,hash(vec2(i,11.0))*1.5-0.8);
+    fp+=vec2(sin(t*0.5+i),cos(t*0.3+i*1.3))*0.1;
+    float fd=length(p-fp);
+    col+=vec3(0.8,1.0,0.3)*(0.002/(fd*fd+0.001))*(0.5+0.5*sin(t*2.0+i));
+  }
+  return col;
+}
+
+vec3 fire(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=vec3(0.02,0.01,0.0);
+  float f=fbm(vec2(p.x*3.0,p.y*2.0-t*2.0))*fbm(vec2(p.x*5.0+1.0,p.y*3.0-t*3.0));
+  f*=smoothstep(0.5,-0.5,p.y)*(1.0+u_energy);
+  col+=vec3(1.0,0.4,0.05)*f*1.5;
+  col+=vec3(1.0,0.8,0.2)*pow(f,3.0)*2.0;
+  col+=vec3(0.5,0.0,0.0)*u_bass*0.3*exp(-length(p)*1.5);
+  // Embers
+  for(float i=0.0;i<10.0;i++){
+    vec2 ep=vec2(hash(vec2(i,20.0))*2.0-1.0,mod(hash(vec2(i,21.0))+t*0.3*(0.5+hash(vec2(i,22.0))),2.0)-1.0);
+    float ed=length(p-ep);
+    col+=vec3(1.0,0.6,0.1)*(0.001/(ed*ed+0.0005));
+  }
+  return col;
+}
+
+vec3 crystal(vec2 uv,float t){
+  vec2 p=(uv-0.5)*2.0;p.x*=u_res.x/u_res.y;
+  vec3 col=vec3(0.02,0.02,0.05);
+  // Rotating crystal pattern
+  float a=atan(p.y,p.x)+t*0.3;
+  float r=length(p);
+  float facets=abs(sin(a*6.0))*0.5+0.5;
+  float ring=abs(sin(r*8.0-t*1.5))*exp(-r*1.5);
+  col+=vec3(0.3,0.6,1.0)*ring*facets*(1.0+u_energy*0.5);
+  col+=vec3(0.8,0.3,1.0)*exp(-r*3.0)*u_bass*0.5;
+  // Prism rays
+  for(float i=0.0;i<6.0;i++){
+    float ra=i*PI/3.0+t*0.2;
+    vec2 rd=vec2(cos(ra),sin(ra));
+    float ray=pow(max(dot(normalize(p),rd),0.0),50.0)*exp(-r*0.5);
+    col+=vec3(0.5+0.5*sin(i+t),0.5+0.5*sin(i*1.5+t),0.5+0.5*sin(i*2.0+t))*ray*0.5*(1.0+u_high*0.5);
+  }
+  // Sparkles
+  float sp=pow(hash(floor(uv*200.0+t*0.5)),25.0);
+  col+=sp*vec3(1.0);
+  return col;
+}
+
+void main(){
+  vec3 col;
+  if(u_scene==0) col=neonCity(v_uv,u_time);
+  else if(u_scene==1) col=space(v_uv,u_time);
+  else if(u_scene==2) col=ocean(v_uv,u_time);
+  else if(u_scene==3) col=forest(v_uv,u_time);
+  else if(u_scene==4) col=fire(v_uv,u_time);
+  else col=crystal(v_uv,u_time);
+  // Vignette
+  vec2 vc=v_uv-0.5;col*=1.0-dot(vc,vc)*0.8;
+  fragColor=vec4(col,1.0);
+}`;
+
+// 3D objects shader
+const objVS=`#version 300 es
+in vec3 a_pos;in vec3 a_norm;in vec2 a_uv;
+uniform mat4 u_mvp;uniform mat4 u_model;uniform mat4 u_normalMat;
+out vec3 v_norm;out vec3 v_pos;out vec2 v_uv;
+void main(){
+  vec4 wp=u_model*vec4(a_pos,1.0);
+  v_pos=wp.xyz;v_norm=mat3(u_normalMat)*a_norm;v_uv=a_uv;
+  gl_Position=u_mvp*vec4(a_pos,1.0);
+}`;
+
+const objFS=`#version 300 es
+precision highp float;
+in vec3 v_norm;in vec3 v_pos;in vec2 v_uv;
+out vec4 fragColor;
+uniform vec3 u_color;uniform float u_emissive;uniform float u_alpha;
+uniform vec3 u_lightDir;uniform vec3 u_camPos;
+void main(){
+  vec3 N=normalize(v_norm);
+  vec3 L=normalize(u_lightDir);
+  float diff=max(dot(N,L),0.0)*0.6+0.4;
+  vec3 V=normalize(u_camPos-v_pos);
+  vec3 H=normalize(L+V);
+  float spec=pow(max(dot(N,H),0.0),32.0)*0.4;
+  vec3 col=u_color*diff+vec3(spec)+u_color*u_emissive;
+  fragColor=vec4(col,u_alpha);
+}`;
+
+// Particle shader
+const partVS=`#version 300 es
+in vec3 a_pos;in float a_size;in vec3 a_color;in float a_alpha;
+uniform mat4 u_vp;uniform float u_pointScale;
+out vec3 v_col;out float v_alpha;
+void main(){
+  v_col=a_color;v_alpha=a_alpha;
+  gl_Position=u_vp*vec4(a_pos,1.0);
+  gl_PointSize=a_size*u_pointScale/gl_Position.w;
+}`;
+
+const partFS=`#version 300 es
+precision highp float;
+in vec3 v_col;in float v_alpha;out vec4 fragColor;
+void main(){
+  vec2 c=gl_PointCoord*2.0-1.0;
+  float d=dot(c,c);if(d>1.0)discard;
+  float a=(1.0-d)*v_alpha;
+  fragColor=vec4(v_col,a);
+}`;
+
+// Compile programs
+const bgProg=createProgram(bgVS,bgFS);
+const objProg=createProgram(objVS,objFS);
+const partProg=createProgram(partVS,partFS);
+
+// Get uniform/attrib locations
+function getUniforms(prog,names){const u={};names.forEach(n=>u[n]=gl.getUniformLocation(prog,n));return u}
+function getAttribs(prog,names){const a={};names.forEach(n=>a[n]=gl.getAttribLocation(prog,n));return a}
+
+const bgU=getUniforms(bgProg,['u_time','u_scene','u_bass','u_mid','u_high','u_energy','u_res']);
+const bgA=getAttribs(bgProg,['a_pos']);
+
+const objU=getUniforms(objProg,['u_mvp','u_model','u_normalMat','u_color','u_emissive','u_alpha','u_lightDir','u_camPos']);
+const objA=getAttribs(objProg,['a_pos','a_norm','a_uv']);
+
+const partU=getUniforms(partProg,['u_vp','u_pointScale']);
+const partA=getAttribs(partProg,['a_pos','a_size','a_color','a_alpha']);
+
+// Full screen quad
+const quadBuf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+
+// Generate meshes
+function genSphere(rings,sectors){
+  const verts=[],norms=[],uvs=[],indices=[];
+  for(let r=0;r<=rings;r++){
+    const phi=Math.PI*r/rings;
+    const sp=Math.sin(phi),cp=Math.cos(phi);
+    for(let s=0;s<=sectors;s++){
+      const theta=2*Math.PI*s/sectors;
+      const st=Math.sin(theta),ct=Math.cos(theta);
+      const x=ct*sp,y=cp,z=st*sp;
+      verts.push(x,y,z);norms.push(x,y,z);uvs.push(s/sectors,r/rings);
+    }
+  }
+  for(let r=0;r<rings;r++){
+    for(let s=0;s<sectors;s++){
+      const a=r*(sectors+1)+s,b=a+sectors+1;
+      indices.push(a,b,a+1,b,b+1,a+1);
+    }
+  }
+  return createMesh(verts,norms,uvs,indices);
+}
+
+function genCylinder(segs,height){
+  const verts=[],norms=[],uvs=[],indices=[];
+  for(let i=0;i<=segs;i++){
+    const a=2*Math.PI*i/segs;
+    const x=Math.cos(a),z=Math.sin(a);
+    verts.push(x,0,z);norms.push(x,0,z);uvs.push(i/segs,0);
+    verts.push(x,height,z);norms.push(x,0,z);uvs.push(i/segs,1);
+  }
+  for(let i=0;i<segs;i++){
+    const a=i*2,b=a+2;
+    indices.push(a,a+1,b,b,a+1,b+1);
+  }
+  return createMesh(verts,norms,uvs,indices);
+}
+
+function genTorus(R,r,rSegs,tSegs){
+  const verts=[],norms=[],uvs=[],indices=[];
+  for(let i=0;i<=rSegs;i++){
+    const u=2*Math.PI*i/rSegs;
+    const cu=Math.cos(u),su=Math.sin(u);
+    for(let j=0;j<=tSegs;j++){
+      const v=2*Math.PI*j/tSegs;
+      const cv=Math.cos(v),sv=Math.sin(v);
+      const x=(R+r*cv)*cu,y=r*sv,z=(R+r*cv)*su;
+      const nx=cv*cu,ny=sv,nz=cv*su;
+      verts.push(x,y,z);norms.push(nx,ny,nz);uvs.push(i/rSegs,j/tSegs);
+    }
+  }
+  for(let i=0;i<rSegs;i++){
+    for(let j=0;j<tSegs;j++){
+      const a=i*(tSegs+1)+j,b=a+tSegs+1;
+      indices.push(a,b,a+1,b,b+1,a+1);
+    }
+  }
+  return createMesh(verts,norms,uvs,indices);
+}
+
+function createMesh(verts,norms,uvs,indices){
+  const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+
+  const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(verts),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(objA.a_pos);gl.vertexAttribPointer(objA.a_pos,3,gl.FLOAT,false,0,0);
+
+  const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(norms),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(objA.a_norm);gl.vertexAttribPointer(objA.a_norm,3,gl.FLOAT,false,0,0);
+
+  const ub=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ub);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(uvs),gl.STATIC_DRAW);
+  if(objA.a_uv>=0){gl.enableVertexAttribArray(objA.a_uv);gl.vertexAttribPointer(objA.a_uv,2,gl.FLOAT,false,0,0);}
+
+  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);
+
+  gl.bindVertexArray(null);
+  return {vao,count:indices.length};
+}
+
+const sphereMesh=genSphere(24,36);
+const cylMesh=genCylinder(24,1);
+const torusMesh=genTorus(1,0.3,32,16);
+
+// Particles
+const MAX_PARTICLES=5000;
+const pPos=new Float32Array(MAX_PARTICLES*3);
+const pSize=new Float32Array(MAX_PARTICLES);
+const pColor=new Float32Array(MAX_PARTICLES*3);
+const pAlpha=new Float32Array(MAX_PARTICLES);
+const pVel=new Float32Array(MAX_PARTICLES*3);
+let particleCount=MAX_PARTICLES;
+
+function initParticles(){
+  for(let i=0;i<MAX_PARTICLES;i++){
+    resetParticle(i);
+  }
+}
+
+function resetParticle(i){
+  const a=Math.random()*Math.PI*2;
+  const r=1+Math.random()*4;
+  const h=Math.random()*4-2;
+  pPos[i*3]=Math.cos(a)*r;pPos[i*3+1]=h;pPos[i*3+2]=Math.sin(a)*r;
+  pVel[i*3]=(Math.random()-0.5)*0.02;pVel[i*3+1]=(Math.random()-0.5)*0.02;pVel[i*3+2]=(Math.random()-0.5)*0.02;
+  pSize[i]=2+Math.random()*4;
+  pAlpha[i]=0.3+Math.random()*0.5;
+  const hue=Math.random();
+  const c=hsl2rgb(hue,0.8,0.6);
+  pColor[i*3]=c[0];pColor[i*3+1]=c[1];pColor[i*3+2]=c[2];
+}
+
+function hsl2rgb(h,s,l){
+  const c=(1-Math.abs(2*l-1))*s;const x=c*(1-Math.abs((h*6)%2-1));const m=l-c/2;
+  let r,g,b;const hi=Math.floor(h*6)%6;
+  if(hi===0){r=c;g=x;b=0}else if(hi===1){r=x;g=c;b=0}else if(hi===2){r=0;g=c;b=x}
+  else if(hi===3){r=0;g=x;b=c}else if(hi===4){r=x;g=0;b=c}else{r=c;g=0;b=x}
+  return[r+m,g+m,b+m];
+}
+
+const partVAO=gl.createVertexArray();
+gl.bindVertexArray(partVAO);
+const partPosBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferData(gl.ARRAY_BUFFER,pPos,gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(partA.a_pos);gl.vertexAttribPointer(partA.a_pos,3,gl.FLOAT,false,0,0);
+const partSizeBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partSizeBuf);gl.bufferData(gl.ARRAY_BUFFER,pSize,gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(partA.a_size);gl.vertexAttribPointer(partA.a_size,1,gl.FLOAT,false,0,0);
+const partColBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferData(gl.ARRAY_BUFFER,pColor,gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(partA.a_color);gl.vertexAttribPointer(partA.a_color,3,gl.FLOAT,false,0,0);
+const partAlpBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partAlpBuf);gl.bufferData(gl.ARRAY_BUFFER,pAlpha,gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(partA.a_alpha);gl.vertexAttribPointer(partA.a_alpha,1,gl.FLOAT,false,0,0);
+gl.bindVertexArray(null);
+
+initParticles();
+
+/* ===== CAMERA ===== */
+let isDragging=false,lastMX=0,lastMY=0;
+canvas.addEventListener('mousedown',e=>{isDragging=true;lastMX=e.clientX;lastMY=e.clientY;state.autoOrbit=false;$('#btn-orbit').classList.remove('active')});
+canvas.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  const dx=e.clientX-lastMX,dy=e.clientY-lastMY;
+  state.cam.theta-=dx*0.005;state.cam.phi=clamp(state.cam.phi-dy*0.005,0.05,Math.PI-0.05);
+  lastMX=e.clientX;lastMY=e.clientY;
+});
+canvas.addEventListener('mouseup',()=>isDragging=false);
+canvas.addEventListener('mouseleave',()=>isDragging=false);
+canvas.addEventListener('wheel',e=>{e.preventDefault();state.cam.dist=clamp(state.cam.dist+e.deltaY*0.005,1.5,20)},{passive:false});
+
+// Touch
+let touchDist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){isDragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;state.autoOrbit=false;$('#btn-orbit').classList.remove('active')}
+  if(e.touches.length===2){touchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)}
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&isDragging){
+    const dx=e.touches[0].clientX-lastMX,dy=e.touches[0].clientY-lastMY;
+    state.cam.theta-=dx*0.005;state.cam.phi=clamp(state.cam.phi-dy*0.005,0.05,Math.PI-0.05);
+    lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    const nd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    state.cam.dist=clamp(state.cam.dist-(nd-touchDist)*0.02,1.5,20);touchDist=nd;
+  }
+},{passive:false});
+canvas.addEventListener('touchend',()=>isDragging=false,{passive:true});
+
+/* ===== AUDIO ANALYSIS ===== */
+let smoothBass=0,smoothMid=0,smoothHigh=0,smoothEnergy=0,beatDetect=0;
+let prevEnergy=0;
+
+function analyzeAudio(){
+  if(!analyser){smoothBass=smoothMid=smoothHigh=smoothEnergy=0;return}
+  analyser.getByteFrequencyData(freqData);
+  analyser.getByteTimeDomainData(timeData);
+
+  const bins=freqData.length;
+  let bass=0,mid=0,high=0;
+  const bassEnd=Math.floor(bins*0.1);
+  const midEnd=Math.floor(bins*0.5);
+  for(let i=0;i<bassEnd;i++)bass+=freqData[i];
+  for(let i=bassEnd;i<midEnd;i++)mid+=freqData[i];
+  for(let i=midEnd;i<bins;i++)high+=freqData[i];
+  bass/=bassEnd*255;mid/=(midEnd-bassEnd)*255;high/=(bins-midEnd)*255;
+
+  smoothBass=lerp(smoothBass,bass,0.15);
+  smoothMid=lerp(smoothMid,mid,0.12);
+  smoothHigh=lerp(smoothHigh,high,0.1);
+  smoothEnergy=lerp(smoothEnergy,(bass+mid+high)/3,0.1);
+
+  // Beat detection
+  if(smoothEnergy>prevEnergy+0.05)beatDetect=1;
+  else beatDetect*=0.9;
+  prevEnergy=smoothEnergy;
+}
+
+/* ===== UPDATE PARTICLES ===== */
+function updateParticles(dt){
+  const bass=smoothBass,energy=smoothEnergy;
+  for(let i=0;i<particleCount;i++){
+    const i3=i*3;
+    // Orbit + react to music
+    const x=pPos[i3],y=pPos[i3+1],z=pPos[i3+2];
+    const r=Math.sqrt(x*x+z*z);
+    const ang=Math.atan2(z,x);
+    const orbSpeed=0.2+energy*0.8;
+
+    pPos[i3]+=(-Math.sin(ang)*orbSpeed*dt+pVel[i3]*bass*2);
+    pPos[i3+1]+=pVel[i3+1]+Math.sin(performance.now()*0.001+i)*0.002*bass;
+    pPos[i3+2]+=(Math.cos(ang)*orbSpeed*dt+pVel[i3+2]*bass*2);
+
+    pSize[i]=2+bass*8+Math.sin(performance.now()*0.003+i)*2;
+    pAlpha[i]=0.15+energy*0.6;
+
+    // Recycle
+    if(r>8||Math.abs(y)>5)resetParticle(i);
+
+    // Update colors based on scene
+    const scenes={neon:[0.0,0.9,1],space:[0.7,0.5,1],ocean:[0.2,0.7,0.9],forest:[0.3,0.9,0.3],fire:[1,0.4,0.1],crystal:[0.7,0.4,1]};
+    const sc=scenes[state.scene]||scenes.neon;
+    const hueShift=Math.sin(performance.now()*0.0005+i*0.1)*0.2;
+    pColor[i3]=clamp(sc[0]+hueShift,0,1);
+    pColor[i3+1]=clamp(sc[1]+hueShift*0.5,0,1);
+    pColor[i3+2]=clamp(sc[2]-hueShift*0.3,0,1);
+  }
+}
+
+/* ===== RENDER ===== */
+const sceneMap={neon:0,space:1,ocean:2,forest:3,fire:4,crystal:5};
+let lastTime=0;
+
+function render(now){
+  requestAnimationFrame(render);
+  const dt=Math.min((now-lastTime)*0.001,0.1);lastTime=now;
+
+  analyzeAudio();
+  updateParticles(dt);
+
+  // A-B loop check
+  if(state.abActive&&currentAudioEl){
+    if(currentAudioEl.currentTime>=state.abB)currentAudioEl.currentTime=state.abA;
+  }
+
+  // Update seek bar
+  if(currentAudioEl&&currentAudioEl.duration){
+    const pct=(currentAudioEl.currentTime/currentAudioEl.duration)*100;
+    $('#seek-fill').style.width=pct+'%';
+    $('#time-cur').textContent=fmt(currentAudioEl.currentTime);
+    $('#time-dur').textContent=fmt(currentAudioEl.duration);
+  }
+
+  // Camera
+  if(state.autoOrbit)state.cam.theta+=dt*0.15;
+  const ct=state.cam.theta,cp=state.cam.phi,cd=state.cam.dist;
+  const eyeX=Math.sin(cp)*Math.cos(ct)*cd;
+  const eyeY=Math.cos(cp)*cd;
+  const eyeZ=Math.sin(cp)*Math.sin(ct)*cd;
+  const eye=[eyeX,eyeY,eyeZ];
+  const view=mat4LookAt(eye,[0,0,0],[0,1,0]);
+  const proj=mat4Perspective(Math.PI/3,W/H,0.1,100);
+  const vp=mat4Mul(proj,view);
+
+  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+
+  // Draw background
+  gl.disable(gl.DEPTH_TEST);
+  gl.useProgram(bgProg);
+  gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf);
+  gl.enableVertexAttribArray(bgA.a_pos);gl.vertexAttribPointer(bgA.a_pos,2,gl.FLOAT,false,0,0);
+  gl.uniform1f(bgU.u_time,now*0.001);
+  gl.uniform1i(bgU.u_scene,sceneMap[state.scene]||0);
+  gl.uniform1f(bgU.u_bass,smoothBass);
+  gl.uniform1f(bgU.u_mid,smoothMid);
+  gl.uniform1f(bgU.u_high,smoothHigh);
+  gl.uniform1f(bgU.u_energy,smoothEnergy);
+  gl.uniform2f(bgU.u_res,W,H);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+
+  // Draw 3D objects
+  gl.useProgram(objProg);
+  gl.uniform3f(objU.u_lightDir,0.5,1,0.3);
+  gl.uniform3f(objU.u_camPos,eyeX,eyeY,eyeZ);
+
+  // Central orb - pulses with bass
+  const orbScale=0.5+smoothBass*0.8+beatDetect*0.3;
+  drawMesh(sphereMesh,mat4Scale(orbScale,orbScale,orbScale),vp,sceneColors(),0.5+smoothEnergy*2,0.9);
+
+  // Spectrum ring of bars
+  if(analyser){
+    const barCount=64;
+    for(let i=0;i<barCount;i++){
+      const angle=2*Math.PI*i/barCount;
+      const r=2.0;
+      const bx=Math.cos(angle)*r,bz=Math.sin(angle)*r;
+      const fi=Math.floor(i*(freqData.length/barCount));
+      const val=(freqData?freqData[fi]/255:0)||0;
+      const h=0.05+val*2;
+      const model=mat4Mul(mat4Trans(bx,-h*0.5,bz),mat4Mul(mat4RotY(-angle),mat4Scale(0.06,h,0.06)));
+      const hue=i/barCount;
+      const c=hsl2rgb(hue,0.9,0.4+val*0.3);
+      drawMesh(cylMesh,model,vp,c,val*1.5,0.85);
+    }
+  }
+
+  // Spinning torus
+  const torusRot=now*0.0003;
+  const torusModel=mat4Mul(mat4RotX(torusRot),mat4Mul(mat4RotY(torusRot*0.7),mat4Scale(1.8+smoothMid*0.5,1.8+smoothMid*0.5,1.8+smoothMid*0.5)));
+  drawMesh(torusMesh,torusModel,vp,sceneColors2(),0.3+smoothHigh,0.4);
+
+  // Waveform terrain ring
+  if(timeData){
+    const waveCount=32;
+    for(let i=0;i<waveCount;i++){
+      const angle=2*Math.PI*i/waveCount;
+      const r=3.5;
+      const si=Math.floor(i*(timeData.length/waveCount));
+      const val=(timeData[si]-128)/128;
+      const bx=Math.cos(angle)*r,bz=Math.sin(angle)*r;
+      const h=Math.abs(val)*1.5+0.1;
+      const model=mat4Mul(mat4Trans(bx,-0.8+val*0.3,bz),mat4Scale(0.08,h,0.08));
+      const c=hsl2rgb(0.55+val*0.2,0.8,0.5);
+      drawMesh(cylMesh,model,vp,c,0.5,0.7);
+    }
+  }
+
+  // Draw particles
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+  gl.useProgram(partProg);
+  gl.uniformMatrix4fv(partU.u_vp,false,vp);
+  gl.uniform1f(partU.u_pointScale,H*0.5);
+
+  gl.bindVertexArray(partVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,pPos);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partSizeBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,pSize);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,pColor);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partAlpBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,pAlpha);
+  gl.drawArrays(gl.POINTS,0,particleCount);
+
+  gl.bindVertexArray(null);
+  gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);
+}
+
+function drawMesh(mesh,model,vp,color,emissive,alpha){
+  const mvp=mat4Mul(vp,model);
+  gl.uniformMatrix4fv(objU.u_mvp,false,mvp);
+  gl.uniformMatrix4fv(objU.u_model,false,model);
+  // Simple normal matrix (just model for now — non-uniform scale could need inverse transpose, but ok for viz)
+  gl.uniformMatrix4fv(objU.u_normalMat,false,model);
+  gl.uniform3f(objU.u_color,color[0],color[1],color[2]);
+  gl.uniform1f(objU.u_emissive,emissive||0);
+  gl.uniform1f(objU.u_alpha,alpha||1);
+  gl.bindVertexArray(mesh.vao);
+  gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+  gl.bindVertexArray(null);
+}
+
+function sceneColors(){
+  const c={neon:[0,0.9,1],space:[0.5,0.3,1],ocean:[0.1,0.5,0.8],forest:[0.2,0.8,0.2],fire:[1,0.3,0.05],crystal:[0.6,0.3,1]};
+  return c[state.scene]||c.neon;
+}
+function sceneColors2(){
+  const c={neon:[1,0,0.4],space:[1,0.8,0.2],ocean:[0,0.8,0.6],forest:[0.8,0.9,0.1],fire:[1,0.8,0],crystal:[0.2,0.8,1]};
+  return c[state.scene]||c.neon;
+}
+
+// Init
+loadState();
+if(!state.sidebarOpen)$('#sidebar').classList.add('hidden');
+if(state.autoOrbit)$('#btn-orbit').classList.add('active');
+if(state.shuffle)$('#btn-shuffle').classList.add('active');
+if(state.loop>0)$('#btn-loop').classList.add('active');
+
+$$('.scene-card').forEach(c=>{c.classList.toggle('active',c.dataset.scene===state.scene)});
+renderPlaylist();
+requestAnimationFrame(render);
+
+</script>
+</body>
+</html>

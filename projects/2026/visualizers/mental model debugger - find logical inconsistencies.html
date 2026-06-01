@@ -1,0 +1,2978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Model Debugger - Find Logical Inconsistencies</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --bg-card: #1e1e2a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a0b0;
+            --text-muted: #606070;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --border: #2a2a3a;
+            --border-light: #3a3a4a;
+            --cat-core: #e74c3c;
+            --cat-factual: #3498db;
+            --cat-assumption: #f39c12;
+            --cat-opinion: #9b59b6;
+            --cat-goal: #2ecc71;
+            --cat-fear: #e67e22;
+            --cat-identity: #1abc9c;
+            --cat-other: #95a5a6;
+            --rel-supports: #27ae60;
+            --rel-contradicts: #c0392b;
+            --rel-implies: #f39c12;
+            --rel-depends: #3498db;
+            --rel-independent: #7f8c8d;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f5f5f7;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e8e8ec;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a4a5a;
+            --text-muted: #8a8a9a;
+            --border: #d0d0d8;
+            --border-light: #e0e0e8;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            height: 60px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo-text h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-text span {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            justify-content: center;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            margin-top: 60px;
+            height: calc(100vh - 60px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-row select {
+            flex: 1;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .belief-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .belief-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .belief-card:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .belief-card.selected {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .belief-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .category-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        .belief-statement {
+            font-size: 13px;
+            line-height: 1.4;
+            flex: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .belief-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .confidence-bar {
+            width: 60px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .add-belief-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .add-belief-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
+        }
+
+        .tab {
+            padding: 14px 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow: hidden;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* Analysis Panel */
+        .analysis-panel {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .analysis-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .score-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .score-value {
+            font-size: 48px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .stat-card.critical .stat-value { color: var(--danger); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+        .stat-card.info .stat-value { color: var(--info); }
+        .stat-card.success .stat-value { color: var(--success); }
+
+        .issues-section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .issue-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .issue-card.critical {
+            border-left: 4px solid var(--danger);
+        }
+
+        .issue-card.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .issue-card.info {
+            border-left: 4px solid var(--info);
+        }
+
+        .issue-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .issue-type {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .issue-card.critical .issue-type {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .issue-card.warning .issue-type {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .issue-card.info .issue-type {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--info);
+        }
+
+        .issue-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .issue-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .issue-beliefs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .belief-chip {
+            font-size: 12px;
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .belief-chip:hover {
+            background: var(--border);
+        }
+
+        .suggestion {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+
+        .suggestion-label {
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Graph View */
+        .graph-container {
+            flex: 1;
+            position: relative;
+            background: var(--bg-tertiary);
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .graph-legend {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 3px;
+            border-radius: 1px;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            width: 360px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .right-panel.collapsed {
+            width: 0;
+            border: none;
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        textarea.form-input {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .confidence-input {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .confidence-input input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+        }
+
+        .confidence-input input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .confidence-value {
+            min-width: 40px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .relations-section {
+            margin-top: 24px;
+        }
+
+        .relation-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .relation-type {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .relation-type.supports { background: rgba(39, 174, 96, 0.2); color: var(--rel-supports); }
+        .relation-type.contradicts { background: rgba(192, 57, 43, 0.2); color: var(--rel-contradicts); }
+        .relation-type.implies { background: rgba(243, 156, 18, 0.2); color: var(--rel-implies); }
+        .relation-type.depends_on { background: rgba(52, 152, 219, 0.2); color: var(--rel-depends); }
+        .relation-type.independent { background: rgba(127, 140, 141, 0.2); color: var(--rel-independent); }
+
+        .relation-target {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .relation-delete {
+            opacity: 0;
+            cursor: pointer;
+            color: var(--danger);
+            transition: opacity 0.2s;
+        }
+
+        .relation-item:hover .relation-delete {
+            opacity: 1;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 500px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* Matrix View */
+        .matrix-container {
+            flex: 1;
+            padding: 24px;
+            overflow: auto;
+        }
+
+        .matrix-table {
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .matrix-table th,
+        .matrix-table td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            text-align: center;
+            min-width: 40px;
+        }
+
+        .matrix-table th {
+            background: var(--bg-tertiary);
+            font-weight: 500;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .matrix-table th.row-header {
+            text-align: left;
+        }
+
+        .matrix-cell {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            margin: auto;
+        }
+
+        /* Timeline View */
+        .timeline-container {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -26px;
+            top: 4px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-secondary);
+        }
+
+        .timeline-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+        }
+
+        .timeline-date {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .timeline-statement {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Cluster View */
+        .cluster-container {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .cluster-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .cluster-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .cluster-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .cluster-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .cluster-beliefs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-description {
+            color: var(--text-secondary);
+            font-size: 14px;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 300;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 20px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast.warning { border-left: 4px solid var(--warning); }
+        .toast.info { border-left: 4px solid var(--info); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .right-panel {
+                position: absolute;
+                right: 0;
+                top: 60px;
+                bottom: 0;
+                z-index: 50;
+                box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .right-panel.collapsed {
+                transform: translateX(100%);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                left: 0;
+                top: 60px;
+                bottom: 0;
+                z-index: 50;
+                box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🧠</div>
+            <div class="logo-text">
+                <h1>Mental Model Debugger</h1>
+                <span>Find logical inconsistencies in your beliefs</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="runAnalysis()" title="Run Analysis">
+                🔍 Analyze
+            </button>
+            <button class="btn btn-secondary" onclick="exportData()" title="Export">
+                📤 Export
+            </button>
+            <button class="btn btn-secondary" onclick="document.getElementById('importInput').click()" title="Import">
+                📥 Import
+            </button>
+            <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+            <button class="btn btn-icon btn-secondary" onclick="toggleTheme()" title="Toggle Theme">
+                🌓
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search beliefs..." oninput="filterBeliefs()">
+                </div>
+                <div class="filter-row">
+                    <select id="categoryFilter" onchange="filterBeliefs()">
+                        <option value="">All Categories</option>
+                        <option value="core">Core Values</option>
+                        <option value="factual">Factual Claims</option>
+                        <option value="assumption">Assumptions</option>
+                        <option value="opinion">Opinions</option>
+                        <option value="goal">Goals</option>
+                        <option value="fear">Fears</option>
+                        <option value="identity">Identity</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <select id="sortOrder" onchange="filterBeliefs()">
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="confidence">Confidence</option>
+                        <option value="alpha">A-Z</option>
+                    </select>
+                </div>
+            </div>
+            <div class="sidebar-content">
+                <div class="belief-list" id="beliefList"></div>
+            </div>
+            <div class="sidebar-footer">
+                <button class="add-belief-btn" onclick="openBeliefModal()">
+                    ➕ Add New Belief
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="tabs">
+                <button class="tab active" data-tab="analysis" onclick="switchTab('analysis')">📊 Analysis</button>
+                <button class="tab" data-tab="graph" onclick="switchTab('graph')">🕸️ Graph</button>
+                <button class="tab" data-tab="matrix" onclick="switchTab('matrix')">📋 Matrix</button>
+                <button class="tab" data-tab="timeline" onclick="switchTab('timeline')">📅 Timeline</button>
+                <button class="tab" data-tab="clusters" onclick="switchTab('clusters')">🔗 Clusters</button>
+            </div>
+
+            <!-- Analysis Tab -->
+            <div class="tab-content active" id="tab-analysis">
+                <div class="analysis-panel" id="analysisPanel">
+                    <div class="empty-state">
+                        <div class="empty-icon">🧠</div>
+                        <div class="empty-title">Welcome to Mental Model Debugger</div>
+                        <div class="empty-description">
+                            Add your beliefs and define relationships between them.
+                            Then run an analysis to find logical inconsistencies, circular reasoning,
+                            and unsupported assumptions in your belief system.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Tab -->
+            <div class="tab-content" id="tab-graph">
+                <div class="graph-container">
+                    <canvas id="graphCanvas"></canvas>
+                    <div class="graph-controls">
+                        <button class="btn btn-icon btn-secondary" onclick="zoomGraph(1.2)" title="Zoom In">➕</button>
+                        <button class="btn btn-icon btn-secondary" onclick="zoomGraph(0.8)" title="Zoom Out">➖</button>
+                        <button class="btn btn-icon btn-secondary" onclick="resetGraphView()" title="Reset View">🎯</button>
+                    </div>
+                    <div class="graph-legend">
+                        <div class="legend-title">Categories</div>
+                        <div class="legend-items" id="graphLegendCategories"></div>
+                        <div class="legend-title" style="margin-top:12px">Relations</div>
+                        <div class="legend-items" id="graphLegendRelations"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matrix Tab -->
+            <div class="tab-content" id="tab-matrix">
+                <div class="matrix-container" id="matrixContainer"></div>
+            </div>
+
+            <!-- Timeline Tab -->
+            <div class="tab-content" id="tab-timeline">
+                <div class="timeline-container" id="timelineContainer"></div>
+            </div>
+
+            <!-- Clusters Tab -->
+            <div class="tab-content" id="tab-clusters">
+                <div class="cluster-container" id="clusterContainer"></div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel" id="rightPanel">
+            <div class="panel-header">
+                <span class="panel-title" id="panelTitle">Belief Details</span>
+                <button class="btn btn-icon btn-secondary" onclick="toggleRightPanel()">✕</button>
+            </div>
+            <div class="panel-content" id="panelContent">
+                <div class="empty-state">
+                    <div class="empty-icon">👈</div>
+                    <div class="empty-title">Select a Belief</div>
+                    <div class="empty-description">
+                        Click on a belief from the sidebar to view and edit its details.
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Add/Edit Belief Modal -->
+    <div class="modal-overlay" id="beliefModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title" id="beliefModalTitle">Add New Belief</span>
+                <button class="modal-close" onclick="closeBeliefModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Statement *</label>
+                    <textarea class="form-input" id="beliefStatement" placeholder="Enter your belief statement..." maxlength="500"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-input" id="beliefCategory">
+                        <option value="other">Other</option>
+                        <option value="core">Core Values</option>
+                        <option value="factual">Factual Claims</option>
+                        <option value="assumption">Assumptions</option>
+                        <option value="opinion">Opinions</option>
+                        <option value="goal">Goals</option>
+                        <option value="fear">Fears</option>
+                        <option value="identity">Identity</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confidence Level</label>
+                    <div class="confidence-input">
+                        <input type="range" id="beliefConfidence" min="0" max="100" value="50" oninput="updateConfidenceDisplay()">
+                        <span class="confidence-value" id="confidenceDisplay">50%</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Evidence / Reasoning</label>
+                    <textarea class="form-input" id="beliefEvidence" placeholder="What evidence supports this belief?" maxlength="1000"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBeliefModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveBelief()">Save Belief</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Relation Modal -->
+    <div class="modal-overlay" id="relationModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Add Relation</span>
+                <button class="modal-close" onclick="closeRelationModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Source Belief</label>
+                    <select class="form-input" id="relationSource"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Relation Type</label>
+                    <select class="form-input" id="relationType">
+                        <option value="supports">Supports</option>
+                        <option value="contradicts">Contradicts</option>
+                        <option value="implies">Implies</option>
+                        <option value="depends_on">Depends On</option>
+                        <option value="independent">Independent</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Belief</label>
+                    <select class="form-input" id="relationTarget"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Strength</label>
+                    <div class="confidence-input">
+                        <input type="range" id="relationStrength" min="0" max="100" value="50" oninput="updateStrengthDisplay()">
+                        <span class="confidence-value" id="strengthDisplay">50%</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea class="form-input" id="relationNotes" placeholder="Explain this relationship..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRelationModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRelation()">Add Relation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal" style="width:400px">
+            <div class="modal-header">
+                <span class="modal-title">Delete Belief</span>
+                <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this belief? This will also remove all relations connected to it.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // =====================================================
+        // Constants & Configuration
+        // =====================================================
+        const STORAGE_KEY = 'mental_model_debugger_data';
+
+        const CATEGORIES = {
+            core: { name: 'Core Values', color: '#e74c3c' },
+            factual: { name: 'Factual Claims', color: '#3498db' },
+            assumption: { name: 'Assumptions', color: '#f39c12' },
+            opinion: { name: 'Opinions', color: '#9b59b6' },
+            goal: { name: 'Goals', color: '#2ecc71' },
+            fear: { name: 'Fears', color: '#e67e22' },
+            identity: { name: 'Identity', color: '#1abc9c' },
+            other: { name: 'Other', color: '#95a5a6' }
+        };
+
+        const RELATION_TYPES = {
+            supports: { name: 'Supports', color: '#27ae60' },
+            contradicts: { name: 'Contradicts', color: '#c0392b' },
+            implies: { name: 'Implies', color: '#f39c12' },
+            depends_on: { name: 'Depends On', color: '#3498db' },
+            independent: { name: 'Independent', color: '#7f8c8d' }
+        };
+
+        const STARTER_BELIEFS = [
+            { statement: "Hard work is the primary driver of success", category: "core", confidence: 75, evidence: "Personal experience and observation of successful people" },
+            { statement: "Success often requires luck and timing", category: "factual", confidence: 60, evidence: "Studies show circumstance plays a significant role" },
+            { statement: "I have control over my own destiny", category: "identity", confidence: 70, evidence: "Belief in personal agency and free will" },
+            { statement: "External factors largely determine outcomes", category: "assumption", confidence: 45, evidence: "Socioeconomic data suggests systemic influences" },
+            { statement: "Education is valuable for personal growth", category: "opinion", confidence: 85, evidence: "Experience and research on cognitive development" }
+        ];
+
+        const STARTER_RELATIONS = [
+            { source: 0, target: 1, type: 'contradicts', strength: 60, notes: "If success requires luck, hard work alone may not be sufficient" },
+            { source: 2, target: 3, type: 'contradicts', strength: 70, notes: "Personal control vs external determination" },
+            { source: 0, target: 2, type: 'supports', strength: 65, notes: "Both emphasize personal agency" },
+            { source: 1, target: 3, type: 'supports', strength: 55, notes: "Both acknowledge external influences" },
+            { source: 4, target: 0, type: 'supports', strength: 50, notes: "Education can be a form of hard work" }
+        ];
+
+        // =====================================================
+        // State Management
+        // =====================================================
+        let state = {
+            beliefs: [],
+            relations: [],
+            selectedBeliefId: null,
+            analysisResults: null,
+            editingBeliefId: null,
+            deleteTargetId: null
+        };
+
+        let graphState = {
+            nodes: [],
+            edges: [],
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0,
+            dragging: null,
+            panning: false,
+            panStart: { x: 0, y: 0 }
+        };
+
+        // =====================================================
+        // Initialization
+        // =====================================================
+        function init() {
+            loadData();
+            renderBeliefList();
+            renderGraphLegend();
+            setupGraphCanvas();
+            setupKeyboardShortcuts();
+
+            if (state.beliefs.length === 0) {
+                initStarterData();
+            }
+
+            // Auto-run analysis if beliefs exist
+            if (state.beliefs.length > 0) {
+                runAnalysis();
+            }
+        }
+
+        function initStarterData() {
+            const beliefIds = [];
+            STARTER_BELIEFS.forEach((b, i) => {
+                const id = generateId();
+                beliefIds.push(id);
+                state.beliefs.push({
+                    id,
+                    statement: b.statement,
+                    category: b.category,
+                    confidence: b.confidence,
+                    evidence: b.evidence,
+                    created: Date.now() - (STARTER_BELIEFS.length - i) * 86400000,
+                    modified: Date.now()
+                });
+            });
+
+            STARTER_RELATIONS.forEach(r => {
+                state.relations.push({
+                    id: generateId(),
+                    sourceId: beliefIds[r.source],
+                    targetId: beliefIds[r.target],
+                    type: r.type,
+                    strength: r.strength,
+                    notes: r.notes
+                });
+            });
+
+            saveData();
+            renderBeliefList();
+            showToast('Welcome! Sample beliefs loaded. Click "Analyze" to find inconsistencies.', 'info');
+        }
+
+        function generateId() {
+            return 'b_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+        }
+
+        // =====================================================
+        // Data Persistence
+        // =====================================================
+        function loadData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    state.beliefs = data.beliefs || [];
+                    state.relations = data.relations || [];
+                }
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    beliefs: state.beliefs,
+                    relations: state.relations
+                }));
+            } catch (e) {
+                console.error('Failed to save data:', e);
+            }
+        }
+
+        function exportData() {
+            const data = {
+                beliefs: state.beliefs,
+                relations: state.relations,
+                exportDate: new Date().toISOString(),
+                version: '1.0'
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mental_model_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Data exported successfully!', 'success');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.beliefs && Array.isArray(data.beliefs)) {
+                        state.beliefs = data.beliefs;
+                        state.relations = data.relations || [];
+                        saveData();
+                        renderBeliefList();
+                        runAnalysis();
+                        showToast('Data imported successfully!', 'success');
+                    } else {
+                        showToast('Invalid file format', 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to parse file', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // =====================================================
+        // Belief Management
+        // =====================================================
+        function renderBeliefList() {
+            const container = document.getElementById('beliefList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const sort = document.getElementById('sortOrder').value;
+
+            let filtered = state.beliefs.filter(b => {
+                const matchSearch = b.statement.toLowerCase().includes(search);
+                const matchCategory = !category || b.category === category;
+                return matchSearch && matchCategory;
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                switch (sort) {
+                    case 'oldest': return a.created - b.created;
+                    case 'confidence': return b.confidence - a.confidence;
+                    case 'alpha': return a.statement.localeCompare(b.statement);
+                    default: return b.created - a.created;
+                }
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <div class="empty-title">No beliefs found</div>
+                        <div class="empty-description">Add your first belief to get started.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(b => `
+                <div class="belief-card ${b.id === state.selectedBeliefId ? 'selected' : ''}" 
+                     onclick="selectBelief('${b.id}')" data-id="${b.id}">
+                    <div class="belief-card-header">
+                        <div class="category-dot" style="background:${CATEGORIES[b.category]?.color || '#95a5a6'}"></div>
+                        <div class="belief-statement">${escapeHtml(b.statement)}</div>
+                    </div>
+                    <div class="belief-meta">
+                        <span>${CATEGORIES[b.category]?.name || 'Other'}</span>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width:${b.confidence}%;background:${getConfidenceColor(b.confidence)}"></div>
+                        </div>
+                        <span>${b.confidence}%</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterBeliefs() {
+            renderBeliefList();
+        }
+
+        function selectBelief(id) {
+            state.selectedBeliefId = id;
+            renderBeliefList();
+            renderBeliefDetails(id);
+            updateGraphHighlight();
+        }
+
+        function renderBeliefDetails(id) {
+            const belief = state.beliefs.find(b => b.id === id);
+            if (!belief) return;
+
+            const outgoing = state.relations.filter(r => r.sourceId === id);
+            const incoming = state.relations.filter(r => r.targetId === id);
+
+            const panel = document.getElementById('panelContent');
+            panel.innerHTML = `
+                <div class="form-group">
+                    <label class="form-label">Statement</label>
+                    <div style="padding:10px;background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:14px;line-height:1.5">
+                        ${escapeHtml(belief.statement)}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div class="category-dot" style="background:${CATEGORIES[belief.category]?.color || '#95a5a6'}"></div>
+                        <span>${CATEGORIES[belief.category]?.name || 'Other'}</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confidence</label>
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <div class="confidence-bar" style="width:100px">
+                            <div class="confidence-fill" style="width:${belief.confidence}%;background:${getConfidenceColor(belief.confidence)}"></div>
+                        </div>
+                        <span style="font-weight:600">${belief.confidence}%</span>
+                    </div>
+                </div>
+                ${belief.evidence ? `
+                <div class="form-group">
+                    <label class="form-label">Evidence / Reasoning</label>
+                    <div style="padding:10px;background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:13px;line-height:1.5;color:var(--text-secondary)">
+                        ${escapeHtml(belief.evidence)}
+                    </div>
+                </div>
+                ` : ''}
+                <div class="form-group">
+                    <label class="form-label">Created</label>
+                    <div style="font-size:13px;color:var(--text-secondary)">${formatDate(belief.created)}</div>
+                </div>
+
+                <div class="relations-section">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                        <label class="form-label" style="margin:0">Outgoing Relations (${outgoing.length})</label>
+                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px" onclick="openRelationModal('${id}')">+ Add</button>
+                    </div>
+                    ${outgoing.length === 0 ? '<div style="font-size:12px;color:var(--text-muted)">No outgoing relations</div>' : ''}
+                    ${outgoing.map(r => {
+                        const target = state.beliefs.find(b => b.id === r.targetId);
+                        return `
+                        <div class="relation-item">
+                            <span class="relation-type ${r.type}">${RELATION_TYPES[r.type]?.name || r.type}</span>
+                            <span class="relation-target" title="${escapeHtml(target?.statement || 'Unknown')}">${escapeHtml(target?.statement?.substring(0, 40) || 'Unknown')}...</span>
+                            <span class="relation-delete" onclick="event.stopPropagation();deleteRelation('${r.id}')">🗑️</span>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="relations-section">
+                    <label class="form-label">Incoming Relations (${incoming.length})</label>
+                    ${incoming.length === 0 ? '<div style="font-size:12px;color:var(--text-muted)">No incoming relations</div>' : ''}
+                    ${incoming.map(r => {
+                        const source = state.beliefs.find(b => b.id === r.sourceId);
+                        return `
+                        <div class="relation-item">
+                            <span class="relation-type ${r.type}">${RELATION_TYPES[r.type]?.name || r.type}</span>
+                            <span class="relation-target" title="${escapeHtml(source?.statement || 'Unknown')}">${escapeHtml(source?.statement?.substring(0, 40) || 'Unknown')}...</span>
+                            <span class="relation-delete" onclick="event.stopPropagation();deleteRelation('${r.id}')">🗑️</span>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:24px">
+                    <button class="btn btn-secondary" style="flex:1" onclick="editBelief('${id}')">✏️ Edit</button>
+                    <button class="btn btn-danger" style="flex:1" onclick="openDeleteModal('${id}')">🗑️ Delete</button>
+                </div>
+            `;
+
+            document.getElementById('panelTitle').textContent = 'Belief Details';
+        }
+
+        // =====================================================
+        // Belief Modal
+        // =====================================================
+        function openBeliefModal(editId = null) {
+            state.editingBeliefId = editId;
+            const modal = document.getElementById('beliefModal');
+            const title = document.getElementById('beliefModalTitle');
+
+            if (editId) {
+                const belief = state.beliefs.find(b => b.id === editId);
+                if (belief) {
+                    title.textContent = 'Edit Belief';
+                    document.getElementById('beliefStatement').value = belief.statement;
+                    document.getElementById('beliefCategory').value = belief.category;
+                    document.getElementById('beliefConfidence').value = belief.confidence;
+                    document.getElementById('beliefEvidence').value = belief.evidence || '';
+                    updateConfidenceDisplay();
+                }
+            } else {
+                title.textContent = 'Add New Belief';
+                document.getElementById('beliefStatement').value = '';
+                document.getElementById('beliefCategory').value = 'other';
+                document.getElementById('beliefConfidence').value = 50;
+                document.getElementById('beliefEvidence').value = '';
+                updateConfidenceDisplay();
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeBeliefModal() {
+            document.getElementById('beliefModal').classList.remove('active');
+            state.editingBeliefId = null;
+        }
+
+        function saveBelief() {
+            const statement = document.getElementById('beliefStatement').value.trim();
+            const category = document.getElementById('beliefCategory').value;
+            const confidence = parseInt(document.getElementById('beliefConfidence').value);
+            const evidence = document.getElementById('beliefEvidence').value.trim();
+
+            if (!statement) {
+                showToast('Please enter a belief statement', 'error');
+                return;
+            }
+
+            if (state.editingBeliefId) {
+                // Edit existing
+                const idx = state.beliefs.findIndex(b => b.id === state.editingBeliefId);
+                if (idx !== -1) {
+                    state.beliefs[idx].statement = statement;
+                    state.beliefs[idx].category = category;
+                    state.beliefs[idx].confidence = confidence;
+                    state.beliefs[idx].evidence = evidence;
+                    state.beliefs[idx].modified = Date.now();
+                    showToast('Belief updated', 'success');
+                }
+            } else {
+                // Add new
+                state.beliefs.push({
+                    id: generateId(),
+                    statement,
+                    category,
+                    confidence,
+                    evidence,
+                    created: Date.now(),
+                    modified: Date.now()
+                });
+                showToast('Belief added', 'success');
+            }
+
+            saveData();
+            renderBeliefList();
+            closeBeliefModal();
+
+            if (state.selectedBeliefId) {
+                renderBeliefDetails(state.selectedBeliefId);
+            }
+        }
+
+        function editBelief(id) {
+            openBeliefModal(id);
+        }
+
+        function updateConfidenceDisplay() {
+            document.getElementById('confidenceDisplay').textContent = 
+                document.getElementById('beliefConfidence').value + '%';
+        }
+
+        // =====================================================
+        // Delete Modal
+        // =====================================================
+        function openDeleteModal(id) {
+            state.deleteTargetId = id;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            state.deleteTargetId = null;
+        }
+
+        function confirmDelete() {
+            if (state.deleteTargetId) {
+                // Remove belief
+                state.beliefs = state.beliefs.filter(b => b.id !== state.deleteTargetId);
+                // Remove related relations
+                state.relations = state.relations.filter(r => 
+                    r.sourceId !== state.deleteTargetId && r.targetId !== state.deleteTargetId
+                );
+
+                if (state.selectedBeliefId === state.deleteTargetId) {
+                    state.selectedBeliefId = null;
+                    document.getElementById('panelContent').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👈</div>
+                            <div class="empty-title">Select a Belief</div>
+                            <div class="empty-description">Click on a belief from the sidebar.</div>
+                        </div>
+                    `;
+                }
+
+                saveData();
+                renderBeliefList();
+                showToast('Belief deleted', 'success');
+            }
+            closeDeleteModal();
+        }
+
+        // =====================================================
+        // Relation Modal
+        // =====================================================
+        function openRelationModal(sourceId = null) {
+            const modal = document.getElementById('relationModal');
+            const sourceSelect = document.getElementById('relationSource');
+            const targetSelect = document.getElementById('relationTarget');
+
+            // Populate dropdowns
+            const options = state.beliefs.map(b => 
+                `<option value="${b.id}">${escapeHtml(b.statement.substring(0, 60))}${b.statement.length > 60 ? '...' : ''}</option>`
+            ).join('');
+
+            sourceSelect.innerHTML = options;
+            targetSelect.innerHTML = options;
+
+            if (sourceId) {
+                sourceSelect.value = sourceId;
+            }
+
+            document.getElementById('relationType').value = 'supports';
+            document.getElementById('relationStrength').value = 50;
+            document.getElementById('relationNotes').value = '';
+            updateStrengthDisplay();
+
+            modal.classList.add('active');
+        }
+
+        function closeRelationModal() {
+            document.getElementById('relationModal').classList.remove('active');
+        }
+
+        function saveRelation() {
+            const sourceId = document.getElementById('relationSource').value;
+            const targetId = document.getElementById('relationTarget').value;
+            const type = document.getElementById('relationType').value;
+            const strength = parseInt(document.getElementById('relationStrength').value);
+            const notes = document.getElementById('relationNotes').value.trim();
+
+            if (sourceId === targetId) {
+                showToast('Source and target must be different', 'error');
+                return;
+            }
+
+            // Check if relation already exists
+            const exists = state.relations.find(r => 
+                r.sourceId === sourceId && r.targetId === targetId && r.type === type
+            );
+
+            if (exists) {
+                showToast('This relation already exists', 'error');
+                return;
+            }
+
+            state.relations.push({
+                id: generateId(),
+                sourceId,
+                targetId,
+                type,
+                strength,
+                notes
+            });
+
+            saveData();
+            closeRelationModal();
+            showToast('Relation added', 'success');
+
+            if (state.selectedBeliefId) {
+                renderBeliefDetails(state.selectedBeliefId);
+            }
+        }
+
+        function deleteRelation(id) {
+            state.relations = state.relations.filter(r => r.id !== id);
+            saveData();
+            if (state.selectedBeliefId) {
+                renderBeliefDetails(state.selectedBeliefId);
+            }
+            showToast('Relation removed', 'success');
+        }
+
+        function updateStrengthDisplay() {
+            document.getElementById('strengthDisplay').textContent = 
+                document.getElementById('relationStrength').value + '%';
+        }
+
+        // =====================================================
+        // Analysis Engine
+        // =====================================================
+        function runAnalysis() {
+            if (state.beliefs.length === 0) {
+                renderAnalysisEmpty();
+                return;
+            }
+
+            const results = {
+                contradictions: findContradictions(),
+                circularReasoning: findCircularReasoning(),
+                unsupportedAssumptions: findUnsupportedAssumptions(),
+                confidenceMismatches: findConfidenceMismatches(),
+                foundationalBeliefs: findFoundationalBeliefs(),
+                vulnerableBeliefs: findVulnerableBeliefs(),
+                isolatedBeliefs: findIsolatedBeliefs()
+            };
+
+            state.analysisResults = results;
+            renderAnalysisResults(results);
+            renderGraph();
+            renderMatrix();
+            renderTimeline();
+            renderClusters();
+        }
+
+        function findContradictions() {
+            const contradictions = [];
+
+            // Direct contradictions
+            state.relations.filter(r => r.type === 'contradicts').forEach(r => {
+                const source = state.beliefs.find(b => b.id === r.sourceId);
+                const target = state.beliefs.find(b => b.id === r.targetId);
+                if (source && target) {
+                    contradictions.push({
+                        type: 'direct',
+                        beliefs: [source, target],
+                        description: `"${source.statement.substring(0, 50)}..." directly contradicts "${target.statement.substring(0, 50)}..."`,
+                        severity: r.strength > 70 ? 'critical' : 'warning'
+                    });
+                }
+            });
+
+            // Indirect contradictions through implications
+            state.beliefs.forEach(belief => {
+                const implied = getImpliedBeliefs(belief.id, new Set());
+                implied.forEach(impliedId => {
+                    const contradicting = state.relations.filter(r => 
+                        (r.sourceId === impliedId || r.targetId === impliedId) && 
+                        r.type === 'contradicts'
+                    );
+
+                    contradicting.forEach(cr => {
+                        const otherId = cr.sourceId === impliedId ? cr.targetId : cr.sourceId;
+                        const supported = getSupportedBeliefs(belief.id);
+                        if (supported.has(otherId)) {
+                            const other = state.beliefs.find(b => b.id === otherId);
+                            const impliedBelief = state.beliefs.find(b => b.id === impliedId);
+                            if (other && impliedBelief) {
+                                contradictions.push({
+                                    type: 'indirect',
+                                    beliefs: [belief, impliedBelief, other],
+                                    description: `"${belief.statement.substring(0, 40)}..." implies "${impliedBelief.statement.substring(0, 30)}..." which contradicts "${other.statement.substring(0, 30)}..." that you also support`,
+                                    severity: 'warning'
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+
+            return contradictions;
+        }
+
+        function getImpliedBeliefs(beliefId, visited) {
+            if (visited.has(beliefId)) return new Set();
+            visited.add(beliefId);
+
+            const implied = new Set();
+            state.relations.filter(r => r.sourceId === beliefId && r.type === 'implies').forEach(r => {
+                implied.add(r.targetId);
+                getImpliedBeliefs(r.targetId, visited).forEach(id => implied.add(id));
+            });
+
+            return implied;
+        }
+
+        function getSupportedBeliefs(beliefId) {
+            const supported = new Set();
+            state.relations.filter(r => r.sourceId === beliefId && r.type === 'supports').forEach(r => {
+                supported.add(r.targetId);
+            });
+            return supported;
+        }
+
+        function findCircularReasoning() {
+            const cycles = [];
+            const visited = new Set();
+            const recursionStack = new Set();
+
+            function dfs(nodeId, path) {
+                if (recursionStack.has(nodeId)) {
+                    const cycleStart = path.indexOf(nodeId);
+                    const cycle = path.slice(cycleStart);
+                    cycle.push(nodeId);
+                    cycles.push(cycle);
+                    return;
+                }
+
+                if (visited.has(nodeId)) return;
+
+                visited.add(nodeId);
+                recursionStack.add(nodeId);
+                path.push(nodeId);
+
+                state.relations
+                    .filter(r => r.sourceId === nodeId && ['depends_on', 'implies'].includes(r.type))
+                    .forEach(r => dfs(r.targetId, [...path]));
+
+                recursionStack.delete(nodeId);
+            }
+
+            state.beliefs.forEach(b => {
+                visited.clear();
+                recursionStack.clear();
+                dfs(b.id, []);
+            });
+
+            // Remove duplicate cycles
+            const uniqueCycles = [];
+            const seen = new Set();
+            cycles.forEach(cycle => {
+                const key = [...cycle].sort().join(',');
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueCycles.push(cycle);
+                }
+            });
+
+            return uniqueCycles.map(cycle => ({
+                beliefs: cycle.map(id => state.beliefs.find(b => b.id === id)).filter(Boolean),
+                description: 'Circular dependency detected in reasoning chain'
+            }));
+        }
+
+        function findUnsupportedAssumptions() {
+            return state.beliefs.filter(b => {
+                const hasSupport = state.relations.some(r => 
+                    r.targetId === b.id && r.type === 'supports'
+                );
+                const hasEvidence = b.evidence && b.evidence.trim().length > 0;
+                return !hasSupport && !hasEvidence && b.confidence < 70;
+            });
+        }
+
+        function findConfidenceMismatches() {
+            const mismatches = [];
+
+            state.beliefs.forEach(belief => {
+                // High confidence belief contradicted by other high-confidence beliefs
+                if (belief.confidence > 70) {
+                    const contradictions = state.relations.filter(r => 
+                        (r.sourceId === belief.id || r.targetId === belief.id) && 
+                        r.type === 'contradicts'
+                    );
+
+                    contradictions.forEach(cr => {
+                        const otherId = cr.sourceId === belief.id ? cr.targetId : cr.sourceId;
+                        const other = state.beliefs.find(b => b.id === otherId);
+                        if (other && other.confidence > 70) {
+                            mismatches.push({
+                                beliefs: [belief, other],
+                                description: `Both beliefs have high confidence (${belief.confidence}% and ${other.confidence}%) but contradict each other`
+                            });
+                        }
+                    });
+                }
+
+                // Low confidence belief that high confidence beliefs depend on
+                if (belief.confidence < 30) {
+                    const dependents = state.relations.filter(r => 
+                        r.targetId === belief.id && r.type === 'depends_on'
+                    );
+
+                    dependents.forEach(dep => {
+                        const dependent = state.beliefs.find(b => b.id === dep.sourceId);
+                        if (dependent && dependent.confidence > 70) {
+                            mismatches.push({
+                                beliefs: [dependent, belief],
+                                description: `High confidence belief (${dependent.confidence}%) depends on low confidence belief (${belief.confidence}%)`
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Dedupe
+            const unique = [];
+            const seen = new Set();
+            mismatches.forEach(m => {
+                const key = m.beliefs.map(b => b.id).sort().join(',');
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(m);
+                }
+            });
+
+            return unique;
+        }
+
+        function findFoundationalBeliefs() {
+            return state.beliefs.filter(b => {
+                const dependencyCount = state.relations.filter(r => 
+                    r.targetId === b.id && ['depends_on', 'supports'].includes(r.type)
+                ).length;
+                return dependencyCount >= 3;
+            }).map(b => ({
+                belief: b,
+                dependencyCount: state.relations.filter(r => 
+                    r.targetId === b.id && ['depends_on', 'supports'].includes(r.type)
+                ).length
+            }));
+        }
+
+        function findVulnerableBeliefs() {
+            return state.beliefs.filter(b => {
+                const dependsOn = state.relations.filter(r => 
+                    r.sourceId === b.id && r.type === 'depends_on'
+                ).length;
+                const supports = state.relations.filter(r => 
+                    r.targetId === b.id && r.type === 'supports'
+                ).length;
+                return dependsOn > 0 && supports === 0 && b.confidence > 50;
+            });
+        }
+
+        function findIsolatedBeliefs() {
+            return state.beliefs.filter(b => {
+                const connections = state.relations.filter(r => 
+                    r.sourceId === b.id || r.targetId === b.id
+                );
+                return connections.length === 0;
+            });
+        }
+
+        function calculateConsistencyScore(results) {
+            if (state.beliefs.length === 0) return 100;
+
+            let score = 100;
+
+            // Deduct for contradictions
+            score -= results.contradictions.filter(c => c.severity === 'critical').length * 15;
+            score -= results.contradictions.filter(c => c.severity === 'warning').length * 8;
+
+            // Deduct for circular reasoning
+            score -= results.circularReasoning.length * 12;
+
+            // Deduct for confidence mismatches
+            score -= results.confidenceMismatches.length * 5;
+
+            // Deduct for unsupported high-confidence beliefs
+            score -= results.unsupportedAssumptions.filter(b => b.confidence > 50).length * 3;
+
+            return Math.max(0, Math.min(100, Math.round(score)));
+        }
+
+        // =====================================================
+        // Analysis Rendering
+        // =====================================================
+        function renderAnalysisEmpty() {
+            document.getElementById('analysisPanel').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🧠</div>
+                    <div class="empty-title">No Beliefs to Analyze</div>
+                    <div class="empty-description">
+                        Add some beliefs and define relationships between them to run an analysis.
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAnalysisResults(results) {
+            const score = calculateConsistencyScore(results);
+            const criticalCount = results.contradictions.filter(c => c.severity === 'critical').length + 
+                                  results.circularReasoning.length;
+            const warningCount = results.contradictions.filter(c => c.severity === 'warning').length + 
+                                 results.confidenceMismatches.length;
+            const infoCount = results.unsupportedAssumptions.length + 
+                              results.isolatedBeliefs.length;
+
+            const panel = document.getElementById('analysisPanel');
+            panel.innerHTML = `
+                <div class="analysis-header">
+                    <div>
+                        <h2 style="margin-bottom:4px">Analysis Results</h2>
+                        <p style="color:var(--text-secondary);font-size:13px">${state.beliefs.length} beliefs, ${state.relations.length} relations analyzed</p>
+                    </div>
+                    <div class="score-card">
+                        <div class="score-value">${score}%</div>
+                        <div class="score-label">Consistency Score</div>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card critical">
+                        <div class="stat-value">${criticalCount}</div>
+                        <div class="stat-label">Critical Issues</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value">${warningCount}</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-value">${infoCount}</div>
+                        <div class="stat-label">Suggestions</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value">${results.foundationalBeliefs.length}</div>
+                        <div class="stat-label">Core Beliefs</div>
+                    </div>
+                </div>
+
+                ${results.contradictions.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">⚠️ Contradictions (${results.contradictions.length})</div>
+                    ${results.contradictions.map(c => `
+                        <div class="issue-card ${c.severity}">
+                            <div class="issue-header">
+                                <span class="issue-type">${c.type} contradiction</span>
+                            </div>
+                            <div class="issue-description">${escapeHtml(c.description)}</div>
+                            <div class="issue-beliefs">
+                                ${c.beliefs.map(b => `
+                                    <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                        <span class="category-dot" style="background:${CATEGORIES[b.category]?.color};width:8px;height:8px"></span>
+                                        ${escapeHtml(b.statement.substring(0, 30))}...
+                                    </span>
+                                `).join('')}
+                            </div>
+                            <div class="suggestion">
+                                <div class="suggestion-label">💡 Suggestion</div>
+                                ${c.severity === 'critical' 
+                                    ? 'Consider revising one of these beliefs, reducing confidence in one, or finding conditions under which both could be true.'
+                                    : 'Examine the chain of reasoning to identify where the logical conflict arises.'}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                ${results.circularReasoning.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">🔄 Circular Reasoning (${results.circularReasoning.length})</div>
+                    ${results.circularReasoning.map(c => `
+                        <div class="issue-card critical">
+                            <div class="issue-header">
+                                <span class="issue-type">Circular Dependency</span>
+                            </div>
+                            <div class="issue-description">${c.description}</div>
+                            <div class="issue-beliefs">
+                                ${c.beliefs.map((b, i) => `
+                                    <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                        ${i + 1}. ${escapeHtml(b.statement.substring(0, 25))}...
+                                    </span>
+                                    ${i < c.beliefs.length - 1 ? '<span style="color:var(--text-muted)">→</span>' : ''}
+                                `).join('')}
+                            </div>
+                            <div class="suggestion">
+                                <div class="suggestion-label">💡 Suggestion</div>
+                                Break the cycle by identifying which belief should be foundational and which should be derived.
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                ${results.confidenceMismatches.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">📊 Confidence Mismatches (${results.confidenceMismatches.length})</div>
+                    ${results.confidenceMismatches.map(m => `
+                        <div class="issue-card warning">
+                            <div class="issue-header">
+                                <span class="issue-type">Confidence Issue</span>
+                            </div>
+                            <div class="issue-description">${escapeHtml(m.description)}</div>
+                            <div class="issue-beliefs">
+                                ${m.beliefs.map(b => `
+                                    <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                        ${escapeHtml(b.statement.substring(0, 30))}... (${b.confidence}%)
+                                    </span>
+                                `).join('')}
+                            </div>
+                            <div class="suggestion">
+                                <div class="suggestion-label">💡 Suggestion</div>
+                                Adjust confidence levels to reflect the logical dependencies between these beliefs.
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                ${results.unsupportedAssumptions.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">❓ Unsupported Beliefs (${results.unsupportedAssumptions.length})</div>
+                    ${results.unsupportedAssumptions.map(b => `
+                        <div class="issue-card info">
+                            <div class="issue-header">
+                                <span class="issue-type">Needs Support</span>
+                            </div>
+                            <div class="issue-description">"${escapeHtml(b.statement)}" has no supporting evidence or relations</div>
+                            <div class="issue-beliefs">
+                                <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                    <span class="category-dot" style="background:${CATEGORIES[b.category]?.color};width:8px;height:8px"></span>
+                                    Confidence: ${b.confidence}%
+                                </span>
+                            </div>
+                            <div class="suggestion">
+                                <div class="suggestion-label">💡 Suggestion</div>
+                                Add evidence or connect this belief to supporting beliefs to strengthen your mental model.
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                ${results.isolatedBeliefs.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">🏝️ Isolated Beliefs (${results.isolatedBeliefs.length})</div>
+                    <div class="issue-card info">
+                        <div class="issue-description">These beliefs have no connections to other beliefs in your system:</div>
+                        <div class="issue-beliefs">
+                            ${results.isolatedBeliefs.map(b => `
+                                <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                    <span class="category-dot" style="background:${CATEGORIES[b.category]?.color};width:8px;height:8px"></span>
+                                    ${escapeHtml(b.statement.substring(0, 40))}...
+                                </span>
+                            `).join('')}
+                        </div>
+                        <div class="suggestion">
+                            <div class="suggestion-label">💡 Suggestion</div>
+                            Consider how these beliefs relate to your other beliefs. Are they truly independent, or should they be connected?
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${results.foundationalBeliefs.length > 0 ? `
+                <div class="issues-section">
+                    <div class="section-title">🏛️ Foundational Beliefs (${results.foundationalBeliefs.length})</div>
+                    <div class="issue-card" style="border-left:4px solid var(--success)">
+                        <div class="issue-description">These beliefs form the foundation of your mental model. Many other beliefs depend on them:</div>
+                        <div class="issue-beliefs">
+                            ${results.foundationalBeliefs.map(f => `
+                                <span class="belief-chip" onclick="selectBelief('${f.belief.id}')">
+                                    <span class="category-dot" style="background:${CATEGORIES[f.belief.category]?.color};width:8px;height:8px"></span>
+                                    ${escapeHtml(f.belief.statement.substring(0, 35))}... (${f.dependencyCount} deps)
+                                </span>
+                            `).join('')}
+                        </div>
+                        <div class="suggestion">
+                            <div class="suggestion-label">💡 Note</div>
+                            These core beliefs should be examined carefully, as changes to them would affect many other beliefs.
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${criticalCount === 0 && warningCount === 0 ? `
+                <div class="issue-card" style="border-left:4px solid var(--success)">
+                    <div class="issue-header">
+                        <span class="issue-type" style="background:rgba(16,185,129,0.2);color:var(--success)">All Clear</span>
+                    </div>
+                    <div class="issue-title">No major inconsistencies detected!</div>
+                    <div class="issue-description">
+                        Your belief system appears to be logically consistent. Continue adding beliefs and relations to build a more comprehensive mental model.
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        // =====================================================
+        // Graph Visualization
+        // =====================================================
+        function setupGraphCanvas() {
+            const canvas = document.getElementById('graphCanvas');
+            const container = canvas.parentElement;
+
+            function resize() {
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                renderGraph();
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Mouse events
+            canvas.addEventListener('mousedown', handleGraphMouseDown);
+            canvas.addEventListener('mousemove', handleGraphMouseMove);
+            canvas.addEventListener('mouseup', handleGraphMouseUp);
+            canvas.addEventListener('wheel', handleGraphWheel);
+            canvas.addEventListener('dblclick', handleGraphDoubleClick);
+        }
+
+        function renderGraphLegend() {
+            const catLegend = document.getElementById('graphLegendCategories');
+            catLegend.innerHTML = Object.entries(CATEGORIES).map(([key, val]) => `
+                <div class="legend-item">
+                    <div class="legend-color" style="background:${val.color}"></div>
+                    <span>${val.name}</span>
+                </div>
+            `).join('');
+
+            const relLegend = document.getElementById('graphLegendRelations');
+            relLegend.innerHTML = Object.entries(RELATION_TYPES).map(([key, val]) => `
+                <div class="legend-item">
+                    <div class="legend-line" style="background:${val.color}"></div>
+                    <span>${val.name}</span>
+                </div>
+            `).join('');
+        }
+
+        function buildGraphData() {
+            const nodes = state.beliefs.map((b, i) => {
+                const connections = state.relations.filter(r => 
+                    r.sourceId === b.id || r.targetId === b.id
+                ).length;
+
+                return {
+                    id: b.id,
+                    label: b.statement.substring(0, 30) + (b.statement.length > 30 ? '...' : ''),
+                    category: b.category,
+                    confidence: b.confidence,
+                    connections,
+                    x: 0,
+                    y: 0,
+                    vx: 0,
+                    vy: 0
+                };
+            });
+
+            const edges = state.relations.map(r => ({
+                source: r.sourceId,
+                target: r.targetId,
+                type: r.type,
+                strength: r.strength
+            }));
+
+            return { nodes, edges };
+        }
+
+        function applyForceLayout() {
+            const canvas = document.getElementById('graphCanvas');
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Initialize positions in a circle
+            graphState.nodes.forEach((node, i) => {
+                const angle = (2 * Math.PI * i) / graphState.nodes.length;
+                const radius = Math.min(canvas.width, canvas.height) * 0.3;
+                node.x = centerX + radius * Math.cos(angle);
+                node.y = centerY + radius * Math.sin(angle);
+            });
+
+            // Run force simulation
+            const iterations = 100;
+            for (let iter = 0; iter < iterations; iter++) {
+                // Repulsion between all nodes
+                for (let i = 0; i < graphState.nodes.length; i++) {
+                    for (let j = i + 1; j < graphState.nodes.length; j++) {
+                        const n1 = graphState.nodes[i];
+                        const n2 = graphState.nodes[j];
+                        const dx = n2.x - n1.x;
+                        const dy = n2.y - n1.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const force = 5000 / (dist * dist);
+                        const fx = (dx / dist) * force;
+                        const fy = (dy / dist) * force;
+                        n1.vx -= fx;
+                        n1.vy -= fy;
+                        n2.vx += fx;
+                        n2.vy += fy;
+                    }
+                }
+
+                // Attraction along edges
+                graphState.edges.forEach(edge => {
+                    const source = graphState.nodes.find(n => n.id === edge.source);
+                    const target = graphState.nodes.find(n => n.id === edge.target);
+                    if (source && target) {
+                        const dx = target.x - source.x;
+                        const dy = target.y - source.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const force = dist * 0.01;
+                        const fx = (dx / dist) * force;
+                        const fy = (dy / dist) * force;
+                        source.vx += fx;
+                        source.vy += fy;
+                        target.vx -= fx;
+                        target.vy -= fy;
+                    }
+                });
+
+                // Center gravity
+                graphState.nodes.forEach(node => {
+                    node.vx += (centerX - node.x) * 0.001;
+                    node.vy += (centerY - node.y) * 0.001;
+                });
+
+                // Apply velocities with damping
+                graphState.nodes.forEach(node => {
+                    node.x += node.vx;
+                    node.y += node.vy;
+                    node.vx *= 0.9;
+                    node.vy *= 0.9;
+                });
+            }
+        }
+
+        function renderGraph() {
+            const canvas = document.getElementById('graphCanvas');
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (state.beliefs.length === 0) {
+                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted');
+                ctx.font = '16px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('Add beliefs to see the graph', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const { nodes, edges } = buildGraphData();
+            graphState.nodes = nodes;
+            graphState.edges = edges;
+
+            applyForceLayout();
+
+            ctx.save();
+            ctx.translate(graphState.offsetX, graphState.offsetY);
+            ctx.scale(graphState.zoom, graphState.zoom);
+
+            // Draw edges
+            edges.forEach(edge => {
+                const source = nodes.find(n => n.id === edge.source);
+                const target = nodes.find(n => n.id === edge.target);
+                if (source && target) {
+                    ctx.beginPath();
+                    ctx.moveTo(source.x, source.y);
+                    ctx.lineTo(target.x, target.y);
+                    ctx.strokeStyle = RELATION_TYPES[edge.type]?.color || '#666';
+                    ctx.lineWidth = 1 + (edge.strength / 50);
+                    if (edge.type === 'contradicts') {
+                        ctx.setLineDash([5, 5]);
+                    } else {
+                        ctx.setLineDash([]);
+                    }
+                    ctx.stroke();
+
+                    // Draw arrow
+                    const angle = Math.atan2(target.y - source.y, target.x - source.x);
+                    const arrowX = target.x - 25 * Math.cos(angle);
+                    const arrowY = target.y - 25 * Math.sin(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(arrowX, arrowY);
+                    ctx.lineTo(arrowX - 10 * Math.cos(angle - 0.3), arrowY - 10 * Math.sin(angle - 0.3));
+                    ctx.lineTo(arrowX - 10 * Math.cos(angle + 0.3), arrowY - 10 * Math.sin(angle + 0.3));
+                    ctx.closePath();
+                    ctx.fillStyle = RELATION_TYPES[edge.type]?.color || '#666';
+                    ctx.fill();
+                }
+            });
+
+            ctx.setLineDash([]);
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const radius = 15 + Math.min(node.connections * 3, 15);
+                const isSelected = node.id === state.selectedBeliefId;
+
+                // Glow for selected
+                if (isSelected) {
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, radius + 8, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.3)';
+                    ctx.fill();
+                }
+
+                // Node circle
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = CATEGORIES[node.category]?.color || '#95a5a6';
+                ctx.fill();
+
+                // Border
+                ctx.strokeStyle = isSelected ? '#6366f1' : 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = isSelected ? 3 : 1;
+                ctx.stroke();
+
+                // Confidence indicator
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, -Math.PI / 2, -Math.PI / 2 + (node.confidence / 100) * Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                ctx.font = '11px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.label, node.x, node.y + radius + 15);
+            });
+
+            ctx.restore();
+        }
+
+        function handleGraphMouseDown(e) {
+            const canvas = document.getElementById('graphCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left - graphState.offsetX) / graphState.zoom;
+            const y = (e.clientY - rect.top - graphState.offsetY) / graphState.zoom;
+
+            // Check if clicking on a node
+            const node = graphState.nodes.find(n => {
+                const radius = 15 + Math.min(n.connections * 3, 15);
+                return Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < radius;
+            });
+
+            if (node) {
+                graphState.dragging = node;
+                selectBelief(node.id);
+            } else {
+                graphState.panning = true;
+                graphState.panStart = { x: e.clientX - graphState.offsetX, y: e.clientY - graphState.offsetY };
+            }
+        }
+
+        function handleGraphMouseMove(e) {
+            const canvas = document.getElementById('graphCanvas');
+            const rect = canvas.getBoundingClientRect();
+
+            if (graphState.dragging) {
+                const x = (e.clientX - rect.left - graphState.offsetX) / graphState.zoom;
+                const y = (e.clientY - rect.top - graphState.offsetY) / graphState.zoom;
+                graphState.dragging.x = x;
+                graphState.dragging.y = y;
+                renderGraph();
+            } else if (graphState.panning) {
+                graphState.offsetX = e.clientX - graphState.panStart.x;
+                graphState.offsetY = e.clientY - graphState.panStart.y;
+                renderGraph();
+            }
+        }
+
+        function handleGraphMouseUp() {
+            graphState.dragging = null;
+            graphState.panning = false;
+        }
+
+        function handleGraphWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoomGraph(delta);
+        }
+
+        function handleGraphDoubleClick(e) {
+            const canvas = document.getElementById('graphCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left - graphState.offsetX) / graphState.zoom;
+            const y = (e.clientY - rect.top - graphState.offsetY) / graphState.zoom;
+
+            const node = graphState.nodes.find(n => {
+                const radius = 15 + Math.min(n.connections * 3, 15);
+                return Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < radius;
+            });
+
+            if (node) {
+                editBelief(node.id);
+            }
+        }
+
+        function zoomGraph(factor) {
+            graphState.zoom = Math.max(0.2, Math.min(3, graphState.zoom * factor));
+            renderGraph();
+        }
+
+        function resetGraphView() {
+            graphState.zoom = 1;
+            graphState.offsetX = 0;
+            graphState.offsetY = 0;
+            renderGraph();
+        }
+
+        function updateGraphHighlight() {
+            renderGraph();
+        }
+
+        // =====================================================
+        // Matrix View
+        // =====================================================
+        function renderMatrix() {
+            const container = document.getElementById('matrixContainer');
+
+            if (state.beliefs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-title">No Data</div>
+                        <div class="empty-description">Add beliefs to see the relationship matrix.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const beliefs = state.beliefs;
+            let html = '<table class="matrix-table"><thead><tr><th></th>';
+
+            beliefs.forEach((b, i) => {
+                html += `<th title="${escapeHtml(b.statement)}">${i + 1}</th>`;
+            });
+
+            html += '</tr></thead><tbody>';
+
+            beliefs.forEach((rowBelief, i) => {
+                html += `<tr><th class="row-header" title="${escapeHtml(rowBelief.statement)}">${i + 1}. ${escapeHtml(rowBelief.statement.substring(0, 25))}...</th>`;
+
+                beliefs.forEach((colBelief, j) => {
+                    const relation = state.relations.find(r => 
+                        (r.sourceId === rowBelief.id && r.targetId === colBelief.id)
+                    );
+
+                    if (i === j) {
+                        html += '<td><div class="matrix-cell" style="background:var(--text-muted)"></div></td>';
+                    } else if (relation) {
+                        const color = RELATION_TYPES[relation.type]?.color || '#666';
+                        html += `<td title="${RELATION_TYPES[relation.type]?.name}"><div class="matrix-cell" style="background:${color}"></div></td>`;
+                    } else {
+                        html += '<td></td>';
+                    }
+                });
+
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            // Legend
+            html += '<div style="margin-top:20px;display:flex;gap:16px;flex-wrap:wrap">';
+            Object.entries(RELATION_TYPES).forEach(([key, val]) => {
+                html += `<div style="display:flex;align-items:center;gap:6px;font-size:12px">
+                    <div style="width:16px;height:16px;background:${val.color};border-radius:4px"></div>
+                    <span>${val.name}</span>
+                </div>`;
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        // =====================================================
+        // Timeline View
+        // =====================================================
+        function renderTimeline() {
+            const container = document.getElementById('timelineContainer');
+
+            if (state.beliefs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📅</div>
+                        <div class="empty-title">No Timeline</div>
+                        <div class="empty-description">Add beliefs to see your belief evolution timeline.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const sorted = [...state.beliefs].sort((a, b) => a.created - b.created);
+
+            container.innerHTML = `
+                <h3 style="margin-bottom:24px">Belief Evolution Timeline</h3>
+                <div class="timeline">
+                    ${sorted.map(b => `
+                        <div class="timeline-item">
+                            <div class="timeline-dot" style="background:${CATEGORIES[b.category]?.color || '#95a5a6'}"></div>
+                            <div class="timeline-content" onclick="selectBelief('${b.id}')" style="cursor:pointer">
+                                <div class="timeline-date">${formatDate(b.created)}</div>
+                                <div class="timeline-statement">${escapeHtml(b.statement)}</div>
+                                <div style="margin-top:8px;display:flex;gap:12px;font-size:11px;color:var(--text-muted)">
+                                    <span>${CATEGORIES[b.category]?.name || 'Other'}</span>
+                                    <span>Confidence: ${b.confidence}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // Clusters View
+        // =====================================================
+        function renderClusters() {
+            const container = document.getElementById('clusterContainer');
+
+            if (state.beliefs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔗</div>
+                        <div class="empty-title">No Clusters</div>
+                        <div class="empty-description">Add beliefs and relations to see belief clusters.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Union-Find for clustering
+            const parent = {};
+            state.beliefs.forEach(b => parent[b.id] = b.id);
+
+            function find(x) {
+                if (parent[x] !== x) parent[x] = find(parent[x]);
+                return parent[x];
+            }
+
+            function union(x, y) {
+                const px = find(x);
+                const py = find(y);
+                if (px !== py) parent[px] = py;
+            }
+
+            state.relations.forEach(r => union(r.sourceId, r.targetId));
+
+            // Group by cluster
+            const clusters = {};
+            state.beliefs.forEach(b => {
+                const root = find(b.id);
+                if (!clusters[root]) clusters[root] = [];
+                clusters[root].push(b);
+            });
+
+            const clusterArray = Object.values(clusters).sort((a, b) => b.length - a.length);
+
+            container.innerHTML = `
+                <h3 style="margin-bottom:24px">Belief Clusters (${clusterArray.length})</h3>
+                ${clusterArray.map((cluster, i) => {
+                    const categories = [...new Set(cluster.map(b => b.category))];
+                    return `
+                        <div class="cluster-card">
+                            <div class="cluster-header">
+                                <span class="cluster-name">Cluster ${i + 1}</span>
+                                <span class="cluster-count">${cluster.length} belief${cluster.length > 1 ? 's' : ''}</span>
+                            </div>
+                            <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+                                Categories: ${categories.map(c => CATEGORIES[c]?.name || 'Other').join(', ')}
+                            </div>
+                            <div class="cluster-beliefs">
+                                ${cluster.map(b => `
+                                    <span class="belief-chip" onclick="selectBelief('${b.id}')">
+                                        <span class="category-dot" style="background:${CATEGORIES[b.category]?.color};width:8px;height:8px"></span>
+                                        ${escapeHtml(b.statement.substring(0, 40))}...
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+
+        // =====================================================
+        // Tab Navigation
+        // =====================================================
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            if (tabId === 'graph') {
+                setTimeout(renderGraph, 100);
+            }
+        }
+
+        // =====================================================
+        // UI Utilities
+        // =====================================================
+        function toggleTheme() {
+            const current = document.body.getAttribute('data-theme');
+            document.body.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+        }
+
+        function toggleRightPanel() {
+            document.getElementById('rightPanel').classList.toggle('collapsed');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(timestamp) {
+            return new Date(timestamp).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getConfidenceColor(confidence) {
+            if (confidence >= 70) return 'var(--success)';
+            if (confidence >= 40) return 'var(--warning)';
+            return 'var(--danger)';
+        }
+
+        // =====================================================
+        // Keyboard Shortcuts
+        // =====================================================
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl/Cmd + N: New belief
+                if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                    e.preventDefault();
+                    openBeliefModal();
+                }
+
+                // Ctrl/Cmd + F: Focus search
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    document.getElementById('searchInput').focus();
+                }
+
+                // Ctrl/Cmd + S: Save (export)
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    exportData();
+                }
+
+                // Escape: Close modals
+                if (e.key === 'Escape') {
+                    closeBeliefModal();
+                    closeRelationModal();
+                    closeDeleteModal();
+                }
+
+                // Delete: Delete selected belief
+                if (e.key === 'Delete' && state.selectedBeliefId) {
+                    const activeElement = document.activeElement;
+                    if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                        openDeleteModal(state.selectedBeliefId);
+                    }
+                }
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

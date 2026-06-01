@@ -1,0 +1,791 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Flow Masterpiece</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        body {
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+        
+        button {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .active {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .title {
+            position: absolute;
+            top: 20px;
+            z-index: 10;
+            font-size: 24px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .loading {
+            position: absolute;
+            z-index: 100;
+            background: black;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 1s ease;
+        }
+        
+        .loader {
+            width: 100px;
+            height: 100px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .help-btn {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            z-index: 10;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .help-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .modal-content {
+            background: rgba(20, 20, 20, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 80%;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .close-btn:hover {
+            color: white;
+        }
+        
+        h2 {
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        
+        p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="loader"></div>
+        <div>Generating masterpiece...</div>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <div class="title">Particle Flow</div>
+    
+    <div class="controls">
+        <button id="mode1" class="active">Cosmic</button>
+        <button id="mode2">Fireflies</button>
+        <button id="mode3">Vortex</button>
+        <button id="mode4">Ribbons</button>
+        <button id="clearBtn">Clear</button>
+    </div>
+    
+    <div class="stats">
+        Particles: <span id="particleCount">0</span><br>
+        FPS: <span id="fps">0</span>
+    </div>
+    
+    <button class="help-btn">?</button>
+    
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <button class="close-btn">×</button>
+            <h2>How to Use</h2>
+            <p>Move your mouse or touch the screen to create stunning particle effects.</p>
+            <p>Try the different modes to explore various visual styles:</p>
+            <p>- <strong>Cosmic:</strong> Galaxy-like swirling particles</p>
+            <p>- <strong>Fireflies:</strong> Glowing particles that fade gradually</p>
+            <p>- <strong>Vortex:</strong> Particles that spiral toward the center</p>
+            <p>- <strong>Ribbons:</strong> Flowing connected particle streams</p>
+            <p>Press "Clear" to reset the canvas at any time.</p>
+        </div>
+    </div>
+
+    <script>
+        // Main configuration object
+        const config = {
+            mode: 'cosmic',
+            particleCount: 0,
+            maxParticles: 10000,
+            particleCap: {
+                cosmic: 10000,
+                fireflies: 5000,
+                vortex: 8000,
+                ribbons: 3000
+            },
+            colors: {
+                cosmic: ['#ff00cc', '#3300ff', '#00ccff', '#ff3300'],
+                fireflies: ['#ffff00', '#ff9900', '#ff5500', '#ffcc00'],
+                vortex: ['#00ff99', '#0099ff', '#9900ff', '#ff0099'],
+                ribbons: ['#ff3300', '#ff9900', '#ffff00', '#99ff00']
+            },
+            baseSize: {
+                cosmic: { min: 1, max: 5 },
+                fireflies: { min: 2, max: 7 },
+                vortex: { min: 0.5, max: 4 },
+                ribbons: { min: 1, max: 3 }
+            },
+            speed: {
+                cosmic: { min: 0.5, max: 2 },
+                fireflies: { min: 0.3, max: 1.5 },
+                vortex: { min: 1, max: 3 },
+                ribbons: { min: 1, max: 2 }
+            },
+            lifespan: {
+                cosmic: { min: 100, max: 200 },
+                fireflies: { min: 50, max: 150 },
+                vortex: { min: 80, max: 120 },
+                ribbons: { min: 100, max: 300 }
+            },
+            trails: {
+                cosmic: false,
+                fireflies: true,
+                vortex: false,
+                ribbons: true
+            },
+            trailLength: {
+                cosmic: 0,
+                fireflies: 8,
+                vortex: 0,
+                ribbons: 20
+            },
+            blendMode: {
+                cosmic: 'screen',
+                fireflies: 'lighter',
+                vortex: 'screen',
+                ribbons: 'lighter'
+            },
+            gravity: {
+                cosmic: 0.01,
+                fireflies: 0,
+                vortex: 0.05,
+                ribbons: 0.02
+            },
+            friction: {
+                cosmic: 0.97,
+                fireflies: 0.98,
+                vortex: 0.95,
+                ribbons: 0.99
+            },
+            fadeIn: {
+                cosmic: 10,
+                fireflies: 20,
+                vortex: 5,
+                ribbons: 15
+            },
+            fadeOut: {
+                cosmic: 30,
+                fireflies: 40,
+                vortex: 20,
+                ribbons: 50
+            },
+            mouseInfluence: {
+                cosmic: 20,
+                fireflies: 10,
+                vortex: 30,
+                ribbons: 15
+            },
+            randomness: {
+                cosmic: 2,
+                fireflies: 1,
+                vortex: 0.5,
+                ribbons: 1.5
+            },
+            emitRate: {
+                cosmic: 5,
+                fireflies: 3,
+                vortex: 8,
+                ribbons: 2
+            },
+            centerGravity: {
+                cosmic: false,
+                fireflies: false,
+                vortex: true,
+                ribbons: false
+            }
+        };
+
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Mouse position tracking
+        const mouse = {
+            x: width / 2,
+            y: height / 2,
+            lastX: width / 2,
+            lastY: height / 2,
+            isActive: false,
+            trail: []
+        };
+        
+        // Particles array
+        let particles = [];
+        
+        // FPS calculation variables
+        let fps = 0;
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        
+        // Color management
+        function getRandomColor() {
+            const colorArray = config.colors[config.mode];
+            return colorArray[Math.floor(Math.random() * colorArray.length)];
+        }
+        
+        function hexToRgb(hex) {
+            // Remove the '#' if present
+            hex = hex.replace('#', '');
+            
+            // Parse the hex values
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            
+            return [r, g, b];
+        }
+        
+        // Particle class
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.originX = x;
+                this.originY = y;
+                this.color = color;
+                this.rgb = hexToRgb(color);
+                
+                // Size
+                const sizeConfig = config.baseSize[config.mode];
+                this.size = Math.random() * (sizeConfig.max - sizeConfig.min) + sizeConfig.min;
+                
+                // Velocity
+                const speedConfig = config.speed[config.mode];
+                this.vx = (Math.random() * 2 - 1) * (Math.random() * (speedConfig.max - speedConfig.min) + speedConfig.min);
+                this.vy = (Math.random() * 2 - 1) * (Math.random() * (speedConfig.max - speedConfig.min) + speedConfig.min);
+                
+                // Life
+                const lifespanConfig = config.lifespan[config.mode];
+                this.life = Math.random() * (lifespanConfig.max - lifespanConfig.min) + lifespanConfig.min;
+                this.maxLife = this.life;
+                
+                // Trail properties
+                this.hasTrail = config.trails[config.mode];
+                this.trail = [];
+                this.trailLength = config.trailLength[config.mode];
+                
+                // Additional properties for different modes
+                this.angle = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() * 0.1 - 0.05) * (config.mode === 'vortex' ? 3 : 1);
+                this.isFading = false;
+                this.fadeOutThreshold = config.fadeOut[config.mode];
+                this.fadeInDuration = config.fadeIn[config.mode];
+                this.opacity = 0; // Start with 0 opacity and fade in
+            }
+            
+            update() {
+                // Update life
+                this.life--;
+                
+                // Update opacity for fade in/out
+                if (this.life > this.maxLife - this.fadeInDuration) {
+                    // Fade in
+                    this.opacity = 1 - ((this.life - (this.maxLife - this.fadeInDuration)) / this.fadeInDuration);
+                } else if (this.life < this.fadeOutThreshold) {
+                    // Fade out
+                    this.opacity = this.life / this.fadeOutThreshold;
+                } else {
+                    // Full opacity
+                    this.opacity = 1;
+                }
+                
+                // Store previous position for trail
+                if (this.hasTrail) {
+                    this.trail.unshift({ x: this.x, y: this.y, opacity: this.opacity });
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.pop();
+                    }
+                }
+                
+                // Apply physics based on mode
+                if (config.mode === 'cosmic') {
+                    // Apply mouse attraction
+                    if (mouse.isActive) {
+                        const dx = mouse.x - this.x;
+                        const dy = mouse.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 200) {
+                            this.vx += (dx / dist) * config.mouseInfluence.cosmic * 0.01;
+                            this.vy += (dy / dist) * config.mouseInfluence.cosmic * 0.01;
+                        }
+                    }
+                    
+                    // Apply random movement
+                    this.vx += (Math.random() - 0.5) * 0.1 * config.randomness.cosmic;
+                    this.vy += (Math.random() - 0.5) * 0.1 * config.randomness.cosmic;
+                    
+                    // Apply friction
+                    this.vx *= config.friction.cosmic;
+                    this.vy *= config.friction.cosmic;
+                    
+                } else if (config.mode === 'fireflies') {
+                    // Gentle random movement
+                    this.vx += (Math.random() - 0.5) * 0.05 * config.randomness.fireflies;
+                    this.vy += (Math.random() - 0.5) * 0.05 * config.randomness.fireflies;
+                    
+                    // Subtle attraction to mouse
+                    if (mouse.isActive) {
+                        const dx = mouse.x - this.x;
+                        const dy = mouse.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 300) {
+                            this.vx += (dx / dist) * config.mouseInfluence.fireflies * 0.005;
+                            this.vy += (dy / dist) * config.mouseInfluence.fireflies * 0.005;
+                        }
+                    }
+                    
+                    // Apply friction
+                    this.vx *= config.friction.fireflies;
+                    this.vy *= config.friction.fireflies;
+                    
+                } else if (config.mode === 'vortex') {
+                    // Center gravity
+                    const dx = width / 2 - this.x;
+                    const dy = height / 2 - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 5) {
+                        this.vx += (dx / dist) * config.gravity.vortex;
+                        this.vy += (dy / dist) * config.gravity.vortex;
+                    }
+                    
+                    // Rotate around center
+                    this.angle += this.rotationSpeed;
+                    const rotationInfluence = 0.5;
+                    this.vx += Math.cos(this.angle) * rotationInfluence;
+                    this.vy += Math.sin(this.angle) * rotationInfluence;
+                    
+                    // Mouse influence
+                    if (mouse.isActive) {
+                        const mdx = mouse.x - this.x;
+                        const mdy = mouse.y - this.y;
+                        const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+                        if (mdist < 200) {
+                            this.vx += (mdx / mdist) * config.mouseInfluence.vortex * 0.01;
+                            this.vy += (mdy / mdist) * config.mouseInfluence.vortex * 0.01;
+                        }
+                    }
+                    
+                    // Apply friction
+                    this.vx *= config.friction.vortex;
+                    this.vy *= config.friction.vortex;
+                    
+                } else if (config.mode === 'ribbons') {
+                    // Follow mouse trail with delay
+                    if (mouse.trail.length > 0) {
+                        const trailIndex = Math.min(Math.floor(Math.random() * mouse.trail.length), mouse.trail.length - 1);
+                        const trailPoint = mouse.trail[trailIndex];
+                        
+                        const dx = trailPoint.x - this.x;
+                        const dy = trailPoint.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist > 5) {
+                            this.vx += (dx / dist) * config.mouseInfluence.ribbons * 0.01;
+                            this.vy += (dy / dist) * config.mouseInfluence.ribbons * 0.01;
+                        }
+                    }
+                    
+                    // Add some randomness
+                    this.vx += (Math.random() - 0.5) * 0.1 * config.randomness.ribbons;
+                    this.vy += (Math.random() - 0.5) * 0.1 * config.randomness.ribbons;
+                    
+                    // Apply friction
+                    this.vx *= config.friction.ribbons;
+                    this.vy *= config.friction.ribbons;
+                }
+                
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Boundary checking
+                if (this.x < 0) this.x = 0, this.vx *= -0.5;
+                if (this.x > width) this.x = width, this.vx *= -0.5;
+                if (this.y < 0) this.y = 0, this.vy *= -0.5;
+                if (this.y > height) this.y = height, this.vy *= -0.5;
+            }
+            
+            draw() {
+                // Draw trail if enabled
+                if (this.hasTrail && this.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.lineTo(point.x, point.y);
+                    }
+                    
+                    // Create gradient for trail
+                    const gradient = ctx.createLinearGradient(
+                        this.trail[0].x, this.trail[0].y,
+                        this.trail[this.trail.length - 1].x, this.trail[this.trail.length - 1].y
+                    );
+                    
+                    gradient.addColorStop(0, `rgba(${this.rgb[0]}, ${this.rgb[1]}, ${this.rgb[2]}, ${this.opacity})`);
+                    gradient.addColorStop(1, `rgba(${this.rgb[0]}, ${this.rgb[1]}, ${this.rgb[2]}, 0)`);
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = this.size * 0.8;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.stroke();
+                }
+                
+                // Draw particle
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${this.rgb[0]}, ${this.rgb[1]}, ${this.rgb[2]}, ${this.opacity})`;
+                ctx.fill();
+                
+                // Add glow effect
+                if (config.mode === 'fireflies' || config.mode === 'cosmic') {
+                    const glow = ctx.createRadialGradient(
+                        this.x, this.y, 0,
+                        this.x, this.y, this.size * 3
+                    );
+                    
+                    glow.addColorStop(0, `rgba(${this.rgb[0]}, ${this.rgb[1]}, ${this.rgb[2]}, ${this.opacity * 0.5})`);
+                    glow.addColorStop(1, `rgba(${this.rgb[0]}, ${this.rgb[1]}, ${this.rgb[2]}, 0)`);
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = glow;
+                    ctx.fill();
+                }
+            }
+            
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+        
+        // Create particles based on mouse movement
+        function createParticles() {
+            if (!mouse.isActive) return;
+            
+            // Calculate mouse speed
+            const dx = mouse.x - mouse.lastX;
+            const dy = mouse.y - mouse.lastY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Create particles based on mouse speed and mode emit rate
+            const emitCount = Math.min(Math.ceil(distance * config.emitRate[config.mode] * 0.1), 10);
+            
+            for (let i = 0; i < emitCount; i++) {
+                if (particles.length < config.particleCap[config.mode]) {
+                    // Interpolate position along mouse movement
+                    const ratio = i / emitCount;
+                    const x = mouse.lastX + dx * ratio;
+                    const y = mouse.lastY + dy * ratio;
+                    
+                    // Add some randomness to position
+                    const spread = 10;
+                    const rx = x + (Math.random() - 0.5) * spread;
+                    const ry = y + (Math.random() - 0.5) * spread;
+                    
+                    particles.push(new Particle(rx, ry, getRandomColor()));
+                    config.particleCount++;
+                }
+            }
+            
+            // Update lastX and lastY
+            mouse.lastX = mouse.x;
+            mouse.lastY = mouse.y;
+            
+            // Update mouse trail
+            mouse.trail.unshift({ x: mouse.x, y: mouse.y });
+            if (mouse.trail.length > 50) {
+                mouse.trail.pop();
+            }
+        }
+        
+        // Animation loop
+        function animate(timestamp) {
+            // Calculate FPS
+            if (!lastFrameTime) {
+                lastFrameTime = timestamp;
+                lastFpsUpdate = timestamp;
+            }
+            
+            const delta = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+            
+            frameCount++;
+            
+            if (timestamp - lastFpsUpdate >= 1000) {
+                fps = Math.round((frameCount * 1000) / (timestamp - lastFpsUpdate));
+                lastFpsUpdate = timestamp;
+                frameCount = 0;
+                
+                // Update stats display
+                document.getElementById('fps').textContent = fps;
+                document.getElementById('particleCount').textContent = particles.length;
+            }
+            
+            // Clear canvas with slight fade effect for trails
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Set blend mode
+            ctx.globalCompositeOperation = config.blendMode[config.mode];
+            
+            // Create new particles
+            createParticles();
+            
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                    config.particleCount--;
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            mouse.isActive = true;
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+            mouse.isActive = true;
+        });
+        
+        window.addEventListener('mouseout', () => {
+            mouse.isActive = false;
+        });
+        
+        // Mode buttons
+        document.getElementById('mode1').addEventListener('click', () => setMode('cosmic'));
+        document.getElementById('mode2').addEventListener('click', () => setMode('fireflies'));
+        document.getElementById('mode3').addEventListener('click', () => setMode('vortex'));
+        document.getElementById('mode4').addEventListener('click', () => setMode('ribbons'));
+        
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            particles = [];
+            config.particleCount = 0;
+            ctx.clearRect(0, 0, width, height);
+        });
+        
+        function setMode(mode) {
+            config.mode = mode;
+            
+            // Update active button
+            document.querySelectorAll('.controls button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const modeMap = {
+                'cosmic': 'mode1',
+                'fireflies': 'mode2',
+                'vortex': 'mode3',
+                'ribbons': 'mode4'
+            };
+            
+            document.getElementById(modeMap[mode]).classList.add('active');
+        }
+        
+        // Help modal functions
+        const helpBtn = document.querySelector('.help-btn');
+        const helpModal = document.getElementById('helpModal');
+        const closeBtn = document.querySelector('.close-btn');
+        
+        helpBtn.addEventListener('click', () => {
+            helpModal.classList.add('show');
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            helpModal.classList.remove('show');
+        });
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.classList.remove('show');
+            }
+        });
+        
+        // Initialize the animation
+        window.addEventListener('load', () => {
+            // Hide loading screen after a short delay
+            setTimeout(() => {
+                const loadingScreen = document.querySelector('.loading');
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 1000);
+            }, 1500);
+            
+            // Start animation
+            requestAnimationFrame(animate);
+        });
+    </script>
+
+
+</body></html>

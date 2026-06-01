@@ -1,0 +1,927 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Garden Clicker</title>
+    <style>
+        :root {
+            --primary: #6a11cb;
+            --secondary: #2575fc;
+            --text: #ffffff;
+            --background: #0a0a2a;
+            --accent: #ff7b9c;
+            --dark-accent: #9e4784;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+        }
+        
+        body {
+            background: var(--background);
+            color: var(--text);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at top right, rgba(121, 68, 154, 0.13), transparent),
+                              radial-gradient(circle at 20% 80%, rgba(41, 196, 255, 0.13), transparent);
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        @media (min-width: 768px) {
+            .game-container {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            margin-bottom: 20px;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-icon {
+            font-size: 1.2rem;
+        }
+        
+        .clicker-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .cosmic-orb {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle at 30% 30%, var(--accent), var(--primary));
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 0 30px var(--accent), 
+                        0 0 60px var(--primary), 
+                        inset 0 0 20px rgba(255, 255, 255, 0.5);
+            transition: transform 0.05s, box-shadow 0.1s;
+            overflow: hidden;
+        }
+        
+        .cosmic-orb:before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8) 0%, transparent 30%);
+            opacity: 0.4;
+            animation: rotate 8s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .cosmic-orb:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 50px var(--accent), 
+                        0 0 80px var(--primary), 
+                        inset 0 0 30px rgba(255, 255, 255, 0.7);
+        }
+        
+        .stardust-value {
+            font-size: 2rem;
+            margin: 20px 0;
+            text-shadow: 0 0 10px var(--accent);
+            font-weight: bold;
+        }
+        
+        .garden {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .cosmic-plant {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transform-origin: bottom center;
+            animation: sway 3s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 5px var(--accent));
+        }
+        
+        @keyframes sway {
+            0% { transform: rotate(-5deg); }
+            100% { transform: rotate(5deg); }
+        }
+        
+        .stardust-particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 0 5px var(--accent), 0 0 10px var(--primary);
+            opacity: 0;
+            animation: float-up 1.5s ease-out forwards;
+        }
+        
+        @keyframes float-up {
+            0% {
+                transform: translateY(0) scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        .upgrades-section {
+            flex: 1;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            max-width: 400px;
+            width: 100%;
+            margin-top: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        @media (min-width: 768px) {
+            .upgrades-section {
+                margin-top: 0;
+                margin-left: 20px;
+                max-height: 600px;
+                overflow-y: auto;
+            }
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            color: var(--text);
+            text-shadow: 0 0 5px var(--accent);
+        }
+        
+        .upgrade-item {
+            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upgrade-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .upgrade-item.unavailable {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .upgrade-item.purchased {
+            background: linear-gradient(135deg, rgba(106, 17, 203, 0.4), rgba(37, 117, 252, 0.4));
+        }
+        
+        .upgrade-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .upgrade-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .upgrade-cost {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        .upgrade-level {
+            float: right;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        
+        .achievements-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            max-width: 400px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .achievement {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+        
+        .achievement.unlocked {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .achievement-icon {
+            width: 30px;
+            height: 30px;
+            background: var(--dark-accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+        
+        .achievement.unlocked .achievement-icon {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .achievement-info {
+            flex: 1;
+        }
+        
+        .achievement-title {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .achievement-desc {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: notification-appear 0.3s, notification-disappear 0.3s 2.7s;
+            animation-fill-mode: forwards;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        @keyframes notification-appear {
+            0% { transform: translate(-50%, 50px); opacity: 0; }
+            100% { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        @keyframes notification-disappear {
+            0% { transform: translate(-50%, 0); opacity: 1; }
+            100% { transform: translate(-50%, 50px); opacity: 0; }
+        }
+        
+        .bonus-area {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, var(--accent), transparent);
+            border-radius: 50%;
+            position: absolute;
+            animation: bonus-pulse 1s infinite alternate, bonus-move 15s linear infinite;
+            cursor: pointer;
+            opacity: 0.8;
+            z-index: 5;
+        }
+        
+        @keyframes bonus-pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            100% { transform: scale(1.1); opacity: 0.9; }
+        }
+        
+        @keyframes bonus-move {
+            0% { left: 10%; top: 10%; }
+            25% { left: 80%; top: 20%; }
+            50% { left: 60%; top: 70%; }
+            75% { left: 20%; top: 80%; }
+            100% { left: 10%; top: 10%; }
+        }
+        
+        /* Special effect when clicking */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.4);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Cosmic Garden Clicker</h1>
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-icon">✨</span>
+                <span id="stardust-per-second">0</span> stardust/s
+            </div>
+            <div class="stat">
+                <span class="stat-icon">🌱</span>
+                <span id="plant-count">0</span> plants
+            </div>
+            <div class="stat">
+                <span class="stat-icon">🖱️</span>
+                <span id="click-power">1</span> per click
+            </div>
+        </div>
+    </header>
+    
+    <div class="game-container">
+        <div class="clicker-section">
+            <div class="garden" id="garden"></div>
+            <div class="cosmic-orb" id="cosmic-orb"></div>
+            <div class="stardust-value">
+                <span id="stardust-count">0</span> ✨
+            </div>
+        </div>
+        
+        <div class="upgrades-section">
+            <h2 class="section-title">Cosmic Upgrades</h2>
+            <div id="upgrades-list">
+                <!-- Upgrades will be generated here -->
+            </div>
+        </div>
+    </div>
+    
+    <div id="achievements-container" class="achievements-container">
+        <h2 class="section-title">Achievements</h2>
+        <div id="achievements-list">
+            <!-- Achievements will be generated here -->
+        </div>
+    </div>
+    
+    <script>
+        // Game state
+        const game = {
+            stardust: 0,
+            stardustPerClick: 1,
+            stardustPerSecond: 0,
+            totalClicks: 0,
+            plants: 0,
+            achievements: [],
+            lastSave: Date.now(),
+            bonusActive: false,
+            bonusMultiplier: 1,
+            
+            // Upgrade definitions
+            upgrades: [
+                {
+                    id: 'click-power',
+                    name: 'Cosmic Touch',
+                    description: 'Increase stardust per click',
+                    baseCost: 10,
+                    level: 0,
+                    maxLevel: 20,
+                    effect: (level) => level,
+                    costScaling: 1.5,
+                },
+                {
+                    id: 'auto-collector',
+                    name: 'Stardust Collector',
+                    description: 'Automatically collect stardust',
+                    baseCost: 25,
+                    level: 0,
+                    maxLevel: 20,
+                    effect: (level) => level,
+                    costScaling: 1.6,
+                },
+                {
+                    id: 'cosmic-seeds',
+                    name: 'Cosmic Seeds',
+                    description: 'Plant cosmic flora that generates stardust',
+                    baseCost: 50,
+                    level: 0,
+                    maxLevel: 20,
+                    effect: (level) => level * 2,
+                    costScaling: 1.7,
+                },
+                {
+                    id: 'stardust-quality',
+                    name: 'Stardust Quality',
+                    description: 'Improve the quality of all stardust collection',
+                    baseCost: 100,
+                    level: 0,
+                    maxLevel: 10,
+                    effect: (level) => level * 0.1, // +10% per level
+                    costScaling: 2,
+                },
+                {
+                    id: 'cosmic-fertilizer',
+                    name: 'Cosmic Fertilizer',
+                    description: 'Plants produce more stardust',
+                    baseCost: 200,
+                    level: 0,
+                    maxLevel: 10,
+                    effect: (level) => level * 0.2, // +20% per level
+                    costScaling: 2.2,
+                },
+                {
+                    id: 'garden-expansion',
+                    name: 'Garden Expansion',
+                    description: 'Expand your cosmic garden capacity',
+                    baseCost: 500,
+                    level: 0,
+                    maxLevel: 5,
+                    effect: (level) => level * 5, // 5 more plants per level
+                    costScaling: 3,
+                }
+            ],
+            
+            // Achievement definitions
+            achievementsList: [
+                {
+                    id: 'first-click',
+                    title: 'First Contact',
+                    description: 'Click on the cosmic orb for the first time',
+                    check: (game) => game.totalClicks >= 1,
+                    unlocked: false
+                },
+                {
+                    id: 'click-addict',
+                    title: 'Click Enthusiast',
+                    description: 'Click 100 times',
+                    check: (game) => game.totalClicks >= 100,
+                    unlocked: false
+                },
+                {
+                    id: 'click-master',
+                    title: 'Click Master',
+                    description: 'Click 1,000 times',
+                    check: (game) => game.totalClicks >= 1000,
+                    unlocked: false
+                },
+                {
+                    id: 'first-upgrade',
+                    title: 'Cosmic Evolution',
+                    description: 'Purchase your first upgrade',
+                    check: (game) => game.upgrades.some(u => u.level > 0),
+                    unlocked: false
+                },
+                {
+                    id: 'stardust-collector',
+                    title: 'Stardust Collector',
+                    description: 'Collect 1,000 stardust',
+                    check: (game) => game.stardust >= 1000,
+                    unlocked: false
+                },
+                {
+                    id: 'cosmic-garden',
+                    title: 'Cosmic Gardener',
+                    description: 'Plant your first cosmic plant',
+                    check: (game) => game.plants >= 1,
+                    unlocked: false
+                },
+                {
+                    id: 'garden-master',
+                    title: 'Garden Master',
+                    description: 'Have 10 cosmic plants',
+                    check: (game) => game.plants >= 10,
+                    unlocked: false
+                },
+                {
+                    id: 'passive-income',
+                    title: 'Passive Income',
+                    description: 'Reach 10 stardust per second',
+                    check: (game) => game.stardustPerSecond >= 10,
+                    unlocked: false
+                }
+            ]
+        };
+        
+        // DOM Elements
+        const stardustCountElement = document.getElementById('stardust-count');
+        const stardustPerSecondElement = document.getElementById('stardust-per-second');
+        const plantCountElement = document.getElementById('plant-count');
+        const clickPowerElement = document.getElementById('click-power');
+        const cosmicOrbElement = document.getElementById('cosmic-orb');
+        const gardenElement = document.getElementById('garden');
+        const upgradesListElement = document.getElementById('upgrades-list');
+        const achievementsListElement = document.getElementById('achievements-list');
+        
+        // Update UI function
+        function updateUI() {
+            stardustCountElement.textContent = formatNumber(Math.floor(game.stardust));
+            stardustPerSecondElement.textContent = formatNumber(game.stardustPerSecond);
+            plantCountElement.textContent = game.plants;
+            clickPowerElement.textContent = formatNumber(getClickPower());
+            renderUpgrades();
+            renderAchievements();
+        }
+        
+        // Format large numbers
+        function formatNumber(num) {
+            if (num < 1000) return num;
+            if (num < 1000000) return (num / 1000).toFixed(1) + 'K';
+            if (num < 1000000000) return (num / 1000000).toFixed(1) + 'M';
+            return (num / 1000000000).toFixed(1) + 'B';
+        }
+        
+        // Calculate current click power
+        function getClickPower() {
+            let base = game.stardustPerClick;
+            
+            // Apply click power upgrade
+            const clickPowerUpgrade = game.upgrades.find(u => u.id === 'click-power');
+            base += clickPowerUpgrade.effect(clickPowerUpgrade.level);
+            
+            // Apply quality multiplier
+            const qualityUpgrade = game.upgrades.find(u => u.id === 'stardust-quality');
+            const qualityMultiplier = 1 + qualityUpgrade.effect(qualityUpgrade.level);
+            
+            // Apply bonus multiplier if active
+            return base * qualityMultiplier * game.bonusMultiplier;
+        }
+        
+        // Calculate cost for next upgrade level
+        function getUpgradeCost(upgrade) {
+            return Math.floor(upgrade.baseCost * Math.pow(upgrade.costScaling, upgrade.level));
+        }
+        
+        // Render upgrades list
+        function renderUpgrades() {
+            upgradesListElement.innerHTML = '';
+            
+            game.upgrades.forEach(upgrade => {
+                const cost = getUpgradeCost(upgrade);
+                const canAfford = game.stardust >= cost;
+                const maxedOut = upgrade.level >= upgrade.maxLevel;
+                
+                const upgradeElement = document.createElement('div');
+                upgradeElement.className = `upgrade-item ${!canAfford ? 'unavailable' : ''} ${maxedOut ? 'purchased' : ''}`;
+                
+                upgradeElement.innerHTML = `
+                    <div class="upgrade-name">
+                        ${upgrade.name} 
+                        <span class="upgrade-level">Level ${upgrade.level}${upgrade.maxLevel ? '/' + upgrade.maxLevel : ''}</span>
+                    </div>
+                    <div class="upgrade-description">${upgrade.description}</div>
+                    ${maxedOut ? 
+                      '<div class="upgrade-cost">MAXED</div>' : 
+                      `<div class="upgrade-cost">${formatNumber(cost)} ✨</div>`}
+                `;
+                
+                if (!maxedOut) {
+                    upgradeElement.addEventListener('click', () => {
+                        if (game.stardust >= cost) {
+                            game.stardust -= cost;
+                            upgrade.level++;
+                            updatePerSecondValues();
+                            updateUI();
+                            showNotification(`Upgraded ${upgrade.name} to level ${upgrade.level}!`);
+                            checkAchievements();
+                        }
+                    });
+                }
+                
+                upgradesListElement.appendChild(upgradeElement);
+            });
+        }
+        
+        // Update per-second values
+        function updatePerSecondValues() {
+            let perSecond = 0;
+            
+            // Auto collector
+            const autoCollectorUpgrade = game.upgrades.find(u => u.id === 'auto-collector');
+            perSecond += autoCollectorUpgrade.effect(autoCollectorUpgrade.level);
+            
+            // Plants
+            const cosmicSeedsUpgrade = game.upgrades.find(u => u.id === 'cosmic-seeds');
+            const plantBaseValue = cosmicSeedsUpgrade.effect(cosmicSeedsUpgrade.level);
+            
+            // Fertilizer multiplier
+            const fertilizerUpgrade = game.upgrades.find(u => u.id === 'cosmic-fertilizer');
+            const fertilizerMultiplier = 1 + fertilizerUpgrade.effect(fertilizerUpgrade.level);
+            
+            const plantValue = plantBaseValue * fertilizerMultiplier * game.plants;
+            perSecond += plantValue;
+            
+            // Quality multiplier
+            const qualityUpgrade = game.upgrades.find(u => u.id === 'stardust-quality');
+            const qualityMultiplier = 1 + qualityUpgrade.effect(qualityUpgrade.level);
+            
+            game.stardustPerSecond = perSecond * qualityMultiplier;
+            
+            // Update plant count based on garden expansion
+            const gardenExpansionUpgrade = game.upgrades.find(u => u.id === 'garden-expansion');
+            game.plants = gardenExpansionUpgrade.effect(gardenExpansionUpgrade.level);
+            
+            renderGarden();
+        }
+        
+        // Render the garden with plants
+        function renderGarden() {
+            gardenElement.innerHTML = '';
+            
+            const plantTypes = [
+                'radial-gradient(circle at center, #ff7b9c, #9e4784)',
+                'radial-gradient(circle at center, #2575fc, #6a11cb)',
+                'radial-gradient(circle at center, #11998e, #38ef7d)',
+                'radial-gradient(circle at center, #ffe259, #ffa751)',
+                'radial-gradient(circle at center, #c471f5, #fa71cd)'
+            ];
+            
+            for (let i = 0; i < game.plants; i++) {
+                const plant = document.createElement('div');
+                plant.className = 'cosmic-plant';
+                
+                // Random position within the garden
+                const posX = 10 + Math.random() * 80; // 10% to 90% of width
+                const posY = 10 + Math.random() * 80; // 10% to 90% of height
+                
+                plant.style.left = `${posX}%`;
+                plant.style.top = `${posY}%`;
+                
+                // Random plant type
+                const plantType = plantTypes[Math.floor(Math.random() * plantTypes.length)];
+                plant.style.background = plantType;
+                
+                // Random size
+                const size = 30 + Math.random() * 30; // 30px to 60px
+                plant.style.width = `${size}px`;
+                plant.style.height = `${size}px`;
+                
+                // Random animation delay
+                plant.style.animationDelay = `${Math.random() * 2}s`;
+                
+                gardenElement.appendChild(plant);
+            }
+        }
+        
+        // Render achievements
+        function renderAchievements() {
+            achievementsListElement.innerHTML = '';
+            
+            game.achievementsList.forEach(achievement => {
+                const achievementElement = document.createElement('div');
+                achievementElement.className = `achievement ${achievement.unlocked ? 'unlocked' : ''}`;
+                
+                achievementElement.innerHTML = `
+                    <div class="achievement-icon">🏆</div>
+                    <div class="achievement-info">
+                        <div class="achievement-title">${achievement.title}</div>
+                        <div class="achievement-desc">${achievement.description}</div>
+                    </div>
+                `;
+                
+                achievementsListElement.appendChild(achievementElement);
+            });
+        }
+        
+        // Check for unlocked achievements
+        function checkAchievements() {
+            game.achievementsList.forEach(achievement => {
+                if (!achievement.unlocked && achievement.check(game)) {
+                    achievement.unlocked = true;
+                    showNotification(`Achievement Unlocked: ${achievement.title}!`);
+                }
+            });
+        }
+        
+        // Show notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Create stardust particles animation
+        function createStardustParticles(x, y, amount = 5) {
+            for (let i = 0; i < amount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'stardust-particle';
+                
+                // Random position around the click
+                const offsetX = -15 + Math.random() * 30;
+                const offsetY = -15 + Math.random() * 30;
+                
+                particle.style.left = `${x + offsetX}px`;
+                particle.style.top = `${y + offsetY}px`;
+                
+                // Random size
+                const size = 5 + Math.random() * 10;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                
+                // Random color variation
+                const colorVariation = Math.floor(Math.random() * 40);
+                particle.style.backgroundColor = `hsl(${310 + colorVariation}, 80%, 70%)`;
+                
+                document.body.appendChild(particle);
+                
+                // Remove particle after animation completes
+                setTimeout(() => {
+                    particle.remove();
+                }, 1500);
+            }
+        }
+        
+        // Create ripple effect
+        function createRipple(element, event) {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            
+            const rect = element.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `${event.clientX - rect.left - size / 2}px`;
+            ripple.style.top = `${event.clientY - rect.top - size / 2}px`;
+            
+            element.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600); // Match animation duration
+        }
+        
+        // Create bonus stardust area
+        function createBonusArea() {
+            if (game.bonusActive) return;
+            
+            // Only create bonus if player has some progress
+            if (game.totalClicks < 10) return;
+            
+            game.bonusActive = true;
+            
+            const bonus = document.createElement('div');
+            bonus.className = 'bonus-area';
+            bonus.style.left = `${10 + Math.random() * 80}%`;
+            bonus.style.top = `${10 + Math.random() * 80}%`;
+            
+            bonus.addEventListener('click', (e) => {
+                // Give bonus stardust
+                game.bonusMultiplier = 2;
+                showNotification('Cosmic Bonus! 2x stardust for 10 seconds!');
+                
+                // Create extra particles
+                createStardustParticles(e.clientX, e.clientY, 20);
+                
+                // Remove bonus area
+                bonus.remove();
+                game.bonusActive = false;
+                
+                // Reset bonus multiplier after duration
+                setTimeout(() => {
+                    game.bonusMultiplier = 1;
+                    showNotification('Cosmic Bonus ended');
+                }, 10000);
+                
+                // Prevent event bubbling
+                e.stopPropagation();
+            });
+            
+            document.querySelector('.clicker-section').appendChild(bonus);
+            
+            // Remove bonus after some time if not clicked
+            setTimeout(() => {
+                if (game.bonusActive) {
+                    bonus.remove();
+                    game.bonusActive = false;
+                }
+            }, 15000);
+        }
+        
+        // Initialize the game
+        function initGame() {
+            // Orb click event
+            cosmicOrbElement.addEventListener('click', (e) => {
+                game.stardust += getClickPower();
+                game.totalClicks++;
+                
+                createStardustParticles(e.clientX, e.clientY);
+                createRipple(cosmicOrbElement, e);
+                
+                checkAchievements();
+                updateUI();
+            });
+            
+            // Randomly spawn bonus areas
+            setInterval(() => {
+                if (Math.random() < 0.1) { // 10% chance every 30 seconds
+                    createBonusArea();
+                }
+            }, 30000);
+            
+            // Game tick (updates once per second)
+            setInterval(() => {
+                const now = Date.now();
+                const deltaTime = (now - game.lastSave) / 1000;
+                game.lastSave = now;
+                
+                // Add per-second stardust
+                game.stardust += game.stardustPerSecond * deltaTime;
+                
+                checkAchievements();
+                updateUI();
+            }, 1000);
+            
+            // Initialize UI
+            updatePerSecondValues();
+            updateUI();
+        }
+        
+        // Start the game
+        initGame();
+    </script>
+
+
+</body></html>

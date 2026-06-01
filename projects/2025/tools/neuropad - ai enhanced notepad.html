@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroPad - AI Enhanced Notepad</title>
+    <style>
+        :root {
+            --glow-color: #00ff88;
+            --bg-color: #0a0a0a;
+            --text-color: #e0e0e0;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #050505;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .neuro-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: var(--bg-color);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 30px var(--glow-color),
+                inset 0 0 20px var(--glow-color);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .neuro-container:hover {
+            transform: scale(1.02);
+            box-shadow: 
+                0 0 45px var(--glow-color),
+                inset 0 0 30px var(--glow-color);
+        }
+
+        #neuroCanvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #neuroInput {
+            position: relative;
+            width: 90%;
+            height: 80%;
+            margin: 5%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-color);
+            font-size: 1.2em;
+            line-height: 1.5;
+            resize: none;
+            caret-color: var(--glow-color);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .control-btn {
+            background: transparent;
+            border: 2px solid var(--glow-color);
+            color: var(--glow-color);
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--glow-color);
+            color: var(--bg-color);
+        }
+
+        .ai-suggestion {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--text-color);
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 300px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .suggestion-visible {
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 30px var(--glow-color); }
+            50% { box-shadow: 0 0 60px var(--glow-color); }
+            100% { box-shadow: 0 0 30px var(--glow-color); }
+        }
+
+        .neuro-container {
+            animation: pulse 3s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="neuro-container">
+        <canvas id="neuroCanvas"></canvas>
+        <textarea id="neuroInput" placeholder="Type or speak your thoughts..."></textarea>
+        <div class="controls">
+            <button class="control-btn" onclick="toggleVoiceInput()">🎙️ Voice</button>
+            <button class="control-btn" onclick="generateSuggestion()">💡 Suggest</button>
+            <button class="control-btn" onclick="saveNote()">💾 Save</button>
+        </div>
+        <div id="suggestionBox" class="ai-suggestion"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('neuroCanvas');
+        const ctx = canvas.getContext('2d');
+        const input = document.getElementById('neuroInput');
+        const suggestionBox = document.getElementById('suggestionBox');
+
+        // Particle system setup
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 3 + 1;
+                this.speedX = Math.random() * 3 - 1.5;
+                this.speedY = Math.random() * 3 - 1.5;
+                this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.size *= 0.95;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        let particles = [];
+
+        function initCanvas() {
+            canvas.width = window.innerWidth * 0.8;
+            canvas.height = window.innerHeight * 0.8;
+            
+            input.addEventListener('input', (e) => {
+                const rect = input.getBoundingClientRect();
+                const x = rect.left + e.target.selectionStart * 10;
+                const y = rect.top + 20;
+                
+                for(let i = 0; i < 5; i++) {
+                    particles.push(new Particle(x, y));
+                }
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((particle, index) => {
+                particle.update();
+                particle.draw();
+                
+                if(particle.size < 0.3) {
+                    particles.splice(index, 1);
+                }
+            });
+            requestAnimationFrame(animate);
+        }
+
+        // Voice recognition
+        let recognition;
+        function toggleVoiceInput() {
+            if (!recognition) {
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = 'en-US';
+                recognition.interimResults = true;
+                
+                recognition.onresult = (event) => {
+                    const transcript = Array.from(event.results)
+                        .map(result => result[0].transcript)
+                        .join('');
+                    input.value += transcript;
+                };
+            }
+            
+            if (recognition.start) {
+                recognition.start();
+                document.querySelector('.control-btn:first-child').textContent = '🔴 Recording...';
+            } else {
+                recognition.stop();
+                document.querySelector('.control-btn:first-child').textContent = '🎙️ Voice';
+            }
+        }
+
+        // AI Suggestion
+        function generateSuggestion() {
+            const text = input.value;
+            const suggestions = [
+                `In a future where ${text}, we might...`,
+                `Considering ${text}, the implications are...`,
+                `What if ${text} could be transformed into...`,
+                `The quantum state of ${text} suggests...`
+            ];
+            suggestionBox.textContent = suggestions[Math.floor(Math.random() * suggestions.length)];
+            suggestionBox.classList.add('suggestion-visible');
+            setTimeout(() => suggestionBox.classList.remove('suggestion-visible'), 3000);
+        }
+
+        // Save to local storage
+        function saveNote() {
+            localStorage.setItem('neuroNote', input.value);
+            alert('Note saved to quantum storage!');
+        }
+
+        // Load saved note
+        window.onload = () => {
+            input.value = localStorage.getItem('neuroNote') || '';
+            initCanvas();
+            animate();
+        }
+
+        // Dynamic theming
+        function updateTheme() {
+            const hour = new Date().getHours();
+            const saturation = Math.abs(24 - hour) * 4;
+            document.documentElement.style.setProperty('--glow-color', `hsl(${hour * 15}, ${saturation}%, 50%)`);
+        }
+
+        setInterval(updateTheme, 60000);
+        updateTheme();
+    </script>
+</body>
+</html>

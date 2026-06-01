@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Smoke Signal Cryptography</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;font-family:'SF Pro','Segoe UI',system-ui,sans-serif;color:#e8e8e8;touch-action:none;user-select:none}
+canvas{display:block;position:fixed;top:0;left:0}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:10}
+#top-bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,transparent 100%);pointer-events:auto}
+#top-bar h1{font-size:15px;font-weight:600;letter-spacing:1px;background:linear-gradient(90deg,#ff8c42,#ffcf6b,#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-transform:uppercase}
+.mode-pills{display:flex;gap:4px}
+.pill{padding:5px 12px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);cursor:pointer;transition:all .2s;color:#aaa}
+.pill.active{background:rgba(255,140,66,.2);border-color:#ff8c42;color:#ffcf6b}
+#encode-panel{position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;background:linear-gradient(0deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.6) 70%,transparent 100%);pointer-events:auto;transition:transform .3s}
+#encode-panel.hidden{transform:translateY(100%)}
+#msg-input-wrap{display:flex;gap:8px;margin-bottom:8px}
+#msg-input{flex:1;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,140,66,.3);background:rgba(255,255,255,.06);color:#fff;font-size:14px;outline:none;font-family:inherit}
+#msg-input:focus{border-color:#ff8c42;box-shadow:0 0 12px rgba(255,140,66,.15)}
+#msg-input::placeholder{color:rgba(255,255,255,.3)}
+#send-btn{padding:10px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,#ff8c42,#e65c00);color:#fff;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap}
+#send-btn:hover{transform:scale(1.03);box-shadow:0 2px 12px rgba(255,140,66,.3)}
+#send-btn:active{transform:scale(.97)}
+#controls-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ctrl-btn{padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#ccc;font-size:11px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.ctrl-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.ctrl-btn.on{background:rgba(255,140,66,.15);border-color:rgba(255,140,66,.4);color:#ffcf6b}
+#decode-panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px 24px;border-radius:16px;border:1px solid rgba(255,140,66,.25);background:rgba(10,10,20,.92);backdrop-filter:blur(12px);pointer-events:auto;text-align:center;max-width:360px;width:90%;display:none;z-index:20}
+#decode-panel.show{display:block;animation:fadeIn .3s}
+#decoded-text{font-size:18px;font-weight:600;color:#ffcf6b;margin:12px 0;min-height:24px;word-break:break-word;line-height:1.5}
+#decode-meta{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px}
+@keyframes fadeIn{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#timeline{position:absolute;left:16px;right:16px;bottom:90px;pointer-events:auto;display:none}
+#timeline.show{display:block}
+#time-slider{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:rgba(255,255,255,.1);outline:none}
+#time-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#ff8c42;cursor:pointer;box-shadow:0 0 6px rgba(255,140,66,.5)}
+#time-label{text-align:center;font-size:10px;color:rgba(255,255,255,.4);margin-top:4px}
+#wind-indicator{position:absolute;top:54px;right:16px;pointer-events:none;font-size:11px;color:rgba(255,255,255,.3)}
+#status-toast{position:absolute;top:54px;left:50%;transform:translateX(-50%);padding:6px 16px;border-radius:20px;background:rgba(255,140,66,.2);border:1px solid rgba(255,140,66,.3);color:#ffcf6b;font-size:12px;font-weight:500;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#status-toast.show{opacity:1}
+#history-panel{position:absolute;top:48px;right:0;bottom:0;width:280px;background:rgba(10,10,20,.95);border-left:1px solid rgba(255,255,255,.08);pointer-events:auto;overflow-y:auto;transform:translateX(100%);transition:transform .3s;padding:16px;z-index:15}
+#history-panel.show{transform:translateX(0)}
+#history-panel h3{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.history-item{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);margin-bottom:8px;cursor:pointer;transition:all .2s}
+.history-item:hover{background:rgba(255,140,66,.08);border-color:rgba(255,140,66,.2)}
+.hi-msg{font-size:13px;color:#e8e8e8;margin-bottom:4px;word-break:break-word}
+.hi-time{font-size:10px;color:rgba(255,255,255,.3)}
+.hi-status{font-size:10px;padding:2px 6px;border-radius:6px;display:inline-block;margin-top:4px}
+.hi-status.encoded{background:rgba(255,140,66,.15);color:#ff8c42}
+.hi-status.decoded{background:rgba(66,255,140,.15);color:#42ff8c}
+#help-tip{position:absolute;bottom:140px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.25);text-align:center;pointer-events:none;transition:opacity .5s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+<div id="top-bar">
+<h1>Smoke Signal</h1>
+<div class="mode-pills">
+<div class="pill active" data-mode="encode" onclick="setMode('encode')">Encode</div>
+<div class="pill" data-mode="decode" onclick="setMode('decode')">Decode</div>
+<div class="pill" data-mode="free" onclick="setMode('free')">Free Draw</div>
+</div>
+</div>
+
+<div id="wind-indicator">Wind: 0.0</div>
+<div id="status-toast"></div>
+
+<div id="encode-panel">
+<div id="msg-input-wrap">
+<input id="msg-input" type="text" placeholder="Type your secret message..." maxlength="140" autocomplete="off">
+<button id="send-btn" onclick="encodeMessage()">Encode</button>
+</div>
+<div id="controls-row">
+<div class="ctrl-btn" onclick="togglePause()" id="pause-btn">⏸ Pause</div>
+<div class="ctrl-btn" onclick="toggleTimeline()" id="tl-btn">⏪ Timeline</div>
+<div class="ctrl-btn" onclick="toggleHistory()" id="hist-btn">📜 History</div>
+<div class="ctrl-btn" onclick="clearSmoke()">🗑 Clear</div>
+<div class="ctrl-btn" onclick="exportData()">💾 Export</div>
+</div>
+</div>
+
+<div id="timeline">
+<input id="time-slider" type="range" min="0" max="1000" value="1000">
+<div id="time-label">Live</div>
+</div>
+
+<div id="decode-panel">
+<div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px">Decoded Message</div>
+<div id="decoded-text"></div>
+<div id="decode-meta"></div>
+<button class="ctrl-btn" style="margin:0 auto;pointer-events:auto" onclick="closeDecodePanel()">Close</button>
+</div>
+
+<div id="history-panel">
+<h3>Message History</h3>
+<div id="history-list"></div>
+</div>
+
+<div id="help-tip">Tap to place smoke emitters • Type a message and encode it into rising smoke</div>
+</div>
+
+<script>
+"use strict";
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio, 2);
+
+let W, H;
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ==================== STATE ====================
+let mode = 'encode'; // encode, decode, free
+let paused = false;
+let showTimeline = false;
+let showHistoryPanel = false;
+let timeSliderValue = 1.0;
+let globalTime = 0;
+let windX = 0, windTarget = 0;
+let tiltX = 0, tiltY = 0;
+
+const particles = [];
+const emitters = [];
+const encodedMessages = [];
+const history = [];
+const MAX_PARTICLES = 6000;
+const SNAPSHOT_INTERVAL = 50;
+let snapshots = [];
+let snapshotTimer = 0;
+
+// ==================== PERLIN NOISE ====================
+const perm = new Uint8Array(512);
+{
+  const p = new Uint8Array(256);
+  for(let i=0;i<256;i++) p[i]=i;
+  for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}
+  for(let i=0;i<512;i++) perm[i]=p[i&255];
+}
+function fade(t){return t*t*t*(t*(t*6-15)+10)}
+function lerp(a,b,t){return a+t*(b-a)}
+function grad(hash,x,y){const h=hash&3;return((h&1)?-x:x)+((h&2)?-y:y)}
+function noise2D(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255;
+  x-=Math.floor(x);y-=Math.floor(y);
+  const u=fade(x),v=fade(y);
+  const a=perm[X]+Y,b=perm[X+1]+Y;
+  return lerp(lerp(grad(perm[a],x,y),grad(perm[b],x-1,y),u),lerp(grad(perm[a+1],x,y-1),grad(perm[b+1],x-1,y-1),u),v);
+}
+function fbm(x,y,octaves=4){
+  let v=0,amp=1,freq=1,max=0;
+  for(let i=0;i<octaves;i++){v+=noise2D(x*freq,y*freq)*amp;max+=amp;amp*=0.5;freq*=2;}
+  return v/max;
+}
+
+// ==================== ENCODING SYSTEM ====================
+// Steganographic encoding: text → binary → particle density patterns
+// Each character is encoded as 8 bits, represented by particle density in spatial cells
+
+function textToBinary(text) {
+  const bits = [];
+  for(let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    for(let b = 7; b >= 0; b--) {
+      bits.push((code >> b) & 1);
+    }
+  }
+  return bits;
+}
+
+function binaryToText(bits) {
+  let text = '';
+  for(let i = 0; i + 7 < bits.length; i += 8) {
+    let code = 0;
+    for(let b = 0; b < 8; b++) {
+      code = (code << 1) | bits[i + b];
+    }
+    if(code >= 32 && code < 127) text += String.fromCharCode(code);
+    else if(code === 0) break;
+    else text += '?';
+  }
+  return text;
+}
+
+function encodeMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text) return;
+
+  input.value = '';
+
+  // Generate smoke encoding
+  const bits = textToBinary(text);
+  const totalBits = bits.length;
+
+  // Create a sequence of smoke puffs encoding the data
+  // HIGH density puff = 1, LOW density puff = 0
+  // Plus header: 8 puffs encoding message length
+
+  const lenBits = textToBinary(String.fromCharCode(text.length));
+  const allBits = [...lenBits, ...bits];
+
+  const msg = {
+    id: Date.now(),
+    text: text,
+    bits: allBits,
+    startTime: globalTime,
+    emitterX: W / 2,
+    emitterY: H * 0.75,
+    phase: 0,
+    bitIndex: 0,
+    puffTimer: 0,
+    complete: false,
+    decoded: false,
+    particleGroups: []
+  };
+
+  encodedMessages.push(msg);
+
+  // Add to history
+  history.push({
+    id: msg.id,
+    text: text,
+    time: new Date().toLocaleTimeString(),
+    status: 'encoded',
+    bits: allBits.length
+  });
+  updateHistoryUI();
+
+  showToast('Encoding: "' + text.substring(0, 20) + (text.length > 20 ? '...' : '') + '" into smoke...');
+  setTimeout(() => document.getElementById('help-tip').style.opacity = '0', 100);
+}
+
+// ==================== PARTICLE SYSTEM ====================
+class Particle {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 0.5 + (config.vx || 0);
+    this.vy = -(1.5 + Math.random() * 1.5) * (config.speed || 1);
+    this.life = 1.0;
+    this.maxLife = 3 + Math.random() * 4;
+    this.decay = 1 / (this.maxLife * 60);
+    this.size = (8 + Math.random() * 16) * (config.size || 1);
+    this.growRate = 0.3 + Math.random() * 0.5;
+    this.opacity = 0.4 + Math.random() * 0.3;
+    this.noiseOffX = Math.random() * 100;
+    this.noiseOffY = Math.random() * 100;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random() - 0.5) * 0.02;
+    this.group = config.group || -1;
+    this.bitValue = config.bitValue !== undefined ? config.bitValue : -1;
+    this.encoded = config.encoded || false;
+    this.hue = config.hue || 25;
+    this.sat = config.sat || 80;
+    this.birth = globalTime;
+  }
+
+  update(dt) {
+    if(paused && timeSliderValue >= 0.999) return;
+
+    const t = globalTime * 0.01;
+    const nx = fbm(this.x * 0.003 + this.noiseOffX + t, this.y * 0.003 + t, 3);
+    const ny = fbm(this.x * 0.003 + t, this.y * 0.003 + this.noiseOffY + t, 3);
+
+    this.vx += nx * 0.15 + windX * 0.02 + tiltX * 0.01;
+    this.vy += ny * 0.1 - 0.02;
+
+    // Buoyancy
+    this.vy -= 0.03 * this.life;
+
+    // Damping
+    this.vx *= 0.98;
+    this.vy *= 0.985;
+
+    this.x += this.vx;
+    this.y += this.vy;
+    this.size += this.growRate * this.life;
+    this.rotation += this.rotSpeed;
+    this.life -= this.decay;
+  }
+}
+
+class Emitter {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.rate = config.rate || 3;
+    this.timer = 0;
+    this.active = true;
+    this.lifespan = config.lifespan || Infinity;
+    this.age = 0;
+    this.config = config;
+  }
+
+  update(dt) {
+    if(!this.active || paused) return;
+    this.age += dt;
+    if(this.age > this.lifespan) { this.active = false; return; }
+
+    this.timer += dt;
+    const interval = 1 / this.rate;
+    while(this.timer >= interval && particles.length < MAX_PARTICLES) {
+      this.timer -= interval;
+      const spread = this.config.spread || 8;
+      particles.push(new Particle(
+        this.x + (Math.random() - 0.5) * spread,
+        this.y + (Math.random() - 0.5) * 4,
+        this.config
+      ));
+    }
+  }
+}
+
+// ==================== ENCODING EMITTER LOGIC ====================
+function updateEncodedMessages(dt) {
+  for(const msg of encodedMessages) {
+    if(msg.complete) continue;
+
+    msg.puffTimer += dt;
+    const puffInterval = 0.25; // time per bit
+
+    if(msg.puffTimer >= puffInterval) {
+      msg.puffTimer -= puffInterval;
+
+      if(msg.bitIndex < msg.bits.length) {
+        const bit = msg.bits[msg.bitIndex];
+        const groupId = msg.id * 1000 + msg.bitIndex;
+
+        // Create particles for this bit
+        const count = bit === 1 ? 18 : 5; // high density = 1, low = 0
+        const baseX = msg.emitterX + (Math.random() - 0.5) * 20;
+        const baseY = msg.emitterY;
+
+        for(let i = 0; i < count; i++) {
+          if(particles.length >= MAX_PARTICLES) break;
+          particles.push(new Particle(
+            baseX + (Math.random() - 0.5) * 12,
+            baseY + (Math.random() - 0.5) * 6,
+            {
+              group: groupId,
+              bitValue: bit,
+              encoded: true,
+              speed: 0.8 + Math.random() * 0.3,
+              size: bit === 1 ? 1.2 : 0.7,
+              hue: bit === 1 ? 30 : 15,
+              sat: bit === 1 ? 90 : 50,
+              vx: (msg.bitIndex % 2 === 0 ? 0.2 : -0.2)
+            }
+          ));
+        }
+
+        msg.particleGroups.push({
+          groupId,
+          bitValue: bit,
+          bitIndex: msg.bitIndex,
+          spawnTime: globalTime,
+          x: baseX,
+          y: baseY
+        });
+
+        msg.bitIndex++;
+      } else {
+        msg.complete = true;
+        showToast('Message fully encoded into smoke!');
+      }
+    }
+  }
+}
+
+// ==================== DECODING ====================
+function attemptDecode(x, y) {
+  // Find the nearest encoded message's particles
+  let bestMsg = null;
+  let bestDist = Infinity;
+
+  for(const msg of encodedMessages) {
+    if(msg.decoded) continue;
+    const dx = x - msg.emitterX;
+    const dy = y - msg.emitterY;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if(d < bestDist && d < 200) {
+      bestDist = d;
+      bestMsg = msg;
+    }
+  }
+
+  if(!bestMsg) {
+    // Try to decode from particle density analysis
+    const decoded = decodeFromParticles(x, y);
+    if(decoded) {
+      showDecodePanel(decoded, 'Particle density analysis');
+      return;
+    }
+    showToast('No encoded smoke detected here');
+    return;
+  }
+
+  // Decode the message
+  bestMsg.decoded = true;
+  const bits = bestMsg.bits.slice(8); // Skip length header
+  const text = binaryToText(bits);
+
+  // Update history
+  const hi = history.find(h => h.id === bestMsg.id);
+  if(hi) { hi.status = 'decoded'; updateHistoryUI(); }
+
+  showDecodePanel(text, 'Intercepted at ' + new Date().toLocaleTimeString());
+
+  history.push({
+    id: Date.now(),
+    text: '→ Decoded: "' + text + '"',
+    time: new Date().toLocaleTimeString(),
+    status: 'decoded',
+    bits: bestMsg.bits.length
+  });
+  updateHistoryUI();
+}
+
+function decodeFromParticles(x, y) {
+  // Analyze particle density in a grid around the click point
+  const radius = 150;
+  const cellSize = 30;
+  const cells = Math.ceil(radius * 2 / cellSize);
+  const grid = new Array(cells).fill(0).map(() => new Array(1).fill(0));
+
+  let encodedCount = 0;
+  const relevantParticles = particles.filter(p => {
+    if(!p.encoded || p.life <= 0) return false;
+    const dx = p.x - x, dy = p.y - y;
+    return Math.sqrt(dx*dx + dy*dy) < radius;
+  });
+
+  if(relevantParticles.length < 10) return null;
+
+  // Group by birth time to recover bit sequence
+  const groups = new Map();
+  for(const p of relevantParticles) {
+    const key = Math.floor(p.birth * 4); // Group by ~0.25s intervals
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  }
+
+  const sortedKeys = [...groups.keys()].sort((a,b) => a - b);
+  const bits = [];
+  for(const key of sortedKeys) {
+    const group = groups.get(key);
+    bits.push(group.length > 10 ? 1 : 0);
+  }
+
+  if(bits.length < 16) return null;
+
+  // Skip header (first 8 bits = length)
+  const dataBits = bits.slice(8);
+  const text = binaryToText(dataBits);
+  return text.length > 0 ? text : null;
+}
+
+// ==================== UI FUNCTIONS ====================
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.mode === m));
+  const ep = document.getElementById('encode-panel');
+  ep.classList.toggle('hidden', m === 'free');
+  if(m === 'decode') showToast('Tap on smoke to decode messages');
+  if(m === 'free') showToast('Draw smoke freely — tap and drag');
+  if(m === 'encode') showToast('Type a message and encode it');
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause-btn').classList.toggle('on', paused);
+  document.getElementById('pause-btn').innerHTML = paused ? '▶ Play' : '⏸ Pause';
+}
+
+function toggleTimeline() {
+  showTimeline = !showTimeline;
+  document.getElementById('timeline').classList.toggle('show', showTimeline);
+  document.getElementById('tl-btn').classList.toggle('on', showTimeline);
+}
+
+function toggleHistory() {
+  showHistoryPanel = !showHistoryPanel;
+  document.getElementById('history-panel').classList.toggle('show', showHistoryPanel);
+  document.getElementById('hist-btn').classList.toggle('on', showHistoryPanel);
+}
+
+function clearSmoke() {
+  particles.length = 0;
+  emitters.length = 0;
+  encodedMessages.length = 0;
+  snapshots.length = 0;
+  showToast('Smoke cleared');
+}
+
+function showToast(text) {
+  const t = document.getElementById('status-toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showDecodePanel(text, meta) {
+  const panel = document.getElementById('decode-panel');
+  document.getElementById('decoded-text').textContent = text;
+  document.getElementById('decode-meta').textContent = meta;
+  panel.classList.add('show');
+}
+
+function closeDecodePanel() {
+  document.getElementById('decode-panel').classList.remove('show');
+}
+
+function updateHistoryUI() {
+  const list = document.getElementById('history-list');
+  list.innerHTML = history.slice().reverse().map(h => `
+    <div class="history-item" onclick="replayMessage('${h.text.replace(/'/g, "\\'")}')">
+      <div class="hi-msg">${h.text}</div>
+      <div class="hi-time">${h.time} • ${h.bits} bits</div>
+      <span class="hi-status ${h.status}">${h.status}</span>
+    </div>
+  `).join('');
+}
+
+function replayMessage(text) {
+  document.getElementById('msg-input').value = text.replace('→ Decoded: "', '').replace('"', '');
+  setMode('encode');
+  toggleHistory();
+}
+
+function exportData() {
+  const data = {
+    version: 1,
+    timestamp: new Date().toISOString(),
+    messages: history,
+    encodedMessages: encodedMessages.map(m => ({
+      id: m.id,
+      text: m.text,
+      bits: m.bits,
+      complete: m.complete,
+      decoded: m.decoded
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'smoke_signal_' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported smoke data');
+}
+
+// ==================== INPUT HANDLING ====================
+let pointerDown = false;
+let lastPointerX = 0, lastPointerY = 0;
+let drawEmitter = null;
+
+canvas.addEventListener('pointerdown', e => {
+  pointerDown = true;
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+
+  if(mode === 'decode') {
+    attemptDecode(e.clientX, e.clientY);
+    return;
+  }
+
+  if(mode === 'free' || mode === 'encode') {
+    drawEmitter = new Emitter(e.clientX, e.clientY, {
+      rate: 8,
+      spread: 15,
+      size: 1,
+      speed: 1,
+      lifespan: 0.5
+    });
+    emitters.push(drawEmitter);
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if(!pointerDown) return;
+  if(drawEmitter) {
+    drawEmitter.x = e.clientX;
+    drawEmitter.y = e.clientY;
+    drawEmitter.age = 0; // Keep alive while dragging
+    drawEmitter.lifespan = 0.5;
+  }
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+});
+
+canvas.addEventListener('pointerup', () => {
+  pointerDown = false;
+  drawEmitter = null;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  windTarget += e.deltaY * 0.002;
+  windTarget = Math.max(-3, Math.min(3, windTarget));
+}, {passive: false});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  if(e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if(e.code === 'KeyC') clearSmoke();
+  if(e.code === 'KeyT') toggleTimeline();
+  if(e.code === 'KeyH') toggleHistory();
+  if(e.code === 'Escape') closeDecodePanel();
+});
+
+// Device orientation for wind
+window.addEventListener('deviceorientation', e => {
+  if(e.gamma !== null) tiltX = e.gamma / 90;
+  if(e.beta !== null) tiltY = (e.beta - 45) / 90;
+});
+
+// Timeline slider
+document.getElementById('time-slider').addEventListener('input', e => {
+  timeSliderValue = e.target.value / 1000;
+  const label = document.getElementById('time-label');
+  if(timeSliderValue >= 0.999) {
+    label.textContent = 'Live';
+  } else {
+    label.textContent = Math.floor(timeSliderValue * 100) + '% through history';
+  }
+});
+
+// Enter to encode
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter') encodeMessage();
+});
+
+// ==================== RENDERING ====================
+const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+bgGrad.addColorStop(0, '#0a0a12');
+bgGrad.addColorStop(0.5, '#0d0c18');
+bgGrad.addColorStop(1, '#12101a');
+
+// Stars
+const stars = [];
+for(let i = 0; i < 80; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.6,
+    size: 0.5 + Math.random() * 1.5,
+    twinkle: Math.random() * Math.PI * 2,
+    speed: 0.5 + Math.random() * 2
+  });
+}
+
+function drawBackground() {
+  // Sky gradient
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#070710');
+  g.addColorStop(0.4, '#0c0b18');
+  g.addColorStop(0.7, '#1a1520');
+  g.addColorStop(1, '#201820');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  for(const s of stars) {
+    const twinkle = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(globalTime * s.speed + s.twinkle));
+    ctx.globalAlpha = twinkle * 0.7;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Ground
+  const gg = ctx.createLinearGradient(0, H * 0.8, 0, H);
+  gg.addColorStop(0, 'transparent');
+  gg.addColorStop(0.3, 'rgba(20,15,10,0.3)');
+  gg.addColorStop(1, 'rgba(30,20,12,0.6)');
+  ctx.fillStyle = gg;
+  ctx.fillRect(0, H * 0.78, W, H * 0.22);
+
+  // Campfire glow
+  const campX = W / 2, campY = H * 0.82;
+  const glowSize = 60 + Math.sin(globalTime * 3) * 8;
+  const glow = ctx.createRadialGradient(campX, campY, 0, campX, campY, glowSize);
+  glow.addColorStop(0, 'rgba(255,120,20,0.35)');
+  glow.addColorStop(0.4, 'rgba(255,80,10,0.15)');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(campX - glowSize, campY - glowSize, glowSize * 2, glowSize * 2);
+
+  // Fire particles (small)
+  for(let i = 0; i < 8; i++) {
+    const fx = campX + Math.sin(globalTime * 4 + i * 2.5) * 12;
+    const fy = campY - 5 - Math.abs(Math.sin(globalTime * 6 + i * 1.7)) * 18;
+    const fs = 2 + Math.random() * 3;
+    ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+    ctx.fillStyle = `hsl(${20 + Math.random()*20}, 100%, ${50 + Math.random()*30}%)`;
+    ctx.beginPath();
+    ctx.arc(fx, fy, fs, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawParticles() {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  for(const p of particles) {
+    if(p.life <= 0) continue;
+
+    const alpha = p.opacity * p.life * p.life;
+    if(alpha < 0.005) continue;
+
+    const size = p.size;
+    const x = p.x;
+    const y = p.y;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(p.rotation);
+    ctx.globalAlpha = alpha;
+
+    if(p.encoded) {
+      // Encoded particles have colored tint
+      const hue = p.hue;
+      const sat = p.sat;
+      const lightness = 40 + p.life * 30;
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+      grad.addColorStop(0, `hsla(${hue},${sat}%,${lightness}%,0.6)`);
+      grad.addColorStop(0.3, `hsla(${hue},${sat * 0.6}%,${lightness * 0.8}%,0.3)`);
+      grad.addColorStop(0.7, `hsla(${hue},${sat * 0.3}%,${lightness * 0.5}%,0.1)`);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+    } else {
+      // Regular smoke — gray/white
+      const lightness = 55 + p.life * 25;
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+      grad.addColorStop(0, `hsla(220,5%,${lightness}%,0.4)`);
+      grad.addColorStop(0.4, `hsla(220,3%,${lightness * 0.7}%,0.2)`);
+      grad.addColorStop(0.8, `hsla(220,2%,${lightness * 0.4}%,0.05)`);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+    }
+
+    ctx.fillRect(-size, -size, size * 2, size * 2);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawEncodingIndicator() {
+  // Show encoding progress for active messages
+  for(const msg of encodedMessages) {
+    if(msg.complete && globalTime - msg.startTime > 5) continue;
+
+    const progress = msg.bitIndex / msg.bits.length;
+    const x = msg.emitterX;
+    const y = msg.emitterY + 30;
+
+    // Progress bar
+    ctx.globalAlpha = msg.complete ? Math.max(0, 1 - (globalTime - msg.startTime - msg.bits.length * 0.25) / 3) : 0.7;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.roundRect(x - 60, y, 120, 6, 3);
+    ctx.fill();
+
+    ctx.fillStyle = msg.complete ? '#42ff8c' : '#ff8c42';
+    ctx.beginPath();
+    ctx.roundRect(x - 60, y, 120 * progress, 6, 3);
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = msg.complete ? 'rgba(66,255,140,0.6)' : 'rgba(255,140,66,0.6)';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(msg.complete ? 'ENCODED' : `Encoding ${Math.floor(progress * 100)}%`, x, y + 18);
+
+    // Bit visualization
+    if(!msg.complete) {
+      const bitX = x - 50;
+      const bitY = y + 26;
+      const visibleBits = Math.min(msg.bitIndex, 32);
+      const startBit = Math.max(0, msg.bitIndex - 32);
+      for(let i = 0; i < visibleBits; i++) {
+        const b = msg.bits[startBit + i];
+        ctx.fillStyle = b === 1 ? 'rgba(255,180,80,0.6)' : 'rgba(100,100,120,0.3)';
+        ctx.fillRect(bitX + i * 3.2, bitY, 2.5, b === 1 ? 6 : 3);
+      }
+    }
+
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawDecodeHints() {
+  if(mode !== 'decode') return;
+
+  // Show capture zones around encoded messages
+  for(const msg of encodedMessages) {
+    if(msg.decoded) continue;
+    if(!msg.complete && msg.bitIndex < 8) continue;
+
+    const x = msg.emitterX;
+    const y = msg.emitterY - 40;
+    const pulse = 0.5 + 0.5 * Math.sin(globalTime * 3);
+
+    ctx.strokeStyle = `rgba(255,140,66,${0.15 + pulse * 0.15})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(x, y, 80 + pulse * 20, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = `rgba(255,140,66,${0.4 + pulse * 0.2})`;
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('TAP TO DECODE', x, y + 4);
+  }
+}
+
+// ==================== AMBIENT SMOKE ====================
+function spawnAmbientSmoke(dt) {
+  // Campfire smoke
+  if(Math.random() < dt * 4 && particles.length < MAX_PARTICLES) {
+    particles.push(new Particle(
+      W / 2 + (Math.random() - 0.5) * 15,
+      H * 0.82 - 10,
+      { speed: 0.6 + Math.random() * 0.4, size: 0.6 + Math.random() * 0.3 }
+    ));
+  }
+}
+
+// ==================== MAIN LOOP ====================
+let lastTime = 0;
+
+function update(timestamp) {
+  requestAnimationFrame(update);
+
+  const now = timestamp * 0.001;
+  const dt = Math.min(now - lastTime, 0.05);
+  lastTime = now;
+
+  if(!paused) {
+    globalTime += dt;
+  }
+
+  // Wind
+  windX += (windTarget - windX) * 0.02;
+  windTarget *= 0.995; // Decay wind
+
+  // Update wind indicator
+  document.getElementById('wind-indicator').textContent = `Wind: ${windX.toFixed(1)} ${windX > 0.3 ? '→' : windX < -0.3 ? '←' : '·'}`;
+
+  if(!paused) {
+    // Update emitters
+    for(let i = emitters.length - 1; i >= 0; i--) {
+      emitters[i].update(dt);
+      if(!emitters[i].active) emitters.splice(i, 1);
+    }
+
+    // Update encoded messages
+    updateEncodedMessages(dt);
+
+    // Ambient smoke
+    spawnAmbientSmoke(dt);
+
+    // Update particles
+    for(let i = particles.length - 1; i >= 0; i--) {
+      particles[i].update(dt);
+      if(particles[i].life <= 0) {
+        particles.splice(i, 1);
+      }
+    }
+  }
+
+  // Render
+  drawBackground();
+  drawParticles();
+  drawEncodingIndicator();
+  drawDecodeHints();
+}
+
+requestAnimationFrame(update);
+</script>
+</body>
+</html>

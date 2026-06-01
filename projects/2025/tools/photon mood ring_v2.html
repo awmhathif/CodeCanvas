@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photon Mood Ring</title>
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #111;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100vh;
+}
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  filter: blur(2px) brightness(1.1);
+  mix-blend-mode: lighten;
+  pointer-events: none;
+  z-index: 1;
+}
+#controls {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 30px;
+  font-family: sans-serif;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+#colorPicker {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 2px solid #fff5;
+  box-shadow: 0 0 12px #fff9, 0 0 0 1px #2226;
+  cursor: pointer;
+}
+input[type="text"] {
+  border-radius: 6px;
+  border: none;
+  padding: 8px 12px;
+  font-size: 1.1em;
+}
+button {
+  background: #181858;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  letter-spacing: 1px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 3px 16px #87f8f88a;
+  transition: background 0.22s;
+}
+button:hover {
+  background: #222288;
+}
+label {
+  color: #eee;
+  font-size: 1em;
+}
+</style>
+</head>
+<body>
+<canvas id="moodRing"></canvas>
+<div id="controls">
+  <label for="colorPicker">Pick Color:</label>
+  <input type="color" id="colorPicker">
+  <label for="emotionInput">or Emotion:</label>
+  <input type="text" id="emotionInput" placeholder="Type emotion…">
+  <button id="downloadBtn">Download PNG</button>
+</div>
+<script>
+const canvas = document.getElementById('moodRing');
+const ctx = canvas.getContext('2d');
+let w = window.innerWidth, h = window.innerHeight;
+canvas.width = w;
+canvas.height = h;
+
+function resize() {
+  w = window.innerWidth;
+  h = window.innerHeight;
+  canvas.width = w;
+  canvas.height = h;
+}
+window.addEventListener('resize', resize);
+
+function wordToColor(str) {
+  // Deterministic hash -> color HSL
+  str = (str||'').toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    hash |= 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  const light = 52 + ((hash>>8)&11);
+  const sat = 68 + ((hash>>4)&22);
+  return `hsl(${hue},${sat}%,${light}%)`;
+}
+
+// Particle system
+const N = 82, particles = [];
+let color = '#59f3ff';
+
+function randomRingR() {
+  return 120 + Math.random() * (Math.min(w,h)*0.34);
+}
+
+function createParticle(deg) {
+  const angle = deg !== undefined ? deg : Math.random()*2*Math.PI;
+  const speed = 1.2 + Math.random()*0.8;
+  const rBase = Math.min(w,h)/2 * 0.44;
+  const r = rBase + Math.sin(angle*10)*28 + (Math.random()-0.5)*16;
+  return {
+    x: w/2 + Math.cos(angle)*r,
+    y: h/2 + Math.sin(angle)*r,
+    vx: -Math.cos(angle)*speed + (Math.random()-0.5)*0.6,
+    vy: -Math.sin(angle)*speed + (Math.random()-0.5)*0.6,
+    angle,
+    life: 42 + Math.random()*38,
+    maxLife: 80
+  };
+}
+function resetParticle(p, i) {
+  Object.assign(p, createParticle((i/N)*2*Math.PI + Math.random()*0.03));
+  p.life = 44 + Math.random()*24;
+  p.maxLife = 60 + Math.random()*44;
+}
+
+for (let i = 0; i < N; i++) particles.push(createParticle((i/N)*2*Math.PI));
+
+function animate() {
+  ctx.clearRect(0,0,w,h);
+  // radial gradient ring glow
+  let grad = ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*0.12,w/2,h/2, Math.min(w,h)*0.45);
+  grad.addColorStop(0, color.replace(')',',.43)').replace('hsl(','hsla('));
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.globalCompositeOperation = "lighter";
+  ctx.beginPath();
+  ctx.arc(w/2, h/2, Math.min(w,h)*0.42, 0, 2*Math.PI);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.filter = 'blur(24px)';
+  ctx.globalAlpha = 0.52;
+  ctx.fill();
+
+  // particle flows
+  ctx.globalAlpha = 1.0;
+  ctx.filter = 'blur(1.4px)';
+  particles.forEach((p,i) => {
+    ctx.save();
+    ctx.globalAlpha = 0.57 + 0.11*Math.sin(performance.now()/700 + i);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 5 + 3*Math.sin(i);
+    ctx.beginPath();
+    ctx.arc(p.x,p.y, 12+6*Math.sin(i+p.life/10), 0, 2*Math.PI);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18;
+    ctx.stroke();
+    ctx.restore();
+
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    // particle returns to ring radius and recirculates
+    if (p.life <= 0) resetParticle(p, i);
+  });
+  ctx.globalAlpha = 1.0;
+  ctx.filter = 'none';
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Handle color picking
+const colorPicker = document.getElementById('colorPicker');
+colorPicker.value = '#59f3ff';
+colorPicker.addEventListener('input', e => {
+  color = e.target.value;
+});
+
+// When user clicks the canvas, open Color Picker
+canvas.addEventListener('click', _ => colorPicker.click());
+
+// Handle emotion input
+const emotionInput = document.getElementById('emotionInput');
+emotionInput.addEventListener('input', e => {
+  color = wordToColor(e.target.value);
+  colorPicker.value = rgbToHex(colorStrToRgb(color));
+});
+
+// Utility to sync color input to hex
+function colorStrToRgb(c) {
+  let a=document.createElement("div");a.style.color=c;document.body.append(a);
+  let cs=getComputedStyle(a).color; a.remove();
+  let m=cs.match(/\d+/g);
+  return m?{r:+m[0],g:+m[1],b:+m[2]}:{r:80,g:255,b:255};
+}
+function rgbToHex({r,g,b}){
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+// Download PNG
+document.getElementById('downloadBtn').onclick = function() {
+  let link = document.createElement('a');
+  link.download = 'moodring.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
+</script>
+</body>
+</html>

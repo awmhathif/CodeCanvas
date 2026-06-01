@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FilmStripCapture — 35mm Cinema Screenshot Tool</title>
+<style>
+:root{
+  --film:#1a1410;--film2:#221c14;--film3:#2a2218;
+  --sprocket:#0a0806;--perf:#181410;
+  --gold:#c8a84e;--gold2:#a8883e;--gold3:#887028;
+  --cream:#f0e8d8;--cream2:#d8d0c0;
+  --red:#cc3333;--red2:#992222;--green:#33aa55;
+  --amber:#e8a020;--amber2:#c88818;
+  --tx0:#e8e0d0;--tx1:#b0a890;--tx2:#706850;
+  --bg0:#0e0c08;--bg1:#161410;--bg2:#1e1a14;--bg3:#2a2620;
+  --accent:var(--gold);
+  --radius:4px;
+  --font:'Georgia','Times New Roman',serif;
+  --font-mono:'Courier New','Courier',monospace;
+  --font-ui:'Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--tx0);font-family:var(--font-ui);font-size:13px;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+button{font-family:var(--font-ui);cursor:pointer;border:none;outline:none;}
+input,select,textarea{font-family:var(--font-ui);background:var(--bg1);border:1px solid var(--bg3);color:var(--tx0);border-radius:3px;padding:5px 8px;font-size:12px;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);}
+
+/* ═══ LAYOUT ═══ */
+#app{display:flex;flex-direction:column;height:100vh;}
+
+/* ── TOP BAR ── */
+#topBar{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--bg1);border-bottom:1px solid var(--bg3);min-height:44px;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;font-family:var(--font);font-size:16px;color:var(--gold);white-space:nowrap;font-weight:700;letter-spacing:.5px;}
+.logo .reel{width:22px;height:22px;border:2px solid var(--gold);border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;}
+.logo .reel::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);}
+.spacer{flex:1;}
+.tBtn{background:var(--bg3);color:var(--tx1);padding:5px 12px;border-radius:3px;font-size:11px;font-weight:600;transition:.2s;text-transform:uppercase;letter-spacing:.5px;}
+.tBtn:hover{background:var(--gold3);color:var(--cream);}
+.tBtn.accent{background:var(--gold3);color:var(--cream);}
+.tBtn.accent:hover{background:var(--gold2);}
+.tBtn.red{background:var(--red2);color:#ecc;}
+.tBtn.red:hover{background:var(--red);}
+
+/* Frame counter */
+#frameCounter{font-family:var(--font-mono);font-size:13px;color:var(--amber);background:var(--bg0);padding:3px 10px;border-radius:3px;border:1px solid var(--bg3);letter-spacing:2px;}
+
+/* ── MAIN ── */
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* ── LEFT PANEL: Tools ── */
+#leftPanel{width:260px;min-width:260px;background:var(--bg1);border-right:1px solid var(--bg3);display:flex;flex-direction:column;overflow:hidden;}
+#leftTabs{display:flex;border-bottom:1px solid var(--bg3);}
+.lTab{flex:1;padding:7px 4px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);background:none;text-align:center;border-bottom:2px solid transparent;transition:.2s;}
+.lTab:hover{color:var(--tx0);}
+.lTab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.lBody{flex:1;overflow-y:auto;padding:10px;display:none;}
+.lBody.active{display:block;}
+
+/* Tool sections */
+.toolSection{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);padding:10px;margin-bottom:8px;}
+.toolSection h4{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.toolSection label{display:block;font-size:10px;color:var(--tx2);margin-bottom:3px;margin-top:8px;text-transform:uppercase;letter-spacing:.5px;}
+.toolSection input,.toolSection select,.toolSection textarea{width:100%;}
+.toolSection textarea{min-height:40px;resize:vertical;font-size:11px;}
+.toolRow{display:flex;gap:6px;align-items:center;}
+.toolRow>*{flex:1;}
+
+/* Aspect ratio buttons */
+.arBtns{display:flex;gap:4px;flex-wrap:wrap;}
+.arBtn{padding:4px 8px;background:var(--bg1);border:1px solid var(--bg3);border-radius:3px;font-size:10px;color:var(--tx2);transition:.2s;}
+.arBtn:hover{border-color:var(--gold);}
+.arBtn.active{background:var(--gold3);color:var(--cream);border-color:var(--gold);}
+
+/* Slider */
+.slider-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.slider-wrap input[type=range]{flex:1;accent-color:var(--gold);height:4px;}
+.slider-wrap .sv{font-size:11px;color:var(--gold);width:30px;text-align:right;font-family:var(--font-mono);}
+
+/* Color grade presets */
+.gradeBtn{padding:5px 8px;background:var(--bg1);border:1px solid var(--bg3);border-radius:3px;font-size:10px;color:var(--tx1);transition:.2s;margin:2px;}
+.gradeBtn:hover{border-color:var(--gold);}
+.gradeBtn.active{background:var(--gold3);color:var(--cream);border-color:var(--gold);}
+
+/* ── CENTER: Film Strip Viewer ── */
+#centerPanel{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;background:var(--bg0);}
+#filmStripArea{flex:1;overflow-x:auto;overflow-y:hidden;position:relative;display:flex;align-items:center;}
+#filmStrip{display:flex;align-items:center;padding:30px 40px;min-width:100%;height:100%;position:relative;}
+
+/* ═══ FILM STRIP CSS ═══ */
+.filmFrame{position:relative;flex-shrink:0;margin:0 6px;cursor:pointer;transition:transform .3s,box-shadow .3s;user-select:none;}
+.filmFrame:hover{transform:scale(1.03);z-index:2;}
+.filmFrame.selected{transform:scale(1.05);z-index:3;box-shadow:0 0 30px rgba(200,168,78,.3);}
+
+/* Film cell container with sprocket holes */
+.filmCell{background:var(--film);border:2px solid var(--film3);position:relative;padding:28px 8px;}
+/* Top sprocket holes */
+.filmCell::before,.filmCell::after{
+  content:'';position:absolute;left:10px;right:10px;height:16px;
+  background:repeating-linear-gradient(90deg,
+    var(--sprocket) 0px,var(--sprocket) 10px,
+    transparent 10px,transparent 14px,
+    var(--sprocket) 14px,var(--sprocket) 24px,
+    transparent 24px,transparent 28px);
+  border-radius:1px;
+}
+.filmCell::before{top:6px;}
+.filmCell::after{bottom:6px;}
+
+.filmCell img,.filmCell canvas{display:block;width:100%;height:auto;border:1px solid var(--film3);}
+.frameNum{position:absolute;bottom:20px;right:10px;font-family:var(--font-mono);font-size:8px;color:var(--gold3);letter-spacing:1px;}
+.frameLabel{position:absolute;top:20px;left:10px;font-family:var(--font-mono);font-size:7px;color:var(--gold3);letter-spacing:.5px;}
+
+/* Screenplay text */
+.screenplayNote{background:var(--bg2);border:1px solid var(--bg3);border-radius:3px;padding:6px 8px;margin-top:4px;font-family:var(--font-mono);font-size:10px;color:var(--cream2);line-height:1.4;max-width:220px;min-width:100%;}
+
+/* Slate overlay */
+.slateOverlay{position:absolute;top:28px;left:8px;right:8px;bottom:28px;background:rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--cream);font-family:var(--font);z-index:4;pointer-events:none;display:none;}
+.slateOverlay.show{display:flex;}
+.slateOverlay .slateTitle{font-size:16px;font-weight:700;margin-bottom:4px;}
+.slateOverlay .slateSub{font-size:10px;color:var(--cream2);}
+
+/* ── Bottom Controls ── */
+#bottomBar{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--bg1);border-top:1px solid var(--bg3);min-height:40px;}
+#reelInfo{font-family:var(--font-mono);font-size:11px;color:var(--tx2);}
+#zoomSlider{width:120px;accent-color:var(--gold);}
+
+/* ── RIGHT PANEL: Reel Gallery / Properties ── */
+#rightPanel{width:280px;min-width:280px;background:var(--bg1);border-left:1px solid var(--bg3);display:flex;flex-direction:column;overflow:hidden;}
+#rightTabs{display:flex;border-bottom:1px solid var(--bg3);}
+.rTab{flex:1;padding:7px 4px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);background:none;text-align:center;border-bottom:2px solid transparent;transition:.2s;}
+.rTab:hover{color:var(--tx0);}
+.rTab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.rBody{flex:1;overflow-y:auto;padding:10px;display:none;}
+.rBody.active{display:block;}
+
+/* Reel items */
+.reelItem{display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);margin-bottom:4px;cursor:pointer;transition:.2s;}
+.reelItem:hover{border-color:var(--gold3);}
+.reelItem.selected{border-color:var(--gold);}
+.reelItem .riThumb{width:48px;height:32px;object-fit:cover;border-radius:2px;border:1px solid var(--bg3);}
+.reelItem .riInfo{flex:1;min-width:0;}
+.reelItem .riName{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reelItem .riMeta{font-size:9px;color:var(--tx2);}
+
+/* Cutting room */
+.trashItem{opacity:.5;text-decoration:line-through;}
+.trashItem:hover{opacity:.8;}
+
+/* Properties */
+.propField{margin-bottom:8px;}
+.propField label{display:block;font-size:10px;color:var(--tx2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;}
+.propField input,.propField select,.propField textarea{width:100%;}
+
+/* Opening Credits */
+#creditsPreview{background:#000;border:2px solid var(--film3);border-radius:var(--radius);padding:30px 20px;text-align:center;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-top:8px;}
+#creditsPreview .cTitle{font-family:var(--font);font-size:24px;color:var(--cream);letter-spacing:3px;margin-bottom:8px;}
+#creditsPreview .cSub{font-family:var(--font);font-size:12px;color:var(--cream2);letter-spacing:1px;margin-bottom:4px;}
+#creditsPreview .cLine{font-family:var(--font);font-size:10px;color:var(--tx2);}
+
+/* Viewfinder loupe */
+#loupe{position:fixed;width:200px;height:200px;border:3px solid var(--gold);border-radius:50%;overflow:hidden;pointer-events:none;z-index:5000;display:none;box-shadow:0 0 20px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.3);}
+#loupe canvas{width:100%;height:100%;}
+#loupeHair{position:absolute;inset:0;pointer-events:none;}
+#loupeHair::before,#loupeHair::after{content:'';position:absolute;background:rgba(200,168,78,.3);}
+#loupeHair::before{width:1px;height:100%;left:50%;}
+#loupeHair::after{width:100%;height:1px;top:50%;}
+
+/* ═══ MODALS ═══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s;}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{background:var(--bg2);border:1px solid var(--bg3);border-radius:6px;padding:24px;width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;transform:translateY(16px);transition:.3s;box-shadow:0 0 40px rgba(0,0,0,.6);}
+.modal-overlay.show .modal-box{transform:translateY(0);}
+.modal-box h2{font-family:var(--font);font-size:18px;color:var(--gold);margin-bottom:14px;}
+.mActions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+.mActions button{padding:6px 16px;border-radius:3px;font-weight:600;font-size:12px;}
+.btn-cancel{background:var(--bg3);color:var(--tx1);}
+.btn-save{background:var(--gold3);color:var(--cream);}
+.btn-del{background:var(--red2);color:#ecc;}
+
+/* Clapperboard */
+#clapboard{position:fixed;top:0;left:0;right:0;height:50vh;background:#222;z-index:3000;display:flex;align-items:center;justify-content:center;transform:translateY(-100%);pointer-events:none;}
+#clapboard.snap{animation:clapSnap .4s ease-out forwards;}
+@keyframes clapSnap{
+  0%{transform:translateY(-100%) rotateX(0);}
+  40%{transform:translateY(0) rotateX(0);}
+  50%{transform:translateY(0) rotateX(0);}
+  100%{transform:translateY(-100%) rotateX(0);}
+}
+#clapboard .clapInner{background:repeating-linear-gradient(135deg,#111 0px,#111 20px,#eee 20px,#eee 40px);width:300px;height:80px;border-radius:4px;display:flex;align-items:center;justify-content:center;}
+#clapboard .clapInner span{background:#111;color:#eee;padding:4px 12px;font-family:var(--font-mono);font-size:16px;font-weight:700;}
+
+/* Toast */
+#toasts{position:fixed;top:52px;right:14px;z-index:4000;display:flex;flex-direction:column;gap:4px;}
+.toast{padding:8px 14px;border-radius:3px;font-size:12px;background:var(--bg3);color:var(--tx0);border-left:3px solid var(--gold);animation:tIn .3s,tOut .3s 2.7s forwards;box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.toast.ok{border-left-color:var(--green);}
+.toast.err{border-left-color:var(--red);}
+@keyframes tIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+@keyframes tOut{to{opacity:0;transform:translateX(30px);}}
+
+/* Film splice animation for deletion */
+@keyframes filmSplice{
+  0%{clip-path:inset(0 0 0 0);opacity:1;}
+  30%{clip-path:inset(0 0 0 0);opacity:1;}
+  50%{clip-path:inset(0 50% 0 50%);opacity:.5;}
+  100%{clip-path:inset(0 50% 0 50%);opacity:0;height:0;margin:0;padding:0;}
+}
+.splicing{animation:filmSplice .6s ease-out forwards;overflow:hidden;}
+
+/* Canvas hidden processing */
+#offscreen{position:absolute;top:-9999px;left:-9999px;}
+
+@media(max-width:900px){
+  #leftPanel{width:200px;min-width:200px;}
+  #rightPanel{width:220px;min-width:220px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══ TOP BAR ═══ -->
+<div id="topBar">
+  <div class="logo"><div class="reel"></div>FilmStripCapture</div>
+  <span id="frameCounter">FRM: 000</span>
+  <div class="spacer"></div>
+  <button class="tBtn accent" onclick="captureScreen()" title="Capture screenshot">🎬 Capture</button>
+  <button class="tBtn" onclick="uploadImage()" title="Upload image file">📁 Upload</button>
+  <button class="tBtn" onclick="startContinuous()" id="contBtn" title="Continuous take mode">⏺ Continuous</button>
+  <button class="tBtn" onclick="openCredits()" title="Opening credits template">🎞️ Credits</button>
+  <button class="tBtn" onclick="exportStrip()" title="Export film strip">💾 Export</button>
+  <button class="tBtn red" onclick="clearAll()" title="Clear all frames">🗑️ Clear</button>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div id="main">
+
+<!-- LEFT PANEL -->
+<div id="leftPanel">
+  <div id="leftTabs">
+    <button class="lTab active" onclick="switchLTab('capture')">Capture</button>
+    <button class="lTab" onclick="switchLTab('grade')">Color</button>
+    <button class="lTab" onclick="switchLTab('edit')">Edit</button>
+    <button class="lTab" onclick="switchLTab('text')">Script</button>
+  </div>
+
+  <!-- Capture Tab -->
+  <div class="lBody active" id="ltab-capture">
+    <div class="toolSection">
+      <h4>🎬 Capture Settings</h4>
+      <label>Aspect Ratio</label>
+      <div class="arBtns">
+        <button class="arBtn active" onclick="setAR(this,'16:9')">16:9</button>
+        <button class="arBtn" onclick="setAR(this,'4:3')">4:3</button>
+        <button class="arBtn" onclick="setAR(this,'2.39:1')">2.39:1</button>
+        <button class="arBtn" onclick="setAR(this,'1:1')">1:1</button>
+        <button class="arBtn" onclick="setAR(this,'free')">Free</button>
+      </div>
+      <label>Frame Width (px)</label>
+      <input type="number" id="frameWidth" value="320" min="100" max="800" onchange="updateSettings()">
+    </div>
+    <div class="toolSection">
+      <h4>⏺ Continuous Take</h4>
+      <label>Interval (seconds)</label>
+      <input type="number" id="contInterval" value="5" min="1" max="60">
+      <label>Max Frames</label>
+      <input type="number" id="contMax" value="20" min="2" max="100">
+      <div style="margin-top:8px;">
+        <button class="tBtn accent" onclick="startContinuous()" id="contBtn2" style="width:100%;">⏺ Start Continuous Take</button>
+      </div>
+    </div>
+    <div class="toolSection">
+      <h4>🎬 Slate Info</h4>
+      <label>Production</label>
+      <input id="slateProd" value="My Project" onchange="updateSettings()">
+      <label>Scene</label>
+      <input id="slateScene" value="1" onchange="updateSettings()">
+      <label>Take</label>
+      <input id="slateTake" value="1" onchange="updateSettings()">
+      <label>Director</label>
+      <input id="slateDir" value="" placeholder="Name" onchange="updateSettings()">
+    </div>
+  </div>
+
+  <!-- Color Grading Tab -->
+  <div class="lBody" id="ltab-grade">
+    <div class="toolSection">
+      <h4>🎨 Film Grain</h4>
+      <label>Intensity</label>
+      <div class="slider-wrap">
+        <input type="range" id="grainAmount" min="0" max="100" value="0" oninput="applyFilters()">
+        <span class="sv" id="grainVal">0</span>
+      </div>
+    </div>
+    <div class="toolSection">
+      <h4>🎨 Color Grading Presets</h4>
+      <div style="display:flex;flex-wrap:wrap;">
+        <button class="gradeBtn active" onclick="setGrade(this,'none')">None</button>
+        <button class="gradeBtn" onclick="setGrade(this,'tealOrange')">Teal & Orange</button>
+        <button class="gradeBtn" onclick="setGrade(this,'noir')">Film Noir</button>
+        <button class="gradeBtn" onclick="setGrade(this,'vintage')">Vintage</button>
+        <button class="gradeBtn" onclick="setGrade(this,'bleach')">Bleach Bypass</button>
+        <button class="gradeBtn" onclick="setGrade(this,'crossProcess')">Cross Process</button>
+        <button class="gradeBtn" onclick="setGrade(this,'dayForNight')">Day for Night</button>
+        <button class="gradeBtn" onclick="setGrade(this,'warmGlow')">Warm Glow</button>
+        <button class="gradeBtn" onclick="setGrade(this,'coolSteel')">Cool Steel</button>
+        <button class="gradeBtn" onclick="setGrade(this,'sepia')">Sepia</button>
+      </div>
+    </div>
+    <div class="toolSection">
+      <h4>⚙ Manual Adjustments</h4>
+      <label>Brightness</label>
+      <div class="slider-wrap">
+        <input type="range" id="adjBright" min="-50" max="50" value="0" oninput="applyFilters()">
+        <span class="sv" id="adjBrightVal">0</span>
+      </div>
+      <label>Contrast</label>
+      <div class="slider-wrap">
+        <input type="range" id="adjContrast" min="-50" max="50" value="0" oninput="applyFilters()">
+        <span class="sv" id="adjContrastVal">0</span>
+      </div>
+      <label>Saturation</label>
+      <div class="slider-wrap">
+        <input type="range" id="adjSat" min="-100" max="100" value="0" oninput="applyFilters()">
+        <span class="sv" id="adjSatVal">0</span>
+      </div>
+      <label>Temperature</label>
+      <div class="slider-wrap">
+        <input type="range" id="adjTemp" min="-50" max="50" value="0" oninput="applyFilters()">
+        <span class="sv" id="adjTempVal">0</span>
+      </div>
+      <label>Vignette</label>
+      <div class="slider-wrap">
+        <input type="range" id="adjVig" min="0" max="100" value="0" oninput="applyFilters()">
+        <span class="sv" id="adjVigVal">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Tab -->
+  <div class="lBody" id="ltab-edit">
+    <div class="toolSection">
+      <h4>✂ Director's Cut</h4>
+      <p style="font-size:11px;color:var(--tx2);margin-bottom:8px;">Select a frame to edit it. Crop, annotate, or add a slate overlay.</p>
+      <button class="tBtn" onclick="cropSelected()" style="width:100%;margin-bottom:4px;">✂ Crop to Aspect Ratio</button>
+      <button class="tBtn" onclick="toggleSlate()" style="width:100%;margin-bottom:4px;">🎬 Toggle Slate Overlay</button>
+      <button class="tBtn" onclick="duplicateFrame()" style="width:100%;margin-bottom:4px;">📋 Duplicate Frame</button>
+      <button class="tBtn red" onclick="deleteSelected()" style="width:100%;margin-bottom:4px;">🗑 Cut Frame (Splice Out)</button>
+    </div>
+    <div class="toolSection">
+      <h4>🔍 Viewfinder / Loupe</h4>
+      <p style="font-size:11px;color:var(--tx2);margin-bottom:6px;">Hold <kbd style="background:var(--bg3);padding:1px 4px;border-radius:2px;">L</kbd> and hover over a frame to zoom.</p>
+      <label>Loupe Zoom</label>
+      <div class="slider-wrap">
+        <input type="range" id="loupeZoom" min="2" max="8" value="3">
+        <span class="sv" id="loupeZoomVal">3x</span>
+      </div>
+    </div>
+    <div class="toolSection">
+      <h4>↔ Reorder</h4>
+      <p style="font-size:11px;color:var(--tx2);">Drag frames in the strip to reorder, or use buttons:</p>
+      <div style="display:flex;gap:4px;margin-top:6px;">
+        <button class="tBtn" onclick="moveFrame(-1)" style="flex:1;">← Earlier</button>
+        <button class="tBtn" onclick="moveFrame(1)" style="flex:1;">Later →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenplay Tab -->
+  <div class="lBody" id="ltab-text">
+    <div class="toolSection">
+      <h4>📜 Screenplay Mode</h4>
+      <p style="font-size:11px;color:var(--tx2);margin-bottom:8px;">Add formatted text callouts to the selected frame for documentation.</p>
+      <label>Scene Heading</label>
+      <input id="txtHeading" placeholder="INT. OFFICE - DAY" onchange="updateScreenplay()">
+      <label>Action/Description</label>
+      <textarea id="txtAction" placeholder="Description of what's happening..." onchange="updateScreenplay()"></textarea>
+      <label>Dialogue</label>
+      <input id="txtCharacter" placeholder="Character name" onchange="updateScreenplay()" style="margin-bottom:4px;">
+      <textarea id="txtDialogue" placeholder="Character dialogue..." onchange="updateScreenplay()"></textarea>
+      <button class="tBtn accent" onclick="applyScreenplay()" style="width:100%;margin-top:8px;">📜 Apply to Frame</button>
+    </div>
+  </div>
+</div>
+
+<!-- CENTER: FILM STRIP -->
+<div id="centerPanel">
+  <div id="filmStripArea">
+    <div id="filmStrip">
+      <div id="emptyStrip" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;color:var(--tx2);gap:10px;text-align:center;">
+        <div style="font-size:48px;opacity:.3;">🎬</div>
+        <p style="font-size:13px;max-width:300px;">No frames captured yet. Click <b>Capture</b> to take a screenshot or <b>Upload</b> to add images to the film strip.</p>
+        <p style="font-size:11px;color:var(--tx2);">Press <kbd style="background:var(--bg3);padding:2px 6px;border-radius:2px;">Space</kbd> for quick capture</p>
+      </div>
+    </div>
+  </div>
+  <div id="bottomBar">
+    <span id="reelInfo">Reel 1 · 0 frames</span>
+    <div class="spacer"></div>
+    <span style="font-size:10px;color:var(--tx2);">Zoom:</span>
+    <input type="range" id="zoomSlider" min="50" max="200" value="100" oninput="setZoom(this.value)">
+    <span id="zoomVal" style="font-size:10px;color:var(--tx2);width:30px;">100%</span>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="rightPanel">
+  <div id="rightTabs">
+    <button class="rTab active" onclick="switchRTab('reel')">Reel</button>
+    <button class="rTab" onclick="switchRTab('props')">Props</button>
+    <button class="rTab" onclick="switchRTab('trash')">Trash</button>
+  </div>
+
+  <!-- Reel Gallery -->
+  <div class="rBody active" id="rtab-reel">
+    <div id="reelList"></div>
+  </div>
+
+  <!-- Frame Properties -->
+  <div class="rBody" id="rtab-props">
+    <div id="propsContent">
+      <p style="font-size:11px;color:var(--tx2);">Select a frame to view its properties.</p>
+    </div>
+  </div>
+
+  <!-- Cutting Room Floor (Trash) -->
+  <div class="rBody" id="rtab-trash">
+    <div style="font-size:10px;color:var(--tx2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Cutting Room Floor</div>
+    <div id="trashList">
+      <p style="font-size:11px;color:var(--tx2);">No discarded frames.</p>
+    </div>
+    <button class="tBtn red" onclick="emptyTrash()" style="width:100%;margin-top:8px;">🗑 Empty Trash</button>
+  </div>
+</div>
+
+</div>
+</div>
+
+<!-- CREDITS MODAL -->
+<div class="modal-overlay" id="creditsModal">
+  <div class="modal-box" style="width:520px;">
+    <h2>🎞️ Opening Credits Template</h2>
+    <div class="propField"><label>Title</label><input id="crTitle" value="UNTITLED FILM" style="font-family:var(--font);font-size:16px;text-align:center;"></div>
+    <div class="propField"><label>Subtitle</label><input id="crSub" value="A Story" style="text-align:center;"></div>
+    <div class="propField"><label>Directed by</label><input id="crDirector" value="" placeholder="Director name" style="text-align:center;"></div>
+    <div class="propField"><label>Produced by</label><input id="crProducer" value="" placeholder="Producer name" style="text-align:center;"></div>
+    <div class="propField"><label>Date</label><input id="crDate" value="2026" style="text-align:center;"></div>
+    <div id="creditsPreview">
+      <div class="cTitle">UNTITLED FILM</div>
+      <div class="cSub">A Story</div>
+      <div class="cLine" id="crDirLine"></div>
+      <div class="cLine" id="crProdLine"></div>
+      <div class="cLine" id="crDateLine">2026</div>
+    </div>
+    <div class="mActions">
+      <button class="btn-cancel" onclick="closeModal('creditsModal')">Cancel</button>
+      <button class="btn-save" onclick="addCreditsFrame()">Add to Film Strip</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLAPBOARD ANIMATION -->
+<div id="clapboard"><div class="clapInner"><span>SCENE <span id="clapScene">1</span> TAKE <span id="clapTake">1</span></span></div></div>
+
+<!-- VIEWFINDER LOUPE -->
+<div id="loupe"><canvas id="loupeCanvas" width="400" height="400"></canvas><div id="loupeHair"></div></div>
+
+<!-- HIDDEN -->
+<div id="offscreen"></div>
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleUpload(event)">
+
+<div id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let frames=[];       // {id,src,original,width,height,label,screenplay,slate,gradeApplied,ts}
+let trash=[];
+let selectedId=null;
+let continuousTimer=null;
+let continuousStream=null;
+let settings={
+  aspectRatio:'16:9',
+  frameWidth:320,
+  slateProd:'My Project',slateScene:'1',slateTake:'1',slateDir:'',
+  grade:'none',grain:0,
+  bright:0,contrast:0,sat:0,temp:0,vig:0,
+  loupeZoom:3,
+};
+let loupeActive=false;
+let uid=0;
+function genId(){return'f'+(++uid)+'_'+Date.now().toString(36);}
+
+// ═══════════════════════════════════════════════
+//  AUDIO — Projector/Camera sounds
+// ═══════════════════════════════════════════════
+let audioCtx=null;
+function aud(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+
+function playShutter(){
+  try{
+    const c=aud(),t=c.currentTime;
+    // Shutter click
+    const buf=c.createBuffer(1,c.sampleRate*0.04,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(c.sampleRate*0.008));
+    const n=c.createBufferSource();n.buffer=buf;
+    const g=c.createGain();g.gain.value=0.3;
+    const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=1500;
+    n.connect(f).connect(g).connect(c.destination);
+    n.start(t);n.stop(t+0.04);
+    // Mechanical thunk
+    const o=c.createOscillator(),og=c.createGain();
+    o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(50,t+0.06);
+    og.gain.setValueAtTime(0.1,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.08);
+    o.connect(og).connect(c.destination);o.start(t);o.stop(t+0.08);
+  }catch(e){}
+}
+
+function playAdvance(){
+  try{
+    const c=aud(),t=c.currentTime;
+    // Film advance ratchet
+    for(let i=0;i<3;i++){
+      const buf=c.createBuffer(1,c.sampleRate*0.015,c.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let j=0;j<d.length;j++)d[j]=(Math.random()*2-1)*0.15*Math.exp(-j/(c.sampleRate*0.004));
+      const n=c.createBufferSource();n.buffer=buf;
+      const g=c.createGain();g.gain.value=0.2;
+      n.connect(g).connect(c.destination);
+      n.start(t+i*0.04);n.stop(t+i*0.04+0.015);
+    }
+  }catch(e){}
+}
+
+function playSplice(){
+  try{
+    const c=aud(),t=c.currentTime;
+    const buf=c.createBuffer(1,c.sampleRate*0.1,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.2;
+    const n=c.createBufferSource();n.buffer=buf;
+    const g=c.createGain();
+    g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+    const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=2000;
+    n.connect(f).connect(g).connect(c.destination);
+    n.start(t);n.stop(t+0.1);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+//  CAPTURE
+// ═══════════════════════════════════════════════
+async function captureScreen(){
+  try{
+    const stream=await navigator.mediaDevices.getDisplayMedia({video:true});
+    const track=stream.getVideoTracks()[0];
+    const imageCapture=new ImageCapture(track);
+    const bitmap=await imageCapture.grabFrame();
+    track.stop();
+
+    const canvas=document.createElement('canvas');
+    canvas.width=bitmap.width;canvas.height=bitmap.height;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(bitmap,0,0);
+
+    addFrame(canvas.toDataURL('image/png'),bitmap.width,bitmap.height);
+    showClap();
+    playShutter();
+  }catch(e){
+    if(e.name!=='NotAllowedError'){
+      toast('Capture failed: '+e.message,'err');
+    }
+  }
+}
+
+async function startContinuous(){
+  if(continuousTimer){
+    stopContinuous();return;
+  }
+  try{
+    continuousStream=await navigator.mediaDevices.getDisplayMedia({video:true});
+    const track=continuousStream.getVideoTracks()[0];
+    const interval=parseInt(document.getElementById('contInterval').value)||5;
+    const maxFrames=parseInt(document.getElementById('contMax').value)||20;
+    let count=0;
+
+    document.getElementById('contBtn').textContent='⏹ Stop';
+    document.getElementById('contBtn').classList.add('red');
+    if(document.getElementById('contBtn2')){
+      document.getElementById('contBtn2').textContent='⏹ Stop Recording';
+      document.getElementById('contBtn2').classList.add('red');
+    }
+    toast('⏺ Continuous take started — every '+interval+'s','ok');
+
+    const doCapture=async()=>{
+      if(count>=maxFrames||track.readyState==='ended'){stopContinuous();return;}
+      try{
+        const ic=new ImageCapture(track);
+        const bitmap=await ic.grabFrame();
+        const canvas=document.createElement('canvas');
+        canvas.width=bitmap.width;canvas.height=bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap,0,0);
+        addFrame(canvas.toDataURL('image/png'),bitmap.width,bitmap.height);
+        playShutter();
+        count++;
+      }catch(e){stopContinuous();}
+    };
+
+    await doCapture();
+    continuousTimer=setInterval(doCapture,interval*1000);
+    track.onended=()=>stopContinuous();
+  }catch(e){
+    if(e.name!=='NotAllowedError')toast('Could not start: '+e.message,'err');
+  }
+}
+
+function stopContinuous(){
+  if(continuousTimer){clearInterval(continuousTimer);continuousTimer=null;}
+  if(continuousStream){continuousStream.getTracks().forEach(t=>t.stop());continuousStream=null;}
+  document.getElementById('contBtn').textContent='⏺ Continuous';
+  document.getElementById('contBtn').classList.remove('red');
+  if(document.getElementById('contBtn2')){
+    document.getElementById('contBtn2').textContent='⏺ Start Continuous Take';
+    document.getElementById('contBtn2').classList.remove('red');
+  }
+  toast('⏹ Continuous take stopped','');
+}
+
+function uploadImage(){document.getElementById('fileInput').click();}
+function handleUpload(e){
+  const files=e.target.files;
+  [...files].forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{addFrame(ev.target.result,img.naturalWidth,img.naturalHeight);playAdvance();};
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value='';
+}
+
+function addFrame(src,w,h,label){
+  const id=genId();
+  const ar=settings.aspectRatio;
+  frames.push({
+    id,src,original:src,
+    width:w,height:h,
+    label:label||`Frame ${frames.length+1}`,
+    screenplay:null,
+    slate:false,
+    gradeApplied:'none',
+    ts:Date.now(),
+  });
+  selectedId=id;
+  renderAll();
+  // Scroll to end
+  const area=document.getElementById('filmStripArea');
+  setTimeout(()=>area.scrollLeft=area.scrollWidth,50);
+}
+
+// ═══════════════════════════════════════════════
+//  COLOR GRADING — Pixel Manipulation
+// ═══════════════════════════════════════════════
+const GRADES={
+  none:{name:'None',fn:null},
+  tealOrange:{name:'Teal & Orange',fn:(r,g,b)=>{
+    const lum=0.299*r+0.587*g+0.114*b;
+    return lum<128?[r*0.7,g*0.85,Math.min(255,b*1.3)]:[Math.min(255,r*1.2),g*0.95,b*0.7];
+  }},
+  noir:{name:'Film Noir',fn:(r,g,b)=>{
+    const l=0.299*r+0.587*g+0.114*b;
+    const c=l*1.3;
+    return[Math.min(255,c),Math.min(255,c*0.97),Math.min(255,c*0.92)];
+  }},
+  vintage:{name:'Vintage',fn:(r,g,b)=>{
+    return[Math.min(255,r*1.1+20),g*0.9+10,b*0.7+10];
+  }},
+  bleach:{name:'Bleach Bypass',fn:(r,g,b)=>{
+    const l=0.299*r+0.587*g+0.114*b;
+    return[Math.min(255,(r+l)/2*1.1),Math.min(255,(g+l)/2*1.05),(b+l)/2*0.95];
+  }},
+  crossProcess:{name:'Cross Process',fn:(r,g,b)=>{
+    return[Math.min(255,r*0.8+40),Math.min(255,g*1.2),Math.min(255,b*0.6+60)];
+  }},
+  dayForNight:{name:'Day for Night',fn:(r,g,b)=>{
+    return[r*0.3,g*0.4,Math.min(255,b*0.7+30)];
+  }},
+  warmGlow:{name:'Warm Glow',fn:(r,g,b)=>{
+    return[Math.min(255,r*1.15+10),Math.min(255,g*1.05),b*0.85];
+  }},
+  coolSteel:{name:'Cool Steel',fn:(r,g,b)=>{
+    return[r*0.85,Math.min(255,g*0.95+5),Math.min(255,b*1.15+10)];
+  }},
+  sepia:{name:'Sepia',fn:(r,g,b)=>{
+    const tr=Math.min(255,0.393*r+0.769*g+0.189*b);
+    const tg=Math.min(255,0.349*r+0.686*g+0.168*b);
+    const tb=Math.min(255,0.272*r+0.534*g+0.131*b);
+    return[tr,tg,tb];
+  }},
+};
+
+function processImage(src,callback){
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const canvas=document.createElement('canvas');
+    const fw=settings.frameWidth;
+    const arRatio=getARRatio();
+    let cw=fw,ch=arRatio?Math.round(fw/arRatio):Math.round(fw*(img.height/img.width));
+
+    canvas.width=cw;canvas.height=ch;
+    const ctx=canvas.getContext('2d');
+
+    // Draw with aspect ratio crop
+    const srcAR=img.width/img.height;
+    const dstAR=cw/ch;
+    let sx=0,sy=0,sw=img.width,sh=img.height;
+    if(srcAR>dstAR){sw=img.height*dstAR;sx=(img.width-sw)/2;}
+    else{sh=img.width/dstAR;sy=(img.height-sh)/2;}
+    ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+
+    // Apply color grade
+    const grade=GRADES[settings.grade];
+    const imageData=ctx.getImageData(0,0,cw,ch);
+    const data=imageData.data;
+
+    // Manual adjustments
+    const bright=settings.bright;
+    const contrast=settings.contrast;
+    const sat=settings.sat;
+    const temp=settings.temp;
+    const contFactor=(259*(contrast+255))/(255*(259-contrast));
+
+    for(let i=0;i<data.length;i+=4){
+      let r=data[i],g=data[i+1],b=data[i+2];
+
+      // Color grade LUT
+      if(grade&&grade.fn){
+        const [nr,ng,nb]=grade.fn(r,g,b);
+        r=nr;g=ng;b=nb;
+      }
+
+      // Brightness
+      r+=bright;g+=bright;b+=bright;
+
+      // Contrast
+      if(contrast!==0){
+        r=contFactor*(r-128)+128;
+        g=contFactor*(g-128)+128;
+        b=contFactor*(b-128)+128;
+      }
+
+      // Saturation
+      if(sat!==0){
+        const gray=0.299*r+0.587*g+0.114*b;
+        const s=1+sat/100;
+        r=gray+s*(r-gray);g=gray+s*(g-gray);b=gray+s*(b-gray);
+      }
+
+      // Temperature
+      if(temp!==0){r+=temp*0.5;b-=temp*0.5;}
+
+      // Film grain
+      if(settings.grain>0){
+        const noise=(Math.random()-0.5)*settings.grain*2.5;
+        r+=noise;g+=noise;b+=noise;
+      }
+
+      data[i]=Math.max(0,Math.min(255,r));
+      data[i+1]=Math.max(0,Math.min(255,g));
+      data[i+2]=Math.max(0,Math.min(255,b));
+    }
+
+    // Vignette
+    if(settings.vig>0){
+      const vcx=cw/2,vcy=ch/2;
+      const maxDist=Math.sqrt(vcx*vcx+vcy*vcy);
+      const vigStr=settings.vig/100;
+      for(let y=0;y<ch;y++){
+        for(let x=0;x<cw;x++){
+          const dx=x-vcx,dy=y-vcy;
+          const dist=Math.sqrt(dx*dx+dy*dy)/maxDist;
+          const factor=1-dist*dist*vigStr;
+          const idx=(y*cw+x)*4;
+          data[idx]*=factor;data[idx+1]*=factor;data[idx+2]*=factor;
+        }
+      }
+    }
+
+    ctx.putImageData(imageData,0,0);
+    callback(canvas.toDataURL('image/png'),cw,ch);
+  };
+  img.src=src;
+}
+
+function getARRatio(){
+  switch(settings.aspectRatio){
+    case '16:9':return 16/9;
+    case '4:3':return 4/3;
+    case '2.39:1':return 2.39;
+    case '1:1':return 1;
+    default:return 0;
+  }
+}
+
+function applyFilters(){
+  settings.grain=parseInt(document.getElementById('grainAmount').value);
+  settings.bright=parseInt(document.getElementById('adjBright').value);
+  settings.contrast=parseInt(document.getElementById('adjContrast').value);
+  settings.sat=parseInt(document.getElementById('adjSat').value);
+  settings.temp=parseInt(document.getElementById('adjTemp').value);
+  settings.vig=parseInt(document.getElementById('adjVig').value);
+  document.getElementById('grainVal').textContent=settings.grain;
+  document.getElementById('adjBrightVal').textContent=settings.bright;
+  document.getElementById('adjContrastVal').textContent=settings.contrast;
+  document.getElementById('adjSatVal').textContent=settings.sat;
+  document.getElementById('adjTempVal').textContent=settings.temp;
+  document.getElementById('adjVigVal').textContent=settings.vig;
+
+  // Re-process selected frame
+  const f=frames.find(x=>x.id===selectedId);
+  if(f){
+    processImage(f.original,(src,w,h)=>{
+      f.src=src;f.gradeApplied=settings.grade;
+      renderAll();
+    });
+  }
+}
+
+function setGrade(btn,grade){
+  document.querySelectorAll('.gradeBtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  settings.grade=grade;
+  applyFilters();
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════
+function renderAll(){
+  renderFilmStrip();
+  renderReelList();
+  renderTrash();
+  renderProps();
+  updateCounter();
+}
+
+function renderFilmStrip(){
+  const strip=document.getElementById('filmStrip');
+  const empty=document.getElementById('emptyStrip');
+  if(frames.length===0){
+    strip.innerHTML='';strip.appendChild(empty);empty.style.display='flex';return;
+  }
+  if(empty)empty.style.display='none';
+
+  const fw=settings.frameWidth;
+  const arRatio=getARRatio();
+
+  strip.innerHTML=frames.map((f,i)=>{
+    const fh=arRatio?Math.round(fw/arRatio):Math.round(fw*(f.height/f.width));
+    const sel=f.id===selectedId;
+    let screenplayHTML='';
+    if(f.screenplay){
+      const sp=f.screenplay;
+      screenplayHTML=`<div class="screenplayNote">`;
+      if(sp.heading)screenplayHTML+=`<div style="font-weight:700;text-transform:uppercase;margin-bottom:2px;">${esc(sp.heading)}</div>`;
+      if(sp.action)screenplayHTML+=`<div style="margin-bottom:2px;">${esc(sp.action)}</div>`;
+      if(sp.character&&sp.dialogue)screenplayHTML+=`<div style="text-align:center;font-weight:700;margin-top:2px;">${esc(sp.character)}</div><div style="text-align:center;font-style:italic;">${esc(sp.dialogue)}</div>`;
+      screenplayHTML+=`</div>`;
+    }
+    return`<div class="filmFrame${sel?' selected':''}" data-id="${f.id}" onclick="selectFrame('${f.id}')">
+      <div class="filmCell" style="width:${fw+16}px;">
+        <img src="${f.src}" style="width:${fw}px;height:${fh}px;object-fit:cover;" draggable="false">
+        <span class="frameNum">${String(i+1).padStart(3,'0')}</span>
+        <span class="frameLabel">${esc(f.label)}</span>
+        <div class="slateOverlay${f.slate?' show':''}">
+          <div class="slateTitle">${esc(settings.slateProd)}</div>
+          <div class="slateSub">Scene ${esc(settings.slateScene)} · Take ${esc(settings.slateTake)}</div>
+          ${settings.slateDir?`<div class="slateSub">Dir: ${esc(settings.slateDir)}</div>`:''}
+        </div>
+      </div>
+      ${screenplayHTML}
+    </div>`;
+  }).join('');
+}
+
+function renderReelList(){
+  const list=document.getElementById('reelList');
+  if(frames.length===0){list.innerHTML='<p style="font-size:11px;color:var(--tx2);">Film strip is empty.</p>';return;}
+  list.innerHTML=frames.map((f,i)=>`
+    <div class="reelItem${f.id===selectedId?' selected':''}" onclick="selectFrame('${f.id}')">
+      <img class="riThumb" src="${f.src}">
+      <div class="riInfo">
+        <div class="riName">${esc(f.label)}</div>
+        <div class="riMeta">#${String(i+1).padStart(3,'0')} · ${f.width}×${f.height}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTrash(){
+  const list=document.getElementById('trashList');
+  if(trash.length===0){list.innerHTML='<p style="font-size:11px;color:var(--tx2);">No discarded frames.</p>';return;}
+  list.innerHTML=trash.map((f,i)=>`
+    <div class="reelItem trashItem" onclick="restoreFrame('${f.id}')">
+      <img class="riThumb" src="${f.src}">
+      <div class="riInfo">
+        <div class="riName">${esc(f.label)}</div>
+        <div class="riMeta">Click to restore</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderProps(){
+  const el=document.getElementById('propsContent');
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f){el.innerHTML='<p style="font-size:11px;color:var(--tx2);">Select a frame to view properties.</p>';return;}
+  const idx=frames.indexOf(f);
+  el.innerHTML=`
+    <div class="propField"><label>Label</label><input value="${esc(f.label)}" onchange="updateLabel(this.value)"></div>
+    <div class="propField"><label>Frame #</label><input value="${idx+1}" disabled></div>
+    <div class="propField"><label>Original Size</label><input value="${f.width}×${f.height}" disabled></div>
+    <div class="propField"><label>Grade Applied</label><input value="${f.gradeApplied}" disabled></div>
+    <div class="propField"><label>Captured</label><input value="${new Date(f.ts).toLocaleString()}" disabled></div>
+    <div style="margin-top:8px;">
+      <button class="tBtn accent" onclick="downloadFrame()" style="width:100%;margin-bottom:4px;">💾 Download Frame</button>
+      <button class="tBtn" onclick="applyGradeToFrame()" style="width:100%;margin-bottom:4px;">🎨 Apply Current Grade</button>
+    </div>
+  `;
+}
+
+function updateCounter(){
+  document.getElementById('frameCounter').textContent='FRM: '+String(frames.length).padStart(3,'0');
+  document.getElementById('reelInfo').textContent=`Reel 1 · ${frames.length} frame${frames.length!==1?'s':''}`;
+}
+
+// ═══════════════════════════════════════════════
+//  INTERACTIONS
+// ═══════════════════════════════════════════════
+function selectFrame(id){selectedId=id;renderAll();}
+function esc(s){return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function setAR(btn,ar){
+  document.querySelectorAll('.arBtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  settings.aspectRatio=ar;
+}
+
+function updateSettings(){
+  settings.frameWidth=parseInt(document.getElementById('frameWidth').value)||320;
+  settings.slateProd=document.getElementById('slateProd').value;
+  settings.slateScene=document.getElementById('slateScene').value;
+  settings.slateTake=document.getElementById('slateTake').value;
+  settings.slateDir=document.getElementById('slateDir').value;
+  renderAll();
+}
+
+function toggleSlate(){
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f){toast('Select a frame first','err');return;}
+  f.slate=!f.slate;renderAll();
+}
+
+function cropSelected(){
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f){toast('Select a frame first','err');return;}
+  processImage(f.original,(src,w,h)=>{f.src=src;f.gradeApplied=settings.grade;renderAll();toast('Frame cropped to '+settings.aspectRatio,'ok');});
+}
+
+function duplicateFrame(){
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f)return;
+  const idx=frames.indexOf(f);
+  const copy={...f,id:genId(),label:f.label+' (copy)',ts:Date.now()};
+  frames.splice(idx+1,0,copy);
+  selectedId=copy.id;
+  playAdvance();renderAll();toast('Frame duplicated','ok');
+}
+
+function deleteSelected(){
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f)return;
+  trash.push(f);
+  const idx=frames.indexOf(f);
+  frames.splice(idx,1);
+  selectedId=frames.length>0?frames[Math.min(idx,frames.length-1)].id:null;
+  playSplice();renderAll();toast('Frame spliced out','');
+}
+
+function restoreFrame(id){
+  const idx=trash.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const f=trash.splice(idx,1)[0];
+  frames.push(f);selectedId=f.id;
+  playAdvance();renderAll();toast('Frame restored','ok');
+}
+
+function emptyTrash(){
+  if(trash.length===0)return;
+  if(!confirm('Empty the cutting room floor?'))return;
+  trash=[];renderTrash();toast('Trash emptied','');
+}
+
+function moveFrame(dir){
+  const f=frames.find(x=>x.id===selectedId);if(!f)return;
+  const idx=frames.indexOf(f);
+  const ni=idx+dir;
+  if(ni<0||ni>=frames.length)return;
+  frames.splice(idx,1);frames.splice(ni,0,f);
+  playAdvance();renderAll();
+}
+
+function updateLabel(val){
+  const f=frames.find(x=>x.id===selectedId);if(f)f.label=val;
+}
+
+function applyGradeToFrame(){
+  const f=frames.find(x=>x.id===selectedId);if(!f)return;
+  processImage(f.original,(src)=>{f.src=src;f.gradeApplied=settings.grade;renderAll();toast('Grade applied: '+settings.grade,'ok');});
+}
+
+function downloadFrame(){
+  const f=frames.find(x=>x.id===selectedId);if(!f)return;
+  const a=document.createElement('a');a.href=f.src;
+  a.download=f.label.replace(/[^a-zA-Z0-9]/g,'_')+'.png';a.click();
+}
+
+function setZoom(v){
+  document.getElementById('zoomVal').textContent=v+'%';
+  document.getElementById('filmStrip').style.transform=`scale(${v/100})`;
+  document.getElementById('filmStrip').style.transformOrigin='left center';
+}
+
+// Screenplay
+function updateScreenplay(){/* prep */}
+function applyScreenplay(){
+  const f=frames.find(x=>x.id===selectedId);
+  if(!f){toast('Select a frame first','err');return;}
+  f.screenplay={
+    heading:document.getElementById('txtHeading').value,
+    action:document.getElementById('txtAction').value,
+    character:document.getElementById('txtCharacter').value,
+    dialogue:document.getElementById('txtDialogue').value,
+  };
+  renderAll();toast('📜 Screenplay added','ok');
+}
+
+// Opening Credits
+function openCredits(){
+  document.getElementById('creditsModal').classList.add('show');
+  updateCreditsPreview();
+  ['crTitle','crSub','crDirector','crProducer','crDate'].forEach(id=>{
+    document.getElementById(id).oninput=updateCreditsPreview;
+  });
+}
+
+function updateCreditsPreview(){
+  document.querySelector('#creditsPreview .cTitle').textContent=document.getElementById('crTitle').value||'UNTITLED';
+  document.querySelector('#creditsPreview .cSub').textContent=document.getElementById('crSub').value||'';
+  document.getElementById('crDirLine').textContent=document.getElementById('crDirector').value?'Directed by '+document.getElementById('crDirector').value:'';
+  document.getElementById('crProdLine').textContent=document.getElementById('crProducer').value?'Produced by '+document.getElementById('crProducer').value:'';
+  document.getElementById('crDateLine').textContent=document.getElementById('crDate').value||'';
+}
+
+function addCreditsFrame(){
+  const canvas=document.createElement('canvas');
+  const fw=settings.frameWidth;
+  const arRatio=getARRatio()||16/9;
+  const fh=Math.round(fw/arRatio);
+  canvas.width=fw;canvas.height=fh;
+  const ctx=canvas.getContext('2d');
+
+  // Black background
+  ctx.fillStyle='#000';ctx.fillRect(0,0,fw,fh);
+
+  // Title
+  const title=document.getElementById('crTitle').value||'UNTITLED FILM';
+  const sub=document.getElementById('crSub').value||'';
+  const dir=document.getElementById('crDirector').value;
+  const prod=document.getElementById('crProducer').value;
+  const date=document.getElementById('crDate').value;
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0e8d8';
+  ctx.font=`bold ${Math.round(fw/12)}px Georgia, serif`;
+  ctx.fillText(title,fw/2,fh*0.35);
+
+  ctx.font=`${Math.round(fw/22)}px Georgia, serif`;
+  ctx.fillStyle='#d8d0c0';
+  if(sub)ctx.fillText(sub,fw/2,fh*0.45);
+
+  ctx.font=`${Math.round(fw/28)}px Georgia, serif`;
+  ctx.fillStyle='#a09880';
+  let y=fh*0.58;
+  if(dir){ctx.fillText('Directed by '+dir,fw/2,y);y+=fh*0.08;}
+  if(prod){ctx.fillText('Produced by '+prod,fw/2,y);y+=fh*0.08;}
+  if(date){ctx.fillText(date,fw/2,y);}
+
+  addFrame(canvas.toDataURL('image/png'),fw,fh,'Opening Credits');
+  closeModal('creditsModal');
+  playAdvance();toast('🎞️ Credits frame added','ok');
+}
+
+// Export entire strip as a single image
+function exportStrip(){
+  if(frames.length===0){toast('No frames to export','err');return;}
+  const fw=settings.frameWidth;
+  const arRatio=getARRatio()||16/9;
+  const padding=16;
+  const sprocketH=24;
+  const cellW=fw+16;
+  const fh=Math.round(fw/arRatio);
+  const cellH=fh+sprocketH*2+8;
+  const totalW=(cellW+12)*frames.length+padding*2;
+  const totalH=cellH+padding*2+60; // extra for screenplay text
+
+  const canvas=document.createElement('canvas');
+  canvas.width=totalW;canvas.height=totalH;
+  const ctx=canvas.getContext('2d');
+
+  // Film background
+  ctx.fillStyle='#1a1410';ctx.fillRect(0,0,totalW,totalH);
+
+  // Draw each frame
+  let x=padding;
+  const promises=frames.map((f,i)=>new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Sprocket holes top
+      for(let sx=x+10;sx<x+cellW-10;sx+=28){
+        ctx.fillStyle='#0a0806';
+        ctx.fillRect(sx,padding+4,10,12);
+      }
+      // Frame border
+      ctx.fillStyle='#2a2218';
+      ctx.fillRect(x,padding+sprocketH,cellW,fh+4);
+      // Image
+      ctx.drawImage(img,x+8,padding+sprocketH+2,fw,fh);
+      // Sprocket holes bottom
+      for(let sx=x+10;sx<x+cellW-10;sx+=28){
+        ctx.fillStyle='#0a0806';
+        ctx.fillRect(sx,padding+sprocketH+fh+8,10,12);
+      }
+      // Frame number
+      ctx.fillStyle='#887028';ctx.font='9px Courier New';
+      ctx.fillText(String(i+1).padStart(3,'0'),x+cellW-30,padding+sprocketH+fh-4);
+
+      x+=cellW+12;
+      res();
+    };
+    img.src=f.src;
+  }));
+
+  Promise.all(promises).then(()=>{
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download='filmstrip-export-'+Date.now()+'.png';
+    a.click();
+    toast('💾 Film strip exported','ok');
+  });
+}
+
+// Clapper animation
+function showClap(){
+  const el=document.getElementById('clapboard');
+  document.getElementById('clapScene').textContent=settings.slateScene;
+  document.getElementById('clapTake').textContent=settings.slateTake;
+  el.classList.remove('snap');
+  void el.offsetWidth;
+  el.classList.add('snap');
+}
+
+// Tab switching
+function switchLTab(tab){
+  document.querySelectorAll('.lTab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.lBody').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.lTab[onclick="switchLTab('${tab}')"]`).classList.add('active');
+  document.getElementById('ltab-'+tab).classList.add('active');
+}
+function switchRTab(tab){
+  document.querySelectorAll('.rTab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rBody').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.rTab[onclick="switchRTab('${tab}')"]`).classList.add('active');
+  document.getElementById('rtab-'+tab).classList.add('active');
+}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+function clearAll(){
+  if(frames.length===0)return;
+  if(!confirm('Clear all frames from the film strip?'))return;
+  trash.push(...frames);frames=[];selectedId=null;
+  playSplice();renderAll();toast('All frames cleared','');
+}
+
+// ═══════════════════════════════════════════════
+//  VIEWFINDER / LOUPE
+// ═══════════════════════════════════════════════
+const loupe=document.getElementById('loupe');
+const loupeCanvas=document.getElementById('loupeCanvas');
+const loupeCtx=loupeCanvas.getContext('2d');
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='l'||e.key==='L'){loupeActive=true;loupe.style.display='block';}
+  if(e.key==='Escape'){
+    loupeActive=false;loupe.style.display='none';
+    document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show'));
+  }
+  if(e.key===' '&&!e.target.closest('input,textarea,select')){
+    e.preventDefault();captureScreen();
+  }
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='l'||e.key==='L'){loupeActive=false;loupe.style.display='none';}
+});
+
+document.addEventListener('mousemove',e=>{
+  if(!loupeActive)return;
+  loupe.style.left=(e.clientX-100)+'px';
+  loupe.style.top=(e.clientY-100)+'px';
+
+  // Find image under cursor
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  if(el&&el.tagName==='IMG'&&el.closest('.filmFrame')){
+    const rect=el.getBoundingClientRect();
+    const zoom=parseInt(document.getElementById('loupeZoom').value)||3;
+    const relX=(e.clientX-rect.left)/rect.width;
+    const relY=(e.clientY-rect.top)/rect.height;
+
+    const img=el;
+    const sw=img.naturalWidth/zoom,sh=img.naturalHeight/zoom;
+    const sx=relX*img.naturalWidth-sw/2,sy=relY*img.naturalHeight-sh/2;
+
+    loupeCtx.clearRect(0,0,400,400);
+    loupeCtx.drawImage(img,Math.max(0,sx),Math.max(0,sy),sw,sh,0,0,400,400);
+  }
+});
+
+document.getElementById('loupeZoom').oninput=function(){
+  document.getElementById('loupeZoomVal').textContent=this.value+'x';
+};
+
+// Toast
+function toast(msg,type){
+  const el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3200);
+}
+
+// Init
+renderAll();
+</script>
+</body>
+</html>

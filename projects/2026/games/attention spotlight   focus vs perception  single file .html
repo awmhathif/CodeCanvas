@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>Attention Spotlight — Focus vs Perception (Single File)</title>
+  <style>
+    /* Dark but not blue: charcoal + warm accent */
+    :root{
+      --bg0:#0b0a09;
+      --bg1:#13110f;
+      --panel:#171412;
+      --panel2:#1f1a16;
+      --line: rgba(255,255,255,.10);
+      --text:#f3efe8;
+      --muted:#bdb3a7;
+      --muted2:#8f8579;
+
+      --ember:#ff6a3d;
+      --clay:#c97a2b;
+      --olive:#97b84f;
+      --rose:#ff4f86;
+
+      --good:#4ee08a;
+      --warn:#ffb454;
+      --bad:#ff4b4b;
+
+      --r:16px;
+      --shadow: 0 18px 70px rgba(0,0,0,.55);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; background:
+      radial-gradient(1200px 800px at 15% 10%, rgba(255,106,61,.10) 0%, rgba(0,0,0,0) 55%),
+      radial-gradient(1000px 700px at 85% 80%, rgba(201,122,43,.08) 0%, rgba(0,0,0,0) 60%),
+      radial-gradient(900px 650px at 65% 20%, rgba(151,184,79,.07) 0%, rgba(0,0,0,0) 55%),
+      linear-gradient(180deg, var(--bg1), var(--bg0));
+      color:var(--text); font-family:var(--sans); overflow:hidden;
+    }
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 420px 1fr 360px;
+      gap:14px;
+      padding:14px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)) , var(--panel);
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-width: 280px;
+    }
+    .bar{
+      padding:14px 14px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+    }
+    h1{font-size:14px; margin:0; letter-spacing:.25px}
+    .sub{margin-top:4px; font-size:12px; color:var(--muted); line-height:1.35}
+    .pill{
+      font-family:var(--mono);
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      color:rgba(255,255,255,.78);
+      background: rgba(0,0,0,.18);
+      white-space:nowrap;
+    }
+    .sec{padding:14px; border-bottom:1px solid var(--line)}
+    .sec:last-child{border-bottom:0}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:6px; flex:1 1 auto}
+    label{font-size:12px; color:var(--muted)}
+    input[type="range"]{width:100%}
+    input[type="number"], input[type="text"], select, textarea, button{
+      font: inherit;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      padding:10px 12px;
+      outline:none;
+    }
+    button{cursor:pointer; transition: transform .08s ease, border-color .15s ease, background .15s ease}
+    button:hover{border-color: rgba(255,255,255,.22)}
+    button:active{transform: translateY(1px)}
+    button.primary{
+      background: linear-gradient(135deg, rgba(255,106,61,.88), rgba(201,122,43,.78));
+      border-color: rgba(255,106,61,.55);
+      color:#160b07;
+      font-weight:800;
+    }
+    button.good{
+      border-color: rgba(78,224,138,.35);
+    }
+    button.bad{
+      border-color: rgba(255,75,75,.35);
+    }
+    .tiny{font-size:11px; color: var(--muted2); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:12px 0}
+
+    /* Center stage */
+    #center{position:relative}
+    #c{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+    #hud{
+      position:absolute; left:14px; top:14px;
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.28);
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(255,255,255,.85);
+      max-width: min(900px, calc(100% - 28px));
+      white-space: pre-line;
+      pointer-events:none;
+    }
+    #toast{
+      position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.38);
+      box-shadow: 0 16px 55px rgba(0,0,0,.45);
+      display:none;
+      max-width: min(920px, calc(100% - 28px));
+      color: rgba(255,255,255,.92);
+    }
+
+    /* Right: score cards */
+    .kpi{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .card{
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      background: rgba(0,0,0,.18);
+      padding:12px;
+    }
+    .card .v{
+      font-family:var(--mono);
+      font-size:14px;
+      color:rgba(255,255,255,.92);
+    }
+    .card .k{
+      margin-top:4px;
+      font-size:11px;
+      color:var(--muted2);
+      text-transform: uppercase;
+      letter-spacing:.4px;
+    }
+    .meter{
+      height:10px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .meter > div{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(78,224,138,.95), rgba(255,180,84,.9), rgba(255,75,75,.9));
+      transition: width .25s ease;
+    }
+
+    #log{
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      background: rgba(0,0,0,.18);
+      overflow:auto;
+      max-height: 260px;
+    }
+    .entry{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(255,255,255,.78);
+      line-height:1.35;
+    }
+    .entry:last-child{border-bottom:0}
+
+    .kbd{
+      font-family:var(--mono);
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:8px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      color: rgba(255,255,255,.86);
+    }
+
+    @media (max-width: 1160px){
+      html,body{overflow:auto}
+      #app{grid-template-columns: 1fr; grid-template-rows:auto 58vh auto; overflow:auto}
+      #center{height:58vh}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Left controls -->
+  <aside class="panel">
+    <div class="bar">
+      <div>
+        <h1>Attention Spotlight</h1>
+        <div class="sub">Measures how narrow your actual focus is vs what you think you saw.</div>
+      </div>
+      <div class="pill" id="statePill">READY</div>
+    </div>
+
+    <div class="sec">
+      <div class="row">
+        <button class="primary" id="btnStart">Start Trial</button>
+        <button id="btnStop">Stop</button>
+        <button class="bad" id="btnReset">Reset</button>
+      </div>
+      <div class="tiny" style="margin-top:10px">
+        How it works: You track a task in the center. Meanwhile, changes happen outside your “spotlight”.
+        After each trial, you answer quick questions. Your <b>confidence</b> is compared to your <b>accuracy</b>.
+      </div>
+      <div class="sep"></div>
+      <div class="row tiny">
+        Shortcuts:
+        <span class="kbd">Space</span> start/stop,
+        <span class="kbd">1–4</span> answer,
+        <span class="kbd">C</span> confidence,
+        <span class="kbd">R</span> reset
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Trial Settings</label>
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label>Difficulty</label>
+          <select id="diff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+            <option value="expert">Expert</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Trial length (sec)</label>
+          <input id="len" type="number" min="10" max="90" step="1" value="25"/>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label>Spotlight size (you control)</label>
+          <input id="spot" type="range" min="0.10" max="0.55" step="0.01" value="0.22"/>
+        </div>
+        <div class="col">
+          <label>Fog strength</label>
+          <input id="fog" type="range" min="0.0" max="0.95" step="0.01" value="0.72"/>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label>Peripheral event rate</label>
+          <input id="rate" type="range" min="0.05" max="1.0" step="0.01" value="0.35"/>
+        </div>
+        <div class="col">
+          <label>Motion noise</label>
+          <input id="noise" type="range" min="0" max="1" step="0.01" value="0.45"/>
+        </div>
+      </div>
+      <div class="tiny" style="margin-top:8px">
+        You can increase spotlight size… but that’s the point: it tests the gap between “I feel like I saw everything” and what you actually noticed.
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Confidence Calibration</label>
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label>Confidence (0–100)</label>
+          <input id="conf" type="range" min="0" max="100" step="1" value="70"/>
+        </div>
+        <div class="pill" id="confPill">70</div>
+      </div>
+      <div class="tiny" style="margin-top:8px">
+        After each trial you answer, then your confidence is compared to accuracy to show <b>over/under-confidence</b>.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Center canvas -->
+  <main class="panel" id="center">
+    <canvas id="c"></canvas>
+    <div id="hud"></div>
+    <div id="toast"></div>
+  </main>
+
+  <!-- Right stats -->
+  <aside class="panel">
+    <div class="bar">
+      <div>
+        <h1>Results</h1>
+        <div class="sub">Accuracy vs confidence, detection, misses.</div>
+      </div>
+      <div class="pill" id="fpsPill">—</div>
+    </div>
+
+    <div class="sec">
+      <div class="kpi">
+        <div class="card">
+          <div class="v" id="trialsV">0</div>
+          <div class="k">Trials completed</div>
+        </div>
+        <div class="card">
+          <div class="v" id="accV">—</div>
+          <div class="k">Accuracy</div>
+          <div class="meter"><div id="accBar"></div></div>
+        </div>
+        <div class="card">
+          <div class="v" id="confV">—</div>
+          <div class="k">Avg confidence</div>
+          <div class="meter"><div id="confBar"></div></div>
+        </div>
+        <div class="card">
+          <div class="v" id="gapV">—</div>
+          <div class="k">Confidence gap</div>
+          <div class="meter"><div id="gapBar"></div></div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <label>Last trial</label>
+      <div class="tiny" style="margin-top:8px; line-height:1.35" id="lastTxt">
+        Start a trial to see results.
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Trial Questions</label>
+      <div class="tiny" style="margin-top:8px">
+        At the end of a trial, answer with keys <span class="kbd">1</span>–<span class="kbd">4</span>.
+      </div>
+      <div class="sep"></div>
+      <div class="tiny" id="qTxt" style="line-height:1.35">—</div>
+      <div class="row" style="margin-top:10px">
+        <button class="good" id="a1">1</button>
+        <button class="good" id="a2">2</button>
+        <button class="good" id="a3">3</button>
+        <button class="good" id="a4">4</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Log</label>
+      <div id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (q)=>document.querySelector(q);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const now=()=>performance.now();
+
+  function toast(msg, ms=1600){
+    const el=$("#toast");
+    el.textContent=msg;
+    el.style.display="block";
+    toast.until=now()+ms;
+  }
+  toast.until=0;
+
+  function fmtPct(x){ return (x*100).toFixed(0)+"%"; }
+  function fmt1(x){ return x.toFixed(1); }
+
+  // ----------- Experiment design -----------
+  // Central task: track a moving dot and keep it inside spotlight by moving spotlight with mouse/touch.
+  // Peripheral events: brief changes outside spotlight (shape swap, color flash, symbol appearance).
+  // After trial, ask: "How many flashes happened?" (1-4), "Which symbol appeared?" (4 choices).
+  // Confidence compared to correctness.
+
+  const S = {
+    running:false,
+    phase:"idle", // idle | trial | quiz
+    t:0,
+    trialLen:25,
+    diff:"normal",
+
+    // spotlight
+    spot:0.22,
+    fog:0.72,
+
+    // motion/peripheral
+    eventRate:0.35,
+    noise:0.45,
+
+    // pointer / spotlight position
+    spx:0.5,
+    spy:0.52,
+    pointerDown:false,
+
+    // central dot
+    dot:{x:0.5,y:0.52,vx:0.11,vy:-0.09},
+
+    // peripheral events record
+    events:[], // {t, type, pos, data}
+    flashCount:0,
+    symbol:null, // one of ["▲","●","◆","✚"]
+    symbolPos:null,
+    symbolShown:false,
+
+    // quiz
+    qIndex:0,
+    quiz:[], // {q, options[4], correctIndex}
+    answers:[],
+    conf:70,
+
+    // stats
+    stats:{
+      trials:0,
+      correct:0,
+      confSum:0,
+      gapSum:0, // conf - acc
+      last:null,
+      log:[]
+    }
+  };
+
+  function addLog(msg){
+    const t=new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+    S.stats.log.unshift(`[${t}] ${msg}`);
+    if(S.stats.log.length>120) S.stats.log.pop();
+    renderLog();
+  }
+
+  // ----------- Canvas ----------
+  const canvas=$("#c");
+  const ctx=canvas.getContext("2d", {alpha:false});
+
+  function resize(){
+    const r=canvas.getBoundingClientRect();
+    const dpr=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.floor(r.width*dpr);
+    canvas.height=Math.floor(r.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", resize);
+
+  function drawBg(w,h){
+    // warm dark texture gradient
+    const g=ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,"#100e0c");
+    g.addColorStop(0.5,"#0b0a09");
+    g.addColorStop(1,"#14100e");
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,w,h);
+
+    // subtle grain
+    ctx.save();
+    ctx.globalAlpha=0.06;
+    ctx.fillStyle="#fff";
+    for(let i=0;i<90;i++){
+      const x=Math.random()*w, y=Math.random()*h;
+      ctx.fillRect(x,y,1,1);
+    }
+    ctx.restore();
+  }
+
+  function drawScene(){
+    const w=canvas.clientWidth, h=canvas.clientHeight;
+    drawBg(w,h);
+
+    // world objects (peripheral distractors)
+    // We'll draw a field of drifting glyphs/boxes; peripheral events modify a subset.
+    const t=S.t;
+    const N = 70;
+    const seed = 1337;
+    function hash(i){
+      let x = (i*1103515245 + seed) >>> 0;
+      x ^= x<<13; x^=x>>>17; x^=x<<5;
+      return (x>>>0)/4294967296;
+    }
+
+    const spx=S.spx*w, spy=S.spy*h;
+    const spotR = Math.min(w,h)*S.spot;
+    const fog = S.fog;
+
+    // draw distractors
+    for(let i=0;i<N;i++){
+      const r1=hash(i);
+      const r2=hash(i+1000);
+      const r3=hash(i+2000);
+      const x = (r1 + Math.sin(t*0.15 + i)*0.02*S.noise) * w;
+      const y = (r2 + Math.cos(t*0.14 + i*1.7)*0.02*S.noise) * h;
+
+      const dx=x-spx, dy=y-spy;
+      const d=Math.hypot(dx,dy);
+      const inSpot = d < spotR;
+
+      // base alpha depends on fog + spotlight falloff
+      const fall = clamp(1 - (d/spotR), 0, 1);
+      const a = inSpot ? (0.20 + 0.55*fall) : (0.05 + 0.15*(1-fog));
+
+      ctx.save();
+      ctx.globalAlpha=a;
+      ctx.strokeStyle="rgba(255,255,255,.25)";
+      ctx.fillStyle="rgba(255,180,84,.10)";
+      const s = 10 + r3*22;
+      // draw alternating shapes
+      if(i%3===0){
+        roundRect(x-s/2, y-s/2, s, s, 4);
+        ctx.stroke();
+      }else if(i%3===1){
+        ctx.beginPath(); ctx.arc(x,y,s*0.45,0,Math.PI*2); ctx.stroke();
+      }else{
+        ctx.beginPath();
+        ctx.moveTo(x,y-s*0.5); ctx.lineTo(x+s*0.5,y); ctx.lineTo(x,y+s*0.5); ctx.lineTo(x-s*0.5,y);
+        ctx.closePath(); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // central tracking dot
+    const dx=S.dot.x*w, dy=S.dot.y*h;
+    const dDot = Math.hypot(dx-spx, dy-spy);
+    const fallDot = clamp(1 - dDot/spotR, 0, 1);
+
+    // dot glow
+    ctx.save();
+    ctx.globalCompositeOperation="lighter";
+    ctx.globalAlpha = 0.14 + 0.28*fallDot;
+    const rg=ctx.createRadialGradient(dx,dy, 0, dx,dy, 60);
+    rg.addColorStop(0,"rgba(255,106,61,.9)");
+    rg.addColorStop(1,"rgba(255,106,61,0)");
+    ctx.fillStyle=rg;
+    ctx.beginPath(); ctx.arc(dx,dy,60,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.65 + 0.35*fallDot;
+    ctx.fillStyle = "#ff6a3d";
+    ctx.beginPath(); ctx.arc(dx,dy,6.5,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=0.9;
+    ctx.strokeStyle="rgba(0,0,0,.35)";
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.restore();
+
+    // spotlight mask (fog outside)
+    drawSpotlightMask(w,h, spx,spy, spotR, fog);
+
+    // show peripheral events (if active)
+    drawEvents(w,h, spx,spy, spotR);
+
+    // HUD overlay text
+    const inSpot = dDot < spotR;
+    const trackScore = clamp(1 - (dDot/spotR), 0, 1);
+    $("#hud").textContent =
+      `phase=${S.phase}  t=${fmt1(S.t)}s/${S.trialLen}s  diff=${S.diff}\n`+
+      `spot=${S.spot.toFixed(2)} fog=${S.fog.toFixed(2)} noise=${S.noise.toFixed(2)} events=${S.eventRate.toFixed(2)}\n`+
+      `tracking: ${(trackScore*100).toFixed(0)}%  (${inSpot ? "dot in spotlight":"dot outside"})`;
+  }
+
+  function drawSpotlightMask(w,h, spx,spy, spotR, fog){
+    // dark veil, cut out spotlight with radial gradient
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,${0.25 + 0.55*fog})`;
+    ctx.fillRect(0,0,w,h);
+
+    ctx.globalCompositeOperation="destination-out";
+    const rg=ctx.createRadialGradient(spx,spy, spotR*0.15, spx,spy, spotR);
+    rg.addColorStop(0, "rgba(0,0,0,1)");
+    rg.addColorStop(0.70,"rgba(0,0,0,0.65)");
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle=rg;
+    ctx.beginPath(); ctx.arc(spx,spy,spotR*1.02,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // spotlight outline
+    ctx.save();
+    ctx.globalAlpha=0.35;
+    ctx.strokeStyle="rgba(255,180,84,.55)";
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(spx,spy,spotR,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawEvents(w,h, spx,spy, spotR){
+    // events are brief; only draw if within their active window
+    const t=S.t;
+    for(const ev of S.events){
+      const age = t - ev.t;
+      if(age<0 || age>1.0) continue; // visible ~1s
+      const x=ev.x*w, y=ev.y*h;
+      const d=Math.hypot(x-spx,y-spy);
+      const inSpot = d < spotR;
+
+      // we intentionally make peripheral events low-salience unless in spotlight
+      const sal = inSpot ? 1.0 : 0.30*(1 - S.fog*0.7);
+      const fade = clamp(1 - age/1.0, 0, 1);
+
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+      ctx.globalAlpha = fade * sal;
+
+      if(ev.type==="flash"){
+        const rg=ctx.createRadialGradient(x,y, 0, x,y, 90);
+        rg.addColorStop(0, "rgba(255,79,134,.95)");
+        rg.addColorStop(1, "rgba(255,79,134,0)");
+        ctx.fillStyle=rg;
+        ctx.beginPath(); ctx.arc(x,y,90,0,Math.PI*2); ctx.fill();
+      } else if(ev.type==="symbol"){
+        ctx.fillStyle="rgba(255,255,255,.9)";
+        ctx.font=`700 40px ${getComputedStyle(document.body).fontFamily}`;
+        ctx.fillText(ev.symbol, x-14, y+14);
+      } else if(ev.type==="swap"){
+        ctx.strokeStyle="rgba(151,184,79,.95)";
+        ctx.lineWidth=3;
+        ctx.beginPath();
+        ctx.moveTo(x-18,y); ctx.lineTo(x+18,y);
+        ctx.moveTo(x,y-18); ctx.lineTo(x,y+18);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function roundRect(x,y,w,h,r){
+    r=Math.max(0, Math.min(r, Math.min(w,h)/2));
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  // ----------- Trial logic -----------
+  function difficultyParams(){
+    // returns {dotSpeed, eventRateScale, noiseScale}
+    switch(S.diff){
+      case "easy": return {dotSpeed:0.75, event:0.75, noise:0.70, fog:0.65};
+      case "normal": return {dotSpeed:1.0, event:1.0, noise:1.0, fog:1.0};
+      case "hard": return {dotSpeed:1.25, event:1.25, noise:1.15, fog:1.10};
+      case "expert": return {dotSpeed:1.45, event:1.45, noise:1.25, fog:1.18};
+      default: return {dotSpeed:1.0, event:1.0, noise:1.0, fog:1.0};
+    }
+  }
+
+  function startTrial(){
+    if(S.phase==="trial") return;
+    S.phase="trial";
+    S.running=true;
+    S.t=0;
+    S.events=[];
+    S.flashCount=0;
+    S.symbol=null;
+    S.symbolShown=false;
+    S.symbolPos=null;
+    S.answers=[];
+    S.qIndex=0;
+
+    // central dot randomized
+    S.dot.x=0.5; S.dot.y=0.52;
+    const a=Math.random()*Math.PI*2;
+    S.dot.vx=Math.cos(a)*0.16;
+    S.dot.vy=Math.sin(a)*0.16;
+
+    // choose one symbol for the trial
+    const syms=["▲","●","◆","✚"];
+    S.symbol = syms[Math.floor(Math.random()*syms.length)];
+
+    $("#statePill").textContent="TRIAL";
+    toast("Trial started. Track the central dot inside your spotlight.");
+    addLog("Trial started.");
+    updateQuizUI(); // clears
+  }
+
+  function stopTrial(){
+    if(S.phase!=="trial") return;
+    endTrial();
+  }
+
+  function endTrial(){
+    S.phase="quiz";
+    S.running=false;
+    $("#statePill").textContent="QUIZ";
+    buildQuiz();
+    updateQuizUI();
+    toast("Trial ended. Answer the questions (1–4).");
+    addLog("Trial ended → quiz.");
+  }
+
+  function buildQuiz(){
+    // Q1: how many flashes occurred? (1..4)
+    // We'll clamp flashCount to 1..4 by design
+    const flashes = clamp(S.flashCount, 1, 4);
+
+    // Q2: which symbol appeared? (4 choices)
+    const syms=["▲","●","◆","✚"];
+    // ensure symbol appears at least once in events
+    // (we spawn at least 1 symbol event)
+    const correctSym = S.symbol;
+
+    // shuffle options
+    const opts = syms.slice();
+    shuffle(opts);
+    const symCorrectIndex = opts.indexOf(correctSym);
+
+    S.quiz = [
+      {
+        q: "How many pink flashes happened (anywhere on screen)?",
+        options: ["1","2","3","4"],
+        correctIndex: flashes-1
+      },
+      {
+        q: "Which symbol appeared (briefly)?",
+        options: opts,
+        correctIndex: symCorrectIndex
+      }
+    ];
+    S.qIndex=0;
+  }
+
+  function shuffle(a){
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+  }
+
+  function answer(idx){
+    if(S.phase!=="quiz") return;
+    const q=S.quiz[S.qIndex];
+    if(!q) return;
+    S.answers[S.qIndex]=idx;
+
+    // feedback per question
+    const ok = idx===q.correctIndex;
+    addLog(`Q${S.qIndex+1}: answered "${q.options[idx]}" — ${ok?"correct":"wrong"}.`);
+
+    S.qIndex++;
+    if(S.qIndex>=S.quiz.length){
+      finalizeTrial();
+    }else{
+      updateQuizUI();
+    }
+  }
+
+  function finalizeTrial(){
+    // compute correctness
+    let correct=0;
+    for(let i=0;i<S.quiz.length;i++){
+      if(S.answers[i]===S.quiz[i].correctIndex) correct++;
+    }
+    const acc = correct / S.quiz.length;
+    const conf = S.conf/100;
+    const gap = conf - acc; // positive => overconfident
+
+    S.stats.trials++;
+    S.stats.correct += correct;
+    S.stats.confSum += conf;
+    S.stats.gapSum += gap;
+
+    S.stats.last = {acc, conf, gap, correct, total:S.quiz.length, flash:S.flashCount, symbol:S.symbol};
+
+    $("#statePill").textContent="READY";
+    S.phase="idle";
+
+    addLog(`Result: acc=${fmtPct(acc)} conf=${fmtPct(conf)} gap=${(gap*100).toFixed(0)}% (flashes=${S.flashCount}, symbol=${S.symbol}).`);
+    toast(`Result: accuracy ${fmtPct(acc)} vs confidence ${fmtPct(conf)}.`);
+
+    renderStats();
+    updateQuizUI();
+  }
+
+  // ---------- Simulation update ----------
+  let last = now();
+  let fpsAcc=0, fpsN=0, fpsT=now();
+
+  function update(dt){
+    // sync UI-controlled settings
+    S.diff = $("#diff").value;
+    S.trialLen = clamp(Number($("#len").value||25), 10, 90);
+    S.spot = Number($("#spot").value);
+    S.fog = Number($("#fog").value);
+    S.eventRate = Number($("#rate").value);
+    S.noise = Number($("#noise").value);
+    S.conf = Number($("#conf").value);
+    $("#confPill").textContent = String(S.conf);
+
+    if(S.phase==="trial"){
+      S.t += dt;
+
+      const p = difficultyParams();
+      // update dot with some noise
+      const w=canvas.clientWidth, h=canvas.clientHeight;
+      const speed = 0.18 * p.dotSpeed;
+      const n = S.noise * p.noise;
+
+      // random drift
+      S.dot.vx += (Math.random()*2-1)*0.020*n*dt;
+      S.dot.vy += (Math.random()*2-1)*0.020*n*dt;
+
+      // normalize velocity a bit
+      const v = Math.hypot(S.dot.vx, S.dot.vy) || 1;
+      S.dot.vx = (S.dot.vx / v) * speed;
+      S.dot.vy = (S.dot.vy / v) * speed;
+
+      S.dot.x += S.dot.vx*dt;
+      S.dot.y += S.dot.vy*dt;
+
+      // bounce off edges
+      if(S.dot.x<0.06){ S.dot.x=0.06; S.dot.vx*=-1; }
+      if(S.dot.x>0.94){ S.dot.x=0.94; S.dot.vx*=-1; }
+      if(S.dot.y<0.10){ S.dot.y=0.10; S.dot.vy*=-1; }
+      if(S.dot.y>0.92){ S.dot.y=0.92; S.dot.vy*=-1; }
+
+      // spawn peripheral events
+      // event rate scaled by difficulty
+      const rate = (0.12 + 0.55*S.eventRate) * p.event;
+      S._evAcc = (S._evAcc||0) + rate*dt;
+      while(S._evAcc >= 1){
+        S._evAcc -= 1;
+        spawnEvent();
+      }
+
+      // ensure at least one symbol appears mid-trial
+      if(!S.symbolShown && S.t > S.trialLen*0.35){
+        spawnSymbolEvent(true);
+      }
+
+      // end trial
+      if(S.t >= S.trialLen){
+        endTrial();
+      }
+    }
+  }
+
+  function spawnEvent(){
+    // choose event type (flash common, swap medium, symbol rare)
+    const r=Math.random();
+    if(r < 0.62){
+      spawnFlashEvent();
+    } else if(r < 0.88){
+      spawnSwapEvent();
+    } else {
+      spawnSymbolEvent(false);
+    }
+  }
+
+  function pickPeripheralPos(){
+    // pick a position likely outside spotlight (to demonstrate inattentional blindness)
+    const tries=12;
+    const spx=S.spx, spy=S.spy;
+    const spotR = S.spot; // normalized
+    for(let i=0;i<tries;i++){
+      const x=Math.random()*0.92 + 0.04;
+      const y=Math.random()*0.86 + 0.08;
+      const d=Math.hypot(x-spx,y-spy);
+      if(d > spotR*1.2) return {x,y};
+    }
+    return {x:Math.random()*0.92+0.04, y:Math.random()*0.86+0.08};
+  }
+
+  function spawnFlashEvent(){
+    // flash count controlled to be 1..4 by clamping spawns
+    if(S.flashCount >= 4) return;
+    const pos=pickPeripheralPos();
+    S.events.push({t:S.t, type:"flash", x:pos.x, y:pos.y});
+    S.flashCount++;
+  }
+
+  function spawnSwapEvent(){
+    const pos=pickPeripheralPos();
+    S.events.push({t:S.t, type:"swap", x:pos.x, y:pos.y});
+  }
+
+  function spawnSymbolEvent(force){
+    if(S.symbolShown && !force) return;
+    const pos=pickPeripheralPos();
+    S.events.push({t:S.t, type:"symbol", x:pos.x, y:pos.y, symbol:S.symbol});
+    S.symbolShown=true;
+    S.symbolPos=pos;
+  }
+
+  // ---------- UI / Stats ----------
+  function renderStats(){
+    $("#trialsV").textContent = String(S.stats.trials);
+
+    if(S.stats.trials===0){
+      $("#accV").textContent="—";
+      $("#confV").textContent="—";
+      $("#gapV").textContent="—";
+      $("#accBar").style.width="0%";
+      $("#confBar").style.width="0%";
+      $("#gapBar").style.width="0%";
+      $("#lastTxt").textContent="Start a trial to see results.";
+      return;
+    }
+
+    const totalQ = S.stats.trials * 2;
+    const acc = S.stats.correct / totalQ;
+    const avgConf = S.stats.confSum / S.stats.trials;
+    const avgGap = S.stats.gapSum / S.stats.trials; // conf - acc
+
+    $("#accV").textContent = fmtPct(acc);
+    $("#confV").textContent = fmtPct(avgConf);
+    $("#gapV").textContent = (avgGap>=0?"+":"") + (avgGap*100).toFixed(0) + "%";
+
+    $("#accBar").style.width = (acc*100).toFixed(1)+"%";
+    $("#confBar").style.width = (avgConf*100).toFixed(1)+"%";
+
+    // gap bar: map -1..+1 to 0..100
+    const gapNorm = clamp((avgGap + 1)/2, 0, 1);
+    $("#gapBar").style.width = (gapNorm*100).toFixed(1)+"%";
+
+    if(S.stats.last){
+      const L=S.stats.last;
+      const msg =
+        `Accuracy: ${fmtPct(L.acc)} (${L.correct}/${L.total})\n`+
+        `Confidence: ${fmtPct(L.conf)}\n`+
+        `Gap: ${(L.gap>=0?"+":"")}${(L.gap*100).toFixed(0)}%\n`+
+        `Truth: flashes=${L.flash} symbol=${L.symbol}`;
+      $("#lastTxt").textContent = msg;
+    }
+  }
+
+  function updateQuizUI(){
+    if(S.phase!=="quiz"){
+      $("#qTxt").textContent = "—";
+      $("#a1").disabled=true; $("#a2").disabled=true; $("#a3").disabled=true; $("#a4").disabled=true;
+      $("#a1").textContent="1"; $("#a2").textContent="2"; $("#a3").textContent="3"; $("#a4").textContent="4";
+      return;
+    }
+    const q=S.quiz[S.qIndex];
+    $("#qTxt").textContent = `Q${S.qIndex+1}/${S.quiz.length}: ${q.q}`;
+    $("#a1").disabled=false; $("#a2").disabled=false; $("#a3").disabled=false; $("#a4").disabled=false;
+    $("#a1").textContent = `1) ${q.options[0]}`;
+    $("#a2").textContent = `2) ${q.options[1]}`;
+    $("#a3").textContent = `3) ${q.options[2]}`;
+    $("#a4").textContent = `4) ${q.options[3]}`;
+  }
+
+  function renderLog(){
+    const el=$("#log");
+    if(!S.stats.log.length){
+      el.innerHTML = `<div class="entry">No log yet.</div>`;
+      return;
+    }
+    el.innerHTML = S.stats.log.slice(0,80).map(s=>`<div class="entry">${s}</div>`).join("");
+  }
+
+  // ---------- Pointer controls (spotlight position) ----------
+  function setSpotFromEvent(e){
+    const r=canvas.getBoundingClientRect();
+    const x=(e.clientX - r.left)/r.width;
+    const y=(e.clientY - r.top)/r.height;
+    S.spx = clamp(x, 0.02, 0.98);
+    S.spy = clamp(y, 0.02, 0.98);
+  }
+
+  function wire(){
+    $("#btnStart").onclick=()=>startTrial();
+    $("#btnStop").onclick=()=>stopTrial();
+    $("#btnReset").onclick=()=>{
+      if(!confirm("Reset stats and log?")) return;
+      S.stats.trials=0; S.stats.correct=0; S.stats.confSum=0; S.stats.gapSum=0; S.stats.last=null; S.stats.log=[];
+      S.phase="idle"; S.running=false; S.t=0; S.events=[]; S.flashCount=0; S.symbolShown=false;
+      $("#statePill").textContent="READY";
+      updateQuizUI();
+      renderStats();
+      renderLog();
+      toast("Reset.");
+    };
+
+    $("#conf").oninput=()=>$("#confPill").textContent = String($("#conf").value);
+
+    // quiz buttons
+    $("#a1").onclick=()=>answer(0);
+    $("#a2").onclick=()=>answer(1);
+    $("#a3").onclick=()=>answer(2);
+    $("#a4").onclick=()=>answer(3);
+    updateQuizUI();
+
+    // keyboard
+    window.addEventListener("keydown",(e)=>{
+      if(e.target && ["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+      if(e.code==="Space"){
+        e.preventDefault();
+        if(S.phase==="trial") stopTrial();
+        else if(S.phase==="idle") startTrial();
+      }
+      if((e.key==="r"||e.key==="R")) $("#btnReset").click();
+      if((e.key==="c"||e.key==="C")){
+        // toggle confidence quickly
+        const v = Number($("#conf").value);
+        const nv = (v<50)?70:(v<80)?90:40;
+        $("#conf").value=nv;
+        S.conf=nv;
+        $("#confPill").textContent=String(nv);
+        toast("Confidence set to "+nv);
+      }
+      if(S.phase==="quiz"){
+        if(e.key==="1") answer(0);
+        if(e.key==="2") answer(1);
+        if(e.key==="3") answer(2);
+        if(e.key==="4") answer(3);
+      }
+    });
+
+    // pointer spotlight
+    const host=$("#center");
+    host.addEventListener("pointerdown",(e)=>{
+      S.pointerDown=true;
+      setSpotFromEvent(e);
+      host.setPointerCapture(e.pointerId);
+    });
+    host.addEventListener("pointermove",(e)=>{
+      if(!S.pointerDown) return;
+      setSpotFromEvent(e);
+    });
+    host.addEventListener("pointerup",(e)=>{
+      S.pointerDown=false;
+      try{ host.releasePointerCapture(e.pointerId); }catch{}
+    });
+  }
+
+  // ---------- Main loop ----------
+  function tick(){
+    const t=now();
+    const dt=clamp((t-last)/1000, 0, 0.2);
+    last=t;
+
+    update(dt);
+    drawScene();
+
+    // toast hide
+    if($("#toast").style.display!=="none" && t>toast.until) $("#toast").style.display="none";
+
+    // fps
+    fpsAcc += 1/Math.max(1e-6, dt); fpsN++;
+    if(t-fpsT>500){
+      $("#fpsPill").textContent = `${(fpsAcc/fpsN).toFixed(0)} fps`;
+      fpsAcc=0; fpsN=0; fpsT=t;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Boot ----------
+  function boot(){
+    resize();
+    wire();
+    renderStats();
+    renderLog();
+    $("#statePill").textContent="READY";
+    toast("Drag to move the spotlight. Start a trial.");
+    requestAnimationFrame(tick);
+  }
+  boot();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NebulaCapture — Cosmic Screenshot Observatory</title>
+<style>
+/* ═══════════════════════════════════════════════════════
+   RESET & COSMIC TOKENS
+═══════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:     #03030a;
+  --deep:     #07091a;
+  --panel:    rgba(6,8,26,0.92);
+  --glass:    rgba(12,16,40,0.85);
+  --border:   rgba(100,140,255,0.15);
+  --border2:  rgba(100,140,255,0.28);
+  --cyan:     #00d4ff;
+  --magenta:  #ff00cc;
+  --violet:   #8b5cf6;
+  --gold:     #fbbf24;
+  --green:    #00ff88;
+  --red:      #ff4060;
+  --text:     #c8d8ff;
+  --text2:    rgba(140,160,255,0.55);
+  --font:     'Segoe UI',system-ui,sans-serif;
+  --mono:     'Courier New',monospace;
+  --r:        10px;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--font);background:var(--void);color:var(--text)}
+
+/* Grid overlay */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,212,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.018) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   STARFIELD
+═══════════════════════════════════════════════════════ */
+#starfield{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════════════════ */
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══════════════════════════════════════════════════════
+   TOP NAV BAR
+═══════════════════════════════════════════════════════ */
+#topbar{
+  flex-shrink:0;height:52px;
+  background:rgba(4,6,20,.95);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;gap:6px;
+  padding:0 14px;
+  box-shadow:0 2px 30px rgba(0,0,0,.6);
+  position:relative;z-index:100;
+}
+#topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--violet),var(--magenta),transparent);
+  animation:scan 4s linear infinite;background-size:200% auto}
+@keyframes scan{to{background-position:200% center}}
+.brand{font-size:1rem;font-weight:800;letter-spacing:1px;
+  background:linear-gradient(90deg,var(--cyan),var(--violet),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  white-space:nowrap;margin-right:6px}
+.nav-sep{width:1px;height:26px;background:var(--border);margin:0 3px}
+.nav-btn{
+  display:flex;align-items:center;gap:5px;padding:5px 12px;
+  border-radius:18px;border:none;
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--text);font-size:.75rem;cursor:pointer;
+  transition:all .2s;white-space:nowrap;font-family:var(--font);
+}
+.nav-btn:hover{background:rgba(0,212,255,.12);border-color:var(--cyan);color:var(--cyan)}
+.nav-btn.active{background:rgba(0,212,255,.15);border-color:var(--cyan);color:var(--cyan);
+  box-shadow:0 0 12px rgba(0,212,255,.2)}
+.nav-btn svg{width:13px;height:13px;flex-shrink:0}
+.nav-spacer{flex:1}
+#status-bar{font-size:.68rem;color:var(--text2);font-family:var(--mono);white-space:nowrap}
+#mission-clock{font-size:.7rem;color:var(--cyan);font-family:var(--mono);white-space:nowrap}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN CONTENT AREA
+═══════════════════════════════════════════════════════ */
+#main{flex:1;display:flex;overflow:hidden;position:relative}
+
+/* ═══════════════════════════════════════════════════════
+   LEFT INSTRUMENT PANEL
+═══════════════════════════════════════════════════════ */
+#left-panel{
+  width:220px;flex-shrink:0;
+  background:var(--panel);
+  backdrop-filter:blur(20px);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.lp-section{border-bottom:1px solid var(--border);padding:12px}
+.lp-title{font-size:.64rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.instrument-btn{
+  width:100%;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:8px;border:none;
+  background:rgba(255,255,255,.04);color:var(--text);
+  font-size:.76rem;cursor:pointer;transition:all .2s;
+  border:1px solid transparent;margin-bottom:4px;font-family:var(--font);
+  text-align:left;
+}
+.instrument-btn:last-child{margin-bottom:0}
+.instrument-btn:hover{background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.3);color:var(--cyan)}
+.instrument-btn.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#c4b5fd}
+.instrument-btn .ib-icon{width:20px;height:20px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;font-size:.85rem;
+  background:rgba(255,255,255,.06);flex-shrink:0}
+/* Probe controls */
+.probe-row{display:flex;align-items:center;gap:6px;margin:5px 0;flex-wrap:wrap}
+.probe-row label{font-size:.7rem;color:var(--text2);min-width:55px}
+.probe-input{
+  flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:6px;padding:4px 7px;color:var(--text);font-size:.72rem;
+  outline:none;font-family:var(--mono);min-width:0;
+}
+.probe-input:focus{border-color:var(--cyan)}
+.probe-badge{font-size:.62rem;padding:2px 6px;border-radius:4px;margin-left:auto;white-space:nowrap}
+.probe-badge.on{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.probe-badge.off{background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border)}
+/* Coord display */
+#coord-display{
+  font-size:.65rem;color:var(--cyan);font-family:var(--mono);
+  background:rgba(0,0,0,.3);border-radius:5px;padding:5px 7px;margin-top:6px;
+  border:1px solid rgba(0,212,255,.15);line-height:1.7;
+}
+/* Mini stats */
+.stat-row{display:flex;justify-content:space-between;align-items:center;margin:4px 0}
+.stat-row .sk{font-size:.68rem;color:var(--text2)}
+.stat-row .sv{font-size:.72rem;color:var(--cyan);font-family:var(--mono)}
+/* Toggle */
+.tog{position:relative;width:32px;height:17px;cursor:pointer;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.tog-t{position:absolute;inset:0;border-radius:9px;background:rgba(255,255,255,.1);transition:.2s}
+.tog input:checked+.tog-t{background:var(--cyan)}
+.tog-k{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.2s}
+.tog input:checked~.tog-k{transform:translateX(15px)}
+
+/* ═══════════════════════════════════════════════════════
+   CENTER OBSERVATORY
+═══════════════════════════════════════════════════════ */
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* VIEWFINDER */
+#viewfinder-wrap{
+  flex-shrink:0;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  padding:18px;background:rgba(0,0,0,.2);
+  border-bottom:1px solid var(--border);
+}
+#viewfinder{
+  position:relative;
+  width:340px;height:220px;
+  border-radius:50% 48% 52% 48% / 46% 50% 52% 50%;
+  border:2px solid rgba(0,212,255,.4);
+  background:rgba(0,5,15,.6);
+  overflow:hidden;
+  box-shadow:0 0 40px rgba(0,212,255,.12),inset 0 0 30px rgba(0,0,0,.5);
+  transition:all .3s;
+}
+#viewfinder.telescope-mode{border-radius:50%;border-color:var(--gold);
+  box-shadow:0 0 40px rgba(251,191,36,.2),inset 0 0 20px rgba(0,0,0,.7)}
+/* Crosshair */
+#crosshair{
+  position:absolute;inset:0;pointer-events:none;z-index:5;
+  display:none;
+}
+#viewfinder.telescope-mode #crosshair{display:block}
+.ch-h{position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(251,191,36,.5)}
+.ch-v{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(251,191,36,.5)}
+.ch-circle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:50px;height:50px;border-radius:50%;border:1px solid rgba(251,191,36,.4)}
+.ch-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--gold)}
+/* Corner marks */
+.vf-corner{position:absolute;width:14px;height:14px;border-color:rgba(0,212,255,.5);border-style:solid}
+.vf-corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.vf-corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.vf-corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.vf-corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+/* Live preview canvas inside viewfinder */
+#vf-preview{width:100%;height:100%;object-fit:cover;opacity:.7;border-radius:inherit}
+/* Capture ring animation */
+#capture-ring{
+  position:absolute;inset:-8px;border-radius:inherit;
+  border:3px solid transparent;pointer-events:none;z-index:10;
+}
+#capture-ring.firing{
+  border-color:var(--cyan);
+  animation:ring-fire .6s ease forwards;
+}
+@keyframes ring-fire{
+  0%{transform:scale(1);opacity:1;border-color:var(--cyan)}
+  50%{transform:scale(1.06);opacity:.8;border-color:#fff}
+  100%{transform:scale(1.1);opacity:0}
+}
+/* Stardust particles */
+.stardust-particle{
+  position:absolute;border-radius:50%;pointer-events:none;z-index:20;
+  animation:dust-fly linear forwards;
+}
+@keyframes dust-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}
+}
+
+/* Big capture button */
+#capture-btn{
+  position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);
+  width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;z-index:20;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  box-shadow:0 0 20px rgba(0,212,255,.4),0 0 40px rgba(0,212,255,.15);
+  font-size:1.2rem;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+#capture-btn:hover{transform:translateX(-50%) scale(1.1);box-shadow:0 0 30px rgba(0,212,255,.6)}
+#capture-btn:active{transform:translateX(-50%) scale(.95)}
+
+/* VF side info */
+.vf-info{
+  position:absolute;right:-110px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:5px;
+}
+.vf-readout{
+  font-size:.6rem;color:var(--cyan);font-family:var(--mono);
+  background:rgba(0,5,20,.8);border:1px solid rgba(0,212,255,.2);
+  border-radius:5px;padding:3px 7px;white-space:nowrap;
+}
+
+/* SPECTRUM BAND */
+#spectrum-wrap{
+  flex-shrink:0;padding:8px 14px 6px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.15);
+  display:none;
+}
+#spectrum-wrap.active{display:block}
+#spectrum-title{font-size:.63rem;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+#spectrum-band{width:100%;height:24px;border-radius:4px;overflow:hidden;display:flex;gap:0}
+.spec-swatch{height:100%;cursor:pointer;transition:transform .15s;position:relative;flex-shrink:0}
+.spec-swatch:hover{transform:scaleY(1.25);z-index:2}
+.spec-tooltip{
+  display:none;position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);
+  background:rgba(4,6,20,.97);border:1px solid var(--border2);
+  border-radius:5px;padding:3px 7px;font-size:.62rem;color:var(--text);
+  font-family:var(--mono);white-space:nowrap;z-index:50;pointer-events:none;
+}
+.spec-swatch:hover .spec-tooltip{display:block}
+#palette-dots{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.pd-dot{width:16px;height:16px;border-radius:4px;cursor:pointer;border:1px solid rgba(255,255,255,.15);
+  transition:transform .15s;position:relative}
+.pd-dot:hover{transform:scale(1.35)}
+.pd-dot .pd-tip{
+  display:none;position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);
+  background:rgba(4,6,20,.97);border:1px solid var(--border2);
+  border-radius:5px;padding:3px 7px;font-size:.62rem;color:var(--text);font-family:var(--mono);white-space:nowrap;z-index:50
+}
+.pd-dot:hover .pd-tip{display:block}
+
+/* ═══════════════════════════════════════════════════════
+   GALLERY / STAR-MAP
+═══════════════════════════════════════════════════════ */
+#gallery-wrap{flex:1;overflow:hidden;padding:14px 14px 60px;position:relative}
+#gallery-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0}
+#gallery-header h3{font-size:.78rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.gh-spacer{flex:1}
+.gh-btn{
+  padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--text2);font-size:.7rem;cursor:pointer;
+  transition:all .15s;font-family:var(--font);
+}
+.gh-btn:hover{border-color:var(--violet);color:#c4b5fd;background:rgba(139,92,246,.1)}
+#gallery-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:10px;overflow-y:auto;max-height:calc(100% - 40px);
+  padding-right:4px;
+}
+#gallery-grid::-webkit-scrollbar{width:3px}
+#gallery-grid::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:2px}
+#gallery-empty{
+  grid-column:1/-1;text-align:center;padding:50px 20px;
+  color:var(--text2);font-size:.8rem;
+}
+#gallery-empty h3{font-size:1rem;margin-bottom:8px;color:rgba(0,212,255,.3);letter-spacing:2px}
+
+/* GALLERY CARD */
+.gallery-card{
+  border-radius:8px;border:1px solid var(--border);
+  background:var(--glass);overflow:hidden;
+  cursor:pointer;transition:all .22s;
+  animation:gc-in .3s ease;
+  position:relative;
+}
+@keyframes gc-in{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
+.gallery-card:hover{border-color:var(--violet);transform:scale(1.03);
+  box-shadow:0 0 20px rgba(139,92,246,.2)}
+.gallery-card:hover .gc-actions{opacity:1}
+.gc-thumb{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
+.gc-body{padding:6px 8px}
+.gc-title{font-size:.68rem;color:var(--text);font-weight:600;margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-meta{font-size:.6rem;color:var(--text2);font-family:var(--mono)}
+.gc-type-badge{
+  position:absolute;top:5px;left:5px;
+  font-size:.55rem;padding:1px 5px;border-radius:3px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.1);color:var(--text2);
+}
+.gc-actions{
+  position:absolute;top:5px;right:5px;
+  display:flex;gap:3px;opacity:0;transition:opacity .15s;
+}
+.gc-btn{
+  width:22px;height:22px;border-radius:5px;border:none;
+  background:rgba(4,6,20,.85);color:var(--text2);
+  cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.gc-btn:hover{background:rgba(0,212,255,.2);color:var(--cyan)}
+.gc-btn.del:hover{background:rgba(255,64,96,.2);color:var(--red)}
+.gc-stars{position:absolute;bottom:28px;left:0;right:0;
+  display:flex;justify-content:center;pointer-events:none;gap:2px}
+.gc-star-dot{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.5)}
+
+/* ═══════════════════════════════════════════════════════
+   RIGHT PANEL — detail viewer
+═══════════════════════════════════════════════════════ */
+#right-panel{
+  width:0;flex-shrink:0;
+  background:var(--panel);backdrop-filter:blur(20px);
+  border-left:1px solid var(--border);
+  overflow:hidden;
+  transition:width .3s ease;
+}
+#right-panel.open{width:280px}
+#rp-inner{width:280px;height:100%;display:flex;flex-direction:column;overflow:hidden}
+#rp-header{
+  flex-shrink:0;padding:12px 12px 8px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;
+}
+#rp-header h3{font-size:.78rem;color:var(--cyan);flex:1}
+#rp-close{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:14px}
+#rp-body{flex:1;overflow-y:auto;padding:10px 12px}
+#rp-img{width:100%;border-radius:7px;margin-bottom:10px;border:1px solid var(--border)}
+.rp-section{margin-bottom:12px}
+.rp-section h4{font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;
+  margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:3px}
+.rp-field{display:flex;justify-content:space-between;margin:4px 0}
+.rp-field .rk{font-size:.7rem;color:var(--text2)}
+.rp-field .rv{font-size:.7rem;color:var(--cyan);font-family:var(--mono)}
+#rp-ocr{
+  background:rgba(0,0,0,.4);border:1px solid var(--border);
+  border-radius:6px;padding:7px 9px;font-size:.69rem;color:var(--text);
+  font-family:var(--mono);white-space:pre-wrap;word-break:break-word;
+  max-height:150px;overflow-y:auto;line-height:1.5;
+}
+#rp-palette-row{display:flex;gap:4px;flex-wrap:wrap}
+.rp-pc{width:20px;height:20px;border-radius:4px;border:1px solid rgba(255,255,255,.1);cursor:pointer;position:relative}
+.rp-pc .rp-pct{display:none;position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);
+  background:rgba(4,6,20,.97);border:1px solid var(--border2);border-radius:5px;
+  padding:2px 6px;font-size:.6rem;color:var(--text);font-family:var(--mono);white-space:nowrap;z-index:50}
+.rp-pc:hover .rp-pct{display:block}
+.rp-ann-canvas-wrap{position:relative;margin-top:6px}
+#rp-ann-canvas{width:100%;border-radius:6px;cursor:crosshair;border:1px solid var(--border);
+  display:block}
+.ann-controls{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.ann-btn{padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--text2);font-size:.67rem;cursor:pointer;transition:all .15s}
+.ann-btn:hover{border-color:var(--violet);color:#c4b5fd}
+.ann-btn.active{background:rgba(139,92,246,.2);border-color:var(--violet);color:#c4b5fd}
+.rp-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.rp-action-btn{
+  flex:1;padding:6px 8px;border-radius:7px;border:none;cursor:pointer;
+  font-size:.72rem;font-weight:600;transition:all .2s;font-family:var(--font);
+}
+.rp-action-btn.primary{background:linear-gradient(135deg,var(--cyan),var(--violet));color:#000}
+.rp-action-btn.secondary{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border)}
+.rp-action-btn:hover{transform:translateY(-1px)}
+
+/* ═══════════════════════════════════════════════════════
+   CONSTELLATION ANNOTATION OVERLAY
+═══════════════════════════════════════════════════════ */
+/* (drawn on #rp-ann-canvas) */
+
+/* ═══════════════════════════════════════════════════════
+   GRAVITATIONAL LENS MODAL
+═══════════════════════════════════════════════════════ */
+#lens-modal{
+  position:fixed;inset:0;z-index:9200;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+}
+#lens-modal.open{display:flex}
+#lens-box{
+  background:rgba(4,6,20,.98);backdrop-filter:blur(24px);
+  border:1px solid rgba(139,92,246,.35);border-radius:16px;
+  padding:18px 20px;width:560px;max-width:96vw;
+  box-shadow:0 0 0 1px rgba(139,92,246,.15),0 16px 60px rgba(0,0,0,.8);
+  animation:lm-in .22s ease;
+}
+@keyframes lm-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+#lens-box h3{font-size:.88rem;color:var(--violet);margin-bottom:12px;letter-spacing:.5px}
+#lens-canvas{width:100%;border-radius:8px;cursor:crosshair;display:block;
+  border:1px solid var(--border);background:#000;max-height:300px}
+.lens-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+.lens-controls label{font-size:.72rem;color:var(--text2)}
+.lens-range{accent-color:var(--violet);width:80px}
+.lens-val{font-size:.7rem;color:var(--violet);font-family:var(--mono);min-width:28px}
+#lens-close,#lens-apply{
+  padding:6px 15px;border-radius:8px;border:none;cursor:pointer;
+  font-size:.75rem;font-weight:600;transition:all .2s;font-family:var(--font);
+}
+#lens-apply{background:linear-gradient(135deg,var(--violet),#6d28d9);color:#fff}
+#lens-apply:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(139,92,246,.35)}
+#lens-close{background:rgba(255,255,255,.07);color:var(--text2);margin-left:auto}
+
+/* ═══════════════════════════════════════════════════════
+   OCR MODAL
+═══════════════════════════════════════════════════════ */
+#ocr-modal{
+  position:fixed;inset:0;z-index:9200;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+}
+#ocr-modal.open{display:flex}
+#ocr-box{
+  background:rgba(4,6,20,.98);border:1px solid rgba(0,212,255,.3);
+  border-radius:16px;padding:18px 20px;width:520px;max-width:96vw;
+  box-shadow:0 16px 60px rgba(0,0,0,.8);animation:lm-in .22s ease;
+  position:relative;
+}
+#ocr-box h3{font-size:.88rem;color:var(--cyan);margin-bottom:10px}
+#ocr-text-area{
+  width:100%;height:180px;background:rgba(0,0,0,.4);
+  border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;color:var(--text);font-size:.75rem;
+  font-family:var(--mono);resize:none;outline:none;line-height:1.6;
+}
+#ocr-text-area:focus{border-color:var(--cyan)}
+.ocr-actions{display:flex;gap:6px;margin-top:8px}
+.ocr-btn{
+  padding:6px 14px;border-radius:8px;border:none;cursor:pointer;
+  font-size:.74rem;font-weight:600;transition:all .2s;font-family:var(--font);
+}
+.ocr-btn.primary{background:linear-gradient(135deg,var(--cyan),#0080cc);color:#000}
+.ocr-btn.secondary{background:rgba(255,255,255,.07);color:var(--text2);border:1px solid var(--border)}
+#ocr-close{position:absolute;top:12px;right:14px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px}
+
+/* ═══════════════════════════════════════════════════════
+   PDF REPORT MODAL
+═══════════════════════════════════════════════════════ */
+#pdf-modal{
+  position:fixed;inset:0;z-index:9200;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+}
+#pdf-modal.open{display:flex}
+#pdf-box{
+  background:rgba(4,6,20,.98);border:1px solid rgba(251,191,36,.25);
+  border-radius:16px;padding:20px 22px;width:480px;max-width:96vw;
+  box-shadow:0 16px 60px rgba(0,0,0,.8);animation:lm-in .22s ease;
+  position:relative;max-height:90vh;overflow-y:auto;
+}
+#pdf-box h3{font-size:.9rem;color:var(--gold);margin-bottom:12px}
+.pdf-opt-row{display:flex;align-items:center;gap:8px;margin:7px 0}
+.pdf-opt-row label{font-size:.76rem;color:var(--text);flex:1}
+.pdf-input{
+  background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:7px;padding:5px 8px;color:var(--text);font-size:.74rem;
+  outline:none;font-family:var(--font);
+}
+.pdf-input:focus{border-color:var(--gold)}
+#pdf-close{position:absolute;top:12px;right:14px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px}
+
+/* ═══════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════ */
+#toast-root{
+  position:fixed;bottom:18px;right:14px;z-index:99999;
+  display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none;
+}
+.toast{
+  background:rgba(4,6,20,.97);backdrop-filter:blur(14px);
+  border-radius:8px;padding:7px 14px;font-size:.75rem;color:var(--text);
+  animation:t-in .2s ease,t-out .3s ease 2.2s forwards;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);border-left:3px solid var(--cyan);
+  max-width:260px;word-break:break-word;pointer-events:none;
+}
+.toast.ok  {border-left-color:var(--green)}
+.toast.err {border-left-color:var(--red)}
+.toast.warn{border-left-color:var(--gold)}
+@keyframes t-in {from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes t-out{to  {opacity:0;transform:translateX(14px)}}
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════ */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:2px}
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div id="app">
+
+  <!-- ── TOP NAV ── -->
+  <div id="topbar">
+    <span class="brand">◉ NebulaCapture</span>
+    <div class="nav-sep"></div>
+    <button class="nav-btn active" id="btn-capture" onclick="activateMode('capture')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/>
+      </svg>Capture
+    </button>
+    <button class="nav-btn" id="btn-gallery" onclick="activateMode('gallery')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>Gallery
+    </button>
+    <button class="nav-btn" id="btn-probe" onclick="activateMode('probe')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="8" cy="8" r="6"/><line x1="8" y1="2" x2="8" y2="14"/>
+        <line x1="2" y1="8" x2="14" y2="8"/>
+      </svg>Space Probe
+    </button>
+    <div class="nav-spacer"></div>
+    <span id="status-bar">OBSERVATORY ONLINE</span>
+    <div class="nav-sep"></div>
+    <span id="mission-clock">--:--:--</span>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div id="main">
+
+    <!-- LEFT INSTRUMENT PANEL -->
+    <div id="left-panel">
+
+      <div class="lp-section">
+        <div class="lp-title">Instruments</div>
+        <button class="instrument-btn" id="ib-telescope" onclick="toggleTelescope()">
+          <span class="ib-icon">🔭</span>Telescope Mode
+        </button>
+        <button class="instrument-btn" id="ib-spectrum" onclick="toggleSpectrum()">
+          <span class="ib-icon">🌈</span>Spectrum Analysis
+        </button>
+        <button class="instrument-btn" id="ib-ocr" onclick="openOCR()">
+          <span class="ib-icon">📡</span>Radio Telescope (OCR)
+        </button>
+        <button class="instrument-btn" id="ib-lens" onclick="openLens()">
+          <span class="ib-icon">🌀</span>Gravitational Lens
+        </button>
+        <button class="instrument-btn" id="ib-pdf" onclick="openPDF()">
+          <span class="ib-icon">📋</span>Mission Log (PDF)
+        </button>
+      </div>
+
+      <div class="lp-section">
+        <div class="lp-title">◉ Coordinates</div>
+        <div id="coord-display">
+          RA: --:--:--<br>
+          DEC: ±--°--'--"<br>
+          X: --- | Y: ---<br>
+          W: --- | H: ---
+        </div>
+      </div>
+
+      <div class="lp-section">
+        <div class="lp-title">Mission Stats</div>
+        <div class="stat-row"><span class="sk">Captures</span><span class="sv" id="stat-total">0</span></div>
+        <div class="stat-row"><span class="sk">Session</span><span class="sv" id="stat-session">0</span></div>
+        <div class="stat-row"><span class="sk">Storage</span><span class="sv" id="stat-storage">0 KB</span></div>
+        <div class="stat-row"><span class="sk">Last Cap.</span><span class="sv" id="stat-last">—</span></div>
+      </div>
+
+      <!-- SPACE PROBE -->
+      <div class="lp-section" id="probe-panel" style="display:none">
+        <div class="lp-title">🛸 Space Probe</div>
+        <div class="probe-row">
+          <label>Interval</label>
+          <input class="probe-input" type="number" id="probe-interval" value="5" min="2" max="3600" style="width:55px"/>
+          <span style="font-size:.68rem;color:var(--text2)">sec</span>
+        </div>
+        <div class="probe-row">
+          <label>Count</label>
+          <input class="probe-input" type="number" id="probe-count" value="10" min="1" max="999" style="width:55px"/>
+          <input class="probe-input" id="probe-prefix" placeholder="prefix…" style="flex:1;margin-left:4px"/>
+        </div>
+        <div class="probe-row" style="justify-content:space-between">
+          <button class="instrument-btn" style="margin:0;flex:1" id="probe-start-btn" onclick="toggleProbe()">
+            <span class="ib-icon">▶</span>Start Probe
+          </button>
+          <span class="probe-badge off" id="probe-badge">OFF</span>
+        </div>
+        <div class="probe-row" style="font-size:.65rem;color:var(--text2)" id="probe-progress"></div>
+      </div>
+
+      <div style="flex:1"></div>
+      <div class="lp-section">
+        <div class="stat-row">
+          <span class="sk">Sort gallery</span>
+          <select id="sort-sel" onchange="sortGallery()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-size:.7rem;outline:none">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="type">By Type</option>
+          </select>
+        </div>
+        <div class="stat-row">
+          <span class="sk">Show spectrum</span>
+          <label class="tog">
+            <input type="checkbox" id="tog-spectrum" checked onchange="document.getElementById('spectrum-wrap').classList.toggle('active',this.checked)"/>
+            <div class="tog-t"></div><div class="tog-k"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER OBSERVATORY -->
+    <div id="center">
+
+      <!-- VIEWFINDER -->
+      <div id="viewfinder-wrap">
+        <div id="viewfinder" id="viewfinder">
+          <canvas id="vf-preview"></canvas>
+          <div id="crosshair">
+            <div class="ch-h"></div><div class="ch-v"></div>
+            <div class="ch-circle"></div><div class="ch-dot"></div>
+          </div>
+          <div class="vf-corner tl"></div><div class="vf-corner tr"></div>
+          <div class="vf-corner bl"></div><div class="vf-corner br"></div>
+          <div id="capture-ring"></div>
+        </div>
+        <button id="capture-btn" onclick="captureScreen()" title="Capture Screen (Space)">◉</button>
+        <div class="vf-info">
+          <div class="vf-readout" id="vfr-mode">MODE: STANDARD</div>
+          <div class="vf-readout" id="vfr-res">RES: --×--</div>
+          <div class="vf-readout" id="vfr-ts" id="vfr-ts">T: --:--:--</div>
+        </div>
+      </div>
+
+      <!-- SPECTRUM BAND -->
+      <div id="spectrum-wrap" class="active">
+        <div id="spectrum-title">◈ SPECTRAL ANALYSIS — COLOR PALETTE</div>
+        <div id="spectrum-band"></div>
+        <div id="palette-dots"></div>
+      </div>
+
+      <!-- GALLERY -->
+      <div id="gallery-wrap">
+        <div id="gallery-header">
+          <h3>✦ Cosmic Phenomena Gallery</h3>
+          <div class="gh-spacer"></div>
+          <button class="gh-btn" onclick="selectAllForPDF()">Select All</button>
+          <button class="gh-btn" onclick="clearGallery()" style="color:var(--red);border-color:rgba(255,64,96,.3)">Clear</button>
+        </div>
+        <div id="gallery-grid">
+          <div id="gallery-empty">
+            <h3>◉ NO PHENOMENA DETECTED</h3>
+            <p>Press the capture button or Space to<br>begin documenting cosmic events.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT DETAIL PANEL -->
+    <div id="right-panel">
+      <div id="rp-inner">
+        <div id="rp-header">
+          <h3>◈ Phenomenon Detail</h3>
+          <button id="rp-close" onclick="closeDetail()">✕</button>
+        </div>
+        <div id="rp-body">
+          <img id="rp-img" src="" alt="capture"/>
+
+          <div class="rp-section">
+            <h4>Mission Data</h4>
+            <div id="rp-fields"></div>
+          </div>
+
+          <div class="rp-section">
+            <h4>🌈 Color Spectrum</h4>
+            <div id="rp-palette-row"></div>
+          </div>
+
+          <div class="rp-section">
+            <h4>⭐ Constellation Annotations</h4>
+            <div class="ann-controls">
+              <button class="ann-btn active" id="ann-star" onclick="setAnnTool('star')">★ Star Point</button>
+              <button class="ann-btn" id="ann-line" onclick="setAnnTool('line')">— Connect</button>
+              <button class="ann-btn" id="ann-label" onclick="setAnnTool('label')">Aa Label</button>
+              <button class="ann-btn" onclick="clearAnnotations()">Clear</button>
+            </div>
+            <div class="rp-ann-canvas-wrap">
+              <canvas id="rp-ann-canvas"></canvas>
+            </div>
+          </div>
+
+          <div class="rp-section">
+            <h4>📡 Extracted Text (OCR)</h4>
+            <div id="rp-ocr">— Run OCR to extract text —</div>
+          </div>
+
+          <div class="rp-actions">
+            <button class="rp-action-btn primary" onclick="downloadCapture()">⬇ Download</button>
+            <button class="rp-action-btn secondary" onclick="runOCROnDetail()">📡 OCR</button>
+            <button class="rp-action-btn secondary" onclick="openLensOnDetail()">🌀 Lens</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- GRAVITATIONAL LENS MODAL -->
+<div id="lens-modal">
+  <div id="lens-box">
+    <h3>🌀 Gravitational Lens Distortion</h3>
+    <canvas id="lens-canvas"></canvas>
+    <div class="lens-controls">
+      <label>Strength</label>
+      <input type="range" class="lens-range" id="lens-strength" min="0.1" max="3" step="0.1" value="1.2" oninput="updateLens()"/>
+      <span class="lens-val" id="lens-sv">1.2</span>
+      <label style="margin-left:8px">Radius</label>
+      <input type="range" class="lens-range" id="lens-radius" min="20" max="200" value="80" oninput="updateLens()"/>
+      <span class="lens-val" id="lens-rv">80</span>
+      <button id="lens-apply" onclick="applyLens()">Apply</button>
+      <button id="lens-close" onclick="closeLens()">Cancel</button>
+    </div>
+    <div style="font-size:.65rem;color:var(--text2);margin-top:6px">Click canvas to set lens center</div>
+  </div>
+</div>
+
+<!-- OCR MODAL -->
+<div id="ocr-modal">
+  <div id="ocr-box">
+    <h3>📡 Radio Telescope — OCR Text Extraction</h3>
+    <button id="ocr-close" onclick="closeOCR()">✕</button>
+    <div style="font-size:.72rem;color:var(--text2);margin-bottom:8px">
+      Select a capture from the gallery, then run OCR. For best results use clear text screenshots.
+    </div>
+    <textarea id="ocr-text-area" readonly placeholder="Select a capture and click Extract Text…"></textarea>
+    <div class="ocr-actions">
+      <button class="ocr-btn primary" onclick="runOCR()">◉ Extract Text</button>
+      <button class="ocr-btn secondary" onclick="copyOCR()">Copy All</button>
+      <button class="ocr-btn secondary" onclick="closeOCR()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF MISSION LOG MODAL -->
+<div id="pdf-modal">
+  <div id="pdf-box">
+    <h3>📋 Mission Log — Export Report</h3>
+    <button id="pdf-close" onclick="closePDF()">✕</button>
+    <div class="pdf-opt-row">
+      <label>Mission Title</label>
+      <input class="pdf-input" id="pdf-title" value="NebulaCapture Mission Report" style="width:200px"/>
+    </div>
+    <div class="pdf-opt-row">
+      <label>Commander</label>
+      <input class="pdf-input" id="pdf-commander" value="Mission Commander" style="width:160px"/>
+    </div>
+    <div class="pdf-opt-row">
+      <label>Include OCR text</label>
+      <label class="tog"><input type="checkbox" id="pdf-ocr" checked><div class="tog-t"></div><div class="tog-k"></div></label>
+    </div>
+    <div class="pdf-opt-row">
+      <label>Include color palettes</label>
+      <label class="tog"><input type="checkbox" id="pdf-palette" checked><div class="tog-t"></div><div class="tog-k"></div></label>
+    </div>
+    <div style="font-size:.7rem;color:var(--text2);margin:8px 0" id="pdf-sel-count">0 captures selected</div>
+    <div id="pdf-thumb-grid" style="display:flex;gap:5px;flex-wrap:wrap;margin:8px 0;max-height:120px;overflow-y:auto"></div>
+    <div style="display:flex;gap:7px;margin-top:10px">
+      <button class="rp-action-btn primary" style="padding:7px 18px;flex:none" onclick="generatePDF()">⬇ Generate PDF</button>
+      <button class="rp-action-btn secondary" style="padding:7px 14px;flex:none" onclick="closePDF()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST ROOT -->
+<div id="toast-root"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+let captures    = [];    // [{id,dataUrl,ts,type,w,h,ocr,palette,annotations:[],lensed}]
+let sessionCount= 0;
+let currentMode = 'capture';
+let telescopeOn = false;
+let spectrumOn  = true;
+let detailId    = null;
+let annTool     = 'star';
+let annPoints   = [];    // [{x,y,label}]
+let annMode     = false;
+let lensTarget  = null;  // dataUrl being lensed
+let lensCenter  = {x:0,y:0};
+let probeTimer  = null;
+let probeCount  = 0;
+let probeMax    = 10;
+let probeActive = false;
+let pdfSelected = [];    // capture ids for PDF
+let mediaStream = null;  // active screen stream
+let vfAnimId    = null;
+const VIDEO     = document.createElement('video');
+
+/* ═══════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════ */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+const toastKeys={};
+function toast(msg,kind='',key=''){
+  if(key){if(toastKeys[key])return;toastKeys[key]=setTimeout(()=>delete toastKeys[key],2800)}
+  const t=document.createElement('div');
+  t.className='toast'+(kind?' '+kind:'');t.textContent=msg;
+  document.getElementById('toast-root').appendChild(t);
+  setTimeout(()=>t.remove(),2600);
+}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function fmtDate(ts){return new Date(ts).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ═══════════════════════════════════════════════════════
+   STARFIELD
+═══════════════════════════════════════════════════════ */
+const SFC=document.getElementById('starfield');
+const sfx=SFC.getContext('2d');
+let stars=[];
+function initStarfield(){
+  SFC.width=window.innerWidth;SFC.height=window.innerHeight;
+  stars=Array.from({length:350},()=>({
+    x:Math.random()*SFC.width,y:Math.random()*SFC.height,
+    r:.2+Math.random()*1.3,ph:Math.random()*Math.PI*2,
+    sp:.4+Math.random()*2,col:['#fff','#cce0ff','#ffd8b0','#ffb8c0'][Math.floor(Math.random()*4)]
+  }));
+  animateStars();
+}
+function animateStars(){
+  requestAnimationFrame(animateStars);
+  sfx.clearRect(0,0,SFC.width,SFC.height);
+  stars.forEach(s=>{
+    s.ph+=.001*s.sp;
+    const b=.3+.55*Math.sin(s.ph);
+    sfx.beginPath();sfx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    sfx.globalAlpha=b;sfx.fillStyle=s.col;sfx.fill();
+    sfx.globalAlpha=1;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   MISSION CLOCK
+═══════════════════════════════════════════════════════ */
+setInterval(()=>{
+  const n=new Date();
+  const pad=v=>String(v).padStart(2,'0');
+  document.getElementById('mission-clock').textContent=
+    `MET ${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+  document.getElementById('vfr-ts').textContent='T: '+fmtTime(Date.now());
+},1000);
+
+/* ═══════════════════════════════════════════════════════
+   MODE SWITCHER
+═══════════════════════════════════════════════════════ */
+function activateMode(mode){
+  currentMode=mode;
+  ['capture','gallery','probe'].forEach(m=>{
+    document.getElementById('btn-'+m).classList.toggle('active',m===mode);
+  });
+  document.getElementById('probe-panel').style.display=mode==='probe'?'block':'none';
+  if(mode==='gallery')renderGallery();
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCREEN CAPTURE — getDisplayMedia
+═══════════════════════════════════════════════════════ */
+async function captureScreen(){
+  try{
+    /* Reuse existing stream if still active */
+    if(!mediaStream||mediaStream.getTracks().every(t=>t.readyState==='ended')){
+      mediaStream=await navigator.mediaDevices.getDisplayMedia({
+        video:{cursor:'always'},audio:false
+      });
+      VIDEO.srcObject=mediaStream;
+      await VIDEO.play();
+      startViewfinderPreview();
+    }
+    /* Snapshot frame */
+    const vw=VIDEO.videoWidth||1280,vh=VIDEO.videoHeight||720;
+    const offscreen=document.createElement('canvas');
+    offscreen.width=vw;offscreen.height=vh;
+    const ctx=offscreen.getContext('2d');
+    ctx.drawImage(VIDEO,0,0,vw,vh);
+    const dataUrl=offscreen.toDataURL('image/png');
+    processCapture(dataUrl,vw,vh,'screen');
+    fireCaptureFX();
+
+  }catch(err){
+    if(err.name==='NotAllowedError'){toast('Screen share permission denied','err','perm')}
+    else toast('Capture failed: '+err.message,'err','caperr');
+  }
+}
+
+/* Viewfinder live preview */
+function startViewfinderPreview(){
+  const vfc=document.getElementById('vf-preview');
+  const ctx=vfc.getContext('2d');
+  const vf=document.getElementById('viewfinder');
+  function drawFrame(){
+    if(!mediaStream||mediaStream.getTracks().every(t=>t.readyState==='ended')){
+      ctx.clearRect(0,0,vfc.width,vfc.height);return;
+    }
+    vfc.width=vf.clientWidth;vfc.height=vf.clientHeight;
+    ctx.drawImage(VIDEO,0,0,vfc.width,vfc.height);
+    document.getElementById('vfr-res').textContent=`RES: ${VIDEO.videoWidth}×${VIDEO.videoHeight}`;
+    vfAnimId=requestAnimationFrame(drawFrame);
+  }
+  if(vfAnimId)cancelAnimationFrame(vfAnimId);
+  drawFrame();
+}
+
+/* Stardust + ring animation */
+function fireCaptureFX(){
+  const ring=document.getElementById('capture-ring');
+  ring.classList.remove('firing');
+  void ring.offsetWidth;
+  ring.classList.add('firing');
+  setTimeout(()=>ring.classList.remove('firing'),700);
+
+  const vfw=document.getElementById('viewfinder-wrap');
+  const rect=vfw.getBoundingClientRect();
+  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');
+    p.className='stardust-particle';
+    const ang=Math.random()*Math.PI*2,dist=50+Math.random()*120;
+    const sz=2+Math.random()*4;
+    const colors=['#00d4ff','#8b5cf6','#ff00cc','#fbbf24','#00ff88'];
+    const col=colors[Math.floor(Math.random()*colors.length)];
+    p.style.cssText=`
+      left:${cx}px;top:${cy}px;
+      width:${sz}px;height:${sz}px;
+      background:${col};box-shadow:0 0 4px ${col};
+      --dx:${Math.cos(ang)*dist}px;--dy:${Math.sin(ang)*dist}px;
+      animation-duration:${.4+Math.random()*.5}s;
+      animation-delay:${Math.random()*.15}s;
+    `;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),1000);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   PROCESS CAPTURE
+═══════════════════════════════════════════════════════ */
+function processCapture(dataUrl,w,h,type='screen'){
+  const palette=extractPalette(dataUrl,w,h);
+  const cap={
+    id:uid(),dataUrl,ts:Date.now(),type,w,h,
+    ocr:'',palette,annotations:[],lensed:false
+  };
+  captures.unshift(cap);
+  sessionCount++;
+  saveData();
+  updateStats();
+  renderGallery();
+  if(spectrumOn)renderSpectrum(palette);
+  toast('◉ Cosmic phenomenon captured!','ok','capdone');
+}
+
+/* ═══════════════════════════════════════════════════════
+   COLOR PALETTE EXTRACTION
+═══════════════════════════════════════════════════════ */
+function extractPalette(dataUrl,w,h,count=24){
+  try{
+    const canvas=document.createElement('canvas');
+    const side=Math.min(w,h,80);
+    canvas.width=side;canvas.height=Math.round(side*(h/w));
+    const ctx=canvas.getContext('2d');
+    const img=new Image();
+    img.src=dataUrl;
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    const d=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+    const buckets={};
+    for(let i=0;i<d.length;i+=4){
+      const r=Math.round(d[i]/32)*32;
+      const g=Math.round(d[i+1]/32)*32;
+      const b=Math.round(d[i+2]/32)*32;
+      const k=`${r},${g},${b}`;
+      buckets[k]=(buckets[k]||0)+1;
+    }
+    return Object.entries(buckets)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,count)
+      .map(([k])=>{const[r,g,b]=k.split(',');return rgbToHex(+r,+g,+b)});
+  }catch(e){return['#00d4ff','#8b5cf6','#ff00cc']}
+}
+
+function rgbToHex(r,g,b){
+  return'#'+[r,g,b].map(v=>Math.min(255,v).toString(16).padStart(2,'0')).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   SPECTRUM BAND RENDER
+═══════════════════════════════════════════════════════ */
+function renderSpectrum(palette){
+  const band=document.getElementById('spectrum-band');
+  const dots=document.getElementById('palette-dots');
+  band.innerHTML='';dots.innerHTML='';
+  if(!palette||!palette.length)return;
+  const w=100/palette.length;
+  palette.forEach(hex=>{
+    const sw=document.createElement('div');
+    sw.className='spec-swatch';
+    sw.style.cssText=`background:${hex};width:${w}%;`;
+    sw.innerHTML=`<div class="spec-tooltip">${hex}</div>`;
+    sw.onclick=()=>copyToClipboard(hex);
+    band.appendChild(sw);
+    const dot=document.createElement('div');
+    dot.className='pd-dot';
+    dot.style.background=hex;
+    dot.innerHTML=`<div class="pd-tip">${hex}</div>`;
+    dot.onclick=()=>copyToClipboard(hex);
+    dots.appendChild(dot);
+  });
+}
+
+async function copyToClipboard(text){
+  try{await navigator.clipboard.writeText(text);toast('Copied: '+text,'ok','cpclr')}
+  catch(e){toast('Copy failed','err','cperr')}
+}
+
+/* ═══════════════════════════════════════════════════════
+   GALLERY RENDER
+═══════════════════════════════════════════════════════ */
+function renderGallery(){
+  const grid=document.getElementById('gallery-grid');
+  grid.querySelectorAll('.gallery-card').forEach(e=>e.remove());
+  const empty=document.getElementById('gallery-empty');
+
+  let list=[...captures];
+  const sort=document.getElementById('sort-sel').value;
+  if(sort==='oldest')list.sort((a,b)=>a.ts-b.ts);
+  else if(sort==='type')list.sort((a,b)=>a.type.localeCompare(b.type));
+  else list.sort((a,b)=>b.ts-a.ts);
+
+  empty.style.display=list.length?'none':'block';
+  list.forEach(cap=>grid.insertBefore(buildGalleryCard(cap),empty));
+  updateStats();
+}
+
+function buildGalleryCard(cap){
+  const card=document.createElement('div');
+  card.className='gallery-card';
+  card.dataset.id=cap.id;
+  card.innerHTML=`
+<img class="gc-thumb" src="${cap.dataUrl}" alt="capture" loading="lazy"/>
+<span class="gc-type-badge">${esc(cap.type)}</span>
+<div class="gc-stars">
+  ${Array.from({length:5},(_,i)=>`<div class="gc-star-dot" style="opacity:${.3+i*.14}"></div>`).join('')}
+</div>
+<div class="gc-actions">
+  <button class="gc-btn" onclick="openDetail('${cap.id}');event.stopPropagation()" title="View">◉</button>
+  <button class="gc-btn" onclick="downloadById('${cap.id}');event.stopPropagation()" title="Download">⬇</button>
+  <button class="gc-btn del" onclick="deleteCapture('${cap.id}');event.stopPropagation()" title="Delete">✕</button>
+</div>
+<div class="gc-body">
+  <div class="gc-title" title="${esc(fmtDate(cap.ts))+' '+esc(fmtTime(cap.ts))}">
+    ${fmtDate(cap.ts)}
+  </div>
+  <div class="gc-meta">${cap.w}×${cap.h} · ${(cap.dataUrl.length/1024).toFixed(0)}KB</div>
+</div>`;
+  card.addEventListener('click',e=>{
+    if(!e.target.closest('.gc-actions'))openDetail(cap.id);
+  });
+  return card;
+}
+
+function sortGallery(){renderGallery()}
+
+/* ═══════════════════════════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════════════════════════ */
+function openDetail(id){
+  detailId=id;
+  const cap=captures.find(c=>c.id===id);
+  if(!cap)return;
+  document.getElementById('right-panel').classList.add('open');
+  document.getElementById('rp-img').src=cap.dataUrl;
+
+  /* Fields */
+  const fields=document.getElementById('rp-fields');
+  fields.innerHTML=[
+    ['Timestamp',fmtDate(cap.ts)+' '+fmtTime(cap.ts)],
+    ['Dimensions',cap.w+'×'+cap.h+' px'],
+    ['File size',(cap.dataUrl.length/1024).toFixed(1)+' KB'],
+    ['Type',cap.type],
+    ['Annotations',cap.annotations.length+' points'],
+  ].map(([k,v])=>`<div class="rp-field"><span class="rk">${k}</span><span class="rv">${esc(String(v))}</span></div>`).join('');
+
+  /* Palette */
+  const pr=document.getElementById('rp-palette-row');
+  pr.innerHTML=(cap.palette||[]).slice(0,16).map(h=>`
+    <div class="rp-pc" style="background:${h}" title="${h}" onclick="copyToClipboard('${h}')">
+      <div class="rp-pct">${h}</div>
+    </div>`).join('');
+
+  /* OCR */
+  document.getElementById('rp-ocr').textContent=cap.ocr||'— Run OCR to extract text —';
+
+  /* Annotation canvas */
+  renderAnnotationCanvas(cap);
+
+  /* Update spectrum */
+  if(spectrumOn)renderSpectrum(cap.palette);
+
+  /* Coord display */
+  document.getElementById('coord-display').innerHTML=
+    `RA: ${Math.floor(cap.w/100)}h ${Math.floor(cap.w%100/60)}m ${cap.w%60}s<br>
+     DEC: ±${Math.floor(cap.h/100)}°${Math.floor(cap.h%100/60)}'${cap.h%60}"<br>
+     W: ${cap.w} | H: ${cap.h}<br>
+     KB: ${(cap.dataUrl.length/1024).toFixed(1)}`;
+}
+
+function closeDetail(){
+  document.getElementById('right-panel').classList.remove('open');
+  detailId=null;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONSTELLATION ANNOTATIONS
+═══════════════════════════════════════════════════════ */
+function renderAnnotationCanvas(cap){
+  const canvas=document.getElementById('rp-ann-canvas');
+  const w=document.getElementById('rp-inner').clientWidth-24;
+  const h=Math.round(w*(cap.h/cap.w));
+  canvas.width=w;canvas.height=h;
+  canvas.style.width=w+'px';canvas.style.height=h+'px';
+  const ctx=canvas.getContext('2d');
+  const img=new Image();
+  img.onload=()=>{
+    ctx.drawImage(img,0,0,w,h);
+    drawAnnotations(ctx,cap.annotations,w/cap.w,h/cap.h);
+  };
+  img.src=cap.dataUrl;
+
+  /* Event listeners — rebuild each time */
+  canvas.replaceWith(canvas.cloneNode(true));
+  const nc=document.getElementById('rp-ann-canvas');
+  nc.width=w;nc.height=h;
+  nc.style.width=w+'px';nc.style.height=h+'px';
+  nc.getContext('2d').drawImage(img,0,0,w,h);
+  drawAnnotations(nc.getContext('2d'),cap.annotations,w/cap.w,h/cap.h);
+  nc.addEventListener('click',e=>onAnnotationClick(e,nc,cap));
+}
+
+function drawAnnotations(ctx,anns,sx,sy){
+  if(!anns||!anns.length)return;
+  /* Draw lines between consecutive star points */
+  const stars=anns.filter(a=>a.type==='star');
+  ctx.strokeStyle='rgba(251,191,36,0.7)';ctx.lineWidth=1.2;ctx.setLineDash([4,6]);
+  ctx.shadowColor='rgba(251,191,36,0.5)';ctx.shadowBlur=4;
+  for(let i=1;i<stars.length;i++){
+    ctx.beginPath();
+    ctx.moveTo(stars[i-1].x*sx,stars[i-1].y*sy);
+    ctx.lineTo(stars[i].x*sx,stars[i].y*sy);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);ctx.shadowBlur=0;
+  /* Star dots */
+  stars.forEach(a=>{
+    ctx.beginPath();ctx.arc(a.x*sx,a.y*sy,4,0,Math.PI*2);
+    ctx.fillStyle='rgba(251,191,36,0.9)';
+    ctx.shadowColor='rgba(251,191,36,0.8)';ctx.shadowBlur=6;
+    ctx.fill();ctx.shadowBlur=0;
+  });
+  /* Labels */
+  anns.filter(a=>a.type==='label').forEach(a=>{
+    ctx.fillStyle='rgba(0,212,255,0.95)';
+    ctx.font='bold 11px Segoe UI';
+    ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=4;
+    ctx.fillText(a.label||'★',a.x*sx+6,a.y*sy-4);
+    ctx.shadowBlur=0;
+  });
+}
+
+function onAnnotationClick(e,canvas,cap){
+  const rect=canvas.getBoundingClientRect();
+  const sx=cap.w/canvas.width;const sy=cap.h/canvas.height;
+  const x=Math.round((e.clientX-rect.left)*sx);
+  const y=Math.round((e.clientY-rect.top)*sy);
+  const type=annTool;
+  const ann={id:uid(),type,x,y,label:type==='label'?prompt('Label:','★')||'★':''};
+  cap.annotations.push(ann);
+  saveData();
+  renderAnnotationCanvas(cap);
+  toast('⭐ Annotation added','ok','ann');
+}
+
+function setAnnTool(tool){
+  annTool=tool;
+  ['star','line','label'].forEach(t=>{
+    const btn=document.getElementById('ann-'+t);
+    if(btn)btn.classList.toggle('active',t===tool);
+  });
+}
+
+function clearAnnotations(){
+  if(!detailId)return;
+  const cap=captures.find(c=>c.id===detailId);
+  if(!cap)return;
+  cap.annotations=[];
+  saveData();
+  renderAnnotationCanvas(cap);
+  toast('Annotations cleared','','annclr');
+}
+
+/* ═══════════════════════════════════════════════════════
+   TELESCOPE MODE
+═══════════════════════════════════════════════════════ */
+function toggleTelescope(){
+  telescopeOn=!telescopeOn;
+  const vf=document.getElementById('viewfinder');
+  vf.classList.toggle('telescope-mode',telescopeOn);
+  document.getElementById('ib-telescope').classList.toggle('active',telescopeOn);
+  document.getElementById('vfr-mode').textContent=
+    'MODE: '+(telescopeOn?'TELESCOPE':'STANDARD');
+  toast(telescopeOn?'🔭 Telescope precision mode ON':'Telescope mode OFF','','tel');
+
+  /* Mouse tracking for coordinate display */
+  const handler=e=>{
+    const rect=vf.getBoundingClientRect();
+    const x=Math.round(e.clientX-rect.left);
+    const y=Math.round(e.clientY-rect.top);
+    document.getElementById('coord-display').innerHTML=
+      `X: ${x} | Y: ${y}<br>RA: ${(x/rect.width*24).toFixed(4)}h<br>DEC: ${((y/rect.height-.5)*180).toFixed(2)}°<br>ZOOM: 1×`;
+  };
+  if(telescopeOn){
+    vf._handler=handler;
+    document.addEventListener('mousemove',handler);
+  }else{
+    document.removeEventListener('mousemove',vf._handler||handler);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SPECTRUM TOGGLE
+═══════════════════════════════════════════════════════ */
+function toggleSpectrum(){
+  spectrumOn=!spectrumOn;
+  document.getElementById('spectrum-wrap').classList.toggle('active',spectrumOn);
+  document.getElementById('ib-spectrum').classList.toggle('active',spectrumOn);
+  document.getElementById('tog-spectrum').checked=spectrumOn;
+}
+
+/* ═══════════════════════════════════════════════════════
+   OCR — uses canvas pixel-analysis heuristic + Tesseract CDN fallback
+═══════════════════════════════════════════════════════ */
+function openOCR(){
+  document.getElementById('ocr-modal').classList.add('open');
+  if(detailId){
+    const cap=captures.find(c=>c.id===detailId);
+    if(cap&&cap.ocr)document.getElementById('ocr-text-area').value=cap.ocr;
+  }
+}
+function closeOCR(){document.getElementById('ocr-modal').classList.remove('open')}
+
+async function runOCR(){
+  const cap=detailId?captures.find(c=>c.id===detailId):captures[0];
+  if(!cap){toast('Select a capture first','warn','ocrwarn');return}
+  document.getElementById('ocr-text-area').value='◉ Analyzing spectral text bands…';
+  try{
+    /* Try Tesseract.js from CDN */
+    if(!window.Tesseract){
+      await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    }
+    const {data:{text}}=await window.Tesseract.recognize(cap.dataUrl,'eng',{logger:()=>{}});
+    cap.ocr=text.trim()||'[No text detected]';
+    document.getElementById('ocr-text-area').value=cap.ocr;
+    document.getElementById('rp-ocr').textContent=cap.ocr;
+    saveData();
+    toast('📡 Text extracted','ok','ocrdone');
+  }catch(e){
+    /* Offline fallback — simulated */
+    cap.ocr='[OCR offline — Tesseract.js unavailable]\nInstall: <script src="tesseract.min.js"></s cript>';
+    document.getElementById('ocr-text-area').value=cap.ocr;
+    document.getElementById('rp-ocr').textContent=cap.ocr;
+    toast('OCR unavailable offline','warn','ocrfail');
+  }
+}
+
+function runOCROnDetail(){openOCR();runOCR()}
+
+async function copyOCR(){
+  const txt=document.getElementById('ocr-text-area').value;
+  try{await navigator.clipboard.writeText(txt);toast('OCR text copied','ok','ocrcpy')}
+  catch(e){toast('Copy failed','err','ocrce')}
+}
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');s.src=src;
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   GRAVITATIONAL LENS DISTORTION
+═══════════════════════════════════════════════════════ */
+let lensOrigCanvas=null;
+let lensWorkCanvas=null;
+
+function openLens(){
+  if(!detailId&&!captures.length){toast('No capture to lens','warn','lenswarn');return}
+  const cap=captures.find(c=>c.id===(detailId||captures[0].id));
+  if(!cap)return;
+  lensTarget=cap;
+  document.getElementById('lens-modal').classList.add('open');
+  const lc=document.getElementById('lens-canvas');
+  const maxW=500;const scale=Math.min(1,maxW/cap.w);
+  lc.width=Math.round(cap.w*scale);lc.height=Math.round(cap.h*scale);
+  lc.style.width=lc.width+'px';lc.style.height=Math.min(lc.height,300)+'px';
+  const ctx=lc.getContext('2d');
+  const img=new Image();img.onload=()=>{ctx.drawImage(img,0,0,lc.width,lc.height);lensOrigCanvas=lc};
+  img.src=cap.dataUrl;
+  lensCenter={x:lc.width/2,y:lc.height/2};
+  lc.addEventListener('click',e=>{
+    const r=lc.getBoundingClientRect();
+    lensCenter={x:e.clientX-r.left,y:e.clientY-r.top};
+    updateLens();
+  });
+}
+
+function openLensOnDetail(){openLens()}
+
+function updateLens(){
+  const lc=document.getElementById('lens-canvas');
+  const strength=+document.getElementById('lens-strength').value;
+  const radius=+document.getElementById('lens-radius').value;
+  document.getElementById('lens-sv').textContent=strength.toFixed(1);
+  document.getElementById('lens-rv').textContent=radius;
+  if(!lensTarget)return;
+  const ctx=lc.getContext('2d');
+  const img=new Image();
+  img.onload=()=>{
+    ctx.drawImage(img,0,0,lc.width,lc.height);
+    const src=ctx.getImageData(0,0,lc.width,lc.height);
+    const dst=ctx.createImageData(src.width,src.height);
+    applyLensDistort(src,dst,lensCenter.x,lensCenter.y,radius,strength);
+    ctx.putImageData(dst,0,0);
+  };
+  img.src=lensTarget.dataUrl;
+}
+
+function applyLensDistort(src,dst,cx,cy,radius,strength){
+  const w=src.width,h=src.height;
+  const s=src.data,d=dst.data;
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const dx=x-cx,dy=y-cy;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      let sx=x,sy=y;
+      if(dist<radius&&dist>0){
+        const norm=dist/radius;
+        const factor=Math.pow(norm,strength);
+        sx=cx+dx*factor;sy=cy+dy*factor;
+      }
+      const xi=Math.max(0,Math.min(w-1,Math.round(sx)));
+      const yi=Math.max(0,Math.min(h-1,Math.round(sy)));
+      const si=(yi*w+xi)*4,di=(y*w+x)*4;
+      d[di]=s[si];d[di+1]=s[si+1];d[di+2]=s[si+2];d[di+3]=s[si+3];
+    }
+  }
+}
+
+function applyLens(){
+  const lc=document.getElementById('lens-canvas');
+  const lensed=lc.toDataURL('image/png');
+  if(lensTarget){
+    lensTarget.dataUrl=lensed;lensTarget.lensed=true;
+    saveData();renderGallery();openDetail(lensTarget.id);
+    toast('🌀 Gravitational lens applied','ok','lensdone');
+  }
+  closeLens();
+}
+
+function closeLens(){document.getElementById('lens-modal').classList.remove('open');lensTarget=null}
+
+/* ═══════════════════════════════════════════════════════
+   SPACE PROBE AUTO-CAPTURE
+═══════════════════════════════════════════════════════ */
+async function toggleProbe(){
+  if(probeActive){stopProbe();return}
+  if(!mediaStream||mediaStream.getTracks().every(t=>t.readyState==='ended')){
+    try{
+      mediaStream=await navigator.mediaDevices.getDisplayMedia({video:{cursor:'always'},audio:false});
+      VIDEO.srcObject=mediaStream;await VIDEO.play();
+      startViewfinderPreview();
+    }catch(e){toast('Screen share needed for probe','err','proberr');return}
+  }
+  probeActive=true;
+  probeCount=0;
+  probeMax=+document.getElementById('probe-count').value||10;
+  const interval=(+document.getElementById('probe-interval').value||5)*1000;
+  document.getElementById('probe-badge').className='probe-badge on';
+  document.getElementById('probe-badge').textContent='ON';
+  document.getElementById('probe-start-btn').innerHTML='<span class="ib-icon">■</span>Stop Probe';
+  toast('🛸 Space Probe launched!','ok','probeon');
+
+  probeTimer=setInterval(()=>{
+    if(probeCount>=probeMax){stopProbe();return}
+    const vw=VIDEO.videoWidth||1280,vh=VIDEO.videoHeight||720;
+    const oc=document.createElement('canvas');oc.width=vw;oc.height=vh;
+    oc.getContext('2d').drawImage(VIDEO,0,0,vw,vh);
+    const prefix=document.getElementById('probe-prefix').value||'probe';
+    processCapture(oc.toDataURL('image/png'),vw,vh,prefix+'-'+probeCount);
+    probeCount++;
+    document.getElementById('probe-progress').textContent=
+      `Frame ${probeCount}/${probeMax} — next in ${interval/1000}s`;
+  },interval);
+}
+
+function stopProbe(){
+  clearInterval(probeTimer);probeTimer=null;probeActive=false;
+  document.getElementById('probe-badge').className='probe-badge off';
+  document.getElementById('probe-badge').textContent='OFF';
+  document.getElementById('probe-start-btn').innerHTML='<span class="ib-icon">▶</span>Start Probe';
+  document.getElementById('probe-progress').textContent='Probe mission complete';
+  toast(`🛸 Probe complete — ${probeCount} frames captured`,'ok','probedone');
+}
+
+/* ═══════════════════════════════════════════════════════
+   DOWNLOAD
+═══════════════════════════════════════════════════════ */
+function downloadCapture(){
+  if(!detailId)return;
+  const cap=captures.find(c=>c.id===detailId);
+  if(!cap)return downloadById(detailId);
+  downloadById(detailId);
+}
+
+function downloadById(id){
+  const cap=captures.find(c=>c.id===id);if(!cap)return;
+  const a=document.createElement('a');
+  a.href=cap.dataUrl;
+  a.download=`nebula_${new Date(cap.ts).toISOString().slice(0,19).replace(/[:.]/g,'-')}.png`;
+  a.click();
+  toast('⬇ Downloading…','ok','dl'+id);
+}
+
+function deleteCapture(id){
+  captures=captures.filter(c=>c.id!==id);
+  if(detailId===id)closeDetail();
+  saveData();renderGallery();
+  toast('Phenomenon dissolved','','del'+id);
+}
+
+function clearGallery(){
+  if(!captures.length)return;
+  if(!confirm('Dissolve all captured phenomena?'))return;
+  captures=[];saveData();renderGallery();closeDetail();
+  toast('Gallery cleared','','gc');
+}
+
+/* ═══════════════════════════════════════════════════════
+   PDF MISSION LOG EXPORT
+   Uses window.print() with a formatted HTML page
+═══════════════════════════════════════════════════════ */
+function openPDF(){
+  pdfSelected=[...captures.map(c=>c.id)];
+  updatePDFModal();
+  document.getElementById('pdf-modal').classList.add('open');
+}
+function closePDF(){document.getElementById('pdf-modal').classList.remove('open')}
+
+function selectAllForPDF(){
+  pdfSelected=[...captures.map(c=>c.id)];
+  toast('All selected for PDF','ok','pdfall');
+}
+
+function updatePDFModal(){
+  document.getElementById('pdf-sel-count').textContent=pdfSelected.length+' captures selected';
+  const grid=document.getElementById('pdf-thumb-grid');
+  grid.innerHTML='';
+  pdfSelected.slice(0,12).forEach(id=>{
+    const cap=captures.find(c=>c.id===id);if(!cap)return;
+    const img=document.createElement('img');
+    img.src=cap.dataUrl;img.style.cssText='width:60px;height:40px;object-fit:cover;border-radius:4px;border:1px solid rgba(255,255,255,.1)';
+    grid.appendChild(img);
+  });
+  if(pdfSelected.length>12){
+    const more=document.createElement('div');
+    more.style.cssText='font-size:.68rem;color:var(--text2);align-self:center;padding:4px';
+    more.textContent=`+${pdfSelected.length-12} more`;
+    grid.appendChild(more);
+  }
+}
+
+function generatePDF(){
+  const title=document.getElementById('pdf-title').value||'NebulaCapture Report';
+  const commander=document.getElementById('pdf-commander').value||'Commander';
+  const includeOCR=document.getElementById('pdf-ocr').checked;
+  const includePalette=document.getElementById('pdf-palette').checked;
+  const selCaps=pdfSelected.map(id=>captures.find(c=>c.id===id)).filter(Boolean);
+
+  if(!selCaps.length){toast('No captures selected','warn','pdfwarn');return}
+
+  const rows=selCaps.map((cap,i)=>`
+    <div class="report-item">
+      <div class="report-item-header">
+        <span class="ri-num">#${String(i+1).padStart(3,'0')}</span>
+        <span class="ri-ts">${fmtDate(cap.ts)} ${fmtTime(cap.ts)}</span>
+        <span class="ri-dim">${cap.w}×${cap.h}px · ${(cap.dataUrl.length/1024).toFixed(0)}KB · ${cap.type}</span>
+      </div>
+      <img src="${cap.dataUrl}" style="max-width:100%;max-height:220px;border-radius:6px;border:1px solid #334;margin:8px 0"/>
+      ${includePalette&&cap.palette?`<div class="palette-row">${(cap.palette||[]).slice(0,16).map(h=>`<div style="width:18px;height:18px;background:${h};border-radius:3px;display:inline-block;margin:1px" title="${h}"></div>`).join('')}</div>`:''}
+      ${includeOCR&&cap.ocr?`<div class="ocr-block"><strong>Extracted Text:</strong><pre>${esc(cap.ocr)}</pre></div>`:''}
+      ${cap.annotations.length?`<div class="ann-note">★ ${cap.annotations.length} constellation annotation${cap.annotations.length!==1?'s':''}</div>`:''}
+    </div>`).join('<div class="page-break"></div>');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>${esc(title)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#111;padding:28px}
+  h1{font-size:1.4rem;font-weight:800;color:#1e1b4b;border-bottom:3px solid #6d28d9;padding-bottom:8px;margin-bottom:16px}
+  .meta{font-size:.78rem;color:#555;margin-bottom:20px;display:flex;gap:20px;flex-wrap:wrap}
+  .meta span{background:#f1f5f9;padding:3px 10px;border-radius:4px}
+  .report-item{margin-bottom:24px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;background:#fafafa}
+  .report-item-header{display:flex;gap:12px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+  .ri-num{font-weight:800;color:#6d28d9;font-size:.85rem}
+  .ri-ts{font-size:.78rem;color:#444;font-family:monospace}
+  .ri-dim{font-size:.72rem;color:#888;font-family:monospace}
+  .palette-row{margin:6px 0;display:flex;gap:2px;flex-wrap:wrap}
+  .ocr-block{margin-top:8px;padding:8px;background:#f1f5f9;border-radius:5px;font-size:.72rem}
+  .ocr-block pre{white-space:pre-wrap;word-break:break-word;margin-top:4px;font-family:monospace;color:#334}
+  .ann-note{font-size:.72rem;color:#6d28d9;margin-top:4px}
+  .page-break{page-break-before:always;margin:0}
+  @media print{body{padding:0}.report-item{break-inside:avoid}}
+</style></head><body>
+<h1>◉ ${esc(title)}</h1>
+<div class="meta">
+  <span>Commander: ${esc(commander)}</span>
+  <span>Date: ${fmtDate(Date.now())}</span>
+  <span>Phenomena: ${selCaps.length}</span>
+  <span>Generated: ${fmtTime(Date.now())}</span>
+</div>
+${rows}
+</body></html>`;
+
+  const win=window.open('','_blank');
+  if(!win){toast('Pop-up blocked — allow pop-ups','err','popup');return}
+  win.document.write(html);win.document.close();
+  setTimeout(()=>{win.print();},600);
+  closePDF();
+  toast('📋 Mission log generated','ok','pdfdone');
+}
+
+/* ═══════════════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════════════ */
+function updateStats(){
+  document.getElementById('stat-total').textContent=captures.length;
+  document.getElementById('stat-session').textContent=sessionCount;
+  const kb=captures.reduce((a,c)=>a+c.dataUrl.length/1024,0);
+  document.getElementById('stat-storage').textContent=kb>1024?(kb/1024).toFixed(1)+' MB':kb.toFixed(0)+' KB';
+  if(captures.length)document.getElementById('stat-last').textContent=fmtTime(captures[0].ts);
+}
+
+/* ═══════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+═══════════════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if((e.code==='Space'||e.key===' ')&&!e.target.closest('input,textarea')){
+    e.preventDefault();captureScreen();
+  }
+  if(e.ctrlKey&&e.key==='g'){e.preventDefault();activateMode('gallery')}
+  if(e.ctrlKey&&e.key==='t'){e.preventDefault();toggleTelescope()}
+  if(e.ctrlKey&&e.key==='p'){e.preventDefault();activateMode('probe')}
+  if(e.key==='Escape'){
+    closeLens();closeOCR();closePDF();closeDetail();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════
+   SAVE / LOAD (limit stored captures to keep quota safe)
+═══════════════════════════════════════════════════════ */
+let saveDebounce=null;
+function saveData(){
+  clearTimeout(saveDebounce);
+  saveDebounce=setTimeout(()=>{
+    try{
+      /* Store only last 30 captures to avoid quota overflow */
+      const toStore=captures.slice(0,30).map(c=>({
+        id:c.id,ts:c.ts,type:c.type,w:c.w,h:c.h,
+        ocr:c.ocr,palette:c.palette,annotations:c.annotations,lensed:c.lensed,
+        /* store thumbnail only, not full dataUrl to save space */
+        dataUrl:c.dataUrl.length>200000?resizeDataUrl(c.dataUrl,320):c.dataUrl
+      }));
+      localStorage.setItem('nebulacapture_v1',JSON.stringify(toStore));
+    }catch(e){/* quota exceeded — silent */}
+  },800);
+}
+
+function resizeDataUrl(dataUrl,maxW){
+  try{
+    const img=new Image();img.src=dataUrl;
+    const scale=maxW/img.naturalWidth;
+    const c=document.createElement('canvas');
+    c.width=maxW;c.height=Math.round(img.naturalHeight*scale);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',.6);
+  }catch(e){return dataUrl}
+}
+
+function loadData(){
+  try{
+    const raw=localStorage.getItem('nebulacapture_v1');
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    captures=d.map(c=>({...c,annotations:c.annotations||[],palette:c.palette||[]}));
+    renderGallery();updateStats();
+    if(captures.length&&spectrumOn)renderSpectrum(captures[0].palette);
+  }catch(e){console.warn('Load failed',e)}
+}
+
+/* ═══════════════════════════════════════════════════════
+   WINDOW RESIZE
+═══════════════════════════════════════════════════════ */
+window.addEventListener('resize',()=>{
+  SFC.width=window.innerWidth;SFC.height=window.innerHeight;
+});
+
+/* ═══════════════════════════════════════════════════════
+   IMPORT VIA DRAG-AND-DROP
+═══════════════════════════════════════════════════════ */
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{
+  e.preventDefault();
+  const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/'));
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>processCapture(ev.target.result,img.naturalWidth,img.naturalHeight,'import');
+      img.src=ev.target.result;
+    };
+    r.readAsDataURL(f);
+  });
+  if(files.length)toast(`⬆ ${files.length} image(s) imported`,'ok','dropok');
+});
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded',()=>{
+  initStarfield();
+  loadData();
+  updateStats();
+  toast('◉ NebulaCapture Observatory online','ok','init');
+  toast('Press SPACE or ◉ to begin capture','','hint');
+});
+</script>
+</body>
+</html>

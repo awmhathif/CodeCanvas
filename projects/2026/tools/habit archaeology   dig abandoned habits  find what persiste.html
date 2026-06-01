@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Habit Archaeology — Dig Abandoned Habits, Find What Persisted (Single File)</title>
+  <style>
+    :root{
+      --bg:#0b0c0c;
+      --panel:#151816;
+      --panel2:#1b1f1c;
+      --text:#e9eceb;
+      --muted:#a8b0ac;
+      --line:rgba(255,255,255,.10);
+      --accent:#d4a24f;     /* warm gold */
+      --accent2:#b85f49;    /* terracotta */
+      --good:#6fbf73;
+      --bad:#d06b6b;
+      --shadow: 0 18px 44px rgba(0,0,0,.55);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1100px 800px at 18% 10%, rgba(212,162,79,.10), transparent 55%),
+        radial-gradient(900px 650px at 90% 22%, rgba(184,95,73,.10), transparent 60%),
+        radial-gradient(1000px 900px at 50% 110%, rgba(111,191,115,.07), transparent 62%),
+        var(--bg);
+      overflow:hidden;
+    }
+    header{
+      position:fixed; left:0; right:0; top:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .title{display:flex; flex-direction:column; gap:2px}
+    .title h1{margin:0; font-size:14px; font-weight:950; letter-spacing:.2px}
+    .title .sub{margin:0; font-size:12px; color:var(--muted); line-height:1.25}
+    .hdrRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:12px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+    .pill b{color:var(--text); font-family:var(--mono); font-weight:900}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:12.5px;
+      color:var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{background: linear-gradient(180deg, rgba(212,162,79,.18), rgba(212,162,79,.06));}
+    .btn.danger{background: linear-gradient(180deg, rgba(208,107,107,.18), rgba(208,107,107,.07));}
+
+    main{
+      position:fixed; inset:52px 0 0 0;
+      display:grid;
+      grid-template-columns: 440px 1fr 380px;
+      gap:14px;
+      padding:14px;
+    }
+    @media (max-width: 1120px){
+      main{grid-template-columns: 1fr}
+      body{overflow:auto}
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.22);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height: 220px;
+    }
+    .ph{
+      padding:10px 10px 8px;
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.14);
+    }
+    .ph .h{font-weight:950; font-size:12.5px; letter-spacing:.2px}
+    .ph .hint{font-size:12px; color:var(--muted); white-space:nowrap}
+    .pb{padding:10px; overflow:auto}
+
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px}
+    input[type="text"], input[type="number"], textarea, select{
+      width:100%;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      border-radius: 12px;
+      padding:9px 10px;
+      outline:none;
+      font-size:13px;
+    }
+    textarea{min-height:120px; resize:vertical; line-height:1.35}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px}
+    .small{font-size:12px; color:var(--muted); line-height:1.35}
+    .mono{font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .k{
+      display:inline-block;
+      padding:1px 6px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:8px;
+      background: rgba(255,255,255,.03);
+      font-family: var(--mono);
+      color: var(--text);
+      font-size:11.5px;
+      margin:0 2px;
+    }
+
+    /* Dig site */
+    #digWrap{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    #digCanvas{
+      width:100%;
+      height:560px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      background: rgba(0,0,0,.18);
+      display:block;
+    }
+    .legend{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .chip{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:11px;
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+      font-family:var(--mono);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: rgba(255,255,255,.35);
+      border:1px solid rgba(0,0,0,.35);
+    }
+
+    /* Lists */
+    .list{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+    }
+    .item{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+    }
+    .item:last-child{border-bottom:none}
+    .item:hover{background: rgba(255,255,255,.03)}
+    .item .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+    .item .title{font-weight:950; font-size:13px}
+    .item .meta{font-family:var(--mono); font-size:11px; color:var(--muted)}
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      font-size:11px;
+      color:var(--muted);
+      margin-right:6px;
+    }
+    .tag.good{border-color: rgba(111,191,115,.30); color: rgba(215,255,218,.85); background: rgba(111,191,115,.10)}
+    .tag.bad{border-color: rgba(208,107,107,.30); color: rgba(255,220,220,.85); background: rgba(208,107,107,.10)}
+    .tag.warn{border-color: rgba(212,162,79,.32); color: rgba(255,240,210,.92); background: rgba(212,162,79,.10)}
+    .bar{
+      height:10px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .bar i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(111,191,115,.85), rgba(212,162,79,.85), rgba(208,107,107,.85));
+    }
+    .warnBox{
+      border:1px solid rgba(212,162,79,.30);
+      background: rgba(212,162,79,.08);
+      padding:10px;
+      border-radius:12px;
+      font-size:12.5px;
+      color:var(--text);
+      line-height:1.35;
+    }
+    .warnBox b{color:var(--accent)}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="title">
+    <h1>Habit Archaeology</h1>
+    <div class="sub">Dig through layers of abandoned habits. Unearth what persisted, what broke, and what evolved. (Single file, offline.)</div>
+  </div>
+  <div class="hdrRight">
+    <div class="pill">habits: <b id="pillHabits">0</b></div>
+    <div class="pill">artifacts: <b id="pillArts">0</b></div>
+    <div class="pill">persist score: <b id="pillPersist">—</b></div>
+    <button class="btn" id="btnSeed">Seed</button>
+    <button class="btn" id="btnExport">Export</button>
+    <button class="btn" id="btnImport">Import</button>
+    <button class="btn danger" id="btnReset">Reset</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Habit creation + library -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Catalog</div>
+      <div class="hint">Keys: <span class="k">N</span> new · <span class="k">/</span> search</div>
+    </div>
+    <div class="pb">
+      <div class="row">
+        <div>
+          <label for="search">Search</label>
+          <input id="search" type="text" placeholder="name, why, obstacle, tags…"/>
+        </div>
+        <div>
+          <label for="filter">Filter</label>
+          <select id="filter">
+            <option value="all" selected>All</option>
+            <option value="active">Active</option>
+            <option value="abandoned">Abandoned</option>
+            <option value="fossil">Fossils only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="warnBox" style="margin-top:10px">
+        <b>Idea:</b> Treat habits like ruins. A “failed” habit can still leave <i>artifacts</i> (a new identity cue, a tool, a phrase, a micro‑routine) that persists.
+      </div>
+
+      <label for="name">New habit name</label>
+      <input id="name" type="text" placeholder="e.g., Morning stretch, Daily journal, No sugar weekdays"/>
+
+      <div class="row">
+        <div>
+          <label for="cadence">Cadence</label>
+          <select id="cadence">
+            <option value="daily" selected>Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="x3">3× / week</option>
+            <option value="x2">2× / week</option>
+            <option value="ad-hoc">Ad‑hoc</option>
+          </select>
+        </div>
+        <div>
+          <label for="domain">Domain</label>
+          <select id="domain">
+            <option value="health" selected>Health</option>
+            <option value="learning">Learning</option>
+            <option value="work">Work</option>
+            <option value="relationships">Relationships</option>
+            <option value="mind">Mind</option>
+            <option value="home">Home</option>
+            <option value="creative">Creative</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="startAge">Started (months ago)</label>
+          <input id="startAge" type="number" min="0" max="240" value="6"/>
+        </div>
+        <div>
+          <label for="endAge">Ended (months ago, blank = active)</label>
+          <input id="endAge" type="number" min="0" max="240" placeholder="e.g., 1"/>
+        </div>
+      </div>
+
+      <label for="why">Why did you want it?</label>
+      <textarea id="why" placeholder="What need was it serving? What future were you trying to become?"></textarea>
+
+      <label for="obstacle">What broke it (or threatens it)?</label>
+      <textarea id="obstacle" placeholder="Friction, environment, shame, boredom, context switch, lack of cue…"></textarea>
+
+      <label for="artifact">Artifact that persisted</label>
+      <input id="artifact" type="text" placeholder="e.g., You still drink water first. The journal exists. You learned to meal-prep once." />
+
+      <div class="row">
+        <button class="btn primary" id="btnAdd">Add habit</button>
+        <button class="btn" id="btnClearForm">Clear form</button>
+      </div>
+
+      <label style="margin-top:12px">Library</label>
+      <div class="list" id="list"></div>
+    </div>
+  </section>
+
+  <!-- CENTER: Dig site visualization -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Dig Site</div>
+      <div class="hint">Click layers to excavate · Drag to pan · Wheel depth</div>
+    </div>
+    <div class="pb" id="digWrap">
+      <canvas id="digCanvas" width="1200" height="700"></canvas>
+
+      <div class="legend">
+        <span class="chip"><span class="dot" style="background: rgba(111,191,115,.65)"></span> active layer</span>
+        <span class="chip"><span class="dot" style="background: rgba(212,162,79,.70)"></span> abandoned layer</span>
+        <span class="chip"><span class="dot" style="background: rgba(184,95,73,.70)"></span> fossil (very old)</span>
+        <span class="chip"><span class="dot" style="background: rgba(120,170,255,.70)"></span> artifact persists</span>
+      </div>
+
+      <div class="small">
+        The strata represent time: top is recent. Each habit is a “site” stamped into a layer. Excavating reveals artifacts and patterns.
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Excavation + insights -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Finds & Insights</div>
+      <div class="hint">What persisted, and why</div>
+    </div>
+    <div class="pb">
+      <div class="row3">
+        <div class="pill">selected: <b id="selName">—</b></div>
+        <div class="pill">status: <b id="selStatus">—</b></div>
+        <div class="pill">age: <b id="selAge">—</b></div>
+      </div>
+
+      <label>Persistence (artifact survival)</label>
+      <div class="bar"><i id="persistFill"></i></div>
+      <div class="small" id="persistExplain" style="margin-top:8px">Select a habit layer to see a breakdown.</div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <button class="btn" id="btnExcavate">Excavate selected</button>
+        <button class="btn danger" id="btnDelete">Delete habit</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="warnBox" id="insightsBox">
+        <b>Insight engine:</b> It looks for repeating obstacles (friction, environment, identity, scheduling) and repeating surviving artifacts (tools, cues, micro‑actions).
+      </div>
+
+      <div style="height:10px"></div>
+
+      <label>Artifacts (across all habits)</label>
+      <div class="list" id="artifactList"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const SAVE_KEY = "habit_archaeology_v1";
+  const $ = (s)=>document.querySelector(s);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const norm=(s)=> (s||"").replace(/\s+/g," ").trim();
+  const esc=(s)=> (s??"").replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch]));
+  const now = ()=>Date.now();
+
+  function uuid(){
+    return crypto.randomUUID?.() || ("h_" + Math.random().toString(16).slice(2) + Date.now().toString(16));
+  }
+
+  function wordTokens(s){
+    return (s||"").toLowerCase().match(/[\p{L}\p{N}_-]+/gu) || [];
+  }
+
+  function hashHue(str){
+    let h=2166136261;
+    for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+    return (h>>>0) % 360;
+  }
+
+  function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
+
+  // UI
+  const UI = {
+    pillHabits: $("#pillHabits"),
+    pillArts: $("#pillArts"),
+    pillPersist: $("#pillPersist"),
+
+    btnSeed: $("#btnSeed"),
+    btnExport: $("#btnExport"),
+    btnImport: $("#btnImport"),
+    btnReset: $("#btnReset"),
+
+    search: $("#search"),
+    filter: $("#filter"),
+
+    name: $("#name"),
+    cadence: $("#cadence"),
+    domain: $("#domain"),
+    startAge: $("#startAge"),
+    endAge: $("#endAge"),
+    why: $("#why"),
+    obstacle: $("#obstacle"),
+    artifact: $("#artifact"),
+    btnAdd: $("#btnAdd"),
+    btnClearForm: $("#btnClearForm"),
+
+    list: $("#list"),
+
+    dig: $("#digCanvas"),
+
+    selName: $("#selName"),
+    selStatus: $("#selStatus"),
+    selAge: $("#selAge"),
+    persistFill: $("#persistFill"),
+    persistExplain: $("#persistExplain"),
+    btnExcavate: $("#btnExcavate"),
+    btnDelete: $("#btnDelete"),
+    insightsBox: $("#insightsBox"),
+    artifactList: $("#artifactList"),
+  };
+
+  // State
+  const S = {
+    v: 1,
+    habits: [],
+    selectedId: null,
+
+    // excavation memory (per habit)
+    excavated: {}, // id -> { level: 0..1, revealedAt:number }
+
+    // dig view
+    w: 0, h: 0, dpr: 1,
+    panX: 0, panY: 0,
+    tPanX: 0, tPanY: 0,
+    depth: 0,     // 0..1 (scroll zoom through layers)
+    tDepth: 0,
+    down:false, lx:0, ly:0,
+    moved:false,
+
+    // render loop
+    t: 0,
+    last: performance.now(),
+  };
+
+  // Habit schema:
+  // {
+  //  id, name, cadence, domain,
+  //  startMonthsAgo, endMonthsAgo|null,
+  //  why, obstacle,
+  //  artifact, createdAt
+  // }
+
+  function isActive(h){ return h.endMonthsAgo === null || h.endMonthsAgo === undefined || h.endMonthsAgo === ""; }
+  function statusOf(h){
+    if (isActive(h)) return "active";
+    if (h.endMonthsAgo >= 18) return "fossil";
+    return "abandoned";
+  }
+
+  function ageSpan(h){
+    const start = Math.max(0, Number(h.startMonthsAgo)||0);
+    const end = isActive(h) ? 0 : Math.max(0, Number(h.endMonthsAgo)||0);
+    // started further back than ended (usually)
+    const startedAt = start;
+    const endedAt = end;
+    return { startedAt, endedAt, duration: Math.max(0, startedAt - endedAt) };
+  }
+
+  // Persistence score: how likely the "artifact" survives
+  function persistenceScore(h){
+    const a = ageSpan(h);
+    const hasArtifact = norm(h.artifact).length > 0;
+
+    // heuristics:
+    // - artifact existence + specificity helps
+    // - obstacles like "environment" & "friction" decrease habit success but can still leave artifact
+    // - longer duration increases survival probability
+    const artifactLen = norm(h.artifact).length;
+    const whyLen = norm(h.why).length;
+
+    const duration = clamp(a.duration / 12, 0, 2); // years-ish cap
+    const specificity = clamp(artifactLen / 40, 0, 1);
+    const meaning = clamp(whyLen / 80, 0, 1);
+
+    const obs = (h.obstacle||"").toLowerCase();
+    const friction = /(time|busy|schedule|forgot|lazy|energy|tired|overwhelm|motivation|consistency)/.test(obs) ? 1 : 0;
+    const environment = /(environment|home|work|travel|people|kids|noise|space|setup|access)/.test(obs) ? 1 : 0;
+    const shame = /(shame|guilt|embarrass|failure|should)/.test(obs) ? 1 : 0;
+    const boredom = /(boring|bored|monoton|tedious)/.test(obs) ? 1 : 0;
+
+    let base = 0.12;
+    base += hasArtifact ? 0.32 : 0.00;
+    base += duration * 0.18;
+    base += specificity * 0.18;
+    base += meaning * 0.10;
+
+    // obstacles reduce habit continuity but artifacts can remain—so mild penalties, not huge
+    base -= friction * 0.06;
+    base -= environment * 0.05;
+    base -= shame * 0.05;
+    base -= boredom * 0.04;
+
+    // active habits get a bump for "still alive"
+    if (isActive(h)) base += 0.12;
+
+    return clamp(base, 0, 1);
+  }
+
+  function globalPersistScore(){
+    if (!S.habits.length) return 0;
+    const avg = S.habits.reduce((s,h)=>s+persistenceScore(h),0)/S.habits.length;
+    return avg;
+  }
+
+  // Artifact aggregation: find recurring artifact tokens across habits
+  function computeArtifacts(){
+    const map = new Map(); // token -> {count, examples[]}
+    for (const h of S.habits){
+      const art = norm(h.artifact);
+      if (!art) continue;
+      const toks = wordTokens(art).filter(t=>t.length>=3);
+      const uniq = Array.from(new Set(toks)).slice(0, 24);
+      for (const t of uniq){
+        if (!map.has(t)) map.set(t, {count:0, examples:[]});
+        const v = map.get(t);
+        v.count++;
+        if (v.examples.length < 3) v.examples.push(h.name);
+      }
+    }
+    const arr = Array.from(map.entries())
+      .map(([tok,v])=>({tok, ...v}))
+      .sort((a,b)=> b.count - a.count || a.tok.localeCompare(b.tok));
+
+    return arr;
+  }
+
+  function insights(){
+    // find repeating obstacle themes and repeating artifact tokens
+    const obsThemes = new Map();
+    const addTheme = (k)=> obsThemes.set(k, (obsThemes.get(k)||0)+1);
+
+    for (const h of S.habits){
+      const o = (h.obstacle||"").toLowerCase();
+      if (!o) continue;
+      if (/(time|busy|schedule|deadline|calendar)/.test(o)) addTheme("time/scheduling");
+      if (/(forgot|remind|remember|notification|cue)/.test(o)) addTheme("missing cues");
+      if (/(tired|energy|sleep|exhaust)/.test(o)) addTheme("energy/fatigue");
+      if (/(environment|home|work|travel|space|setup|access)/.test(o)) addTheme("environment/setup");
+      if (/(shame|guilt|embarrass|failure|should)/.test(o)) addTheme("shame/pressure");
+      if (/(bored|boring|monoton|tedious)/.test(o)) addTheme("boredom");
+      if (/(pain|injury|sick)/.test(o)) addTheme("health limits");
+      if (/(people|social|kids|family)/.test(o)) addTheme("social constraints");
+    }
+
+    const themes = Array.from(obsThemes.entries()).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const arts = computeArtifacts().slice(0, 8);
+
+    const lines = [];
+    if (themes.length){
+      lines.push(`<b>Repeated breaking points:</b><br>` + themes.map(([k,c])=>`• ${esc(k)} (${c})`).join("<br>"));
+    } else {
+      lines.push(`<b>Repeated breaking points:</b><br>• (not enough data yet)`);
+    }
+
+    if (arts.length){
+      lines.push(`<br><br><b>Recurring surviving artifacts:</b><br>` +
+        arts.map(a=>`• <span class="mono">${esc(a.tok)}</span> (${a.count}) — e.g., ${esc(a.examples.join(", "))}`).join("<br>")
+      );
+    } else {
+      lines.push(`<br><br><b>Recurring surviving artifacts:</b><br>• (add artifacts to see what persists)`);
+    }
+
+    return lines.join("");
+  }
+
+  // --- Render list ---
+  function renderList(){
+    const q = norm(UI.search.value).toLowerCase();
+    const mode = UI.filter.value;
+
+    let arr = S.habits.slice();
+
+    if (mode === "active") arr = arr.filter(isActive);
+    else if (mode === "abandoned") arr = arr.filter(h => !isActive(h) && statusOf(h)!=="fossil");
+    else if (mode === "fossil") arr = arr.filter(h => statusOf(h)==="fossil");
+
+    if (q){
+      arr = arr.filter(h => {
+        const hay = `${h.name} ${h.why} ${h.obstacle} ${h.artifact} ${h.cadence} ${h.domain}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    // sort by layer (recent top): endedAt asc? We'll sort by endedAt (recent smaller), then start
+    arr.sort((a,b) => {
+      const ea = isActive(a) ? -1 : Number(a.endMonthsAgo||0);
+      const eb = isActive(b) ? -1 : Number(b.endMonthsAgo||0);
+      if (ea !== eb) return ea - eb; // active first (ea=-1)
+      return (Number(b.startMonthsAgo||0) - Number(a.startMonthsAgo||0));
+    });
+
+    UI.list.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    for (const h of arr.slice(0, 400)){
+      const div = document.createElement("div");
+      div.className = "item";
+      const hue = hashHue(h.id + h.domain);
+      div.style.borderLeft = `4px solid ${hsl(hue, 75, 58, 1)}`;
+
+      const st = statusOf(h);
+      const tag = st==="active" ? `<span class="tag good">ACTIVE</span>` :
+                 st==="fossil" ? `<span class="tag bad">FOSSIL</span>` :
+                                 `<span class="tag warn">ABANDONED</span>`;
+
+      const a = ageSpan(h);
+      const meta = isActive(h) ? `started ${a.startedAt}mo ago` : `ended ${a.endedAt}mo ago · lasted ${a.duration}mo`;
+
+      const ps = persistenceScore(h);
+
+      div.innerHTML = `
+        <div class="top">
+          <div class="title">${esc(h.name || "(unnamed)")} ${S.selectedId===h.id ? "•" : ""}</div>
+          <div class="meta">${esc(meta)}</div>
+        </div>
+        <div style="margin-top:6px">${tag}<span class="tag">#${esc(h.domain)}</span><span class="tag">${esc(h.cadence)}</span></div>
+        <div class="small" style="margin-top:6px; color: var(--muted)">artifact: ${esc(h.artifact || "(none)")}</div>
+        <div style="margin-top:8px" class="bar"><i style="width:${(ps*100).toFixed(0)}%"></i></div>
+      `;
+      div.addEventListener("click", () => selectHabit(h.id));
+      frag.appendChild(div);
+    }
+    UI.list.appendChild(frag);
+
+    updateHeaderPills();
+  }
+
+  function updateHeaderPills(){
+    UI.pillHabits.textContent = String(S.habits.length);
+    const arts = S.habits.filter(h => norm(h.artifact)).length;
+    UI.pillArts.textContent = String(arts);
+    UI.pillPersist.textContent = (globalPersistScore()*100).toFixed(0) + "%";
+  }
+
+  function renderArtifacts(){
+    const arr = computeArtifacts().slice(0, 120);
+    UI.artifactList.innerHTML = "";
+    if (!arr.length){
+      UI.artifactList.innerHTML = `<div class="item"><div class="small">No artifacts yet. Add an “artifact that persisted”.</div></div>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const a of arr){
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <div class="top">
+          <div class="title"><span class="tag">artifact</span> <span class="mono">${esc(a.tok)}</span></div>
+          <div class="meta">count ${a.count}</div>
+        </div>
+        <div class="small" style="margin-top:6px; color: var(--muted)">seen in: ${esc(a.examples.join(", "))}${a.count>3 ? "…" : ""}</div>
+      `;
+      frag.appendChild(div);
+    }
+    UI.artifactList.appendChild(frag);
+  }
+
+  // --- Selection + right panel ---
+  function selectHabit(id){
+    S.selectedId = id;
+    renderList();
+    updateSelectionPanel();
+  }
+
+  function updateSelectionPanel(){
+    const h = S.habits.find(x=>x.id===S.selectedId);
+    if (!h){
+      UI.selName.textContent = "—";
+      UI.selStatus.textContent = "—";
+      UI.selAge.textContent = "—";
+      UI.persistFill.style.width = "0%";
+      UI.persistExplain.textContent = "Select a habit layer to see a breakdown.";
+      UI.insightsBox.innerHTML = `<b>Insight engine:</b> It looks for repeating obstacles and recurring artifacts.`;
+      return;
+    }
+    const st = statusOf(h);
+    UI.selName.textContent = h.name || "—";
+    UI.selStatus.textContent = st.toUpperCase();
+    const a = ageSpan(h);
+    UI.selAge.textContent = isActive(h) ? `${a.startedAt}mo` : `${a.endedAt}mo (ended)`;
+
+    const ps = persistenceScore(h);
+    UI.persistFill.style.width = `${(ps*100).toFixed(1)}%`;
+
+    const obs = norm(h.obstacle);
+    const art = norm(h.artifact);
+    const why = norm(h.why);
+
+    const breakdown = [];
+    breakdown.push(`Persistence is higher when an artifact exists and is specific.`);
+    if (art) breakdown.push(`Artifact detected: “${art}”.`);
+    else breakdown.push(`No artifact recorded yet — add one to track what carried forward.`);
+    if (a.duration >= 6) breakdown.push(`Longer duration (${a.duration} months) increases survival odds.`);
+    if (obs) breakdown.push(`Obstacle recorded: “${obs}”.`);
+    if (why) breakdown.push(`Why: “${why.slice(0,120)}${why.length>120?"…":""}”.`);
+
+    UI.persistExplain.textContent = breakdown.join(" ");
+
+    UI.insightsBox.innerHTML = insights();
+  }
+
+  // --- CRUD ---
+  function clearForm(){
+    UI.name.value = "";
+    UI.cadence.value = "daily";
+    UI.domain.value = "health";
+    UI.startAge.value = 6;
+    UI.endAge.value = "";
+    UI.why.value = "";
+    UI.obstacle.value = "";
+    UI.artifact.value = "";
+    UI.name.focus();
+  }
+
+  function addHabit(){
+    const name = norm(UI.name.value);
+    if (!name){
+      UI.name.focus();
+      return;
+    }
+    const cadence = UI.cadence.value;
+    const domain = UI.domain.value;
+    const startMonthsAgo = clamp(Number(UI.startAge.value||0), 0, 240);
+    const endRaw = UI.endAge.value;
+    const endMonthsAgo = (endRaw === "" || endRaw === null || endRaw === undefined) ? null : clamp(Number(endRaw), 0, 240);
+
+    const h = {
+      id: uuid(),
+      name,
+      cadence,
+      domain,
+      startMonthsAgo,
+      endMonthsAgo,
+      why: UI.why.value || "",
+      obstacle: UI.obstacle.value || "",
+      artifact: UI.artifact.value || "",
+      createdAt: now(),
+    };
+    S.habits.push(h);
+    // default excavation level
+    S.excavated[h.id] = S.excavated[h.id] || { level: 0, revealedAt: 0 };
+    persist();
+    clearForm();
+    renderAll();
+    selectHabit(h.id);
+  }
+
+  function deleteSelected(){
+    const id = S.selectedId;
+    if (!id) return;
+    const h = S.habits.find(x=>x.id===id);
+    if (!h) return;
+    if (!confirm(`Delete habit "${h.name}"?`)) return;
+    S.habits = S.habits.filter(x=>x.id!==id);
+    delete S.excavated[id];
+    S.selectedId = null;
+    persist();
+    renderAll();
+  }
+
+  function excavateSelected(){
+    const id = S.selectedId;
+    if (!id) return;
+    const e = S.excavated[id] || { level: 0, revealedAt: 0 };
+    e.level = clamp(e.level + 0.35, 0, 1);
+    e.revealedAt = now();
+    S.excavated[id] = e;
+    persist();
+    renderAll();
+  }
+
+  // --- Import/Export/Seed ---
+  function exportJSON(){
+    const payload = { v:S.v, exportedAt: now(), habits:S.habits, excavated:S.excavated };
+    UI.btnExport.textContent = "Exported";
+    setTimeout(()=>UI.btnExport.textContent="Export", 700);
+    const txt = JSON.stringify(payload, null, 2);
+    // Put into prompt-like overlay via textarea (reuse import prompt approach)
+    const box = prompt("Copy your JSON (also saved to clipboard if allowed):", txt);
+    void box;
+    navigator.clipboard?.writeText(txt).catch(()=>{});
+  }
+
+  function importJSON(){
+    const raw = prompt("Paste JSON to import:");
+    if (!raw) return;
+    try{
+      const payload = JSON.parse(raw);
+      if (!Array.isArray(payload.habits)) throw new Error("Missing habits[]");
+      S.habits = payload.habits.map(h => ({
+        id: h.id || uuid(),
+        name: norm(h.name) || "Unnamed habit",
+        cadence: h.cadence || "daily",
+        domain: h.domain || "health",
+        startMonthsAgo: clamp(Number(h.startMonthsAgo||0), 0, 240),
+        endMonthsAgo: (h.endMonthsAgo===null || h.endMonthsAgo===undefined || h.endMonthsAgo==="") ? null : clamp(Number(h.endMonthsAgo), 0, 240),
+        why: String(h.why||""),
+        obstacle: String(h.obstacle||""),
+        artifact: String(h.artifact||""),
+        createdAt: Number(h.createdAt||now()),
+      }));
+      S.excavated = payload.excavated || {};
+      persist();
+      renderAll();
+    } catch (e){
+      alert("Import failed: " + (e.message || e));
+    }
+  }
+
+  function seed(){
+    const demo = [
+      {
+        name:"Daily journaling",
+        cadence:"daily", domain:"mind",
+        startMonthsAgo: 30, endMonthsAgo: 18,
+        why:"I wanted clarity and self-trust. A place to put thoughts so they stop looping.",
+        obstacle:"Felt like homework. Missed a week, shame kicked in, then avoidance.",
+        artifact:"I still do a 2-minute brain dump on sticky notes before hard tasks. #clarity"
+      },
+      {
+        name:"Morning walk (20 min)",
+        cadence:"daily", domain:"health",
+        startMonthsAgo: 20, endMonthsAgo: null,
+        why:"Energy + mood. A ritual that proves the day can start gently.",
+        obstacle:"Rain + travel. Needs a fallback route.",
+        artifact:"Shoes live by the door. I step outside before opening apps. #cue"
+      },
+      {
+        name:"No phone in bed",
+        cadence:"daily", domain:"health",
+        startMonthsAgo: 16, endMonthsAgo: 6,
+        why:"Sleep and attention. Less doomscrolling.",
+        obstacle:"Stress nights. Reached for comfort → screen.",
+        artifact:"I charge the phone across the room (most nights). #environment"
+      },
+      {
+        name:"Language learning",
+        cadence:"x3", domain:"learning",
+        startMonthsAgo: 14, endMonthsAgo: 9,
+        why:"Wanted momentum and identity: 'I learn things.'",
+        obstacle:"No clear lesson plan. Too many apps.",
+        artifact:"I keep a tiny list of 20 core words and review it when waiting. #micro"
+      },
+      {
+        name:"Weekly meal prep",
+        cadence:"weekly", domain:"home",
+        startMonthsAgo: 12, endMonthsAgo: 2,
+        why:"Less decision fatigue, more stable energy.",
+        obstacle:"Big batches felt boring. Cleanup friction.",
+        artifact:"I default to one 'anchor' protein + frozen veggies. #default"
+      },
+      {
+        name:"Creative sketching",
+        cadence:"daily", domain:"creative",
+        startMonthsAgo: 48, endMonthsAgo: 36,
+        why:"Wanted to feel alive. To make something small every day.",
+        obstacle:"Perfectionism. Comparing to others.",
+        artifact:"I keep a 'bad ideas' folder and doodle during calls. #permission"
+      },
+    ];
+    for (const d of demo){
+      const h = { id: uuid(), createdAt: now(), ...d };
+      S.habits.push(h);
+      S.excavated[h.id] = { level: 0.25 + Math.random()*0.25, revealedAt: now() };
+    }
+    persist();
+    renderAll();
+    if (S.habits.length) selectHabit(S.habits[0].id);
+  }
+
+  function reset(){
+    if (!confirm("Reset everything?")) return;
+    S.habits = [];
+    S.excavated = {};
+    S.selectedId = null;
+    S.panX = S.panY = S.tPanX = S.tPanY = 0;
+    S.depth = S.tDepth = 0;
+    persist();
+    renderAll();
+  }
+
+  // --- Persistence ---
+  function persist(){
+    const d = {
+      v:S.v,
+      habits:S.habits,
+      excavated:S.excavated,
+      ui:{
+        search:UI.search.value,
+        filter:UI.filter.value,
+      },
+      dig:{
+        panX:S.panX, panY:S.panY, depth:S.depth
+      }
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
+  }
+
+  function restore(){
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    try{
+      const d = JSON.parse(raw);
+      if (Array.isArray(d.habits)) S.habits = d.habits;
+      if (d.excavated) S.excavated = d.excavated;
+      if (d.ui){
+        UI.search.value = d.ui.search ?? "";
+        UI.filter.value = d.ui.filter ?? "all";
+      }
+      if (d.dig){
+        S.panX = d.dig.panX || 0;
+        S.panY = d.dig.panY || 0;
+        S.depth = d.dig.depth || 0;
+        S.tPanX = S.panX;
+        S.tPanY = S.panY;
+        S.tDepth = S.depth;
+      }
+    } catch {}
+  }
+
+  // --- Dig site visualization ---
+  const dctx = UI.dig.getContext("2d");
+
+  function resizeDig(){
+    // keep canvas crisp
+    const rect = UI.dig.getBoundingClientRect();
+    const dpr = Math.max(1, Math.min(2, devicePixelRatio || 1));
+    S.dpr = dpr;
+    S.w = Math.floor(rect.width);
+    S.h = Math.floor(rect.height);
+
+    UI.dig.width = Math.floor(S.w * dpr);
+    UI.dig.height = Math.floor(S.h * dpr);
+    dctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function layerY(monthsAgo){
+    // map monthsAgo to strata (0 recent at top)
+    // Use nonlinear mapping to compress deep past
+    const m = clamp(monthsAgo / 60, 0, 1); // 5 years window
+    const p = Math.pow(m, 0.65);
+    return 60 + p * (S.h - 120);
+  }
+
+  function drawDig(){
+    const w = S.w, h = S.h;
+    dctx.clearRect(0,0,w,h);
+
+    // background
+    const g = dctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, "rgba(0,0,0,0.10)");
+    g.addColorStop(1, "rgba(0,0,0,0.35)");
+    dctx.fillStyle = g;
+    dctx.fillRect(0,0,w,h);
+
+    // pan/depth easing
+    S.panX = lerp(S.panX, S.tPanX, 0.10);
+    S.panY = lerp(S.panY, S.tPanY, 0.10);
+    S.depth = lerp(S.depth, S.tDepth, 0.10);
+
+    const cx = w*0.5 + S.panX;
+    const top = 40 + S.panY;
+
+    // strata lines
+    dctx.globalAlpha = 1;
+    for (let i=0;i<=10;i++){
+      const y = top + i*(h-80)/10;
+      dctx.strokeStyle = "rgba(255,255,255,0.06)";
+      dctx.lineWidth = 1;
+      dctx.beginPath();
+      dctx.moveTo(20, y);
+      dctx.lineTo(w-20, y);
+      dctx.stroke();
+    }
+
+    // depth indicator
+    const yDepth = top + S.depth*(h-80);
+    dctx.strokeStyle = "rgba(212,162,79,0.22)";
+    dctx.lineWidth = 2;
+    dctx.beginPath();
+    dctx.moveTo(20, yDepth);
+    dctx.lineTo(w-20, yDepth);
+    dctx.stroke();
+
+    // draw habit sites (circles) with excavation glow
+    const visible = getFilteredHabits();
+
+    // precompute nodes with positions
+    const nodes = [];
+    for (let i=0;i<visible.length;i++){
+      const hab = visible[i];
+      const st = statusOf(hab);
+
+      const a = ageSpan(hab);
+      const ended = isActive(hab) ? 0 : a.endedAt;
+      const y = layerY(ended) + S.panY;
+
+      // x spread based on domain hash
+      const hue = hashHue(hab.domain + hab.id);
+      const xBase = (0.12 + (hue/360)*0.76) * w;
+      const jitter = (Math.sin((i+1)*12.9898 + S.t*0.001) * 43758.5453) % 1;
+      const x = xBase + (jitter<0?jitter+1:jitter)*22 - 11 + S.panX;
+
+      const ps = persistenceScore(hab);
+      const e = S.excavated[hab.id]?.level || 0;
+      const hasArt = norm(hab.artifact).length > 0;
+
+      nodes.push({hab, x, y, st, ps, e, hasArt, hue});
+    }
+
+    // connections: artifacts that share tokens -> draw faint lines
+    const tokenToIds = new Map();
+    for (const n of nodes){
+      const toks = wordTokens(norm(n.hab.artifact)).filter(t=>t.length>=4);
+      const uniq = Array.from(new Set(toks)).slice(0, 10);
+      for (const t of uniq){
+        if (!tokenToIds.has(t)) tokenToIds.set(t, []);
+        tokenToIds.get(t).push(n);
+      }
+    }
+    dctx.globalAlpha = 0.18;
+    for (const [tok, arr] of tokenToIds){
+      if (arr.length < 2) continue;
+      // connect up to 6 pairs to avoid clutter
+      for (let i=0;i<Math.min(arr.length,6);i++){
+        for (let j=i+1;j<Math.min(arr.length,6);j++){
+          const a = arr[i], b = arr[j];
+          const alpha = 0.05 + Math.min(0.18, (a.ps+b.ps)*0.10);
+          dctx.strokeStyle = `rgba(120,170,255,${alpha})`;
+          dctx.lineWidth = 1;
+          dctx.beginPath();
+          dctx.moveTo(a.x, a.y);
+          dctx.lineTo(b.x, b.y);
+          dctx.stroke();
+        }
+      }
+    }
+    dctx.globalAlpha = 1;
+
+    // draw nodes
+    for (const n of nodes){
+      const selected = n.hab.id === S.selectedId;
+
+      // color by status
+      const col = n.st==="active" ? "rgba(111,191,115,0.85)" :
+                  n.st==="fossil" ? "rgba(184,95,73,0.85)" :
+                                   "rgba(212,162,79,0.90)";
+
+      // base radius by persistence and excavation
+      const r = 10 + n.ps*14 + n.e*10;
+
+      // excavation halo
+      if (n.e > 0.01){
+        const rr = r*(2.2 + n.e*1.6);
+        const a = 0.10 + n.e*0.20;
+        const gg = dctx.createRadialGradient(n.x,n.y, 1, n.x,n.y, rr);
+        gg.addColorStop(0, `rgba(120,170,255,${a})`);
+        gg.addColorStop(1, `rgba(120,170,255,0)`);
+        dctx.fillStyle = gg;
+        dctx.beginPath(); dctx.arc(n.x,n.y, rr, 0, Math.PI*2); dctx.fill();
+      }
+
+      // node body
+      const body = dctx.createRadialGradient(n.x-r*0.3,n.y-r*0.3, 1, n.x,n.y, r*1.3);
+      body.addColorStop(0, "rgba(255,255,255,0.65)");
+      body.addColorStop(0.25, col);
+      body.addColorStop(1, "rgba(0,0,0,0)");
+      dctx.fillStyle = body;
+      dctx.beginPath(); dctx.arc(n.x,n.y, r, 0, Math.PI*2); dctx.fill();
+
+      // ring outline
+      dctx.strokeStyle = selected ? "rgba(255,240,210,0.75)" : "rgba(255,255,255,0.10)";
+      dctx.lineWidth = selected ? 2 : 1;
+      dctx.beginPath(); dctx.arc(n.x,n.y, r, 0, Math.PI*2); dctx.stroke();
+
+      // artifact marker
+      if (n.hasArt){
+        dctx.fillStyle = "rgba(120,170,255,0.85)";
+        dctx.beginPath(); dctx.arc(n.x + r*0.75, n.y - r*0.75, 3.5, 0, Math.PI*2); dctx.fill();
+      }
+
+      // label if selected or excavated enough
+      if (selected || n.e > 0.35 || (n.st==="active" && n.ps>0.55)){
+        dctx.font = "700 12px ui-sans-serif, system-ui";
+        dctx.fillStyle = selected ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.55)";
+        dctx.fillText(n.hab.name.slice(0, 26), n.x + r + 8, n.y + 4);
+      }
+    }
+
+    // title markers
+    dctx.fillStyle = "rgba(255,255,255,0.10)";
+    dctx.font = "900 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    dctx.fillText("RECENT", 22, top + 12);
+    dctx.fillText("OLDER",  22, top + h - 70);
+
+    // store for picking
+    S._nodes = nodes;
+  }
+
+  function getFilteredHabits(){
+    // mirror list filter/search
+    const q = norm(UI.search.value).toLowerCase();
+    const mode = UI.filter.value;
+
+    let arr = S.habits.slice();
+    if (mode === "active") arr = arr.filter(isActive);
+    else if (mode === "abandoned") arr = arr.filter(h => !isActive(h) && statusOf(h)!=="fossil");
+    else if (mode === "fossil") arr = arr.filter(h => statusOf(h)==="fossil");
+
+    if (q){
+      arr = arr.filter(h => (`${h.name} ${h.why} ${h.obstacle} ${h.artifact} ${h.cadence} ${h.domain}`).toLowerCase().includes(q));
+    }
+    return arr;
+  }
+
+  function pickNode(x,y){
+    const nodes = S._nodes || [];
+    let best = null;
+    let bestD = 1e9;
+    for (const n of nodes){
+      const r = 12 + n.ps*16 + n.e*10;
+      const dx = x - n.x, dy = y - n.y;
+      const d = Math.hypot(dx,dy);
+      if (d < r*1.05 && d < bestD){
+        bestD = d;
+        best = n;
+      }
+    }
+    return best;
+  }
+
+  // dig input
+  UI.dig.addEventListener("pointerdown", (e)=>{
+    S.down = true;
+    S.moved = false;
+    UI.dig.setPointerCapture?.(e.pointerId);
+    S.lx = e.clientX;
+    S.ly = e.clientY;
+  });
+  UI.dig.addEventListener("pointermove", (e)=>{
+    if (!S.down) return;
+    const dx = e.clientX - S.lx;
+    const dy = e.clientY - S.ly;
+    S.lx = e.clientX;
+    S.ly = e.clientY;
+    if (Math.abs(dx)+Math.abs(dy) > 2) S.moved = true;
+    S.tPanX += dx;
+    S.tPanY += dy;
+    S.tPanX = clamp(S.tPanX, -S.w*0.25, S.w*0.25);
+    S.tPanY = clamp(S.tPanY, -S.h*0.25, S.h*0.25);
+  });
+  UI.dig.addEventListener("pointerup", (e)=>{
+    S.down = false;
+    if (!S.moved){
+      const r = UI.dig.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const hit = pickNode(x,y);
+      if (hit){
+        selectHabit(hit.hab.id);
+        // clicking excavates a bit
+        excavateSelected();
+      }
+    }
+  });
+  UI.dig.addEventListener("pointercancel", ()=>S.down=false);
+
+  UI.dig.addEventListener("wheel", (e)=>{
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY);
+    S.tDepth = clamp(S.tDepth + delta*0.04, 0, 1);
+  }, { passive:false });
+
+  // --- render all ---
+  function renderAll(){
+    renderList();
+    renderArtifacts();
+    updateSelectionPanel();
+    updateHeaderPills();
+  }
+
+  // --- loop ---
+  function loop(t){
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.033, Math.max(0.001, (t - S.last)/1000));
+    S.last = t;
+    S.t = t;
+    drawDig();
+  }
+
+  // --- wire buttons ---
+  UI.btnAdd.addEventListener("click", addHabit);
+  UI.btnClearForm.addEventListener("click", clearForm);
+  UI.btnDelete.addEventListener("click", deleteSelected);
+  UI.btnExcavate.addEventListener("click", excavateSelected);
+
+  UI.btnSeed.addEventListener("click", () => {
+    if (S.habits.length && !confirm("Add demo seed habits (will not erase yours)?")) return;
+    seed();
+  });
+  UI.btnReset.addEventListener("click", reset);
+  UI.btnExport.addEventListener("click", exportJSON);
+  UI.btnImport.addEventListener("click", importJSON);
+
+  UI.search.addEventListener("input", () => { renderAll(); persist(); });
+  UI.filter.addEventListener("change", () => { renderAll(); persist(); });
+
+  window.addEventListener("keydown", (e)=>{
+    if (e.key === "n" || e.key === "N"){
+      e.preventDefault();
+      UI.name.focus();
+    }
+    if (e.key === "/"){
+      e.preventDefault();
+      UI.search.focus();
+      UI.search.select();
+    }
+    if (e.key === "Delete" || e.key === "Backspace"){
+      const ae = document.activeElement;
+      const typing = ae && (ae.tagName==="INPUT" || ae.tagName==="TEXTAREA");
+      if (typing) return;
+      if (S.selectedId) deleteSelected();
+    }
+  });
+
+  window.addEventListener("resize", () => { resizeDig(); });
+
+  // --- boot ---
+  restore();
+  resizeDig();
+  renderAll();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

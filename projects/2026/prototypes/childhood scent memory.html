@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Childhood Scent Memory</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@200;300&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0c;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  width: 100vw;
+  cursor: default;
+}
+
+#canvas-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+
+.overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);
+}
+
+.grain {
+  position: fixed;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  animation: grainShift 0.5s steps(1) infinite;
+}
+
+@keyframes grainShift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-5%, -5%); }
+  50% { transform: translate(5%, -10%); }
+  75% { transform: translate(-10%, 5%); }
+  100% { transform: translate(0, 0); }
+}
+
+.ui-layer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-area {
+  position: fixed;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+  opacity: 0;
+  animation: fadeIn 2s ease 0.5s forwards;
+}
+
+.title-area h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: clamp(18px, 2.5vw, 28px);
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.title-area p {
+  font-weight: 200;
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  margin-top: 6px;
+  letter-spacing: 0.15em;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.scent-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  opacity: 0;
+  animation: fadeIn 2s ease 1s forwards;
+}
+
+.scent-btn {
+  flex: 1;
+  max-width: 160px;
+  background: transparent;
+  border: none;
+  padding: 28px 8px 22px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.6s ease;
+  outline: none;
+}
+
+.scent-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  border-radius: 1px;
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scent-btn:hover::before, .scent-btn.active::before {
+  width: 40px;
+}
+
+.scent-btn .label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(11px, 1.4vw, 14px);
+  font-weight: 400;
+  font-style: italic;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.08em;
+  transition: color 0.5s ease;
+  display: block;
+}
+
+.scent-btn:hover .label, .scent-btn.active .label {
+  color: rgba(255,255,255,0.7);
+}
+
+.scent-btn .sublabel {
+  font-size: 9px;
+  font-weight: 200;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.12em;
+  display: block;
+  margin-top: 4px;
+  transition: color 0.5s ease;
+  text-transform: uppercase;
+}
+
+.scent-btn:hover .sublabel, .scent-btn.active .sublabel {
+  color: rgba(255,255,255,0.35);
+}
+
+.memory-text {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+  max-width: 500px;
+  padding: 0 24px;
+}
+
+.memory-text .phrase {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(22px, 3.5vw, 38px);
+  line-height: 1.5;
+  color: rgba(255,255,255,0);
+  transition: color 1.5s ease;
+}
+
+.memory-text.visible .phrase {
+  color: rgba(255,255,255,0.55);
+}
+
+.particle-info {
+  position: fixed;
+  top: 50%;
+  right: 36px;
+  transform: translateY(-50%);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease;
+  text-align: right;
+}
+
+.particle-info.visible {
+  opacity: 1;
+}
+
+.particle-info .color-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em;
+}
+
+.particle-info .texture-name {
+  font-size: 10px;
+  font-weight: 200;
+  color: rgba(255,255,255,0.18);
+  letter-spacing: 0.12em;
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+
+/* Intro splash */
+.intro-splash {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 100;
+  background: #0a0a0c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  cursor: pointer;
+  transition: opacity 1.5s ease, visibility 1.5s ease;
+}
+
+.intro-splash.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.intro-splash h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: clamp(28px, 5vw, 52px);
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.15em;
+  animation: breathe 4s ease-in-out infinite;
+}
+
+.intro-splash span {
+  font-weight: 200;
+  font-size: 12px;
+  color: rgba(255,255,255,0.2);
+  margin-top: 20px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 700px) {
+  .scent-btn { padding: 20px 4px 16px; }
+  .particle-info { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="intro-splash" id="intro">
+  <h2>Childhood Scent Memory</h2>
+  <span>click anywhere to inhale</span>
+</div>
+
+<canvas id="canvas-bg"></canvas>
+<div class="overlay"></div>
+<div class="grain"></div>
+
+<div class="title-area">
+  <h1>Childhood Scent Memory</h1>
+  <p>Select a memory below</p>
+</div>
+
+<div class="memory-text" id="memoryText">
+  <div class="phrase" id="phrase"></div>
+</div>
+
+<div class="particle-info" id="particleInfo">
+  <div class="color-name" id="colorName"></div>
+  <div class="texture-name" id="textureName"></div>
+</div>
+
+<nav class="scent-nav" id="scentNav"></nav>
+
+<script>
+// ─── SCENT DEFINITIONS ───
+const SCENTS = [
+  {
+    id: 'rain',
+    label: 'Wet Earth',
+    sublabel: 'after rain',
+    phrase: 'The garden after\na summer storm',
+    colorName: 'Petrichor Umber',
+    textureName: 'Soft granular drift',
+    palette: ['#5b4a3f','#7a6e5d','#3d5c4a','#8a7b6b','#4e6852','#6b8f71','#3a3028'],
+    bg: [15, 18, 14],
+    particleCount: 220,
+    drift: { x: 0.15, y: -0.08 },
+    sizeRange: [2, 18],
+    opacityRange: [0.06, 0.22],
+    blendMode: 'screen',
+    shape: 'blob',
+    turbulence: 0.003,
+    secondary: ['#9aab8e','#c2b8a3'],
+  },
+  {
+    id: 'cookies',
+    label: 'Baking Cookies',
+    sublabel: "grandmother's kitchen",
+    phrase: 'Warm vanilla air\nand golden edges',
+    colorName: 'Burnt Vanilla Gold',
+    textureName: 'Pillowed warmth',
+    palette: ['#c9a96e','#e8c87a','#a67c52','#f2dca0','#d4a24e','#8b6938','#f0e4c8'],
+    bg: [22, 16, 10],
+    particleCount: 180,
+    drift: { x: 0.05, y: -0.25 },
+    sizeRange: [5, 30],
+    opacityRange: [0.05, 0.16],
+    blendMode: 'screen',
+    shape: 'round',
+    turbulence: 0.002,
+    secondary: ['#fff5e0','#e0c496'],
+  },
+  {
+    id: 'crayons',
+    label: 'Wax Crayons',
+    sublabel: 'the open box',
+    phrase: 'A waxy rainbow\nin a yellow box',
+    colorName: 'Paraffin Spectrum',
+    textureName: 'Smooth waxy layers',
+    palette: ['#d94f4f','#e8a838','#4ba3d9','#5cc462','#c75cd0','#e8d44d','#3a86c8'],
+    bg: [12, 12, 16],
+    particleCount: 200,
+    drift: { x: 0.1, y: 0.02 },
+    sizeRange: [3, 22],
+    opacityRange: [0.08, 0.25],
+    blendMode: 'screen',
+    shape: 'streak',
+    turbulence: 0.004,
+    secondary: ['#f5c6ec','#a8e6cf'],
+  },
+  {
+    id: 'grass',
+    label: 'Cut Grass',
+    sublabel: 'saturday morning',
+    phrase: 'Green blades staining\nbare knees and palms',
+    colorName: 'Chlorophyll Bright',
+    textureName: 'Sharp vegetal haze',
+    palette: ['#4a8c3f','#6abf5e','#2e6b28','#8fd47e','#3d7a35','#b4e8a0','#1f4f1a'],
+    bg: [8, 16, 8],
+    particleCount: 250,
+    drift: { x: 0.3, y: 0.05 },
+    sizeRange: [1, 14],
+    opacityRange: [0.07, 0.2],
+    blendMode: 'screen',
+    shape: 'blade',
+    turbulence: 0.006,
+    secondary: ['#d4f0b0','#78c96a'],
+  },
+  {
+    id: 'sunscreen',
+    label: 'Sunscreen',
+    sublabel: 'the beach towel',
+    phrase: 'Coconut lotion and\nsalt-crusted shoulders',
+    colorName: 'Ozone Cream White',
+    textureName: 'Hazy opalescent film',
+    palette: ['#f0e6d0','#e8d8b8','#f5edd8','#d4c8a8','#faf3e4','#c8bfa4','#f8f0da'],
+    bg: [16, 20, 26],
+    particleCount: 160,
+    drift: { x: 0.08, y: -0.04 },
+    sizeRange: [8, 40],
+    opacityRange: [0.03, 0.1],
+    blendMode: 'screen',
+    shape: 'round',
+    turbulence: 0.0015,
+    secondary: ['#ffe8b0','#ffd89e'],
+  },
+  {
+    id: 'rain_coat',
+    label: 'Rubber Raincoat',
+    sublabel: 'yellow slicker',
+    phrase: 'Rubbery warmth\nzipped to the chin',
+    colorName: 'Sulfur Peel Yellow',
+    textureName: 'Taut rubbered gloss',
+    palette: ['#e8c820','#d4b418','#f0d848','#c8a810','#f2e060','#b89808','#f8e878'],
+    bg: [14, 14, 10],
+    particleCount: 140,
+    drift: { x: -0.02, y: 0.18 },
+    sizeRange: [4, 26],
+    opacityRange: [0.06, 0.18],
+    blendMode: 'screen',
+    shape: 'drip',
+    turbulence: 0.002,
+    secondary: ['#f5e98c','#c8b430'],
+  },
+  {
+    id: 'campfire',
+    label: 'Campfire Smoke',
+    sublabel: 'in your hair',
+    phrase: 'Wood smoke curled\ninto every fiber',
+    colorName: 'Ember Charcoal',
+    textureName: 'Wisped particulate',
+    palette: ['#8b4513','#d2691e','#a0522d','#cd853f','#6b3410','#e8820c','#4a2508'],
+    bg: [12, 8, 6],
+    particleCount: 200,
+    drift: { x: 0.12, y: -0.35 },
+    sizeRange: [3, 28],
+    opacityRange: [0.04, 0.18],
+    blendMode: 'screen',
+    shape: 'smoke',
+    turbulence: 0.005,
+    secondary: ['#ff6a1a','#ff9a4a'],
+  },
+];
+
+// ─── CANVAS SETUP ───
+const canvas = document.getElementById('canvas-bg');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── STATE ───
+let currentScent = null;
+let targetScent = null;
+let particles = [];
+let bgColor = { r: 10, g: 10, b: 12 };
+let targetBg = { r: 10, g: 10, b: 12 };
+let transitionProgress = 1;
+let mouseX = W / 2, mouseY = H / 2;
+let time = 0;
+let started = false;
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+// ─── PARTICLE CLASS ───
+class Particle {
+  constructor(scent, index) {
+    this.reset(scent, index, true);
+  }
+
+  reset(scent, index, initial = false) {
+    this.x = initial ? Math.random() * W : (Math.random() < 0.5 ? -50 : W + 50);
+    this.y = Math.random() * H;
+    if (initial) this.x = Math.random() * W;
+    this.baseX = this.x;
+    this.baseY = this.y;
+
+    const allColors = [...scent.palette, ...scent.secondary];
+    this.color = allColors[index % allColors.length];
+    this.r = parseInt(this.color.slice(1,3), 16);
+    this.g = parseInt(this.color.slice(3,5), 16);
+    this.b = parseInt(this.color.slice(5,7), 16);
+
+    const [minS, maxS] = scent.sizeRange;
+    this.size = minS + Math.random() * (maxS - minS);
+    this.baseSize = this.size;
+
+    const [minO, maxO] = scent.opacityRange;
+    this.opacity = minO + Math.random() * (maxO - minO);
+    this.baseOpacity = this.opacity;
+
+    this.vx = (Math.random() - 0.5) * 0.3 + scent.drift.x;
+    this.vy = (Math.random() - 0.5) * 0.3 + scent.drift.y;
+    this.phase = Math.random() * Math.PI * 2;
+    this.phaseSpeed = 0.005 + Math.random() * 0.015;
+    this.turbulenceOffset = Math.random() * 1000;
+    this.shape = scent.shape;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random() - 0.5) * 0.01;
+    this.life = 1;
+    this.fadeIn = 0;
+    this.fadeSpeed = 0.008 + Math.random() * 0.012;
+  }
+
+  update(scent) {
+    this.fadeIn = Math.min(1, this.fadeIn + this.fadeSpeed);
+    this.phase += this.phaseSpeed;
+    this.rotation += this.rotSpeed;
+
+    // Turbulence (simplex-like noise approximation)
+    const t = time * scent.turbulence;
+    const noiseX = Math.sin((this.x * 0.003 + this.turbulenceOffset) + t * 50) *
+                   Math.cos((this.y * 0.004 + this.turbulenceOffset) + t * 30);
+    const noiseY = Math.cos((this.x * 0.004 - this.turbulenceOffset) + t * 40) *
+                   Math.sin((this.y * 0.003 - this.turbulenceOffset) + t * 60);
+
+    this.x += this.vx + noiseX * 0.5;
+    this.y += this.vy + noiseY * 0.5;
+
+    // Mouse influence
+    const dx = mouseX - this.x;
+    const dy = mouseY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 200) {
+      const force = (200 - dist) / 200 * 0.3;
+      this.x -= dx * force * 0.01;
+      this.y -= dy * force * 0.01;
+      this.opacity = this.baseOpacity + (1 - dist / 200) * 0.08;
+      this.size = this.baseSize * (1 + (1 - dist / 200) * 0.3);
+    } else {
+      this.opacity += (this.baseOpacity - this.opacity) * 0.05;
+      this.size += (this.baseSize - this.size) * 0.05;
+    }
+
+    // Breathing
+    this.size += Math.sin(this.phase) * 0.5;
+
+    // Wrap
+    if (this.x < -60) this.x = W + 50;
+    if (this.x > W + 60) this.x = -50;
+    if (this.y < -60) this.y = H + 50;
+    if (this.y > H + 60) this.y = -50;
+  }
+
+  draw(ctx) {
+    const alpha = this.opacity * this.fadeIn;
+    if (alpha <= 0) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.globalAlpha = alpha;
+
+    switch (this.shape) {
+      case 'round':
+        this.drawRound(ctx);
+        break;
+      case 'blob':
+        this.drawBlob(ctx);
+        break;
+      case 'streak':
+        this.drawStreak(ctx);
+        break;
+      case 'blade':
+        this.drawBlade(ctx);
+        break;
+      case 'drip':
+        this.drawDrip(ctx);
+        break;
+      case 'smoke':
+        this.drawSmoke(ctx);
+        break;
+      default:
+        this.drawRound(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  drawRound(ctx) {
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},1)`);
+    grad.addColorStop(0.5, `rgba(${this.r},${this.g},${this.b},0.4)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawBlob(ctx) {
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},0.8)`);
+    grad.addColorStop(0.7, `rgba(${this.r},${this.g},${this.b},0.2)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const r = this.size * (0.7 + 0.3 * Math.sin(this.phase * 2 + i * 1.2));
+      const px = Math.cos(angle) * r;
+      const py = Math.sin(angle) * r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.quadraticCurveTo(
+        Math.cos(angle - 0.3) * this.size * 1.1,
+        Math.sin(angle - 0.3) * this.size * 1.1,
+        px, py
+      );
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  drawStreak(ctx) {
+    const len = this.size * 2.5;
+    const grad = ctx.createLinearGradient(-len/2, 0, len/2, 0);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},0)`);
+    grad.addColorStop(0.3, `rgba(${this.r},${this.g},${this.b},0.8)`);
+    grad.addColorStop(0.7, `rgba(${this.r},${this.g},${this.b},0.8)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, len / 2, this.size * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawBlade(ctx) {
+    const h = this.size * 2;
+    const grad = ctx.createLinearGradient(0, -h/2, 0, h/2);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},0)`);
+    grad.addColorStop(0.5, `rgba(${this.r},${this.g},${this.b},0.7)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, -h / 2);
+    ctx.quadraticCurveTo(this.size * 0.5, 0, 0, h / 2);
+    ctx.quadraticCurveTo(-this.size * 0.3, 0, 0, -h / 2);
+    ctx.fill();
+  }
+
+  drawDrip(ctx) {
+    const grad = ctx.createRadialGradient(0, -this.size * 0.3, 0, 0, 0, this.size);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},0.9)`);
+    grad.addColorStop(0.6, `rgba(${this.r},${this.g},${this.b},0.3)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, -this.size);
+    ctx.quadraticCurveTo(this.size * 0.6, -this.size * 0.3, this.size * 0.5, this.size * 0.3);
+    ctx.quadraticCurveTo(0, this.size * 1.1, -this.size * 0.5, this.size * 0.3);
+    ctx.quadraticCurveTo(-this.size * 0.6, -this.size * 0.3, 0, -this.size);
+    ctx.fill();
+  }
+
+  drawSmoke(ctx) {
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.2);
+    grad.addColorStop(0, `rgba(${this.r},${this.g},${this.b},0.5)`);
+    grad.addColorStop(0.4, `rgba(${this.r},${this.g},${this.b},0.15)`);
+    grad.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+    ctx.fillStyle = grad;
+    // layered circles for wispy effect
+    for (let i = 0; i < 3; i++) {
+      const ox = Math.sin(this.phase + i * 2) * this.size * 0.3;
+      const oy = Math.cos(this.phase + i * 2) * this.size * 0.2;
+      ctx.beginPath();
+      ctx.arc(ox, oy, this.size * (0.6 + i * 0.2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ─── BUILD NAV ───
+const navEl = document.getElementById('scentNav');
+SCENTS.forEach((s, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'scent-btn';
+  btn.dataset.index = i;
+  btn.innerHTML = `<span class="label">${s.label}</span><span class="sublabel">${s.sublabel}</span>`;
+
+  // Color the top bar
+  const mainColor = s.palette[0];
+  btn.style.setProperty('--accent', mainColor);
+  btn.querySelector('.label').style.transition = 'color 0.5s ease';
+
+  btn.addEventListener('mouseenter', () => {
+    btn.style.cssText += ``;
+  });
+
+  const beforeStyle = document.createElement('style');
+  beforeStyle.textContent = `.scent-btn[data-index="${i}"]::before { background: ${mainColor}; }`;
+  document.head.appendChild(beforeStyle);
+
+  btn.addEventListener('click', () => selectScent(i));
+  navEl.appendChild(btn);
+});
+
+// ─── SELECT SCENT ───
+function selectScent(index) {
+  const scent = SCENTS[index];
+
+  document.querySelectorAll('.scent-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.scent-btn[data-index="${index}"]`).classList.add('active');
+
+  targetBg = { r: scent.bg[0], g: scent.bg[1], b: scent.bg[2] };
+
+  // Transition text
+  const memText = document.getElementById('memoryText');
+  const phraseEl = document.getElementById('phrase');
+  memText.classList.remove('visible');
+
+  setTimeout(() => {
+    phraseEl.innerHTML = scent.phrase.replace(/\n/g, '<br>');
+    memText.classList.add('visible');
+  }, 600);
+
+  // Info
+  const info = document.getElementById('particleInfo');
+  info.classList.remove('visible');
+  setTimeout(() => {
+    document.getElementById('colorName').textContent = scent.colorName;
+    document.getElementById('textureName').textContent = scent.textureName;
+    info.classList.add('visible');
+  }, 800);
+
+  // Generate new particles
+  const newParticles = [];
+  for (let i = 0; i < scent.particleCount; i++) {
+    newParticles.push(new Particle(scent, i));
+  }
+
+  // Crossfade old particles out
+  particles.forEach(p => {
+    p.dying = true;
+    p.deathSpeed = 0.01 + Math.random() * 0.01;
+  });
+
+  particles = [...particles, ...newParticles];
+  currentScent = scent;
+}
+
+// ─── AMBIENT LAYER ───
+function drawAmbient(scent) {
+  if (!scent) return;
+
+  // Large soft background orbs
+  const t = time * 0.0003;
+  scent.palette.slice(0, 3).forEach((col, i) => {
+    const r = parseInt(col.slice(1,3), 16);
+    const g = parseInt(col.slice(3,5), 16);
+    const b = parseInt(col.slice(5,7), 16);
+
+    const cx = W * 0.5 + Math.sin(t + i * 2.1) * W * 0.3;
+    const cy = H * 0.5 + Math.cos(t * 0.7 + i * 1.7) * H * 0.25;
+    const radius = Math.min(W, H) * (0.25 + Math.sin(t * 0.5 + i) * 0.08);
+
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.04)`);
+    grad.addColorStop(0.5, `rgba(${r},${g},${b},0.015)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ─── MAIN LOOP ───
+function animate() {
+  requestAnimationFrame(animate);
+  if (!started) return;
+
+  time++;
+
+  // Lerp background
+  bgColor.r += (targetBg.r - bgColor.r) * 0.02;
+  bgColor.g += (targetBg.g - bgColor.g) * 0.02;
+  bgColor.b += (targetBg.b - bgColor.b) * 0.02;
+
+  ctx.fillStyle = `rgb(${Math.round(bgColor.r)},${Math.round(bgColor.g)},${Math.round(bgColor.b)})`;
+  ctx.fillRect(0, 0, W, H);
+
+  drawAmbient(currentScent);
+
+  // Composite mode
+  if (currentScent) {
+    ctx.globalCompositeOperation = currentScent.blendMode || 'screen';
+  }
+
+  // Update & draw particles
+  particles = particles.filter(p => {
+    if (p.dying) {
+      p.fadeIn -= p.deathSpeed;
+      if (p.fadeIn <= 0) return false;
+    }
+    if (currentScent) p.update(currentScent);
+    p.draw(ctx);
+    return true;
+  });
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+animate();
+
+// ─── INTRO ───
+document.getElementById('intro').addEventListener('click', () => {
+  document.getElementById('intro').classList.add('hidden');
+  started = true;
+  // Auto-select first scent after a beat
+  setTimeout(() => selectScent(0), 400);
+});
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= SCENTS.length) {
+    selectScent(num - 1);
+  }
+});
+</script>
+</body>
+</html>

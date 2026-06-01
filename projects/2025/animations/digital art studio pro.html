@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Art Studio Pro</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-bg: #2c3e50;
+            --secondary-bg: #34495e;
+            --accent: #3498db;
+            --text: #ecf0f1;
+            --panel: #243342;
+            --hover: #e74c3c;
+            --success: #2ecc71;
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--primary-bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Main Layout */
+        .studio-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Tools Panel */
+        .tools-panel {
+            width: 60px;
+            background: var(--panel);
+            border-radius: var(--border-radius);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 4px;
+            background: var(--secondary-bg);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .tool-btn:hover {
+            background: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .tool-btn.active {
+            background: var(--hover);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            flex-grow: 1;
+            background: var(--panel);
+            border-radius: var(--border-radius);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #mainCanvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            width: 300px;
+            background: var(--panel);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .settings-section {
+            background: var(--secondary-bg);
+            padding: 15px;
+            border-radius: var(--border-radius);
+        }
+
+        .settings-section h3 {
+            margin-bottom: 15px;
+            color: var(--accent);
+            font-size: 16px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--primary-bg);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            background: var(--hover);
+        }
+
+        /* Color Palette */
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .color-option {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: var(--accent);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .action-btn:hover {
+            background: var(--hover);
+        }
+
+        /* Status Bar */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: var(--panel);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .status-item {
+            margin-right: 20px;
+        }
+
+        /* Tooltip */
+        [data-tooltip] {
+            position: relative;
+        }
+
+        [data-tooltip]:after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            margin-left: 10px;
+        }
+
+        [data-tooltip]:hover:after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="studio-container">
+        <!-- Tools Panel -->
+        <div class="tools-panel">
+            <button class="tool-btn" data-tool="brush" data-tooltip="Brush Tool">🖌️</button>
+            <button class="tool-btn" data-tool="eraser" data-tooltip="Eraser">⌫</button>
+            <button class="tool-btn" data-tool="fill" data-tooltip="Fill Tool">🪣</button>
+            <button class="tool-btn" data-tool="text" data-tooltip="Text Tool">T</button>
+            <button class="tool-btn" data-tool="shapes" data-tooltip="Shapes">⬡</button>
+            <button class="tool-btn" data-tool="select" data-tooltip="Select">◻</button>
+            <button class="tool-btn" data-tool="hand" data-tooltip="Hand Tool">✋</button>
+            <button class="tool-btn" data-tool="zoom" data-tooltip="Zoom Tool">🔍</button>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel">
+            <!-- Tool Settings -->
+            <div class="settings-section" id="toolSettings">
+                <h3>Tool Settings</h3>
+                <div class="control-group">
+                    <label>Size</label>
+                    <input type="range" class="slider" id="sizeSlider" min="1" max="100" value="10">
+                </div>
+                <div class="control-group">
+                    <label>Opacity</label>
+                    <input type="range" class="slider" id="opacitySlider" min="1" max="100" value="100">
+                </div>
+                <div class="control-group">
+                    <label>Hardness</label>
+                    <input type="range" class="slider" id="hardnessSlider" min="1" max="100" value="50">
+                </div>
+            </div>
+
+            <!-- Color Settings -->
+            <div class="settings-section">
+                <h3>Colors</h3>
+                <div class="color-palette">
+                    <div class="color-option" style="background: #000000"></div>
+                    <div class="color-option" style="background: #ffffff"></div>
+                    <div class="color-option" style="background: #ff0000"></div>
+                    <div class="color-option" style="background: #00ff00"></div>
+                    <div class="color-option" style="background: #0000ff"></div>
+                    <div class="color-option" style="background: #ffff00"></div>
+                    <div class="color-option" style="background: #ff00ff"></div>
+                    <div class="color-option" style="background: #00ffff"></div>
+                </div>
+                <input type="color" id="colorPicker" style="width: 100%">
+            </div>
+
+            <!-- Canvas Actions -->
+            <div class="settings-section">
+                <h3>Canvas Actions</h3>
+                <div style="display: grid; gap: 10px;">
+                    <button class="action-btn" id="clearBtn">Clear Canvas</button>
+                    <button class="action-btn" id="saveBtn">Save Artwork</button>
+                    <button class="action-btn" id="loadBtn">Load Image</button>
+                    <button class="action-btn" id="undoBtn">Undo</button>
+                    <button class="action-btn" id="redoBtn">Redo</button>
+                </div>
+            </div>
+
+            <!-- Effects -->
+            <div class="settings-section">
+                <h3>Effects</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button class="action-btn" data-effect="grayscale">Grayscale</button>
+                    <button class="action-btn" data-effect="invert">Invert</button>
+                    <button class="action-btn" data-effect="blur">Blur</button>
+                    <button class="action-btn" data-effect="sharpen">Sharpen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span class="status-item" id="coordinates">X: 0, Y: 0</span>
+        <span class="status-item" id="zoomLevel">Zoom: 100%</span>
+        <span class="status-item" id="canvasSize">Canvas: 800x600</span>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentTool = 'brush';
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let brushSize = 10;
+        let brushOpacity = 1;
+        let brushHardness = 0.5;
+        let currentColor = '#000000';
+        let undoStack = [];
+        let redoStack = [];
+
+        // Initialize canvas
+        function initCanvas() {
+            canvas.width = 800;
+            canvas.height = 600;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveState();
+            updateCanvasInfo();
+        }
+
+        // Tool selection
+        const toolButtons = document.querySelectorAll('.tool-btn');
+        toolButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTool = btn.dataset.tool;
+                updateCursor();
+            });
+        });
+
+        // Drawing functions
+        function startDrawing(e) {
+            isDrawing = true;
+            [lastX, lastY] = getCanvasCoordinates(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const [x, y] = getCanvasCoordinates(e);
+
+            ctx.globalAlpha = brushOpacity;
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            switch (currentTool) {
+                case 'brush':
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+                case 'eraser':
+                    ctx.strokeStyle = 'white';
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+            }
+
+            lastX = x;
+            lastY = y;
+            updateCoordinates(x, y);
+        }
+
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                saveState();
+            }
+        }
+
+        // Utility functions
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return [
+                (e.clientX - rect.left) * scaleX,
+                (e.clientY - rect.top) * scaleY
+            ];
+        }
+
+        function updateCursor() {
+            const size = brushSize;
+            const cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="none" stroke="black"/></svg>') ${size/2} ${size/2}, auto`;
+            canvas.style.cursor = currentTool === 'brush' ? cursor : 'default';
+        }
+
+        function updateCoordinates(x, y) {
+            document.getElementById('coordinates').textContent = `X: ${Math.round(x)}, Y: ${Math.round(y)}`;
+        }
+
+        function updateCanvasInfo() {
+            document.getElementById('canvasSize').textContent = `Canvas: ${canvas.width}x${canvas.height}`;
+        }
+
+        // State management
+        function saveState() {
+            undoStack.push(canvas.toDataURL());
+            redoStack = [];
+            if (undoStack.length > 20) undoStack.shift(); // Limit stack size
+        }
+
+        function undo() {
+            if (undoStack.length > 1) {
+                redoStack.push(undoStack.pop());
+                loadState(undoStack[undoStack.length - 1]);
+            }
+        }
+
+        function redo() {
+            if (redoStack.length > 0) {
+                const state = redoStack.pop();
+                undoStack.push(state);
+                loadState(state);
+            }
+        }
+
+        function loadState(state) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = state;
+        }
+
+        // Controls
+        document.getElementById('sizeSlider').addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value);
+            updateCursor();
+        });
+
+        document.getElementById('opacitySlider').addEventListener('input', (e) => {
+            brushOpacity = parseInt(e.target.value) / 100;
+        });
+
+        document.getElementById('hardnessSlider').addEventListener('input', (e) => {
+            brushHardness = parseInt(e.target.value) / 100;
+        });
+
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            currentColor = e.target.value;
+        });
+
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', () => {
+                currentColor = getComputedStyle(option).backgroundColor;
+                document.getElementById('colorPicker').value = rgbToHex(currentColor);
+            });
+        });
+
+        // Canvas actions
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveState();
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'artwork.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        saveState();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        });
+
+        document.getElementById('undoBtn').addEventListener('click', undo);
+        document.getElementById('redoBtn').addEventListener('click', redo);
+
+        // Effects
+        document.querySelectorAll('[data-effect]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const effect = btn.dataset.effect;
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                switch (effect) {
+                    case 'grayscale':
+                        for (let i = 0; i < data.length; i += 4) {
+                            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                            data[i] = data[i + 1] = data[i + 2] = avg;
+                        }
+                        break;
+                    case 'invert':
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = 255 - data[i];
+                            data[i + 1] = 255 - data[i + 1];
+                            data[i + 2] = 255 - data[i + 2];
+                        }
+                        break;
+                    case 'blur':
+                        // Simple box blur
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = canvas.width;
+                        tempCanvas.height = canvas.height;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCtx.filter = 'blur(4px)';
+                        tempCtx.drawImage(canvas, 0, 0);
+                        ctx.drawImage(tempCanvas, 0, 0);
+                        return;
+                    case 'sharpen':
+                        // Contrast enhancement as a simple sharpen
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = 128 + (data[i] - 128) * 1.2;
+                            data[i + 1] = 128 + (data[i + 1] - 128) * 1.2;
+                            data[i + 2] = 128 + (data[i + 2] - 128) * 1.2;
+                        }
+                        break;
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+                saveState();
+            });
+        });
+
+        // Event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        canvas.addEventListener('mousemove', (e) => {
+            const [x, y] = getCanvasCoordinates(e);
+            updateCoordinates(x, y);
+        });
+
+        // Helper functions
+        function rgbToHex(rgb) {
+            const values = rgb.match(/\d+/g);
+            return '#' + values.map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+        }
+
+        // Initialize
+        initCanvas();
+        toolButtons[0].click();
+    </script>
+</body>
+</html>

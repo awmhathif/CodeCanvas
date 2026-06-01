@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EmpathOS — Empathy Training Simulator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0d0f17;--surface:rgba(18,22,36,0.95);--card:rgba(24,30,50,0.9);
+--border:rgba(255,255,255,0.07);--text:#d0d8e8;--dim:#667;
+--accent1:#6c5ce7;--accent2:#00cec9;--accent3:#fd79a8;--accent4:#fdcb6e;--accent5:#55efc4;--accent6:#74b9ff;
+--warmth:#ff7675;--calm:#81ecec;--strength:#a29bfe;
+--radius:12px;--glow1:0 0 30px rgba(108,92,231,0.2);--glow2:0 0 30px rgba(0,206,201,0.2);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px}
+#app{width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+
+/* Header */
+#header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;backdrop-filter:blur(20px);z-index:10}
+.brand{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent1),var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.5px}
+.brand small{font-weight:400;font-size:11px;-webkit-text-fill-color:var(--dim);margin-left:8px;letter-spacing:1px}
+.header-right{display:flex;align-items:center;gap:10px}
+.btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;transition:all .25s;font-family:inherit;user-select:none}
+.btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.15)}
+.btn.primary{background:linear-gradient(135deg,var(--accent1),var(--accent2));border:none;color:#fff;font-weight:600}
+.btn.primary:hover{opacity:0.9;transform:translateY(-1px);box-shadow:var(--glow1)}
+.btn.accent{border-color:var(--accent1);color:var(--accent1)}
+.btn.accent:hover{background:rgba(108,92,231,0.1)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+
+/* Main Layout */
+#main{flex:1;display:flex;overflow:hidden;position:relative}
+#scene-area{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* Scenario Selector / Splash */
+#splash{position:absolute;inset:0;z-index:5;background:var(--bg);display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:40px 20px}
+#splash.hidden{display:none}
+#splash h1{font-size:28px;background:linear-gradient(135deg,var(--accent1),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+#splash .subtitle{color:var(--dim);font-size:14px;margin-bottom:30px;text-align:center;max-width:600px;line-height:1.6}
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;width:100%;max-width:1100px}
+.scenario-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+.scenario-card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,0.15);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.scenario-card .sc-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.scenario-card .sc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.scenario-card .sc-title{font-size:16px;font-weight:700}
+.scenario-card .sc-tag{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.scenario-card .sc-desc{font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:12px}
+.scenario-card .sc-people{display:flex;gap:6px;flex-wrap:wrap}
+.person-chip{display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.1)}
+.scenario-card .sc-meta{display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--dim)}
+
+/* Scene Display */
+#scene-display{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#scene-display.hidden{display:none}
+
+/* Narrative Header */
+#narrative-bar{padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+#narrative-bar .scene-title{font-weight:700;font-size:15px}
+#narrative-bar .scene-step{font-size:12px;color:var(--dim)}
+#context-bar{padding:10px 24px;background:rgba(108,92,231,0.06);border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;flex-shrink:0}
+#context-bar .label{color:var(--accent1);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+
+/* Perspective Panels */
+#perspectives{flex:1;display:flex;overflow:hidden;gap:0}
+.perspective-panel{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;position:relative;min-width:0}
+.perspective-panel:last-child{border-right:none}
+.pp-header{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.pp-header .pp-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:2px solid rgba(255,255,255,0.1)}
+.pp-header .pp-info{min-width:0}
+.pp-header .pp-name{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-header .pp-role{font-size:10px;color:var(--dim)}
+.pp-body{flex:1;overflow-y:auto;padding:16px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.pp-body::-webkit-scrollbar{width:4px}
+.pp-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Thought Bubbles */
+.thought{margin-bottom:14px;animation:thoughtIn 0.5s ease-out}
+@keyframes thoughtIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.thought-inner{font-size:13px;color:var(--dim);font-style:italic;line-height:1.6;padding:12px 16px;border-radius:12px;border:1px solid var(--border);position:relative;background:rgba(255,255,255,0.02)}
+.thought-inner::before{content:'💭';position:absolute;top:-10px;left:12px;font-size:14px;font-style:normal}
+.thought-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+
+/* Emotion Meter */
+.emotion-meter{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.em-tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08)}
+
+/* Dialogue */
+.dialogue{margin-bottom:14px;animation:thoughtIn 0.4s ease-out}
+.dialogue .speaker{font-size:11px;font-weight:700;margin-bottom:4px}
+.dialogue .speech{font-size:13px;line-height:1.5;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);position:relative}
+.dialogue .speech::after{content:'';position:absolute;top:-6px;left:16px;width:12px;height:12px;background:inherit;border-top:1px solid var(--border);border-left:1px solid var(--border);transform:rotate(45deg)}
+
+/* Needs/Values Sidebar */
+.needs-section{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.needs-section h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:8px}
+.need-bar{margin-bottom:8px}
+.need-bar .need-label{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;color:var(--dim)}
+.need-bar .need-label span:last-child{font-variant-numeric:tabular-nums}
+.need-track{height:4px;border-radius:2px;background:rgba(255,255,255,0.06);overflow:hidden}
+.need-track .fill{height:100%;border-radius:2px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1)}
+
+/* Action Section */
+#action-area{padding:16px 24px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+#action-area.hidden{display:none}
+#action-prompt{font-size:13px;margin-bottom:12px;line-height:1.5}
+#action-prompt .prompt-q{font-weight:700;color:var(--accent2)}
+#choices{display:flex;flex-wrap:wrap;gap:8px}
+.choice-btn{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;cursor:pointer;transition:all .3s;flex:1;min-width:200px;text-align:left}
+.choice-btn:hover{border-color:var(--accent1);transform:translateY(-2px);box-shadow:var(--glow1)}
+.choice-btn .ch-label{font-size:13px;font-weight:600;margin-bottom:4px}
+.choice-btn .ch-desc{font-size:11px;color:var(--dim);line-height:1.4}
+.choice-btn .ch-impact{font-size:10px;margin-top:6px;color:var(--accent4)}
+.choice-btn.selected{border-color:var(--accent2);background:rgba(0,206,201,0.08)}
+
+/* Reflection Panel */
+#reflection{position:fixed;top:0;right:0;width:380px;height:100%;background:var(--surface);border-left:1px solid var(--border);z-index:20;transform:translateX(100%);transition:transform .4s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;backdrop-filter:blur(20px)}
+#reflection.open{transform:translateX(0)}
+#reflection .ref-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+#reflection .ref-header h3{font-size:16px;background:linear-gradient(135deg,var(--accent3),var(--accent4));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#reflection .ref-body{flex:1;overflow-y:auto;padding:20px}
+.ref-section{margin-bottom:20px}
+.ref-section h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--accent1);margin-bottom:10px}
+.ref-insight{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;font-size:12px;line-height:1.6;color:var(--dim)}
+.ref-insight strong{color:var(--text)}
+.ref-score{display:flex;align-items:center;gap:12px;padding:14px;background:rgba(108,92,231,0.08);border-radius:8px;margin-bottom:12px}
+.ref-score .score-num{font-size:32px;font-weight:700;background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ref-score .score-label{font-size:12px;color:var(--dim)}
+.empathy-radar{width:100%;aspect-ratio:1;max-width:250px;margin:0 auto 16px}
+
+/* Journal */
+.journal-entry{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.journal-entry textarea{width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:12px;resize:vertical;min-height:60px;outline:none;line-height:1.5}
+.journal-entry textarea::placeholder{color:var(--dim)}
+
+/* Summary / Completion */
+#completion{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px}
+#completion.hidden{display:none}
+.completion-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:600px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
+.completion-card h2{font-size:24px;background:linear-gradient(135deg,var(--accent1),var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.completion-card .comp-sub{color:var(--dim);font-size:13px;margin-bottom:24px}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left;margin-bottom:20px}
+.comp-stat{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:14px}
+.comp-stat .cs-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:4px}
+.comp-stat .cs-value{font-size:22px;font-weight:700}
+.comp-takeaway{text-align:left;background:rgba(108,92,231,0.06);border-radius:8px;padding:16px;margin-bottom:16px}
+.comp-takeaway h4{font-size:12px;color:var(--accent1);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.comp-takeaway p{font-size:13px;line-height:1.6;color:var(--dim)}
+
+/* Responsive */
+@media(max-width:768px){
+  #perspectives{flex-direction:column}
+  .perspective-panel{border-right:none;border-bottom:1px solid var(--border);max-height:50%}
+  .scenario-grid{grid-template-columns:1fr}
+  #reflection{width:100%}
+  .comp-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+<div class="brand">EmpathOS<small>Empathy Training Simulator</small></div>
+<div class="header-right">
+<div class="btn" id="btn-journal" title="Open reflection journal">📓 Journal</div>
+<div class="btn" id="btn-back" style="display:none">← Scenarios</div>
+</div>
+</div>
+<div id="main">
+<div id="scene-area">
+<div id="splash">
+<h1>Walk in Their Shoes</h1>
+<p class="subtitle">Experience scenarios from multiple perspectives simultaneously. See how the same moment feels completely different depending on who you are — your background, needs, fears, and hopes shape everything.</p>
+<div class="scenario-grid" id="scenario-list"></div>
+</div>
+<div id="scene-display" class="hidden">
+<div id="narrative-bar">
+<div><div class="scene-title" id="scene-title"></div><div class="scene-step" id="scene-step"></div></div>
+<div style="display:flex;gap:6px">
+<div class="btn" id="btn-prev" style="padding:5px 10px">← Back</div>
+<div class="btn primary" id="btn-next">Continue →</div>
+</div>
+</div>
+<div id="context-bar"><div class="label">Setting</div><div id="context-text"></div></div>
+<div id="perspectives"></div>
+<div id="action-area" class="hidden">
+<div id="action-prompt"></div>
+<div id="choices"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="reflection">
+<div class="ref-header"><h3>📓 Reflection Journal</h3><div class="btn" id="btn-close-ref" style="padding:4px 10px">✕</div></div>
+<div class="ref-body" id="ref-body"></div>
+</div>
+
+<div id="completion" class="hidden">
+<div class="completion-card" id="completion-content"></div>
+</div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+
+/* ======================================================
+   SCENARIO DATA ENGINE
+   Each scenario has:
+   - characters with backgrounds, needs, fears, values
+   - steps with context, inner thoughts per character,
+     dialogue, emotion states, and choice points
+   - reflections and insights generated per choice
+   ====================================================== */
+
+const SCENARIOS = [
+{
+  id:'workplace',
+  title:'The Performance Review',
+  icon:'💼',
+  iconBg:'linear-gradient(135deg,#6c5ce7,#a29bfe)',
+  tag:'Workplace',tagColor:'var(--accent1)',
+  desc:'A manager delivers a difficult performance review. The employee has been struggling with personal issues no one knows about. An observing HR representative must balance policy with humanity.',
+  difficulty:'Intermediate',steps_count:8,
+  characters:[
+    {id:'manager',name:'Sarah Chen',role:'Senior Manager',icon:'👩‍💼',color:'#6c5ce7',
+     bg:'15 years at the company. Recently promoted. Under pressure from executives to improve team metrics. Genuinely cares about her team but struggles to show vulnerability.',
+     needs:['Respect from leadership','Team success','Clear communication','Professional growth'],
+     fears:['Being seen as weak','Failing her team','Losing her position'],
+     values:['Fairness','Excellence','Accountability']},
+    {id:'employee',name:'Marcus Rivera',role:'Software Developer',icon:'👨‍💻',color:'#00cec9',
+     bg:'3 years at the company. Single father of two. His mother was recently diagnosed with early-onset Alzheimer\'s. Performance dropped 2 months ago. Hasn\'t told anyone at work.',
+     needs:['Job security','Understanding','Flexibility','Dignity'],
+     fears:['Losing his job','Being judged','Not being enough for his kids','Mother\'s decline'],
+     values:['Family','Hard work','Privacy','Self-reliance']},
+    {id:'hr',name:'Dana Okafor',role:'HR Business Partner',icon:'👩‍⚖️',color:'#fd79a8',
+     bg:'New to this company, 8 months in. Experienced HR professional. Believes deeply in both policy compliance and human dignity. Working to change the company culture from within.',
+     needs:['Professional credibility','Ethical integrity','Making a difference'],
+     fears:['Being the "bad cop"','Missing something important','Bureaucracy hurting people'],
+     values:['Empathy','Justice','Systemic change','Active listening']}
+  ],
+  steps:[
+    {type:'scene',title:'Before the Meeting',
+     context:'Conference room B, 2:30 PM. Sarah has been preparing for this conversation all morning. Marcus was told to come to a "check-in meeting." Dana was asked to observe.',
+     thoughts:{
+       manager:{label:'Inner Thoughts',emotions:['Nervous','Determined','Conflicted'],
+         text:'I\'ve rehearsed this three times. The numbers don\'t lie — Marcus\'s output is down 40%. But he used to be one of my best. Something feels off. Should I lead with the data or ask how he\'s doing first? If I\'m too soft, leadership will say I\'m not managing. If I\'m too hard... God, I remember when my dad was sick and nobody at work noticed.'},
+       employee:{label:'Inner Thoughts',emotions:['Anxious','Exhausted','Guarded'],
+         text:'A "check-in meeting" with HR present. I know what this is. My stomach is in knots. I was up until 3 AM with Mom — she didn\'t recognize me again. I can barely keep my eyes open. I should tell them, but... they\'ll think I\'m making excuses. Dad always said handle your business. Don\'t show weakness.'},
+       hr:{label:'Inner Thoughts',emotions:['Alert','Thoughtful','Cautious'],
+         text:'Something about this case bothers me. Marcus\'s record was stellar until recently — that kind of sudden drop usually means something personal happened. I\'ve seen too many companies lose good people because nobody asked the right question. I need to watch for signs.'}
+     }},
+    {type:'dialogue',title:'Opening Words',
+     context:'Sarah opens the meeting. The fluorescent lights buzz. Marcus sits rigid, hands folded tightly.',
+     dialogue:[
+       {who:'manager',text:'Marcus, thanks for coming. I wanted to talk about how things have been going lately. Dana is here as part of our standard process for quarterly check-ins.'},
+       {who:'employee',text:'Sure. I figured this was coming.'},
+     ],
+     thoughts:{
+       manager:{label:'Reading the Room',emotions:['Surprised','Uncertain'],
+         text:'"I figured this was coming" — he sounds defeated, not defensive. That\'s... not what I expected. He looks exhausted. Those dark circles. When did those appear? Am I just now noticing?'},
+       employee:{label:'Behind the Mask',emotions:['Resigned','Ashamed','Fighting tears'],
+         text:'Keep it together, Marcus. Just get through this. Nod, agree to improve, leave without breaking down. The kids need this job. Mom\'s care costs $4,000 a month. I can\'t lose this.'},
+       hr:{label:'Observing',emotions:['Concerned','Attentive'],
+         text:'His body language — arms crossed, shoulders hunched, not making eye contact. And that response, "I figured this was coming." That\'s someone bracing for impact, not someone who\'s been coasting. Sarah started well, but I can see her reaching for the performance folder. Wait, Sarah — look at him first.'}
+     }},
+    {type:'choice',title:'The Critical Moment',
+     context:'Sarah opens the performance folder, then hesitates. She notices Marcus\'s hands trembling slightly.',
+     prompt:'Sarah notices Marcus is struggling. What approach should she take?',
+     choices:[
+       {label:'Lead with empathy',desc:'Put down the folder. Ask Marcus directly: "Before we get into numbers, how are you doing — really?"',
+        impact:'Opens space for vulnerability. Marcus may or may not share.',
+        effects:{manager:{emotions:['Brave','Vulnerable'],trust:15},employee:{emotions:['Surprised','Guarded hope'],trust:20},hr:{emotions:['Relieved','Hopeful'],trust:10}}},
+       {label:'Follow the process',desc:'Present the performance data objectively. Cover the metrics, set improvement goals, then ask for his input.',
+        impact:'Professional but may miss the human element. Marcus stays guarded.',
+        effects:{manager:{emotions:['Professional','Slightly guilty'],trust:-5},employee:{emotions:['Defensive','Isolated'],trust:-10},hr:{emotions:['Concerned','Watchful'],trust:-5}}},
+       {label:'Compromise approach',desc:'Briefly acknowledge you\'ve noticed a change, then present the data, followed by asking what support he needs.',
+        impact:'Balanced but may feel transactional. Signal care while maintaining structure.',
+        effects:{manager:{emotions:['Balanced','Hopeful'],trust:8},employee:{emotions:['Cautious','Slightly reassured'],trust:5},hr:{emotions:['Pragmatic','Neutral'],trust:5}}},
+       {label:'Defer to HR',desc:'Turn to Dana and ask her to lead the conversation, stepping back from the emotional weight.',
+        impact:'Avoids direct confrontation but may feel impersonal. Dana gets an opening.',
+        effects:{manager:{emotions:['Relieved','Avoidant'],trust:-8},employee:{emotions:['Confused','More anxious'],trust:-15},hr:{emotions:['Put on spot','Capable'],trust:0}}}
+     ]},
+    {type:'scene',title:'The Revelation',
+     context:'Through the conversation, Marcus\'s composure finally cracks. His voice breaks mid-sentence.',
+     thoughts:{
+       manager:{label:'In the Moment',emotions:['Shocked','Compassionate','Self-reflective'],
+         text:'He\'s crying. My best developer is crying in my conference room and I almost led with a spreadsheet. His mom has Alzheimer\'s. He\'s doing this alone. And I was worried about metrics. What kind of manager am I? What kind of person am I?'},
+       employee:{label:'The Dam Breaks',emotions:['Exposed','Relieved','Terrified'],
+         text:'I didn\'t mean to say it. It just came out — Mom\'s diagnosis, the nights, the kids asking why grandma is different. I can\'t believe I\'m crying at work. But God, it feels... lighter? Is that okay? Am I going to regret this?'},
+       hr:{label:'Witnessing',emotions:['Moved','Determined','Professional clarity'],
+         text:'There it is. The thing nobody asked about. I\'m watching Sarah\'s face change — she gets it now. This man has been drowning and coming to work every day pretending he can swim. We have FMLA, we have EAP, we have flex time. None of that matters if we don\'t first say: I see you. You matter.'}
+     }},
+    {type:'choice',title:'Response to Vulnerability',
+     context:'Marcus has just shared his situation. The room is heavy with silence. Sarah and Dana exchange a glance.',
+     prompt:'How should the team respond to Marcus\'s disclosure?',
+     choices:[
+       {label:'Immediate support',desc:'Sarah moves closer, speaks from the heart: "I\'m so sorry, Marcus. Let\'s forget the review. What do you need right now?"',
+        impact:'Deeply human. May sacrifice procedural needs but builds profound trust.',
+        effects:{manager:{emotions:['Warm','Connected'],trust:25},employee:{emotions:['Grateful','Seen'],trust:30},hr:{emotions:['Touched','Slightly worried about process'],trust:15}}},
+       {label:'Structured compassion',desc:'Acknowledge his pain, then Dana outlines specific support options: FMLA, flexible hours, EAP counseling, modified goals.',
+        impact:'Caring AND practical. Shows both heart and resources.',
+        effects:{manager:{emotions:['Reassured','Supportive'],trust:15},employee:{emotions:['Hopeful','Validated'],trust:20},hr:{emotions:['Fulfilled','Competent'],trust:20}}},
+       {label:'Give space first',desc:'"Take a moment, Marcus. There\'s no rush. When you\'re ready, we\'ll figure this out together."',
+        impact:'Respects his pace. May feel like stalling but honors his dignity.',
+        effects:{manager:{emotions:['Patient','Uncertain'],trust:10},employee:{emotions:['Grateful for space','Still afraid'],trust:12},hr:{emotions:['Respectful','Waiting'],trust:8}}}
+     ]},
+    {type:'scene',title:'After the Room',
+     context:'The meeting ends. Each person walks to a different part of the building.',
+     thoughts:{
+       manager:{label:'Walking Back to Her Office',emotions:['Changed','Determined','Humble'],
+         text:'I almost missed it. I was so focused on being a "good manager" that I almost forgot to be a good human. Marcus has been carrying a mountain and I was counting his commits. I need to rethink how I check in with my whole team. Who else is silently struggling? I need to talk to Dana about creating a real support system.'},
+       employee:{label:'In the Stairwell',emotions:['Raw','Lighter','Uncertain hope'],
+         text:'I don\'t know if I did the right thing. But for the first time in months, someone at work knows. I\'m not pretending. Sarah\'s face when she understood — I don\'t think that was pity. I think that was recognition. Maybe I don\'t have to do this alone. Maybe asking for help isn\'t the same as giving up.'},
+       hr:{label:'At Her Desk',emotions:['Motivated','Reflective','Purposeful'],
+         text:'This is why I do this work. Not the policies, not the compliance — the moments where a system either catches someone or lets them fall. We caught Marcus today. But how many others have we missed? I\'m drafting a proposal tonight: mandatory wellness check-ins, not performance-triggered — proactive. Every person in this building has a story we don\'t know.'}
+     }},
+    {type:'choice',title:'Moving Forward',
+     context:'One week later. Sarah needs to decide how to handle Marcus\'s situation going forward while managing team dynamics.',
+     prompt:'What systemic change should come from this experience?',
+     choices:[
+       {label:'Personal approach',desc:'Sarah commits to monthly 1-on-1s focused on wellbeing, not just work. She shares her own struggles occasionally to normalize vulnerability.',
+        impact:'Builds deep team trust. Time-intensive. May not scale.',
+        effects:{manager:{emotions:['Committed','Growing'],trust:15},employee:{emotions:['Supported','Valued'],trust:20},hr:{emotions:['Encouraged','Wants more'],trust:10}}},
+       {label:'Systemic change',desc:'Dana proposes company-wide "Life Check" program — quarterly personal wellness conversations separate from performance reviews.',
+        impact:'Scalable change. May feel institutional. Long-term cultural shift.',
+        effects:{manager:{emotions:['Supported','Hopeful'],trust:12},employee:{emotions:['Protected','Part of something'],trust:15},hr:{emotions:['Fulfilled','Purposeful'],trust:25}}},
+       {label:'Both personal and systemic',desc:'Combine Sarah\'s personal leadership shift with Dana\'s policy proposal. Marcus is asked to advise on the program design.',
+        impact:'Comprehensive but ambitious. Turns pain into purpose.',
+        effects:{manager:{emotions:['Inspired','Busy but fulfilled'],trust:20},employee:{emotions:['Empowered','Meaningful'],trust:28},hr:{emotions:['Thrilled','Challenged'],trust:22}}}
+     ]},
+    {type:'scene',title:'Epilogue — Three Months Later',
+     context:'The "Life Check" program has been running for two months. Marcus\'s modified schedule lets him manage his mother\'s care.',
+     thoughts:{
+       manager:{label:'Reflection',emotions:['Proud','Humbled','Grateful'],
+         text:'Marcus is back to shipping great code — not because I pressured him, but because he finally has room to breathe. The team dynamic has changed too. People are more honest in our 1-on-1s. Last week, two other people shared things they\'d been hiding. Turns out vulnerability isn\'t weakness. It\'s the foundation of a real team.'},
+       employee:{label:'Reflection',emotions:['Healing','Purposeful','Connected'],
+         text:'Mom isn\'t getting better. That\'s the reality. But I\'m getting better at carrying it. The flexible schedule, the EAP counselor, the team knowing — it all helps. And helping design the Life Check program? That gave me something I didn\'t expect: meaning. My pain isn\'t wasted if it helps someone else not suffer in silence.'},
+       hr:{label:'Reflection',emotions:['Accomplished','Hopeful','Aware'],
+         text:'Sixty-three employees have gone through the first round of Life Checks. Fourteen disclosed situations that needed support. Fourteen people who might have silently burned out or left. The ROI people keep asking about? It\'s sitting in those fourteen stories. You can\'t put a number on a person feeling seen.'}
+     }}
+  ]
+},
+{
+  id:'school',
+  title:'The New Student',
+  icon:'🏫',
+  iconBg:'linear-gradient(135deg,#00cec9,#81ecec)',
+  tag:'Education',tagColor:'var(--accent2)',
+  desc:'A refugee student joins a new school mid-year. The teacher, an established student, and the new student each navigate belonging, bias, and connection.',
+  difficulty:'Beginner',steps_count:7,
+  characters:[
+    {id:'teacher',name:'Ms. Joanne Park',role:'8th Grade Teacher',icon:'👩‍🏫',color:'#00cec9',
+     bg:'Veteran teacher, 12 years. Korean-American. Passionate but overworked with 32 students. Wants to help but worries about giving too much attention to one student.',
+     needs:['Order in classroom','Every student succeeding','Recognition','Balance'],
+     fears:['Failing a student','Cultural insensitivity','Burnout'],
+     values:['Education equity','Patience','Cultural awareness']},
+    {id:'newkid',name:'Amira Hassan',role:'New Student',icon:'👧',color:'#fd79a8',
+     bg:'14 years old. Arrived from Syria 3 months ago via Jordan. Speaks Arabic and basic English. Brilliant in math. Lost her father in the conflict. Lives with mom and younger brother.',
+     needs:['Safety','Belonging','To be seen for strengths','Normalcy'],
+     fears:['Being pitied','Standing out','Losing Arabic self','Violence'],
+     values:['Family','Education','Dignity','Resilience']},
+    {id:'student',name:'Tyler Brooks',role:'Popular 8th Grader',icon:'👦',color:'#fdcb6e',
+     bg:'Class president. Parents are active in school community. Generally kind but sheltered. Has never had a close friend from a very different background. Wants to do the right thing but unsure how.',
+     needs:['Social approval','Being good','Understanding the world','Authenticity'],
+     fears:['Saying the wrong thing','Being called ignorant','Losing social standing'],
+     values:['Fairness','Coolness','Kindness','Honesty']}
+  ],
+  steps:[
+    {type:'scene',title:'First Morning',
+     context:'Monday, 8:15 AM. Amira stands at the classroom door. Ms. Park is setting up. Tyler is at his desk surrounded by friends.',
+     thoughts:{
+       teacher:{label:'Planning',emotions:['Hopeful','Anxious','Prepared'],
+         text:'New student today — Amira Hassan, refugee resettlement program. I read her file last night. Top math scores in the transit school. Lost her father. I want to get this right. Do I introduce her specially or just let her blend in? If I say "refugee" am I labeling her? If I don\'t acknowledge her journey, am I erasing it?'},
+       newkid:{label:'At the Door',emotions:['Terrified','Brave','Lonely'],
+         text:'بسم الله. Another new school. Another room full of eyes. In Aleppo I was the top student. Here I am "the refugee girl." My English — I practice every night but the words get stuck between my brain and my mouth. Please, just let there be one person who looks at me like a person, not a project.'},
+       student:{label:'At His Desk',emotions:['Curious','Awkward','Good-intentioned'],
+         text:'There\'s a new girl at the door. She looks scared. I should say hi, right? But what do I even say? "Welcome to America"? That sounds weird. Mom said I should be nice to her because she\'s a refugee. But is that... condescending? I don\'t want to be the kid who "helped the refugee" for clout. I just genuinely want to be friendly. Why is this so complicated?'}
+     }},
+    {type:'choice',title:'The Introduction',
+     context:'Ms. Park needs to introduce Amira to the class. Amira is gripping her notebook. 32 pairs of eyes wait.',
+     prompt:'How should Ms. Park introduce Amira?',
+     choices:[
+       {label:'Celebrate her strengths',desc:'"Everyone, this is Amira. She\'s joining us from a school in Jordan and she\'s an amazing mathematician. Amira, we\'re lucky to have you."',
+        impact:'Positive framing. May put pressure on Amira to perform. Highlights ability.',
+        effects:{teacher:{emotions:['Warm','Hopeful'],trust:10},newkid:{emotions:['Proud','Pressured','Seen'],trust:8},student:{emotions:['Impressed','Interested'],trust:10}}},
+       {label:'Keep it simple',desc:'"Class, please welcome Amira Hassan. Amira, there\'s a seat next to Tyler. Everyone, let\'s make her feel at home."',
+        impact:'Low-key, dignified. No special labels. Treats her as any new student.',
+        effects:{teacher:{emotions:['Calm','Measured'],trust:5},newkid:{emotions:['Relieved','Invisible','Safe'],trust:12},student:{emotions:['Casual','Willing'],trust:5}}},
+       {label:'Share the context',desc:'"Amira has come a long way to be here — literally. She speaks Arabic and is learning English. I know this class will show her what a welcoming community looks like."',
+        impact:'Honest about challenges. Risks "othering." Calls community to action.',
+        effects:{teacher:{emotions:['Direct','Hopeful'],trust:8},newkid:{emotions:['Exposed','Hopeful','Nervous'],trust:2},student:{emotions:['Motivated','Slightly uncomfortable'],trust:6}}}
+     ]},
+    {type:'scene',title:'Lunchtime',
+     context:'The cafeteria. Amira sits alone with food she doesn\'t recognize. Tyler is at the popular table. Ms. Park watches from the faculty area.',
+     thoughts:{
+       teacher:{label:'From Across the Room',emotions:['Worried','Torn','Reflective'],
+         text:'She\'s alone. Of course she\'s alone — it\'s day one. But my heart hurts watching her. I could go sit with her, but would that make it worse? A teacher sitting with you on day one is a neon sign saying "this kid has no friends." I need to trust the kids. But trust is hard when you\'ve seen how cruel middle schoolers can be.'},
+       newkid:{label:'At the Empty Table',emotions:['Isolated','Missing home','Resilient'],
+         text:'In Jordan, lunch was all of us together — Mama would pack grape leaves and we\'d share everything. Here the food is strange and no one shares. I want to cry but crying will make it worse. I count the ceiling tiles instead. That\'s a trick I learned — when you want to cry, count something. 47 tiles in this row.'},
+       student:{label:'The Popular Table',emotions:['Guilty','Conflicted','Brave impulse'],
+         text:'She\'s sitting alone. Everyone can see it and nobody\'s doing anything. My friends are talking about the game this weekend. I keep looking over. Jake says "why do you keep staring at the new girl?" and everyone laughs. If I go over there, I\'ll get teased. If I don\'t, I\'ll think about this tonight at 2 AM. Ugh.'}
+     }},
+    {type:'choice',title:'Tyler\'s Choice',
+     context:'Tyler has been glancing at Amira for 10 minutes. His friend Jake notices and makes a comment.',
+     prompt:'What should Tyler do?',
+     choices:[
+       {label:'Walk over alone',desc:'Tyler picks up his tray, walks to Amira\'s table, and sits down. "Hey. I\'m Tyler. The pizza here is actually okay on Wednesdays."',
+        impact:'Brave. Risks social capital. Could be the bridge Amira needs.',
+        effects:{teacher:{emotions:['Proud','Hopeful'],trust:15},newkid:{emotions:['Shocked','Grateful','Cautiously happy'],trust:18},student:{emotions:['Nervous','Proud of self'],trust:12}}},
+       {label:'Bring friends over',desc:'Tyler says "Come on, let\'s go sit with the new girl" and brings 2 friends to Amira\'s table.',
+        impact:'Power in numbers. May feel overwhelming. Shows social leadership.',
+        effects:{teacher:{emotions:['Impressed','Watchful'],trust:12},newkid:{emotions:['Overwhelmed','Grateful','On display'],trust:8},student:{emotions:['Confident','Leader'],trust:15}}},
+       {label:'Invite her over',desc:'Tyler walks to Amira: "Hey, want to come sit with us?" and gestures to his table.',
+        impact:'Inclusive. But puts Amira in unfamiliar territory with a big group.',
+        effects:{teacher:{emotions:['Pleased','Curious'],trust:10},newkid:{emotions:['Terrified','Hopeful','Brave'],trust:5},student:{emotions:['Generous','Hopeful'],trust:10}}},
+       {label:'Stay put, say hi later',desc:'Tyler decides the cafeteria is too public. He\'ll find Amira after lunch in a quieter moment.',
+        impact:'Less dramatic. Less impactful. May never happen. But respects Amira\'s space.',
+        effects:{teacher:{emotions:['Understanding','Wishing for more'],trust:2},newkid:{emotions:['Still lonely','Counting tiles'],trust:-2},student:{emotions:['Justified','Slightly guilty'],trust:0}}}
+     ]},
+    {type:'scene',title:'The Math Class Moment',
+     context:'Wednesday. Ms. Park puts a challenging problem on the board. Nobody can solve it. Amira\'s hand slowly rises.',
+     thoughts:{
+       teacher:{label:'A Spark',emotions:['Excited','Careful','Strategic'],
+         text:'Her hand is up. She KNOWS it. I can see it in her eyes — that light that every teacher lives for. But if I call on her and her English struggles mid-explanation, will it help or hurt? If I DON\'T call on her, I\'m denying her the one thing she\'s confident about. The math speaks for itself. Call on her, Joanne.'},
+       newkid:{label:'The Moment',emotions:['Confident','Nervous','Alive'],
+         text:'I KNOW this. This is a quadratic pattern — we learned it in Syria, it\'s beautiful. My hand goes up before I can stop it. Now everyone is looking. My heart pounds. The numbers I can do. The English to explain... I will try. Math is math in every language. The symbols don\'t need translation. This is where I am me.'},
+       student:{label:'Watching',emotions:['Surprised','Admiring','Mind-opening'],
+         text:'Wait — she knows this? Mrs. Park\'s been stuck on this for five minutes and Amira just... raised her hand like it was nothing. She\'s going to the board. Her writing is different — she does the numbers right to left first, then catches herself. But the MATH. It\'s perfect. Actually, it\'s a better solution than what\'s in the textbook. Okay, that\'s actually really cool.'}
+     }},
+    {type:'choice',title:'After the Breakthrough',
+     context:'Amira solved the problem elegantly. Some students clapped, some looked annoyed. Tyler was genuinely impressed.',
+     prompt:'How should the class respond to Amira\'s mathematical gift?',
+     choices:[
+       {label:'Normalize it',desc:'Ms. Park says "Great work, Amira" the same way she\'d praise any student, then moves on. No special fuss.',
+        impact:'Treats her as equal. No spotlight. She\'s just another smart kid in class.',
+        effects:{teacher:{emotions:['Wise','Equal'],trust:10},newkid:{emotions:['Normal','Happy','Enough'],trust:15},student:{emotions:['Respectful','Learning'],trust:8}}},
+       {label:'Celebrate publicly',desc:'Ms. Park highlights the elegance of Amira\'s approach and asks her to explain her method to the class.',
+        impact:'Showcases her brilliance. May feel like being "used" or may empower her.',
+        effects:{teacher:{emotions:['Proud','Strategic'],trust:12},newkid:{emotions:['Proud','Anxious about English','Visible'],trust:8},student:{emotions:['Impressed','Humbled'],trust:10}}},
+       {label:'Create partnership',desc:'Ms. Park pairs Amira with Tyler for an advanced math project, recognizing both their strengths.',
+        impact:'Builds bridge between characters. Creates natural connection.',
+        effects:{teacher:{emotions:['Clever','Hopeful'],trust:15},newkid:{emotions:['Purposeful','Connected','Cautious'],trust:12},student:{emotions:['Excited','Respectful'],trust:14}}}
+     ]},
+    {type:'scene',title:'Epilogue — One Semester Later',
+     context:'June. Last week of school. The classroom feels different than it did in January.',
+     thoughts:{
+       teacher:{label:'End of Year',emotions:['Fulfilled','Bittersweet','Wiser'],
+         text:'Amira\'s English has flourished — she still searches for words sometimes, but she\'s found her voice. Tyler has changed too; he started a "culture exchange" lunch where students share food from home. He told me last week he wants to study international relations. And me? I learned that inclusion isn\'t about making space at the table. It\'s about changing the table.'},
+       newkid:{label:'Looking Forward',emotions:['Belonging','Grateful','Still grieving','Growing'],
+         text:'I still miss Baba every day. I still dream in Arabic. I still count ceiling tiles when I want to cry. But now I also dream in English sometimes. Tyler taught me to say "that\'s fire" which apparently means good. I taught him to say الحمد لله. On the last day of school, Ms. Park gave me a card that said "You didn\'t just join our class. You made it better." I kept it under my pillow.'},
+       student:{label:'Growth',emotions:['Changed','Open','Humble','Proud'],
+         text:'My mom asked me what I learned this year. I said a lot of stuff about algebra and history. But the real answer? I learned that being kind isn\'t about doing something FOR someone. It\'s about doing something WITH them. Amira isn\'t "the refugee girl" anymore. She\'s the person who taught me that brave doesn\'t mean not being scared. It means sitting down at a new lunch table anyway.'}
+     }}
+  ]
+},
+{
+  id:'family',
+  title:'The Diagnosis',
+  icon:'🏥',
+  iconBg:'linear-gradient(135deg,#fd79a8,#e17055)',
+  tag:'Family & Health',tagColor:'var(--accent3)',
+  desc:'A parent receives a serious medical diagnosis. Their adult child, their spouse, and the doctor each face this moment carrying different weights.',
+  difficulty:'Advanced',steps_count:7,
+  characters:[
+    {id:'patient',name:'Robert "Bob" Tanaka',role:'The Patient',icon:'👴',color:'#fd79a8',
+     bg:'67 years old. Retired engineer. Married 40 years. Two adult children. Has always been the "strong one" in the family. Never missed a day of work. Just diagnosed with Stage 3 pancreatic cancer.',
+     needs:['Control','Dignity','Time with family','Honesty'],
+     fears:['Being a burden','Pain','Losing independence','Family falling apart'],
+     values:['Strength','Providing','Privacy','Acceptance']},
+    {id:'spouse',name:'Keiko Tanaka',role:'The Spouse',icon:'👵',color:'#00cec9',
+     bg:'65 years old. Retired nurse. Has medical knowledge that is both a blessing and a curse — she understands the prognosis too well. They\'ve been each other\'s everything for four decades.',
+     needs:['To be strong for Bob','To process her own grief','Partnership','Truth'],
+     fears:['Life without Bob','Medical suffering she can\'t fix','Being strong enough'],
+     values:['Love','Partnership','Honesty','Grace']},
+    {id:'child',name:'Emily Tanaka-Morrison',role:'Adult Daughter',icon:'👩',color:'#fdcb6e',
+     bg:'38 years old. Lives 2 hours away. Marketing director. Mom of two young kids. Has always had a complicated relationship with her father — loves him deeply but they never learned to say it directly.',
+     needs:['More time','To fix things','Closure','Connection'],
+     fears:['Regret','Not getting to say what matters','Her kids losing grandpa','Repeating emotional distance'],
+     values:['Family','Expression','Love','Presence']}
+  ],
+  steps:[
+    {type:'scene',title:'The Doctor\'s Office',
+     context:'The oncologist has just delivered the diagnosis. The room is silent except for the ticking of a wall clock.',
+     thoughts:{
+       patient:{label:'First Impact',emotions:['Numb','Strangely calm','Calculating'],
+         text:'Pancreatic. Stage 3. The doctor is still talking but I\'m doing math in my head — that\'s what engineers do. Median survival rates, treatment timelines, how many more Christmases. The numbers aren\'t good. Keiko is squeezing my hand so hard her knuckles are white. I should be falling apart, but I feel... still. Like the eye of a hurricane. The storm is coming. It just hasn\'t hit yet.'},
+       spouse:{label:'The Nurse Knows',emotions:['Devastated','Calculating','Holding it together'],
+         text:'I knew before he said it. The jaundice, the weight loss, the back pain — I\'ve been a nurse for 35 years. I diagnosed him in my head three weeks ago and spent every night since praying I was wrong. I wasn\'t wrong. Stage 3 pancreatic — I know what this means. I know the survival curves. I know what\'s coming. And right now I have to be his wife, not his nurse, but the nurse in me won\'t stop screaming.'},
+       child:{label:'Phone Rings',emotions:['Confused','Dread','Denial'],
+         text:'Mom is calling in the middle of a Tuesday. Mom never calls during the day — she texts. My chest tightens before I even answer. "Emily, we need to talk about your father." The floor drops. I\'m standing in my office and the world outside keeps moving and I want to scream STOP. Stop everything. My dad. My complicated, stubborn, quietly loving dad.'}
+     }},
+    {type:'choice',title:'How to Tell Emily',
+     context:'Bob and Keiko are in the car driving home. They need to decide how to tell Emily.',
+     prompt:'How should Bob and Keiko share the news with their daughter?',
+     choices:[
+       {label:'Call together now',desc:'Keiko calls Emily on speakerphone. Both parents share the news together, honestly and immediately.',
+        impact:'Direct. Painful. Inclusive. Treats Emily as an adult partner in this.',
+        effects:{patient:{emotions:['Dreading','Decisive'],trust:10},spouse:{emotions:['Brave','Supportive'],trust:12},child:{emotions:['Shocked','Grateful for honesty'],trust:15}}},
+       {label:'Wait for the weekend',desc:'Bob wants to process first. They\'ll invite Emily for dinner Saturday and tell her in person.',
+        impact:'More gentle. Gives Bob time. But Emily might sense something is wrong.',
+        effects:{patient:{emotions:['Need for control','Processing'],trust:5},spouse:{emotions:['Uneasy','Patient'],trust:0},child:{emotions:['Suspicious','Anxious all week'],trust:-5}}},
+       {label:'Bob calls alone',desc:'Bob insists on calling Emily himself. "She\'s my daughter. I should be the one."',
+        impact:'Paternal. May be hard for both. Could be a breakthrough in their relationship.',
+        effects:{patient:{emotions:['Determined','Fatherly','Terrified'],trust:8},spouse:{emotions:['Worried','Respectful'],trust:5},child:{emotions:['Surprised','Moved','Heartbroken'],trust:18}}}
+     ]},
+    {type:'scene',title:'Emily Comes Home',
+     context:'The next weekend. Emily drives two hours with her family. She hasn\'t slept in three nights.',
+     thoughts:{
+       patient:{label:'Watching Her Arrive',emotions:['Love','Guilt','Determination'],
+         text:'She looks tired. She\'s been crying — I can tell even though she\'ll deny it. My daughter, who used to sit on my lap and ask me to explain how bridges stay up. I never told her enough that she was my greatest creation. Not the buildings I designed. Her. How do you say 40 years of unexpressed love before the clock runs out?'},
+       spouse:{label:'The House Full Again',emotions:['Bittersweet','Maternal','Exhausted'],
+         text:'The grandkids are running through the house and for a moment everything sounds normal. But I watch Emily watching Bob and I see myself — terrified, calculating, trying to memorize everything. She got that from me, the way she processes through observation. I need to make sure she knows: it\'s okay to fall apart. I give her permission. Even if I can\'t give it to myself.'},
+       child:{label:'Walking In',emotions:['Barely holding together','Hyperfocused','Regretful'],
+         text:'Dad looks thinner. How did I not notice last month? He\'s wearing his Stanford sweater, the one mom keeps trying to throw away. He hugs me and I almost lose it — he smells like sawdust and old spice and home. I have so many things to say and all of them feel too small. I want to tell him I\'m sorry for every missed phone call, every shortened visit, every time I chose busy over him.'}
+     }},
+    {type:'choice',title:'The Unspoken Words',
+     context:'After dinner. The grandkids are asleep. Bob, Keiko, and Emily sit in the living room. The air is thick with everything unsaid.',
+     prompt:'The silence is heavy. Who breaks it, and how?',
+     choices:[
+       {label:'Emily breaks down',desc:'Emily starts crying: "Dad, I don\'t know how to do this. I don\'t know how to lose you."',
+        impact:'Raw and honest. Opens the floodgates. Forces the family past their walls.',
+        effects:{patient:{emotions:['Heartbroken','Freed','Fatherly'],trust:25},spouse:{emotions:['Relieved someone said it','Crying too'],trust:20},child:{emotions:['Exposed','Released','Connected'],trust:22}}},
+       {label:'Bob takes charge',desc:'Bob clears his throat: "I want to talk about what matters. Not the medical stuff. The real stuff."',
+        impact:'Brave. Unusual for Bob. Shows growth even in crisis.',
+        effects:{patient:{emotions:['Courageous','Vulnerable','Present'],trust:20},spouse:{emotions:['Amazed','Loving','Tearful'],trust:22},child:{emotions:['Stunned','Listening','Hopeful'],trust:25}}},
+       {label:'Keiko bridges',desc:'Keiko takes both their hands: "We\'re all thinking the same thing and nobody wants to say it. So let me: we\'re scared. And that\'s okay."',
+        impact:'The mediator. Gives everyone permission. The nurse becomes the healer.',
+        effects:{patient:{emotions:['Grateful','Relieved'],trust:18},spouse:{emotions:['Strong','Loving','Vulnerable'],trust:20},child:{emotions:['Safe','Open'],trust:20}}}
+     ]},
+    {type:'scene',title:'The Conversation That Matters',
+     context:'They talk until 2 AM. Things that have never been said are finally spoken.',
+     thoughts:{
+       patient:{label:'Finally Speaking',emotions:['Free','Grieving','Loving','Present'],
+         text:'I told Emily she\'s the best thing I ever made. Better than any bridge or building. I told her I was sorry for every recital I missed, every time I said "I\'m busy." I told Keiko that marrying her was the smartest thing I ever did, and I\'m not a man who says that lightly. Funny — it took a death sentence to teach me how to live in a conversation.'},
+       spouse:{label:'Forty Years in One Night',emotions:['Full','Heartbroken','Grateful','Raw'],
+         text:'He said things tonight he\'s never said in forty years. I watched my husband and my daughter finally see each other — really see each other. Emily told him she chose engineering for her minor because of him, and he had no idea. He cried. Robert Tanaka cried, and the world didn\'t end. It became more real.'},
+       child:{label:'What I Needed',emotions:['Whole','Grieving','Present','Changed'],
+         text:'Dad told me I was his greatest creation. I\'ve waited 38 years to hear that. And then he said, "I should have said it every day." We\'re sitting here losing time and finding each other simultaneously. I\'m going to reduce my hours. I\'m going to drive here every weekend. I\'m going to teach my kids what I\'m learning right now: say it today. Say it now. There might not be a later.'}
+     }},
+    {type:'scene',title:'Epilogue — The Time Between',
+     context:'The months that follow are both the hardest and most beautiful of their lives.',
+     thoughts:{
+       patient:{label:'Living Now',emotions:['Peaceful','Grateful','Afraid','Present'],
+         text:'The chemo is brutal. Some days I can barely stand. But Emily was here last weekend with the kids, and I taught my grandson to build a birdhouse. He has my hands — the same long fingers. I\'m making videos for the kids. Things I want them to know when they\'re older. How to change a tire. Why math matters. That their grandpa loved them enough to keep talking even when his voice gave out.'},
+       spouse:{label:'The Nurse and Wife',emotions:['Exhausted','Fierce','Tender','Honest'],
+         text:'I manage his medications and his dignity with equal precision. Some days I\'m the nurse. Some days I\'m the wife who can\'t stop shaking. I\'ve learned that you can be both strong and broken. Bob caught me crying in the kitchen last week and instead of pretending he didn\'t see, he held me. Progress. Forty years of walls coming down in the worst possible beautiful way.'},
+       child:{label:'No More Distance',emotions:['Present','Grieving','Growing','Determined'],
+         text:'I come home every weekend now. My boss asked if everything was okay and I said "No, and that\'s why I need to be with my family." She understood. Last Sunday, Dad and I sat on the porch and didn\'t say anything for an hour. It was the most connected I\'ve ever felt with him. I\'m learning that presence isn\'t about words. It\'s about showing up. Again and again and again.'}
+     }}
+  ]
+},
+{
+  id:'neighbor',
+  title:'The Noise Complaint',
+  icon:'🏘️',
+  iconBg:'linear-gradient(135deg,#fdcb6e,#f39c12)',
+  tag:'Community',tagColor:'var(--accent4)',
+  desc:'A noise complaint escalates between neighbors. A night-shift nurse, a young musician, and a building manager each see the conflict through completely different lenses.',
+  difficulty:'Beginner',steps_count:6,
+  characters:[
+    {id:'nurse',name:'Patricia Odom',role:'Night-Shift ER Nurse',icon:'👩‍⚕️',color:'#fd79a8',
+     bg:'52 years old. Works 7 PM to 7 AM shifts, 4 nights a week. Lives alone since her divorce. Sleeps during the day. Has filed three noise complaints in two months.',
+     needs:['Sleep','Quiet','Respect','Peace'],
+     fears:['Health decline from sleep deprivation','Being the "difficult neighbor"','Isolation'],
+     values:['Hard work','Consideration','Rest','Health']},
+    {id:'musician',name:'Jaylen Cooper',role:'Music Producer / Barista',icon:'🧑‍🎤',color:'#6c5ce7',
+     bg:'24 years old. Working as a barista while building a music career. His apartment is also his studio. Music is how he processes his anxiety and ADHD. Just got his first real production opportunity — deadline in 3 weeks.',
+     needs:['Creative expression','Career breakthrough','Acceptance','Understanding'],
+     fears:['Giving up his dream','Being seen as a nuisance','Failure','Mediocrity'],
+     values:['Art','Passion','Growth','Community']},
+    {id:'manager',name:'Frank DiMaggio',role:'Building Manager',icon:'👨‍🔧',color:'#00cec9',
+     bg:'58 years old. Has managed this building for 20 years. Knows every resident by name. Hates conflict but it\'s half his job. Trying to retire in 3 years without any lawsuits.',
+     needs:['Building harmony','Clear rules','Fair outcomes','Low stress'],
+     fears:['Lawsuits','Losing tenants','Being the bad guy','Things escalating'],
+     values:['Fairness','Community','Practicality','Peace']}
+  ],
+  steps:[
+    {type:'scene',title:'Tuesday, 2:00 PM',
+     context:'Patricia has been trying to sleep since 8 AM after a brutal 12-hour ER shift. Bass vibrates through her ceiling.',
+     thoughts:{
+       nurse:{label:'Sleep Deprivation',emotions:['Exhausted','Furious','Desperate'],
+         text:'That is the THIRD time this week. I just spent 12 hours in the ER — we lost a patient tonight, a kid, 19 years old, motorcycle accident. I held his mother while she screamed. And now I can\'t sleep because someone upstairs thinks 2 PM is concert time. I need four hours. FOUR HOURS. That\'s all I ask. My hands are shaking. I can\'t go back to work like this. I can\'t take care of patients if I can\'t take care of myself.'},
+       musician:{label:'In the Flow',emotions:['Excited','Focused','Anxious'],
+         text:'This beat is HITTING. The baseline is exactly what the producer asked for — grimey but melodic. I\'ve been trying to crack this for a week and it\'s finally coming together. If I nail this track, DJ Phantom might sign me. This is my shot. I know it\'s daytime, I\'m being reasonable — it\'s 2 PM, not 2 AM. I\'ve got my monitors at 60%. I even bought a rug for sound dampening. I\'m trying.'},
+       manager:{label:'In the Office',emotions:['Tired','Dreading','Sympathetic'],
+         text:'Patricia\'s calling again. Third complaint this month. I like Patricia — she brings me cookies at Christmas. I like Jaylen too — good kid, always helps Mrs. Chen carry groceries. But this building has thin walls and thinner patience. City noise ordinance says daytime hours are 7 AM to 10 PM. Jaylen\'s technically within his rights. Patricia\'s technically right that it\'s disruptive. I hate "technically."'}
+     }},
+    {type:'choice',title:'Patricia Reaches Her Limit',
+     context:'Patricia marches upstairs in her bathrobe and knocks on Jaylen\'s door. Frank sees her in the hallway.',
+     prompt:'How should this confrontation go?',
+     choices:[
+       {label:'Patricia knocks firmly',desc:'Patricia knocks and says, "I need to talk to you about the noise. I work night shift and I cannot sleep."',
+        impact:'Direct. May catch Jaylen off guard. Honest communication.',
+        effects:{nurse:{emotions:['Assertive','Vulnerable'],trust:8},musician:{emotions:['Surprised','Defensive','Guilty'],trust:5},manager:{emotions:['Hopeful','Ready to mediate'],trust:10}}},
+       {label:'Frank intervenes first',desc:'Frank steps in: "Patricia, let me handle this. I\'ll talk to Jaylen." He knocks and mediates.',
+        impact:'Professional mediation. Both sides feel heard through a neutral party.',
+        effects:{nurse:{emotions:['Frustrated','Relieved'],trust:5},musician:{emotions:['Concerned','Respectful'],trust:8},manager:{emotions:['In control','Fair'],trust:12}}},
+       {label:'Patricia leaves a note',desc:'Too exhausted for confrontation, Patricia writes a heartfelt note and slips it under Jaylen\'s door.',
+        impact:'Non-confrontational. May be more effective. Gives Jaylen time to process.',
+        effects:{nurse:{emotions:['Drained','Hopeful'],trust:6},musician:{emotions:['Moved','Apologetic','Thoughtful'],trust:12},manager:{emotions:['Unaware','Peaceful'],trust:0}}}
+     ]},
+    {type:'scene',title:'The Other Side',
+     context:'Jaylen learns about Patricia\'s situation. The music stops. He sits in silence.',
+     thoughts:{
+       nurse:{label:'Back in Bed',emotions:['Quiet','Conflicted','Guilty for being angry'],
+         text:'The music stopped. But I feel terrible now. I saw his face when I told him about the ER, about the kid we lost. He looked like he\'d been punched. He\'s just a young guy chasing his dream. I was that age once — I worked doubles to get through nursing school and blasted Fleetwood Mac at midnight. When did I become the person who yells at kids for making music?'},
+       musician:{label:'In the Silence',emotions:['Ashamed','Empathetic','Lost'],
+         text:'She\'s a nurse. She saves lives and then comes home to my bass shaking her ceiling. She lost a patient last night and I was up here complaining about deadlines. A PRODUCTION DEADLINE. She was trying to sleep after watching someone die. God. I feel sick. But also — what do I do? This is my home, my studio. I can\'t afford a separate space. I can\'t just stop making music. But I can\'t be the reason a nurse can\'t sleep.'},
+       manager:{label:'Checking In',emotions:['Hopeful','Thoughtful','Problem-solving'],
+         text:'I just talked to both of them separately. Here\'s what kills me about these situations — both of them are good people. Both of them have real needs. Patricia needs sleep to literally save lives. Jaylen needs music to literally save his life — his words, and I believe him. The building wasn\'t built for both of these realities. But maybe we can be.'}
+     }},
+    {type:'choice',title:'Finding a Solution',
+     context:'Frank calls a meeting. Patricia, Jaylen, and Frank sit in the community room.',
+     prompt:'What solution should they work toward?',
+     choices:[
+       {label:'Scheduled quiet hours',desc:'Create a custom schedule: quiet hours during Patricia\'s sleep times. Jaylen plays during her work shifts.',
+        impact:'Practical compromise. Requires coordination. Mutual respect.',
+        effects:{nurse:{emotions:['Hopeful','Grateful'],trust:15},musician:{emotions:['Willing','Adaptive'],trust:12},manager:{emotions:['Relieved','Proud'],trust:18}}},
+       {label:'Soundproofing fund',desc:'Frank proposes using building maintenance budget for acoustic panels in Jaylen\'s apartment. Patricia contributes some too.',
+        impact:'Addresses root cause. Investment in community. Win-win-win.',
+        effects:{nurse:{emotions:['Generous','Practical'],trust:18},musician:{emotions:['Grateful','Valued'],trust:20},manager:{emotions:['Creative','Effective'],trust:20}}},
+       {label:'Community connection',desc:'Beyond logistics, they get to know each other. Jaylen offers to make Patricia a relaxation playlist. She invites him for dinner.',
+        impact:'Transforms conflict into friendship. The deepest resolution.',
+        effects:{nurse:{emotions:['Surprised','Warm','Open'],trust:22},musician:{emotions:['Connected','Inspired'],trust:22},manager:{emotions:['Amazed','Hopeful for humanity'],trust:20}}}
+     ]},
+    {type:'scene',title:'New Understanding',
+     context:'Two weeks later. Things have changed.',
+     thoughts:{
+       nurse:{label:'Sleeping Better',emotions:['Rested','Connected','Reflective'],
+         text:'Jaylen\'s playlist is actually incredible. I listen to it with noise-canceling headphones on the nights I can\'t sleep. He titled it "Rest for Heroes." I cried. Yesterday he knocked on my door with soup because I mentioned I was fighting a cold. I went from wanting him evicted to wondering who he\'d be if someone believed in his music. So I shared his SoundCloud with my nephew who works at a radio station.'},
+       musician:{label:'Better Sound, Better Person',emotions:['Grateful','Inspired','Growing'],
+         text:'The acoustic panels changed everything — my mixes actually sound BETTER with proper treatment. And Patricia\'s story went into the lyrics. I wrote a track called "Night Shift" about the people who take care of us while we sleep. DJ Phantom loved it. He said it had "real emotion, not manufactured." Because it IS real. It\'s about a woman I almost became enemies with, who became my friend.'},
+       manager:{label:'What I Learned',emotions:['Proud','Renewed','Wiser'],
+         text:'Twenty years in property management and this is the first conflict I resolved where both people ended up BETTER than before. Usually it\'s compromise — everyone gives up something. This time, everyone gained something. I\'m going to propose a building community night. If Patricia and Jaylen can find common ground, maybe the couple in 4B and the dog owner in 4C can too.'}
+     }},
+    {type:'scene',title:'Epilogue',
+     context:'Three months later. The building\'s first Community Night. Jaylen performs. Patricia is in the front row.',
+     thoughts:{
+       nurse:{label:'Front Row',emotions:['Proud','Joyful','Belonging'],
+         text:'He\'s so talented. The whole building is here — Frank\'s wife made cannoli, Mrs. Chen brought dumplings, Jaylen\'s playing "Night Shift" and he just pointed at me and said "This one\'s for the real heroes who work while we sleep." I\'m crying in a building community room eating a cannoli. Life is strange and beautiful and I\'m so glad I didn\'t just file a fourth complaint.'},
+       musician:{label:'On Stage',emotions:['Alive','Grateful','Arrived','Connected'],
+         text:'Six months ago I was alone in my apartment chasing a dream. Now I\'m playing for my neighbors and it feels bigger than any club gig. Patricia is beaming. Frank is tapping his foot. Mrs. Chen is filming on an iPad. This is what music is FOR. Not streams and followers — connection. DJ Phantom signed me last week. The album drops in spring. The dedication page reads: "For Patricia, who taught me that my ceiling is someone else\'s floor."'},
+       manager:{label:'By the Door',emotions:['Fulfilled','Hopeful','Emotional'],
+         text:'Look at this. Every apartment represented. People who passed each other in the hallway for years are sharing food and laughing. It took a noise complaint and two good people willing to see each other. Maybe that\'s all it ever takes. I was going to retire in three years. Now I think I\'ll stay. There\'s more of this work to do.'}
+     }}
+  ]
+},
+{
+  id:'tech',
+  title:'The Accessibility Gap',
+  icon:'💻',
+  iconBg:'linear-gradient(135deg,#74b9ff,#0984e3)',
+  tag:'Technology & Inclusion',tagColor:'var(--accent6)',
+  desc:'A tech company launches a product that inadvertently excludes disabled users. The product designer, a blind beta tester, and the CEO must navigate innovation, inclusion, and accountability.',
+  difficulty:'Intermediate',steps_count:6,
+  characters:[
+    {id:'designer',name:'Alex Kim',role:'Lead Product Designer',icon:'🧑‍💻',color:'#74b9ff',
+     bg:'29 years old. Non-binary. Award-winning designer. Poured 18 months into this product. Accessibility was on the roadmap but got deprioritized. Feels responsible.',
+     needs:['Creative pride','To do right','Recognition','Growth'],
+     fears:['Being blamed','Product failure','Being complicit in exclusion','Confronting their oversight'],
+     values:['Design excellence','Inclusivity','Innovation','Accountability']},
+    {id:'tester',name:'Dr. Nia Washington',role:'Beta Tester / Professor',icon:'👩‍🦯',color:'#fd79a8',
+     bg:'42 years old. Blind since age 12. Computer Science professor. Brilliant technologist. Was excited to test this product. Discovered it\'s completely inaccessible. Tired of being an afterthought.',
+     needs:['Equal access','Respect','To be heard','Systemic change'],
+     fears:['Being the "angry disabled person"','Nothing changing','Tokenism','Exhaustion'],
+     values:['Accessibility','Excellence','Education','Dignity']},
+    {id:'ceo',name:'Jordan Price',role:'CEO & Co-founder',icon:'🧑‍💼',color:'#fdcb6e',
+     bg:'35 years old. Built the company from nothing. Genuinely well-intentioned but moves fast and breaks things. Disability is outside their lived experience. About to learn the hard way.',
+     needs:['Company success','Good reputation','To lead well','Growth'],
+     fears:['Public backlash','Being "canceled"','Losing investors','Being seen as a bad person'],
+     values:['Innovation','Impact','Speed','Learning']}
+  ],
+  steps:[
+    {type:'scene',title:'Launch Day',
+     context:'The product launches to rave reviews. Then Dr. Washington\'s detailed accessibility audit goes viral on social media.',
+     thoughts:{
+       designer:{label:'Scrolling Twitter',emotions:['Horror','Guilt','Sinking feeling'],
+         text:'Oh no. Oh no no no. Dr. Washington\'s thread has 40K retweets. She\'s right about EVERY point. The navigation is mouse-only. The images have no alt text. The keyboard shortcuts conflict with screen readers. I KNEW this was a risk. I put it in the sprint backlog six months ago and it kept getting bumped. "Ship fast" they said. We shipped fast and we shipped exclusion.'},
+       tester:{label:'Writing the Thread',emotions:['Frustrated','Determined','Exhausted','Validated'],
+         text:'I spent three hours trying to use this product. THREE HOURS on something a sighted person sets up in ten minutes. Every click is a wall. Every image is a void. I\'m not writing this thread to destroy them — I\'m writing it because I\'m TIRED. I\'m tired of being an afterthought. I have a PhD in Computer Science. I could have BUILT this product. But they didn\'t think to include me in using it.'},
+       ceo:{label:'Damage Control Mode',emotions:['Panicking','Defensive','Ashamed'],
+         text:'My phone is exploding. Investors are texting. The PR team is drafting a statement. My first instinct is to say "we\'re working on it" and move on. But I just read her thread — really read it — and... she\'s right. She\'s completely right. And the worst part? This isn\'t about a bug. It\'s about who we thought our users were. We never pictured someone like Dr. Washington. That\'s on me.'}
+     }},
+    {type:'choice',title:'The Response',
+     context:'The company must respond. Jordan calls Alex and the communications team to decide.',
+     prompt:'How should the company respond publicly?',
+     choices:[
+       {label:'Full accountability',desc:'Jordan records a video: "We failed. No excuses. Here\'s our specific plan to fix it. And we\'re inviting Dr. Washington to advise us."',
+        impact:'Brave. Authentic. May turn crisis into credibility.',
+        effects:{designer:{emotions:['Relieved','Motivated'],trust:20},tester:{emotions:['Surprised','Cautiously hopeful'],trust:15},ceo:{emotions:['Vulnerable','Courageous'],trust:18}}},
+       {label:'Corporate statement',desc:'PR team drafts: "We\'re committed to accessibility and will address these concerns in our next update."',
+        impact:'Safe. Generic. Dr. Washington has heard this before.',
+        effects:{designer:{emotions:['Disappointed','Complicit'],trust:-5},tester:{emotions:['Disgusted','Unsurprised'],trust:-15},ceo:{emotions:['Protected','Hollow'],trust:-10}}},
+       {label:'Reach out privately first',desc:'Jordan personally emails Dr. Washington before any public statement: "I read your thread. You\'re right. Can we talk?"',
+        impact:'Personal. Respectful. Shows Dr. Washington is a person, not a PR crisis.',
+        effects:{designer:{emotions:['Hopeful','Watching'],trust:12},tester:{emotions:['Intrigued','Still cautious','Respected'],trust:18},ceo:{emotions:['Humble','Nervous','Genuine'],trust:15}}}
+     ]},
+    {type:'scene',title:'The Meeting',
+     context:'A video call. Dr. Washington, Alex, and Jordan. Three webcams. One has a screen reader running.',
+     thoughts:{
+       designer:{label:'Facing It',emotions:['Ashamed','Open','Learning'],
+         text:'Watching Dr. Washington navigate our product with her screen reader is... humbling doesn\'t cover it. Every design choice I\'m proud of becomes an obstacle through her experience. The beautiful animations? Meaningless to a screen reader. The gesture-based navigation? Invisible. I\'m not a bad designer. But I designed for a narrow definition of "user" and called it universal.'},
+       tester:{label:'Being Heard',emotions:['Wary','Hopeful','Teaching','Tired'],
+         text:'They\'re listening. Actually listening, not just waiting for their turn to talk. Alex looks like they\'re going to cry — and that\'s not what I want. I don\'t want guilt. I want change. Jordan asked me what I need and didn\'t flinch when the list was long. But I\'ve been in this meeting before, with other companies. The real test is what happens next month. And the month after.'},
+       ceo:{label:'The Education',emotions:['Humbled','Awakened','Determined','Overwhelmed'],
+         text:'She demoed how she uses her computer and my mind is blown. She\'s FASTER than I am with keyboard shortcuts. She navigated our competitor\'s accessible site in 30 seconds. Then she tried ours and it took 4 minutes to reach the same page. I built a product that claims to "connect everyone" and I disconnected a whole community. What else am I missing? Who else have I not imagined?'}
+     }},
+    {type:'choice',title:'Beyond the Fix',
+     context:'The immediate accessibility fixes will take 6 weeks. But the deeper question is about the company\'s culture and process.',
+     prompt:'What systemic change should the company implement?',
+     choices:[
+       {label:'Hire disabled designers',desc:'Create permanent roles for disabled technologists on the design and engineering teams.',
+        impact:'Nothing about us without us. Builds inclusion into DNA.',
+        effects:{designer:{emotions:['Excited','Relieved','Growing'],trust:22},tester:{emotions:['Hopeful','Watching closely'],trust:20},ceo:{emotions:['Committed','Investing'],trust:18}}},
+       {label:'Accessibility-first policy',desc:'Make accessibility a launch requirement — no product ships without an accessibility audit passing.',
+        impact:'Systemic change. May slow velocity. Ensures it never happens again.',
+        effects:{designer:{emotions:['Supported','Empowered'],trust:18},tester:{emotions:['This is minimum','Necessary'],trust:12},ceo:{emotions:['Disciplined','Long-term thinking'],trust:15}}},
+       {label:'Both + advisory board',desc:'Hire disabled team members AND mandate accessibility AND create a Disability Advisory Board with Dr. Washington as chair.',
+        impact:'Comprehensive. Sets industry standard. Turns crisis into leadership.',
+        effects:{designer:{emotions:['Inspired','Part of change'],trust:25},tester:{emotions:['Finally','Meaningful','Invested'],trust:28},ceo:{emotions:['Leading','Legacy-building'],trust:25}}}
+     ]},
+    {type:'scene',title:'Six Months Later',
+     context:'The product has been rebuilt with accessibility at its core. Dr. Washington chairs the advisory board. Alex leads the new inclusive design team.',
+     thoughts:{
+       designer:{label:'New Eyes',emotions:['Transformed','Purposeful','Humble','Skilled'],
+         text:'I design differently now. Before every mockup, I close my eyes and navigate it in my head with a screen reader. I think about motor control, cognitive load, color blindness, hearing loss. My designs are BETTER — not just more accessible, but cleaner, more logical, more human. Constraint breeds creativity. Dr. Washington told me: "The curb cut was designed for wheelchairs but everyone uses it." Good design for the margins benefits everyone.'},
+       tester:{label:'Cautious Optimism',emotions:['Recognized','Purposeful','Still watchful','Hopeful'],
+         text:'The advisory board has real power — we can veto launches that fail accessibility. I\'ve never had that before. Companies usually want disabled people as consultants, not decision-makers. Jordan made me a decision-maker. But I\'m watching. Culture change is a marathon, not a sprint. The real test is when accessibility is expensive and inconvenient. That\'s when you see what a company truly values.'},
+       ceo:{label:'Changed',emotions:['Humbled','Growing','Committed','Responsible'],
+         text:'Our accessible product has 40% more users than projected. 40%. Because it turns out "everyone" actually MEANS everyone. Dr. Washington was right about everything. But beyond the business case — which matters — I learned something about leadership. Leading well means imagining the people you can\'t see. It means building doors wide enough for everyone, especially those you didn\'t think to invite.'}
+     }},
+    {type:'scene',title:'Epilogue',
+     context:'The company wins an accessibility innovation award. All three are on stage.',
+     thoughts:{
+       designer:{label:'On Stage',emotions:['Proud','Grateful','Changed forever'],
+         text:'Dr. Washington is giving the keynote. She\'s not talking about our product — she\'s talking about all the products, the buildings, the systems that weren\'t built for her. And then she says: "The best designs aren\'t created for disabled people. They\'re created WITH disabled people." The room stands. I\'m standing too. I\'ll never design the old way again.'},
+       tester:{label:'At the Podium',emotions:['Powerful','Heard','Hopeful','Vigilant'],
+         text:'I almost didn\'t write that thread. I was tired, I thought "what\'s the point, nothing changes." But something did change. Not because I was angry — because I was honest, and someone finally listened. I\'m not naive. One company doesn\'t fix an industry. But every wall that comes down makes the path wider for the next person. And the next. And the next.'},
+       ceo:{label:'In the Audience',emotions:['Humble','Grateful','Determined','Accountable'],
+         text:'I\'m sitting in the audience where I should be, not on stage taking credit. This award belongs to Dr. Washington, who had the courage to call us out, and to Alex, who had the humility to rebuild everything. My job was to listen and then act. That\'s what leadership should be. I keep a printout of Dr. Washington\'s original thread on my desk. Not as punishment. As a compass.'}
+     }}
+  ]
+}
+];
+
+/* ====== STATE ====== */
+const STATE = {
+  currentScenario: null,
+  currentStep: 0,
+  choices: [],
+  trustScores: {},
+  journalEntries: [],
+  completedScenarios: [],
+  reflectionOpen: false
+};
+
+// Load from localStorage
+try {
+  const saved = JSON.parse(localStorage.getItem('empathos_state'));
+  if (saved) {
+    STATE.completedScenarios = saved.completedScenarios || [];
+    STATE.journalEntries = saved.journalEntries || [];
+  }
+} catch(e) {}
+
+function saveState() {
+  try {
+    localStorage.setItem('empathos_state', JSON.stringify({
+      completedScenarios: STATE.completedScenarios,
+      journalEntries: STATE.journalEntries
+    }));
+  } catch(e) {}
+}
+
+/* ====== RENDER SCENARIOS ====== */
+function renderScenarioList() {
+  const list = $('#scenario-list');
+  list.innerHTML = SCENARIOS.map(s => {
+    const completed = STATE.completedScenarios.includes(s.id);
+    return `<div class="scenario-card" onclick="startScenario('${s.id}')">
+      <div class="sc-header">
+        <div class="sc-icon" style="background:${s.iconBg}">${s.icon}</div>
+        <div>
+          <div class="sc-title">${s.title} ${completed ? '✅' : ''}</div>
+          <div class="sc-tag" style="color:${s.tagColor}">${s.tag} · ${s.difficulty}</div>
+        </div>
+      </div>
+      <div class="sc-desc">${s.desc}</div>
+      <div class="sc-people">${s.characters.map(c => `<span class="person-chip" style="background:${c.color}15;border-color:${c.color}33;color:${c.color}">${c.icon} ${c.name.split(' ')[0]}</span>`).join('')}</div>
+      <div class="sc-meta"><span>${s.steps.length} scenes</span><span>${s.characters.length} perspectives</span></div>
+    </div>`;
+  }).join('');
+}
+
+/* ====== START SCENARIO ====== */
+function startScenario(id) {
+  const scenario = SCENARIOS.find(s => s.id === id);
+  if (!scenario) return;
+  STATE.currentScenario = scenario;
+  STATE.currentStep = 0;
+  STATE.choices = [];
+  STATE.trustScores = {};
+  scenario.characters.forEach(c => STATE.trustScores[c.id] = 50);
+
+  $('#splash').classList.add('hidden');
+  $('#scene-display').classList.remove('hidden');
+  $('#btn-back').style.display = '';
+  renderStep();
+}
+
+function exitScenario() {
+  $('#splash').classList.remove('hidden');
+  $('#scene-display').classList.add('hidden');
+  $('#btn-back').style.display = 'none';
+  STATE.currentScenario = null;
+  renderScenarioList();
+}
+
+/* ====== RENDER STEP ====== */
+function renderStep() {
+  const scenario = STATE.currentScenario;
+  if (!scenario) return;
+  const step = scenario.steps[STATE.currentStep];
+  if (!step) { showCompletion(); return; }
+
+  $('#scene-title').textContent = scenario.title + ' — ' + step.title;
+  $('#scene-step').textContent = `Scene ${STATE.currentStep + 1} of ${scenario.steps.length}`;
+  $('#context-text').textContent = step.context;
+
+  // Update nav buttons
+  $('#btn-prev').style.visibility = STATE.currentStep > 0 ? 'visible' : 'hidden';
+  const isChoice = step.type === 'choice';
+  const choiceMade = STATE.choices[STATE.currentStep] !== undefined;
+  $('#btn-next').textContent = STATE.currentStep >= scenario.steps.length - 1 ? 'Complete →' : 'Continue →';
+  $('#btn-next').style.display = isChoice && !choiceMade ? 'none' : '';
+
+  // Render perspectives
+  const persp = $('#perspectives');
+  persp.innerHTML = '';
+
+  scenario.characters.forEach((char, ci) => {
+    const panel = document.createElement('div');
+    panel.className = 'perspective-panel';
+
+    const trust = STATE.trustScores[char.id] || 50;
+    const trustColor = trust > 65 ? 'var(--accent5)' : trust > 40 ? 'var(--accent4)' : 'var(--accent3)';
+
+    let bodyHTML = '';
+
+    // Dialogue (if present)
+    if (step.dialogue) {
+      step.dialogue.forEach(d => {
+        if (d.who === char.id) {
+          bodyHTML += `<div class="dialogue"><div class="speaker" style="color:${char.color}">${char.name} speaks:</div><div class="speech">${d.text}</div></div>`;
+        } else {
+          const other = scenario.characters.find(c => c.id === d.who);
+          if (other) {
+            bodyHTML += `<div class="dialogue"><div class="speaker" style="color:${other.color}">${other.name} speaks:</div><div class="speech" style="opacity:0.6">${d.text}</div></div>`;
+          }
+        }
+      });
+    }
+
+    // Thoughts
+    if (step.thoughts && step.thoughts[char.id]) {
+      const t = step.thoughts[char.id];
+      bodyHTML += `<div class="thought">
+        <div class="thought-label" style="color:${char.color}">💭 ${t.label}</div>
+        <div class="thought-inner">${t.text}</div>
+        <div class="emotion-meter">${t.emotions.map(e => `<span class="em-tag" style="background:${emotionColor(e)}22;color:${emotionColor(e)};border-color:${emotionColor(e)}33">${e}</span>`).join('')}</div>
+      </div>`;
+    }
+
+    // Choice effects display (if choice was made)
+    if (isChoice && choiceMade) {
+      const choice = step.choices[STATE.choices[STATE.currentStep]];
+      if (choice.effects && choice.effects[char.id]) {
+        const eff = choice.effects[char.id];
+        bodyHTML += `<div class="thought">
+          <div class="thought-label" style="color:${char.color}">⚡ Reaction to Choice</div>
+          <div class="emotion-meter">${eff.emotions.map(e => `<span class="em-tag" style="background:${emotionColor(e)}22;color:${emotionColor(e)};border-color:${emotionColor(e)}33">${e}</span>`).join('')}</div>
+          <div style="margin-top:6px;font-size:11px;color:${eff.trust > 0 ? 'var(--accent5)' : 'var(--accent3)'}">Trust ${eff.trust > 0 ? '+' : ''}${eff.trust}</div>
+        </div>`;
+      }
+    }
+
+    // Needs & Values
+    bodyHTML += `<div class="needs-section"><h4>Core Needs</h4>`;
+    char.needs.forEach((n, ni) => {
+      const fillPct = 40 + Math.sin(ni * 2 + trust * 0.05) * 20 + trust * 0.3;
+      bodyHTML += `<div class="need-bar"><div class="need-label"><span>${n}</span><span>${Math.round(clamp(fillPct, 5, 100))}%</span></div><div class="need-track"><div class="fill" style="width:${clamp(fillPct, 5, 100)}%;background:${char.color}"></div></div></div>`;
+    });
+    bodyHTML += `</div>`;
+
+    bodyHTML += `<div class="needs-section"><h4>Values</h4><div class="emotion-meter">${char.values.map(v => `<span class="em-tag" style="background:${char.color}15;color:${char.color};border-color:${char.color}33">${v}</span>`).join('')}</div></div>`;
+
+    bodyHTML += `<div class="needs-section"><h4>Fears</h4><div style="font-size:11px;color:var(--dim);line-height:1.6">${char.fears.map(f => '• ' + f).join('<br>')}</div></div>`;
+
+    panel.innerHTML = `
+      <div class="pp-header" style="background:${char.color}08">
+        <div class="pp-avatar" style="background:${char.color}15;border-color:${char.color}44">${char.icon}</div>
+        <div class="pp-info">
+          <div class="pp-name" style="color:${char.color}">${char.name}</div>
+          <div class="pp-role">${char.role}</div>
+        </div>
+        <div style="margin-left:auto">
+          <div class="badge" style="background:${trustColor}15;color:${trustColor}">♡ ${Math.round(trust)}</div>
+        </div>
+      </div>
+      <div class="pp-body">${bodyHTML}</div>
+    `;
+    persp.appendChild(panel);
+  });
+
+  // Action area (choices)
+  const actionArea = $('#action-area');
+  if (isChoice && !choiceMade) {
+    actionArea.classList.remove('hidden');
+    $('#action-prompt').innerHTML = `<span class="prompt-q">${step.prompt}</span>`;
+    $('#choices').innerHTML = step.choices.map((c, i) => `
+      <div class="choice-btn" onclick="makeChoice(${i})">
+        <div class="ch-label">${c.label}</div>
+        <div class="ch-desc">${c.desc}</div>
+        <div class="ch-impact">💡 ${c.impact}</div>
+      </div>
+    `).join('');
+  } else {
+    actionArea.classList.add('hidden');
+  }
+
+  // Scroll panels to top
+
+  $$('.pp-body').forEach(el => el.scrollTop = 0);
+}
+
+function makeChoice(idx) {
+  const step = STATE.currentScenario.steps[STATE.currentStep];
+  STATE.choices[STATE.currentStep] = idx;
+  const choice = step.choices[idx];
+
+  // Apply trust effects
+  if (choice.effects) {
+    Object.entries(choice.effects).forEach(([charId, eff]) => {
+      STATE.trustScores[charId] = clamp((STATE.trustScores[charId] || 50) + (eff.trust || 0), 0, 100);
+    });
+  }
+
+  // Highlight selected
+
+  $$('.choice-btn').forEach((btn, i) => {
+    btn.classList.toggle('selected', i === idx);
+  });
+
+  // Show next button and re-render with effects
+  $('#btn-next').style.display = '';
+  renderStep();
+}
+
+function nextStep() {
+  if (!STATE.currentScenario) return;
+  const step = STATE.currentScenario.steps[STATE.currentStep];
+  if (step.type === 'choice' && STATE.choices[STATE.currentStep] === undefined) return;
+
+  if (STATE.currentStep >= STATE.currentScenario.steps.length - 1) {
+    showCompletion();
+    return;
+  }
+  STATE.currentStep++;
+  renderStep();
+}
+
+function prevStep() {
+  if (STATE.currentStep > 0) {
+    STATE.currentStep--;
+    renderStep();
+  }
+}
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function emotionColor(emotion) {
+  const map = {
+    'Nervous':'#fdcb6e','Determined':'#6c5ce7','Conflicted':'#e17055','Anxious':'#fd79a8',
+    'Exhausted':'#636e72','Guarded':'#b2bec3','Alert':'#00cec9','Thoughtful':'#74b9ff',
+    'Cautious':'#ffeaa7','Surprised':'#55efc4','Uncertain':'#dfe6e9','Resigned':'#636e72',
+    'Ashamed':'#e17055','Concerned':'#fab1a0','Attentive':'#00cec9','Shocked':'#ff7675',
+    'Compassionate':'#fd79a8','Brave':'#6c5ce7','Vulnerable':'#a29bfe','Exposed':'#e17055',
+    'Relieved':'#55efc4','Terrified':'#ff7675','Raw':'#e17055','Lighter':'#81ecec',
+    'Changed':'#6c5ce7','Humble':'#a29bfe','Motivated':'#00cec9','Purposeful':'#6c5ce7',
+    'Proud':'#fdcb6e','Healing':'#55efc4','Connected':'#74b9ff','Accomplished':'#6c5ce7',
+    'Hopeful':'#55efc4','Prepared':'#74b9ff','Brave impulse':'#6c5ce7','Lonely':'#636e72',
+    'Missing home':'#fd79a8','Resilient':'#00cec9','Grateful':'#55efc4','Warm':'#fdcb6e',
+    'Impressed':'#74b9ff','Growing':'#55efc4','Open':'#81ecec','Belonging':'#6c5ce7',
+    'Bittersweet':'#e17055','Wiser':'#a29bfe','Fulfilled':'#55efc4','Curious':'#74b9ff',
+    'Good-intentioned':'#55efc4','Awkward':'#ffeaa7','Inspired':'#fdcb6e','Alive':'#00cec9',
+    'Free':'#81ecec','Grieving':'#636e72','Loving':'#fd79a8','Present':'#55efc4',
+    'Full':'#a29bfe','Heartbroken':'#ff7675','Whole':'#6c5ce7','Peaceful':'#81ecec',
+    'Fierce':'#ff7675','Tender':'#fd79a8','Honest':'#74b9ff','Numb':'#b2bec3',
+    'Calculating':'#fdcb6e','Devastated':'#ff7675','Denial':'#dfe6e9','Confused':'#ffeaa7',
+    'Dread':'#e17055','Furious':'#ff7675','Desperate':'#ff7675','Excited':'#fdcb6e',
+    'Focused':'#74b9ff','Tired':'#636e72','Dreading':'#e17055','Sympathetic':'#fd79a8',
+    'Assertive':'#6c5ce7','Defensive':'#e17055','Guilty':'#a29bfe','Isolated':'#636e72',
+    'Moved':'#fd79a8','Apologetic':'#a29bfe','Rested':'#55efc4','Reflective':'#74b9ff',
+    'Joyful':'#fdcb6e','Arrived':'#6c5ce7','Emotional':'#fd79a8','Renewed':'#55efc4',
+    'Horror':'#ff7675','Sinking feeling':'#636e72','Frustrated':'#e17055','Tired':'#636e72',
+    'Validated':'#55efc4','Teaching':'#74b9ff','Panicking':'#ff7675','Overwhelmed':'#e17055',
+    'Awakened':'#fdcb6e','Humbled':'#a29bfe','Learning':'#74b9ff','Wary':'#ffeaa7',
+    'Watching':'#74b9ff','Committed':'#6c5ce7','Investing':'#fdcb6e','Disciplined':'#6c5ce7',
+    'Transformed':'#55efc4','Skilled':'#74b9ff','Recognized':'#fdcb6e','Still watchful':'#ffeaa7',
+    'Responsible':'#6c5ce7','Powerful':'#6c5ce7','Heard':'#55efc4','Vigilant':'#fdcb6e',
+    'Accountable':'#a29bfe','Decisive':'#6c5ce7','Fatherly':'#74b9ff','Supportive':'#55efc4',
+    'Generous':'#55efc4','Patient':'#81ecec','Uneasy':'#ffeaa7','Respectful':'#74b9ff',
+    'Worried':'#ffeaa7','Maternal':'#fd79a8','Regretful':'#e17055','Hyperfocused':'#74b9ff',
+    'Courageous':'#6c5ce7','Amazed':'#fdcb6e','Tearful':'#fd79a8','Stunned':'#55efc4',
+    'Listening':'#74b9ff','Safe':'#81ecec','Strong':'#6c5ce7','Love':'#fd79a8',
+    'Guilt':'#e17055','Determination':'#6c5ce7','Afraid':'#ff7675',
+    'Self-reflective':'#a29bfe','Fighting tears':'#fd79a8',
+    'Guarded hope':'#55efc4','Professional':'#74b9ff','Slightly guilty':'#a29bfe',
+    'Balanced':'#81ecec','Avoidant':'#636e72','Put on spot':'#e17055','Capable':'#6c5ce7',
+    'Professional clarity':'#74b9ff',
+    'Watchful':'#ffeaa7','Pragmatic':'#74b9ff','Neutral':'#b2bec3',
+    'Slightly worried about process':'#ffeaa7',
+    'Touched':'#fd79a8','Relieved someone said it':'#55efc4',
+    'Crying too':'#fd79a8','Released':'#81ecec','Busy but fulfilled':'#6c5ce7',
+    'Empowered':'#6c5ce7','Meaningful':'#55efc4','Thrilled':'#fdcb6e','Challenged':'#6c5ce7',
+    'Grateful for honesty':'#55efc4','Suspicious':'#ffeaa7','Anxious all week':'#ff7675',
+    'Need for control':'#6c5ce7','Processing':'#74b9ff',
+    'Mind-opening':'#55efc4','Admiring':'#fdcb6e','Normal':'#81ecec','Happy':'#55efc4',
+    'Enough':'#55efc4','Visible':'#fdcb6e','Clever':'#74b9ff',
+    'Justified':'#ffeaa7','Slightly guilty':'#a29bfe','Still lonely':'#636e72',
+    'Counting tiles':'#636e72','On display':'#ffeaa7','Leader':'#6c5ce7',
+    'Confident':'#6c5ce7','Willing':'#55efc4','Cautiously happy':'#55efc4',
+    'Proud of self':'#fdcb6e','Nervous':'#fdcb6e',
+    'Still afraid':'#ff7675','Grateful for space':'#55efc4','Waiting':'#b2bec3',
+    'Strangely calm':'#81ecec','Holding it together':'#6c5ce7',
+    'Barely holding together':'#ff7675',
+    'Genuine':'#55efc4','Intrigued':'#74b9ff','Still cautious':'#ffeaa7',
+    'Respected':'#6c5ce7','Watching closely':'#ffeaa7',
+    'Finally':'#55efc4','Invested':'#6c5ce7',
+    'Legacy-building':'#fdcb6e','Leading':'#6c5ce7',
+    'Changed forever':'#55efc4','Necessary':'#74b9ff',
+    'This is minimum':'#b2bec3','Long-term thinking':'#74b9ff',
+    'Nothing changing':'#636e72','Tokenism':'#e17055',
+    'Exhaustion':'#636e72','Complicit':'#e17055','Disgusted':'#ff7675',
+    'Unsurprised':'#636e72','Protected':'#b2bec3','Hollow':'#636e72',
+    'Part of change':'#55efc4','Meaning':'#6c5ce7',
+    'default':'#b2bec3'
+  };
+  return map[emotion] || map['default'];
+}
+
+/* ====== COMPLETION / SUMMARY ====== */
+function showCompletion() {
+  const s = STATE.currentScenario;
+  if (!STATE.completedScenarios.includes(s.id)) {
+    STATE.completedScenarios.push(s.id);
+  }
+  saveState();
+
+  const avgTrust = Object.values(STATE.trustScores).reduce((a, b) => a + b, 0) / Object.values(STATE.trustScores).length;
+  const empathyScore = Math.round(avgTrust);
+
+  const choiceCount = STATE.choices.filter(c => c !== undefined).length;
+  const scenesCount = s.steps.length;
+
+  let grade = 'Developing';
+  let gradeColor = 'var(--accent4)';
+  if (empathyScore >= 80) { grade = 'Exceptional'; gradeColor = 'var(--accent5)'; }
+  else if (empathyScore >= 65) { grade = 'Strong'; gradeColor = 'var(--accent2)'; }
+  else if (empathyScore >= 50) { grade = 'Growing'; gradeColor = 'var(--accent6)'; }
+
+  let takeaway = '';
+  if (empathyScore >= 75) {
+    takeaway = 'Your choices consistently prioritized understanding, dignity, and connection. You demonstrated that empathy isn\'t just feeling for others — it\'s creating conditions where everyone feels seen and valued. The perspectives you held simultaneously show a mature capacity for multi-dimensional understanding.';
+  } else if (empathyScore >= 55) {
+    takeaway = 'You showed genuine care and made thoughtful choices. There were moments where deeper engagement with certain perspectives could have unlocked more trust. Remember: empathy often means sitting with discomfort rather than rushing to solutions. Every perspective holds truth.';
+  } else {
+    takeaway = 'This scenario revealed the complexity of human experience. Consider how each person\'s background, fears, and needs shape their reality. Empathy grows when we pause before judging, ask before assuming, and listen before responding. Try this scenario again to explore different paths.';
+  }
+
+  const trustDetails = s.characters.map(c => {
+    const t = STATE.trustScores[c.id];
+    return `<div class="comp-stat"><div class="cs-label">${c.icon} ${c.name}</div><div class="cs-value" style="color:${c.color}">${Math.round(t)}<span style="font-size:12px;color:var(--dim)"> / 100</span></div></div>`;
+  }).join('');
+
+  $('#completion').classList.remove('hidden');
+  $('#completion-content').innerHTML = `
+    <h2>Scenario Complete</h2>
+    <div class="comp-sub">${s.title}</div>
+    <div class="comp-grid">
+      <div class="comp-stat"><div class="cs-label">Empathy Score</div><div class="cs-value" style="color:${gradeColor}">${empathyScore}</div></div>
+      <div class="comp-stat"><div class="cs-label">Grade</div><div class="cs-value" style="color:${gradeColor}">${grade}</div></div>
+      <div class="comp-stat"><div class="cs-label">Choices Made</div><div class="cs-value">${choiceCount}</div></div>
+      <div class="comp-stat"><div class="cs-label">Scenes Explored</div><div class="cs-value">${scenesCount}</div></div>
+    </div>
+    <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--accent1);margin-bottom:10px;text-align:left">Trust Built Per Character</div>
+    <div class="comp-grid">${trustDetails}</div>
+    <div class="comp-takeaway">
+      <h4>Key Insight</h4>
+      <p>${takeaway}</p>
+    </div>
+    <div class="comp-takeaway">
+      <h4>What This Scenario Teaches</h4>
+      <p>Every person in every interaction carries an invisible world — their history, their pain, their hopes. Empathy begins with the assumption that <strong>everyone's experience is as real and complex as your own</strong>. The gap between perspectives isn't a problem to solve; it's a space to explore with curiosity and care.</p>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+      <div class="btn primary" onclick="$('#completion').classList.add('hidden');exitScenario()">← Back to Scenarios</div>
+      <div class="btn accent" onclick="$('#completion').classList.add('hidden');STATE.currentStep=0;STATE.choices=[];STATE.currentScenario.characters.forEach(c=>STATE.trustScores[c.id]=50);renderStep()">🔄 Replay</div>
+    </div>
+  `;
+}
+
+/* ====== JOURNAL / REFLECTION ====== */
+function toggleJournal() {
+  STATE.reflectionOpen = !STATE.reflectionOpen;
+  $('#reflection').classList.toggle('open', STATE.reflectionOpen);
+  if (STATE.reflectionOpen) renderJournal();
+}
+
+function renderJournal() {
+  const body = $('#ref-body');
+  let html = '';
+
+  if (STATE.currentScenario) {
+    const s = STATE.currentScenario;
+    html += `<div class="ref-section"><h4>Current Scenario: ${s.title}</h4>`;
+
+    // Trust radar
+    html += `<div style="margin-bottom:16px">`;
+    s.characters.forEach(c => {
+      const t = STATE.trustScores[c.id] || 50;
+      html += `<div class="need-bar"><div class="need-label"><span>${c.icon} ${c.name}</span><span style="color:${c.color}">${Math.round(t)}</span></div><div class="need-track"><div class="fill" style="width:${t}%;background:${c.color}"></div></div></div>`;
+    });
+    html += `</div>`;
+
+    // Choice history
+    STATE.choices.forEach((choice, i) => {
+      if (choice === undefined) return;
+      const step = s.steps[i];
+      if (step.type !== 'choice') return;
+      html += `<div class="ref-insight"><strong>Scene ${i+1}:</strong> ${step.title}<br>Your choice: <strong style="color:var(--accent2)">${step.choices[choice].label}</strong></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Journal entries
+  html += `<div class="ref-section"><h4>Your Reflections</h4>`;
+  html += `<div class="journal-entry"><textarea id="journal-input" placeholder="What are you noticing? How does it feel to see this situation from multiple perspectives? What assumptions were challenged?" rows="4"></textarea><div class="btn" style="margin-top:6px;font-size:11px" onclick="saveJournalEntry()">Save Entry</div></div>`;
+
+  STATE.journalEntries.slice().reverse().forEach((entry, i) => {
+    html += `<div class="ref-insight"><strong>${entry.date}</strong>${entry.scenario ? ' · ' + entry.scenario : ''}<br>${entry.text}</div>`;
+  });
+  html += `</div>`;
+
+  // Empathy tips
+  html += `<div class="ref-section"><h4>Empathy Practice Tips</h4>
+    <div class="ref-insight">🎯 <strong>Perspective-taking:</strong> Before reacting to someone, pause and imagine three possible reasons for their behavior that have nothing to do with you.</div>
+    <div class="ref-insight">👂 <strong>Active listening:</strong> In your next conversation, focus entirely on understanding what the other person means, not on what you'll say next.</div>
+    <div class="ref-insight">🔄 <strong>Assumption checking:</strong> When you feel certain about someone's motivation, ask yourself: "What if I'm wrong? What else could be true?"</div>
+    <div class="ref-insight">💡 <strong>Emotional labeling:</strong> Practice naming emotions — yours and others'. Specificity matters: "frustrated" is more useful than "upset."</div>
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function saveJournalEntry() {
+  const input = $('#journal-input');
+  if (!input || !input.value.trim()) return;
+  STATE.journalEntries.push({
+    text: input.value.trim(),
+    date: new Date().toLocaleDateString(),
+    scenario: STATE.currentScenario ? STATE.currentScenario.title : null
+  });
+  saveState();
+  renderJournal();
+}
+
+/* ====== EVENTS ====== */
+$('#btn-next').onclick = nextStep;
+$('#btn-prev').onclick = prevStep;
+$('#btn-back').onclick = exitScenario;
+$('#btn-journal').onclick = toggleJournal;
+$('#btn-close-ref').onclick = toggleJournal;
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextStep(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+  if (e.key === 'Escape') {
+    if (STATE.reflectionOpen) toggleJournal();
+    else if (!$('#completion').classList.contains('hidden')) { $('#completion').classList.add('hidden'); }
+  }
+  if (e.key === 'j' || e.key === 'J') toggleJournal();
+  if (e.key >= '1' && e.key <= '4') {
+    const step = STATE.currentScenario?.steps[STATE.currentStep];
+    if (step?.type === 'choice' && STATE.choices[STATE.currentStep] === undefined) {
+      const idx = parseInt(e.key) - 1;
+      if (idx < step.choices.length) makeChoice(idx);
+    }
+  }
+});
+
+/* ====== INIT ====== */
+renderScenarioList();
+</script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Temporal Rift Runner: Hypernova Escape</title>
+  <style>
+    /* =============================================================================
+       Temporal Rift Runner: Hypernova Escape
+       A futuristic game where you pilot a quantum vessel through a fractal,
+       shifting tunnel of time. Dodge obstacles emerging from temporal rifts and
+       survive as long as you can while your score increases.
+       ============================================================================= */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Orbitron', sans-serif;
+      color: #0ff;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(circle, #001133, #000);
+    }
+    .ui-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      border: 2px solid #0ff;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+    .ui-panel button {
+      margin-top: 5px;
+      padding: 5px 10px;
+      background: #0ff;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .ui-panel button:hover {
+      background: #0cc;
+    }
+    .ui-panel div {
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    /* =============================================================================
+       End of CSS
+       ============================================================================= */
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="ui-panel">
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="livesDisplay">Lives: 3</div>
+    <button id="startButton">Start Game</button>
+    <button id="resetButton">Reset Game</button>
+  </div>
+  <script>
+    // =============================================================================
+    // Temporal Rift Runner: Hypernova Escape
+    // =============================================================================
+    // Global Variables and Canvas Setup
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let canvasWidth = canvas.width = window.innerWidth;
+    let canvasHeight = canvas.height = window.innerHeight;
+
+    let gameRunning = false;
+    let score = 0;
+    let lives = 3;
+    let gameTime = 0;
+    let lastObstacleTime = 0;
+    let obstacleSpawnInterval = 1500; // milliseconds
+    let obstacles = [];
+    let player;
+    let keys = {};
+    let globalTime = 0; // for background animation
+
+    // Event Listeners for Keyboard Input
+    window.addEventListener("keydown", e => { keys[e.code] = true; });
+    window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+    // Handle Window Resize
+    window.addEventListener("resize", () => {
+      canvasWidth = canvas.width = window.innerWidth;
+      canvasHeight = canvas.height = window.innerHeight;
+    });
+
+    // Player Class Definition
+    class Player {
+      constructor() {
+        this.width = 40;
+        this.height = 40;
+        this.x = canvasWidth / 2 - this.width / 2;
+        this.y = canvasHeight - this.height - 30;
+        this.speed = 6;
+        this.color = "#0FF";
+      }
+      update() {
+        if (keys["ArrowLeft"] || keys["KeyA"]) {
+          this.x -= this.speed;
+        }
+        if (keys["ArrowRight"] || keys["KeyD"]) {
+          this.x += this.speed;
+        }
+        if (keys["ArrowUp"] || keys["KeyW"]) {
+          this.y -= this.speed;
+        }
+        if (keys["ArrowDown"] || keys["KeyS"]) {
+          this.y += this.speed;
+        }
+        // Constrain within canvas boundaries
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvasWidth) this.x = canvasWidth - this.width;
+        if (this.y < 0) this.y = 0;
+        if (this.y + this.height > canvasHeight) this.y = canvasHeight - this.height;
+      }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    }
+
+    // Obstacle Class Definition
+    class Obstacle {
+      constructor(x, y, size, speed) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.speed = speed;
+        this.color = "#FF00FF";
+      }
+      update() {
+        // Move downward to simulate tunnel rushing by
+        this.y += this.speed;
+      }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      isOffScreen() {
+        return (this.y - this.size > canvasHeight);
+      }
+    }
+
+    // Utility: Collision Detection
+    function isColliding(player, obstacle) {
+      // Using an AABB and circle collision check
+      let distX = Math.abs(obstacle.x - (player.x + player.width / 2));
+      let distY = Math.abs(obstacle.y - (player.y + player.height / 2));
+      if (distX > (player.width/2 + obstacle.size)) return false;
+      if (distY > (player.height/2 + obstacle.size)) return false;
+      if (distX <= (player.width/2)) return true;
+      if (distY <= (player.height/2)) return true;
+      let dx = distX - player.width/2;
+      let dy = distY - player.height/2;
+      return (dx*dx + dy*dy <= (obstacle.size * obstacle.size));
+    }
+
+    // Fractal Tunnel Background
+    function drawFractalTunnel() {
+      ctx.save();
+      ctx.translate(canvasWidth / 2, canvasHeight / 2);
+      let layers = 10;
+      for (let i = 0; i < layers; i++) {
+        let radius = (canvasWidth / 2) * ((i+1) / layers) + Math.sin(globalTime * 0.002 + i) * 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 100, 150," + (0.05 + i * 0.05) + ")";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Game Initialization
+    function initGame() {
+      score = 0;
+      lives = 3;
+      gameTime = 0;
+      obstacles = [];
+      player = new Player();
+      lastObstacleTime = Date.now();
+      updateHUD();
+    }
+
+    // Update HUD Display
+    function updateHUD() {
+      document.getElementById("scoreDisplay").innerText = "Score: " + score;
+      document.getElementById("livesDisplay").innerText = "Lives: " + lives;
+    }
+
+    // Spawn Obstacles
+    function spawnObstacle() {
+      // Adjusted x so that obstacles spawn within canvas
+      let x = Math.random() * (canvasWidth - 60) + 30;
+      let y = -30;
+      let size = 30 + Math.random() * 20;
+      let speed = 3 + Math.random() * 2;
+      obstacles.push(new Obstacle(x, y, size, speed));
+    }
+
+    // Update Game Objects
+    function updateGame(deltaTime) {
+      if (!gameRunning) return;
+      gameTime += deltaTime;
+      player.update();
+      // Update obstacles and check collisions
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].update();
+        if (obstacles[i].isOffScreen()) {
+          obstacles.splice(i, 1);
+          score += 10;
+          updateHUD();
+        } else if (isColliding(player, obstacles[i])) {
+          obstacles.splice(i, 1);
+          lives -= 1;
+          updateHUD();
+          if (lives <= 0) {
+            endGame();
+          }
+        }
+      }
+      // Spawn new obstacles at set intervals
+      if (Date.now() - lastObstacleTime > obstacleSpawnInterval) {
+        spawnObstacle();
+        lastObstacleTime = Date.now();
+      }
+    }
+
+    // Draw Game Objects
+    function drawGame() {
+      // Draw dynamic background
+      drawFractalTunnel();
+      // Draw player and obstacles
+      player.draw();
+      obstacles.forEach(obstacle => obstacle.draw());
+      // Overlay score and lives
+      ctx.fillStyle = "#0FF";
+      ctx.font = "20px Orbitron";
+      ctx.fillText("Score: " + score, 20, 30);
+      ctx.fillText("Lives: " + lives, 20, 60);
+    }
+
+    // End Game Routine
+    function endGame() {
+      gameRunning = false;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.fillStyle = "#FF0000";
+      ctx.font = "50px Orbitron";
+      ctx.fillText("GAME OVER", canvasWidth / 2 - 150, canvasHeight / 2);
+      ctx.font = "30px Orbitron";
+      ctx.fillText("Score: " + score, canvasWidth / 2 - 80, canvasHeight / 2 + 50);
+    }
+
+    // Main Game Loop
+    let lastTime = 0;
+    function gameLoop(timestamp) {
+      let deltaTime = timestamp - lastTime;
+      lastTime = timestamp;
+      globalTime += deltaTime;
+      if (gameRunning) {
+        updateGame(deltaTime);
+        // Clear canvas with a semi-transparent overlay for motion trails
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        drawGame();
+      }
+      // Draw extra dynamic quantum sparkles
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = "rgba(0,255,255,0.03)";
+        ctx.fillRect(Math.random() * canvasWidth, Math.random() * canvasHeight, 2, 2);
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    requestAnimationFrame(gameLoop);
+
+    // UI Button Event Listeners
+    document.getElementById("startButton").addEventListener("click", () => {
+      if (!gameRunning) {
+        initGame();
+        gameRunning = true;
+      }
+    });
+    document.getElementById("resetButton").addEventListener("click", () => {
+      initGame();
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    });
+
+    // =============================================================================
+    // End of Temporal Rift Runner: Hypernova Escape Script
+    // =============================================================================
+  </script>
+  <!-- =============================================================================
+       Filler HTML Comments (optional)
+       ============================================================================= -->
+</body>
+</html>

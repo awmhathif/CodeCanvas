@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncing Ball in Spinning Hexagon</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+            user-select: none;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+            z-index: 100;
+        }
+        
+        .control-btn {
+            background: linear-gradient(to bottom, #0066cc, #003366);
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
+        }
+        
+        .control-btn:hover {
+            background: linear-gradient(to bottom, #0077dd, #004477);
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+        
+        .control-btn:active {
+            transform: scale(0.97);
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .slider-label {
+            font-size: 12px;
+            min-width: 80px;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #00aaff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0, 200, 255, 0.8);
+        }
+        
+        .stats {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: linear-gradient(to bottom, #000022, #000);
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.8);
+            border: 1px solid rgba(0, 200, 255, 0.3);
+            max-width: 80%;
+        }
+        
+        .modal-title {
+            margin-top: 0;
+            color: #00aaff;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+        
+        .close-btn {
+            background: linear-gradient(to bottom, #0066cc, #003366);
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: block;
+            margin: 20px auto 0;
+            font-weight: bold;
+        }
+        
+        .preset-btn {
+            background: linear-gradient(to bottom, #222, #111);
+            color: #00aaff;
+            border: 1px solid #00aaff;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-shadow: 0 0 5px rgba(0, 200, 255, 0.8);
+        }
+        
+        .preset-btn:hover {
+            background: linear-gradient(to bottom, #001133, #000022);
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+        }
+        
+        .presets-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats" id="stats">
+        FPS: 0<br>
+        Velocity: 0.00 px/s<br>
+        Collisions: 0
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <button class="control-btn" id="resetBtn">Reset</button>
+        <button class="control-btn" id="addBallBtn">Add Ball</button>
+        <div class="slider-container">
+            <span class="slider-label">Speed: </span>
+            <input type="range" id="speedSlider" min="0" max="200" value="100">
+        </div>
+        <div class="slider-container">
+            <span class="slider-label">Gravity: </span>
+            <input type="range" id="gravitySlider" min="0" max="1000" value="300">
+        </div>
+        <button class="control-btn" id="presetsBtn">Presets</button>
+    </div>
+    
+    <div class="modal" id="presetsModal">
+        <div class="modal-content">
+            <h3 class="modal-title">Visual Presets</h3>
+            <div class="presets-container">
+                <button class="preset-btn" data-preset="default">Default</button>
+                <button class="preset-btn" data-preset="neon">Neon Glow</button>
+                <button class="preset-btn" data-preset="matrix">Matrix</button>
+                <button class="preset-btn" data-preset="rainbow">Rainbow</button>
+                <button class="preset-btn" data-preset="minimalist">Minimalist</button>
+                <button class="preset-btn" data-preset="fire">Fire</button>
+            </div>
+            <button class="close-btn" id="closePresetsBtn">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        // Constants
+        const BALL_RADIUS_MIN = 10;
+        const BALL_RADIUS_MAX = 40;
+        const MAX_BALLS = 10;
+        const COLOR_SCHEMES = {
+            default: {
+                background: '#000',
+                hexagonStroke: '#00aaff',
+                hexagonFill: 'rgba(0, 50, 100, 0.1)',
+                ballGradient: ['#ff3300', '#ffcc00'],
+                ballGlow: '10px',
+                glowColor: 'rgba(255, 100, 0, 0.6)',
+                particleColors: ['#ff3300', '#ff6600', '#ff9900', '#ffcc00'],
+                trailColor: 'rgba(255, 100, 0, 0.2)'
+            },
+            neon: {
+                background: '#000',
+                hexagonStroke: '#00ff99',
+                hexagonFill: 'rgba(0, 100, 50, 0.1)',
+                ballGradient: ['#ff00ff', '#00ffff'],
+                ballGlow: '15px',
+                glowColor: 'rgba(200, 0, 255, 0.7)',
+                particleColors: ['#ff00ff', '#cc00ff', '#9900ff', '#6600ff'],
+                trailColor: 'rgba(200, 0, 255, 0.3)'
+            },
+            matrix: {
+                background: '#000',
+                hexagonStroke: '#00ff00',
+                hexagonFill: 'rgba(0, 20, 0, 0.2)',
+                ballGradient: ['#00ff00', '#66ff66'],
+                ballGlow: '10px',
+                glowColor: 'rgba(0, 255, 0, 0.6)',
+                particleColors: ['#00ff00', '#33ff33', '#66ff66', '#99ff99'],
+                trailColor: 'rgba(0, 255, 0, 0.2)'
+            },
+            rainbow: {
+                background: '#111',
+                hexagonStroke: 'white',
+                hexagonFill: 'rgba(255, 255, 255, 0.05)',
+                ballGradient: ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'],
+                ballGlow: '12px',
+                glowColor: 'rgba(255, 255, 255, 0.7)',
+                particleColors: ['red', 'orange', 'yellow', 'green', 'blue', 'purple'],
+                trailColor: 'rgba(255, 255, 255, 0.1)',
+                rainbowEffect: true
+            },
+            minimalist: {
+                background: '#f0f0f0',
+                hexagonStroke: '#333',
+                hexagonFill: 'rgba(0, 0, 0, 0.03)',
+                ballGradient: ['#333', '#666'],
+                ballGlow: '0px',
+                glowColor: 'rgba(0, 0, 0, 0)',
+                particleColors: ['#333'],
+                trailColor: 'rgba(0, 0, 0, 0.1)',
+                particlesEnabled: false
+            },
+            fire: {
+                background: '#000',
+                hexagonStroke: '#ff3300',
+                hexagonFill: 'rgba(40, 0, 0, 0.2)',
+                ballGradient: ['#ff0000', '#ffff00'],
+                ballGlow: '20px',
+                glowColor: 'rgba(255, 50, 0, 0.8)',
+                particleColors: ['#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00'],
+                trailColor: 'rgba(255, 50, 0, 0.3)',
+                fireEffect: true
+            }
+        };
+        
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const resetBtn = document.getElementById('resetBtn');
+        const addBallBtn = document.getElementById('addBallBtn');
+        const speedSlider = document.getElementById('speedSlider');
+        const gravitySlider = document.getElementById('gravitySlider');
+        const statsElement = document.getElementById('stats');
+        const presetsBtn = document.getElementById('presetsBtn');
+        const presetsModal = document.getElementById('presetsModal');
+        const closePresetsBtn = document.getElementById('closePresetsBtn');
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        
+        // Game state
+        let width, height;
+        let hexagonRadius;
+        let hexagonPoints = [];
+        let hexagonRotation = 0;
+        let hexagonRotationSpeed = 0.005;
+        let balls = [];
+        let particles = [];
+        let gravity = 0.3;
+        let friction = 0.98;
+        let wallRestitution = 0.8;
+        let timeMultiplier = 1;
+        let lastTime = 0;
+        let collisionCount = 0;
+        let fps = 0;
+        let frames = 0;
+        let lastFpsUpdate = 0;
+        let currentColorScheme = COLOR_SCHEMES.default;
+        let trailHistory = [];
+        
+        // Initialize the canvas
+        function initCanvas() {
+            // Set canvas size
+            width = Math.min(window.innerWidth - 40, 800);
+            height = Math.min(window.innerHeight - 100, 800);
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Calculate hexagon size
+            hexagonRadius = Math.min(width, height) * 0.4;
+            
+            // Generate hexagon points
+            hexagonPoints = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i;
+                hexagonPoints.push({
+                    x: width / 2 + hexagonRadius * Math.cos(angle),
+                    y: height / 2 + hexagonRadius * Math.sin(angle)
+                });
+            }
+        }
+        
+        // Ball class
+        class Ball {
+            constructor(x, y, radius) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius || (BALL_RADIUS_MIN + Math.random() * (BALL_RADIUS_MAX - BALL_RADIUS_MIN));
+                this.vx = (Math.random() - 0.5) * 5;
+                this.vy = (Math.random() - 0.5) * 5;
+                this.mass = this.radius * this.radius * Math.PI;
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+                this.hue = Math.random() * 360;
+                this.lastPositions = Array(10).fill().map(() => ({x: this.x, y: this.y}));
+                this.collided = false;
+                this.collidedTimer = 0;
+            }
+            
+            update(deltaTime) {
+                // Apply gravity
+                this.vy += gravity * timeMultiplier * deltaTime;
+                
+                // Apply velocity
+                this.x += this.vx * timeMultiplier * deltaTime;
+                this.y += this.vy * timeMultiplier * deltaTime;
+                
+                // Apply friction
+                this.vx *= friction;
+                this.vy *= friction;
+                
+                // Update rotation
+                this.rotation += this.rotationSpeed * timeMultiplier * deltaTime;
+                
+                // Update collided timer
+                if (this.collided) {
+                    this.collidedTimer -= deltaTime;
+                    if (this.collidedTimer <= 0) {
+                        this.collided = false;
+                    }
+                }
+                
+                // Update trail history
+                this.lastPositions.shift();
+                this.lastPositions.push({x: this.x, y: this.y});
+                
+                // Check for collision with hexagon edges
+                this.checkHexagonCollision();
+                
+                // Update hue for rainbow effect
+                if (currentColorScheme.rainbowEffect) {
+                    this.hue = (this.hue + 0.5 * deltaTime) % 360;
+                }
+            }
+            
+            checkHexagonCollision() {
+                // Get hexagon points with current rotation
+                const rotatedPoints = hexagonPoints.map(point => {
+                    const dx = point.x - width / 2;
+                    const dy = point.y - height / 2;
+                    const rotatedX = dx * Math.cos(hexagonRotation) - dy * Math.sin(hexagonRotation);
+                    const rotatedY = dx * Math.sin(hexagonRotation) + dy * Math.cos(hexagonRotation);
+                    return {
+                        x: rotatedX + width / 2,
+                        y: rotatedY + height / 2
+                    };
+                });
+                
+                // Check collision with each edge
+                for (let i = 0; i < rotatedPoints.length; i++) {
+                    const p1 = rotatedPoints[i];
+                    const p2 = rotatedPoints[(i + 1) % rotatedPoints.length];
+                    
+                    // Find closest point on the line segment to the ball center
+                    const edge = { x: p2.x - p1.x, y: p2.y - p1.y };
+                    const edgeLength = Math.sqrt(edge.x * edge.x + edge.y * edge.y);
+                    const normalized = { x: edge.x / edgeLength, y: edge.y / edgeLength };
+                    const ballToP1 = { x: this.x - p1.x, y: this.y - p1.y };
+                    const dot = ballToP1.x * normalized.x + ballToP1.y * normalized.y;
+                    
+                    let closestX, closestY;
+                    if (dot < 0) {
+                        closestX = p1.x;
+                        closestY = p1.y;
+                    } else if (dot > edgeLength) {
+                        closestX = p2.x;
+                        closestY = p2.y;
+                    } else {
+                        closestX = p1.x + normalized.x * dot;
+                        closestY = p1.y + normalized.y * dot;
+                    }
+                    
+                    // Calculate distance to edge
+                    const distX = this.x - closestX;
+                    const distY = this.y - closestY;
+                    const distance = Math.sqrt(distX * distX + distY * distY);
+                    
+                    // Handle collision
+                    if (distance < this.radius) {
+                        // Calculate normal vector
+                        const normal = { x: distX / distance, y: distY / distance };
+                        
+                        // Calculate reflection vector
+                        const dotProduct = this.vx * normal.x + this.vy * normal.y;
+                        
+                        // Apply restitution and reflection
+                        this.vx = (this.vx - 2 * dotProduct * normal.x) * wallRestitution;
+                        this.vy = (this.vy - 2 * dotProduct * normal.y) * wallRestitution;
+                        
+                        // Push ball out of wall
+                        const overlap = this.radius - distance;
+                        this.x += normal.x * overlap;
+                        this.y += normal.y * overlap;
+                        
+                        // Create particles at collision point
+                        if (currentColorScheme.particlesEnabled !== false) {
+                            createCollisionParticles(closestX, closestY, normal);
+                        }
+                        
+                        // Apply rotation effect based on tangent
+                        const tangent = { x: -normal.y, y: normal.x };
+                        const tangentDot = this.vx * tangent.x + this.vy * tangent.y;
+                        this.rotationSpeed = tangentDot * 0.002;
+                        
+                        // Set collided flag for visual effect
+                        this.collided = true;
+                        this.collidedTimer = 0.3;
+                        
+                        // Increment collision counter
+                        collisionCount++;
+                        
+                        // Generate distortion waves
+                        trailHistory.push({
+                            x: closestX,
+                            y: closestY,
+                            life: 1.0,
+                            radius: 0
+                        });
+                    }
+                }
+            }
+            
+            draw() {
+                // Draw trail
+                if (currentColorScheme.trailColor) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.lastPositions[0].x, this.lastPositions[0].y);
+                    for (let i = 1; i < this.lastPositions.length; i++) {
+                        ctx.lineTo(this.lastPositions[i].x, this.lastPositions[i].y);
+                    }
+                    ctx.strokeStyle = currentColorScheme.trailColor;
+                    ctx.lineWidth = this.radius * 0.5;
+                    ctx.stroke();
+                }
+                
+                // Draw ball
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                // Create gradient
+                let gradient;
+                if (currentColorScheme.rainbowEffect) {
+                    gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+                    gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, 1)`);
+                    gradient.addColorStop(1, `hsla(${(this.hue + 60) % 360}, 100%, 50%, 1)`);
+                } else if (Array.isArray(currentColorScheme.ballGradient)) {
+                    gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+                    const colors = currentColorScheme.ballGradient;
+                    colors.forEach((color, index) => {
+                        gradient.addColorStop(index / (colors.length - 1), color);
+                    });
+                } else {
+                    gradient = currentColorScheme.ballGradient;
+                }
+                
+                // Draw glow
+                if (parseFloat(currentColorScheme.ballGlow) > 0) {
+                    ctx.shadowBlur = parseFloat(currentColorScheme.ballGlow);
+                    ctx.shadowColor = this.collided ? "white" : currentColorScheme.glowColor;
+                }
+                
+                // Draw ball shape
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Add details to ball
+                ctx.beginPath();
+                ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.1, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.fill();
+                
+                // Draw fire effect
+                if (currentColorScheme.fireEffect) {
+                    const flameHeight = this.radius * 1.5;
+                    for (let i = 0; i < 8; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const length = Math.random() * flameHeight;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        const controlX = Math.sin(angle) * length * 0.7;
+                        const controlY = Math.cos(angle) * length * 0.7;
+                        ctx.quadraticCurveTo(
+                            controlX, controlY,
+                            Math.sin(angle) * length, Math.cos(angle) * length
+                        );
+                        ctx.lineWidth = this.radius * 0.1 * Math.random();
+                        const flameGradient = ctx.createLinearGradient(0, 0, Math.sin(angle) * length, Math.cos(angle) * length);
+                        flameGradient.addColorStop(0, "rgba(255, 255, 50, 0.8)");
+                        flameGradient.addColorStop(1, "rgba(255, 50, 0, 0)");
+                        ctx.strokeStyle = flameGradient;
+                        ctx.stroke();
+                    }
+                }
+                
+                ctx.restore();
+            }
+            
+            getSpeed() {
+                return Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            }
+        }
+        
+        // Particle class for collision effects
+        class Particle {
+            constructor(x, y, normal) {
+                this.x = x;
+                this.y = y;
+                const spreadAngle = Math.PI / 2;
+                const angle = Math.atan2(normal.y, normal.x) + (Math.random() - 0.5) * spreadAngle;
+                const speed = 1 + Math.random() * 3;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.radius = 1 + Math.random() * 3;
+                this.life = 1.0;
+                this.color = currentColorScheme.particleColors[Math.floor(Math.random() * currentColorScheme.particleColors.length)];
+            }
+            
+            update(deltaTime) {
+                this.x += this.vx * deltaTime;
+                this.y += this.vy * deltaTime;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.life -= 0.03 * deltaTime;
+                this.radius *= 0.99;
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.replace(')', `, ${this.life})`).replace('rgb', 'rgba');
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Create particles for collision effect
+        function createCollisionParticles(x, y, normal) {
+            const numParticles = 5 + Math.floor(Math.random() * 10);
+            for (let i = 0; i < numParticles; i++) {
+                particles.push(new Particle(x, y, normal));
+            }
+        }
+        
+        // Initialize the game
+        function init() {
+            initCanvas();
+            
+            // Create initial ball
+            balls = [new Ball(width / 2, height / 2)];
+            particles = [];
+            collisionCount = 0;
+            trailHistory = [];
+            
+            // Update gravity from slider
+            gravity = gravitySlider.value / 1000;
+            
+            // Update time multiplier from slider
+            timeMultiplier = speedSlider.value / 100;
+        }
+        
+        // Game loop
+        function gameLoop(timestamp) {
+            // Calculate delta time
+            const deltaTime = Math.min((timestamp - lastTime) / 16, 3);
+            lastTime = timestamp;
+            
+            // Track FPS
+            frames++;
+            if (timestamp - lastFpsUpdate > 1000) {
+                fps = Math.round(frames * 1000 / (timestamp - lastFpsUpdate));
+                frames = 0;
+                lastFpsUpdate = timestamp;
+                
+                // Update stats display
+                let totalSpeed = 0;
+                balls.forEach(ball => {
+                    totalSpeed += ball.getSpeed();
+                });
+                const avgSpeed = balls.length > 0 ? (totalSpeed / balls.length).toFixed(2) : "0.00";
+                statsElement.innerHTML = `FPS: ${fps}<br>Velocity: ${avgSpeed} px/s<br>Collisions: ${collisionCount}`;
+            }
+            
+            // Clear canvas
+            ctx.fillStyle = currentColorScheme.background;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Update and draw distortion waves
+            trailHistory.forEach((wave, index) => {
+                wave.life -= 0.02 * deltaTime;
+                wave.radius += 5 * deltaTime;
+                
+                if (wave.life > 0) {
+                    ctx.beginPath();
+                    ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${wave.life * 0.2})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+            
+            // Remove dead waves
+            trailHistory = trailHistory.filter(wave => wave.life > 0);
+            
+            // Update hexagon rotation
+            hexagonRotation += hexagonRotationSpeed * timeMultiplier * deltaTime;
+            
+            // Draw hexagon
+            drawHexagon();
+            
+            // Update and draw balls
+            balls.forEach(ball => {
+                ball.update(deltaTime);
+                ball.draw();
+            });
+            
+            // Update and draw particles
+            particles.forEach(particle => {
+                particle.update(deltaTime);
+                particle.draw();
+            });
+            
+            // Remove dead particles
+            particles = particles.filter(particle => particle.life > 0);
+            
+            // Continue game loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Draw hexagon with current rotation
+        function drawHexagon() {
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(hexagonRotation);
+            
+            // Draw hexagon background
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i;
+                const x = hexagonRadius * Math.cos(angle);
+                const y = hexagonRadius * Math.sin(angle);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+            ctx.fillStyle = currentColorScheme.hexagonFill;
+            ctx.fill();
+            
+            // Draw hexagon border
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i;
+                const x = hexagonRadius * Math.cos(angle);
+                const y = hexagonRadius * Math.sin(angle);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+            ctx.strokeStyle = currentColorScheme.hexagonStroke;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = currentColorScheme.hexagonStroke;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Add details to hexagon
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i;
+                const x = hexagonRadius * Math.cos(angle);
+                const y = hexagonRadius * Math.sin(angle);
+                
+                // Draw corner points
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = currentColorScheme.hexagonStroke;
+ctx.shadowBlur = 10;
+                ctx.shadowColor = currentColorScheme.hexagonStroke;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Draw subtle grid lines
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(x * 0.8, y * 0.8);
+                ctx.strokeStyle = `${currentColorScheme.hexagonStroke}30`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+        
+        // Event listeners
+        resetBtn.addEventListener('click', () => {
+            init();
+        });
+        
+        addBallBtn.addEventListener('click', () => {
+            if (balls.length < MAX_BALLS) {
+                balls.push(new Ball(width / 2, height / 2));
+            }
+        });
+        
+        gravitySlider.addEventListener('input', () => {
+            gravity = gravitySlider.value / 1000;
+        });
+        
+        speedSlider.addEventListener('input', () => {
+            timeMultiplier = speedSlider.value / 100;
+        });
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            initCanvas();
+        });
+        
+        // Presets modal handlers
+        presetsBtn.addEventListener('click', () => {
+            presetsModal.style.display = 'flex';
+        });
+        
+        closePresetsBtn.addEventListener('click', () => {
+            presetsModal.style.display = 'none';
+        });
+        
+        // Handle clicks outside the modal
+        window.addEventListener('click', (event) => {
+            if (event.target === presetsModal) {
+                presetsModal.style.display = 'none';
+            }
+        });
+        
+        // Preset buttons handlers
+        presetButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const presetName = button.getAttribute('data-preset');
+                if (COLOR_SCHEMES[presetName]) {
+                    currentColorScheme = COLOR_SCHEMES[presetName];
+                    presetsModal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Mouse interaction
+        let isDragging = false;
+        let selectedBall = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Check if we clicked on any ball
+            for (let i = balls.length - 1; i >= 0; i--) {
+                const ball = balls[i];
+                const dx = mouseX - ball.x;
+                const dy = mouseY - ball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < ball.radius) {
+                    isDragging = true;
+                    selectedBall = ball;
+                    dragOffsetX = dx;
+                    dragOffsetY = dy;
+                    
+                    // Bring selected ball to front
+                    balls.splice(i, 1);
+                    balls.push(selectedBall);
+                    
+                    // Stop ball movement
+                    selectedBall.vx = 0;
+                    selectedBall.vy = 0;
+                    break;
+                }
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging && selectedBall) {
+                const rect = canvas.getBoundingClientRect();
+                selectedBall.x = e.clientX - rect.left - dragOffsetX;
+                selectedBall.y = e.clientY - rect.top - dragOffsetY;
+                
+                // Update trail positions
+                selectedBall.lastPositions = selectedBall.lastPositions.map(() => ({
+                    x: selectedBall.x, 
+                    y: selectedBall.y
+                }));
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            selectedBall = null;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            selectedBall = null;
+        });
+        
+        // Touch support for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+            
+            // Check if we touched any ball
+            for (let i = balls.length - 1; i >= 0; i--) {
+                const ball = balls[i];
+                const dx = touchX - ball.x;
+                const dy = touchY - ball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < ball.radius) {
+                    isDragging = true;
+                    selectedBall = ball;
+                    dragOffsetX = dx;
+                    dragOffsetY = dy;
+                    
+                    // Bring selected ball to front
+                    balls.splice(i, 1);
+                    balls.push(selectedBall);
+                    
+                    // Stop ball movement
+                    selectedBall.vx = 0;
+                    selectedBall.vy = 0;
+                    break;
+                }
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDragging && selectedBall) {
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                selectedBall.x = touch.clientX - rect.left - dragOffsetX;
+                selectedBall.y = touch.clientY - rect.top - dragOffsetY;
+                
+                // Update trail positions
+                selectedBall.lastPositions = selectedBall.lastPositions.map(() => ({
+                    x: selectedBall.x, 
+                    y: selectedBall.y
+                }));
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+            selectedBall = null;
+        });
+        
+        // Gesture for spin speed
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const dx = touch.clientX - lastTouchX;
+                
+                // Adjust hexagon rotation speed
+                hexagonRotationSpeed += dx * 0.00001;
+                
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }
+        }, { passive: false });
+        
+        // Double click to add ball
+        canvas.addEventListener('dblclick', (e) => {
+            if (balls.length < MAX_BALLS) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                balls.push(new Ball(mouseX, mouseY));
+            }
+        });
+        
+        // Add special effects with keyboard
+        document.addEventListener('keydown', (e) => {
+            // Space to toggle gravity
+            if (e.code === 'Space') {
+                gravity = gravity > 0 ? 0 : gravitySlider.value / 1000;
+            }
+            
+            // R to reverse gravity
+            if (e.code === 'KeyR') {
+                gravity = -gravity;
+            }
+            
+            // Arrow keys to control hexagon rotation
+            if (e.code === 'ArrowLeft') {
+                hexagonRotationSpeed -= 0.001;
+            }
+            if (e.code === 'ArrowRight') {
+                hexagonRotationSpeed += 0.001;
+            }
+            if (e.code === 'ArrowUp') {
+                hexagonRotationSpeed = 0.005;
+            }
+            if (e.code === 'ArrowDown') {
+                hexagonRotationSpeed = 0;
+            }
+            
+            // E to explode balls
+            if (e.code === 'KeyE') {
+                balls.forEach(ball => {
+                    ball.vx += (Math.random() - 0.5) * 20;
+                    ball.vy += (Math.random() - 0.5) * 20;
+                });
+            }
+            
+            // S to split balls
+            if (e.code === 'KeyS' && balls.length > 0 && balls.length < MAX_BALLS / 2) {
+                const newBalls = [];
+                balls.forEach(ball => {
+                    if (ball.radius > BALL_RADIUS_MIN * 1.5) {
+                        const newRadius = ball.radius * 0.7;
+                        ball.radius = newRadius;
+                        
+                        const angle = Math.random() * Math.PI * 2;
+                        const newBall = new Ball(
+                            ball.x + Math.cos(angle) * newRadius,
+                            ball.y + Math.sin(angle) * newRadius,
+                            newRadius
+                        );
+                        newBall.vx = ball.vx + Math.cos(angle) * 3;
+                        newBall.vy = ball.vy + Math.sin(angle) * 3;
+                        newBalls.push(newBall);
+                    }
+                });
+                balls = balls.concat(newBalls).slice(0, MAX_BALLS);
+            }
+        });
+        
+        // Start the game
+        init();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

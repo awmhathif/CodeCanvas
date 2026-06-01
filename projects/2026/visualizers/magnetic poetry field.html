@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magnetic Poetry Field</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --text-color: #1a202c;
+            --magnet-positive: #e53e3e;
+            --magnet-negative: #3182ce;
+            --grid-color: rgba(0, 0, 0, 0.05);
+            --word-bg: #ffffff;
+            --word-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * { box-sizing: border-box; touch-action: none; user-select: none; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* --- Canvas Layer --- */
+        #fieldCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* --- UI Overlay --- */
+        .ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; background: rgba(255,255,255,0.8); padding: 5px 10px; border-radius: 5px; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        button.active { background: #333; color: white; border-color: #333; }
+
+        .input-bar {
+            margin-top: auto;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            align-self: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        /* --- Word Rendering (handled via Canvas, but styles defined here for ref) --- */
+        /*
+           Words will be drawn on canvas for performance (60fps physics),
+           but UI elements are DOM.
+        */
+
+    </style>
+</head>
+<body>
+
+    <canvas id="fieldCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="header">
+            <h1>Magnetic Field</h1>
+            <div class="controls">
+                <button id="snapBtn" onclick="app.toggleGrid()">Grid: OFF</button>
+                <button id="linesBtn" onclick="app.toggleLines()">Lines: OFF</button>
+                <button onclick="app.reset()">Scatter</button>
+                <button onclick="app.capture()">📸</button>
+            </div>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="wordInput" placeholder="Type a word + Enter..." autocomplete="off">
+            <button onclick="app.addFromInput()">Add</button>
+            <button onclick="app.toggleVoice()" id="micBtn">🎤</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * Simple Semantic Embedding Mock
+ * In a real app, this would use a local model like TensorFlow.js with Universal Sentence Encoder.
+ * Here, we map words to simple 3D vectors to simulate "meaning" distance.
+ */
+const Semantics = {
+    // Categories act as vector clusters
+    nature: ['tree', 'river', 'sky', 'sun', 'flower', 'wind', 'stone', 'cloud', 'ocean', 'mountain'],
+    emotion: ['love', 'hate', 'fear', 'joy', 'sadness', 'anger', 'hope', 'dream', 'soul', 'heart'],
+    abstract: ['time', 'truth', 'life', 'death', 'chaos', 'order', 'mind', 'thought', 'memory', 'future'],
+    tech: ['metal', 'glass', 'wire', 'code', 'data', 'screen', 'pixel', 'robot', 'cyber', 'network'],
+    action: ['run', 'fall', 'fly', 'swim', 'sleep', 'wake', 'break', 'build', 'create', 'destroy']
+};
+
+function getVector(word) {
+    // Hash function to deterministically assign random vectors to unknown words
+    let hash = 0;
+    for (let i = 0; i < word.length; i++) hash = word.charCodeAt(i) + ((hash << 5) - hash);
+    
+    // Check predefined categories first
+    for(let cat in Semantics) {
+        if(Semantics[cat].includes(word.toLowerCase())) {
+            // Assign vector based on category index
+            const idx = Object.keys(Semantics).indexOf(cat);
+            return {
+                x: Math.cos(idx) * 10, // Category defines angle
+                y: Math.sin(idx) * 10,
+                cat: cat
+            };
+        }
+    }
+
+    // Default: generated vector based on hash
+    const angle = (hash % 360) * (Math.PI / 180);
+    return { x: Math.cos(angle) * 10, y: Math.sin(angle) * 10, cat: 'unknown' };
+}
+
+class PhysicsEngine {
+    constructor() {
+        this.canvas = document.getElementById('fieldCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        
+        this.words = [];
+        this.isDragging = false;
+        this.dragIdx = -1;
+        this.dragOffset = {x:0, y:0};
+        
+        this.snapToGrid = false;
+        this.showLines = false;
+        
+        // Physics Params
+        this.friction = 0.94;
+        this.repulsion = 150; // Force to keep words from overlapping
+        this.attraction = 0.05; // Force pulling similar meanings
+        
+        this.init();
+    }
+
+    init() {
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Populate initial words
+        Object.values(Semantics).flat().forEach(w => this.addWord(w));
+
+        // Interaction
+        this.setupInteractions();
+        
+        // Loop
+        requestAnimationFrame(() => this.loop());
+    }
+
+    resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+    }
+
+    addWord(text) {
+        const vec = getVector(text);
+        const padding = 20;
+        this.words.push({
+            text: text,
+            x: Math.random() * (this.width - 200) + 100,
+            y: Math.random() * (this.height - 200) + 100,
+            vx: 0,
+            vy: 0,
+            width: this.ctx.measureText(text).width + 30, // Approx width
+            height: 30,
+            sem: vec,
+            locked: false,
+            color: this.getColor(vec.cat)
+        });
+    }
+
+    getColor(cat) {
+        const colors = {
+            nature: '#48bb78', // Green
+            emotion: '#f56565', // Red
+            abstract: '#ed8936', // Orange
+            tech: '#4299e1', // Blue
+            action: '#9f7aea', // Purple
+            unknown: '#718096' // Gray
+        };
+        return colors[cat] || colors.unknown;
+    }
+
+    // --- Physics Core ---
+    update() {
+        for (let i = 0; i < this.words.length; i++) {
+            let a = this.words[i];
+            if (a.locked || (this.isDragging && this.dragIdx === i)) continue;
+
+            // 1. Semantic Attraction (Magnetic Field)
+            for (let j = 0; j < this.words.length; j++) {
+                if (i === j) continue;
+                let b = this.words[j];
+
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < 10) continue; // Avoid divide by zero
+
+                // Calculate Semantic Similarity (Dot product of "vectors")
+                // High similarity = strong pull.
+                // Low similarity = push away (antonyms/unrelated).
+                
+                // Simple distance between vector values
+                const semDist = Math.sqrt(Math.pow(a.sem.x - b.sem.x, 2) + Math.pow(a.sem.y - b.sem.y, 2));
+                
+                // If semantically close (semDist is small), attract.
+                if (semDist < 4) {
+                    if (dist < 300) { // Only affect if somewhat close physically
+                        const force = this.attraction * (1 / (semDist + 0.1));
+                        a.vx += (dx / dist) * force;
+                        a.vy += (dy / dist) * force;
+                    }
+                }
+                
+                // 2. Physical Repulsion (Collision Prevention)
+                if (dist < 60) {
+                    const repelForce = (60 - dist) / 10;
+                    a.vx -= (dx / dist) * repelForce;
+                    a.vy -= (dy / dist) * repelForce;
+                }
+            }
+
+            // 3. Wall Boundaries
+            if (a.x < 0) a.vx += 1;
+            if (a.x > this.width) a.vx -= 1;
+            if (a.y < 0) a.vy += 1;
+            if (a.y > this.height) a.vy -= 1;
+
+            // 4. Snap to Grid (Poetry Mode)
+            if (this.snapToGrid) {
+                // Weaken velocity
+                a.vx *= 0.5;
+                a.vy *= 0.5;
+                
+                // Pull towards nearest 40px grid line
+                const targetY = Math.round(a.y / 40) * 40;
+                a.vy += (targetY - a.y) * 0.1;
+                
+                // Only snap X if close to another word (alignment)
+                // (Simplified for this demo: just friction)
+            }
+
+            // Apply Velocity
+            a.vx *= this.friction;
+            a.vy *= this.friction;
+
+            a.x += a.vx;
+            a.y += a.vy;
+        }
+    }
+
+    draw() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // Draw Field Lines (optional)
+        if (this.showLines) {
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+            for (let i = 0; i < this.words.length; i++) {
+                for (let j = i + 1; j < this.words.length; j++) {
+                    let a = this.words[i];
+                    let b = this.words[j];
+                    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+                    const semDist = Math.hypot(a.sem.x - b.sem.x, a.sem.y - b.sem.y);
+                    
+                    if (dist < 200 && semDist < 4) {
+                        this.ctx.moveTo(a.x, a.y);
+                        this.ctx.lineTo(b.x, b.y);
+                    }
+                }
+            }
+            this.ctx.stroke();
+        }
+
+        // Draw Grid Lines (if active)
+        if (this.snapToGrid) {
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = 'rgba(0,100,255,0.1)';
+            for(let y=0; y<this.height; y+=40) {
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.width, y);
+            }
+            this.ctx.stroke();
+        }
+
+        this.ctx.font = "bold 16px 'Courier New'";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+
+        this.words.forEach(w => {
+            const wW = this.ctx.measureText(w.text).width + 20;
+            w.width = wW; // Update real width
+
+            // Shadow
+            this.ctx.fillStyle = "rgba(0,0,0,0.1)";
+            this.ctx.fillRect(w.x - wW/2 + 3, w.y - 15 + 3, wW, 30);
+
+            // Box
+            this.ctx.fillStyle = w.locked ? "#eee" : "#fff";
+            this.ctx.fillRect(w.x - wW/2, w.y - 15, wW, 30);
+            
+            // Border (Color coded by sentiment/category)
+            this.ctx.strokeStyle = w.color;
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(w.x - wW/2, w.y - 15, wW, 30);
+
+            // Text
+            this.ctx.fillStyle = "#333";
+            this.ctx.fillText(w.text, w.x, w.y);
+        });
+    }
+
+    loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.loop());
+    }
+
+    // --- Interaction Handlers ---
+    setupInteractions() {
+        // Mouse/Touch Down
+        const start = (e) => {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            // Find clicked word (reverse iterate for z-index feel)
+            for (let i = this.words.length - 1; i >= 0; i--) {
+                const w = this.words[i];
+                if (x > w.x - w.width/2 && x < w.x + w.width/2 &&
+                    y > w.y - w.height/2 && y < w.y + w.height/2) {
+                    
+                    this.isDragging = true;
+                    this.dragIdx = i;
+                    this.dragOffset.x = x - w.x;
+                    this.dragOffset.y = y - w.y;
+                    
+                    // Stop movement
+                    w.vx = 0; 
+                    w.vy = 0;
+                    return;
+                }
+            }
+        };
+
+        // Move
+        const move = (e) => {
+            if (!this.isDragging) return;
+            e.preventDefault(); // Stop scrolling on mobile
+            
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const w = this.words[this.dragIdx];
+            w.x = x - this.dragOffset.x;
+            w.y = y - this.dragOffset.y;
+        };
+
+        // End
+        const end = () => {
+            this.isDragging = false;
+            this.dragIdx = -1;
+        };
+        
+        // Double Click to Lock
+        const dblClick = (e) => {
+            const x = e.clientX;
+            const y = e.clientY;
+            for (let i = this.words.length - 1; i >= 0; i--) {
+                const w = this.words[i];
+                if (x > w.x - w.width/2 && x < w.x + w.width/2 &&
+                    y > w.y - w.height/2 && y < w.y + w.height/2) {
+                    w.locked = !w.locked;
+                    return;
+                }
+            }
+        }
+
+        this.canvas.addEventListener('mousedown', start);
+        this.canvas.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', end);
+        this.canvas.addEventListener('dblclick', dblClick);
+
+        this.canvas.addEventListener('touchstart', start, {passive: false});
+        this.canvas.addEventListener('touchmove', move, {passive: false});
+        window.addEventListener('touchend', end);
+        
+        // Shake Detection
+        this.setupShake();
+    }
+    
+    setupShake() {
+        let lastTime = 0, lastX, lastY, lastZ;
+        window.addEventListener('devicemotion', (e) => {
+            const current = e.accelerationIncludingGravity;
+            if(!current) return;
+            const time = new Date().getTime();
+            if ((time - lastTime) > 100) {
+                const diff = time - lastTime;
+                lastTime = time;
+                const speed = Math.abs(current.x + current.y + current.z - lastX - lastY - lastZ) / diff * 10000;
+                
+                if (speed > 25) { // Hard shake
+                    this.words.forEach(w => {
+                        if (!w.locked) {
+                            w.vx = (Math.random() - 0.5) * 50;
+                            w.vy = (Math.random() - 0.5) * 50;
+                        }
+                    });
+                }
+                lastX = current.x; lastY = current.y; lastZ = current.z;
+            }
+        });
+    }
+}
+
+// --- App Controller ---
+class App {
+    constructor() {
+        this.physics = new PhysicsEngine();
+        this.input = document.getElementById('wordInput');
+        
+        // Enter key handling
+        this.input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.addFromInput();
+        });
+    }
+
+    addFromInput() {
+        const val = this.input.value.trim();
+        if (val) {
+            this.physics.addWord(val);
+            this.input.value = '';
+        }
+    }
+
+    toggleGrid() {
+        this.physics.snapToGrid = !this.physics.snapToGrid;
+        document.getElementById('snapBtn').textContent = this.physics.snapToGrid ? "Grid: ON" : "Grid: OFF";
+        document.getElementById('snapBtn').classList.toggle('active');
+    }
+    
+    toggleLines() {
+        this.physics.showLines = !this.physics.showLines;
+        document.getElementById('linesBtn').textContent = this.physics.showLines ? "Lines: ON" : "Lines: OFF";
+        document.getElementById('linesBtn').classList.toggle('active');
+    }
+
+    reset() {
+        this.physics.words.forEach(w => {
+            if(!w.locked) {
+                w.vx = (Math.random() - 0.5) * 30;
+                w.vy = (Math.random() - 0.5) * 30;
+            }
+        });
+    }
+
+    capture() {
+        // Render white background for image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.physics.width;
+        tempCanvas.height = this.physics.height;
+        const tCtx = tempCanvas.getContext('2d');
+        
+        tCtx.fillStyle = '#f0f4f8';
+        tCtx.fillRect(0,0, tempCanvas.width, tempCanvas.height);
+        tCtx.drawImage(this.physics.canvas, 0, 0);
+        
+        const link = document.createElement('a');
+        link.download = 'magnetic-poem.png';
+        link.href = tempCanvas.toDataURL();
+        link.click();
+    }
+
+    toggleVoice() {
+        const micBtn = document.getElementById('micBtn');
+        if (!('webkitSpeechRecognition' in window)) {
+            alert("Speech not supported");
+            return;
+        }
+
+        const recognition = new webkitSpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => { micBtn.classList.add('active'); };
+        recognition.onend = () => { micBtn.classList.remove('active'); };
+        
+        recognition.onresult = (e) => {
+            const transcript = e.results[0][0].transcript;
+            const words = transcript.split(' ');
+            words.forEach(w => this.physics.addWord(w));
+        };
+
+        recognition.start();
+    }
+}
+
+const app = new App();
+
+</script>
+</body>
+</html>

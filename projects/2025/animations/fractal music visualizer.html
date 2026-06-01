@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Music Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #canvas {
+            flex: 1;
+            display: block;
+            width: 100%;
+            height: calc(100vh - 280px);
+        }
+
+        .controls {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-top: 2px solid #00ff88;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .control-item {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #00ff88;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #00ffaa;
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+            color: #fff;
+        }
+
+        .value-display {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.1);
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #222;
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .control-item {
+                min-width: 100%;
+            }
+            
+            #canvas {
+                height: calc(100vh - 400px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-row">
+                <div class="control-item">
+                    <label>Fractal Type</label>
+                    <select id="fractalType">
+                        <option value="mandelbrot">Mandelbrot Set</option>
+                        <option value="julia">Julia Set</option>
+                        <option value="burningship">Burning Ship</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label>Zoom <span class="value-display" id="zoomValue">1.0</span></label>
+                    <input type="range" id="zoom" min="0.1" max="5" step="0.1" value="1">
+                </div>
+                <div class="control-item">
+                    <label>Iterations <span class="value-display" id="iterValue">50</span></label>
+                    <input type="range" id="iterations" min="20" max="200" step="10" value="50">
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-item">
+                    <label>Julia Real <span class="value-display" id="juliaRealValue">-0.4</span></label>
+                    <input type="range" id="juliaReal" min="-1" max="1" step="0.01" value="-0.4">
+                </div>
+                <div class="control-item">
+                    <label>Julia Imaginary <span class="value-display" id="juliaImagValue">0.6</span></label>
+                    <input type="range" id="juliaImag" min="-1" max="1" step="0.01" value="0.6">
+                </div>
+                <div class="control-item">
+                    <label>Color Shift <span class="value-display" id="colorShiftValue">0</span></label>
+                    <input type="range" id="colorShift" min="0" max="360" step="1" value="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-row">
+                <div class="control-item">
+                    <label>Frequency (Hz) <span class="value-display" id="freqValue">220</span></label>
+                    <input type="range" id="frequency" min="100" max="800" step="10" value="220">
+                </div>
+                <div class="control-item">
+                    <label>Volume <span class="value-display" id="volumeValue">0.3</span></label>
+                    <input type="range" id="volume" min="0" max="1" step="0.05" value="0.3">
+                </div>
+                <div class="control-item">
+                    <label>Modulation Speed <span class="value-display" id="modSpeedValue">2</span></label>
+                    <input type="range" id="modSpeed" min="0.5" max="10" step="0.5" value="2">
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="playBtn">Play Music</button>
+            <button id="randomize">Randomize</button>
+            <button id="autoMode">Auto Morph Mode</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let imageData;
+        
+        function resizeCanvas() {
+            width = canvas.width = canvas.clientWidth;
+            height = canvas.height = canvas.clientHeight;
+            imageData = ctx.createImageData(width, height);
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Audio setup
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let oscillator1, oscillator2, gainNode, lfo, lfoGain, filter;
+        let isPlaying = false;
+
+        function initAudio() {
+            oscillator1 = audioContext.createOscillator();
+            oscillator2 = audioContext.createOscillator();
+            gainNode = audioContext.createGain();
+            lfo = audioContext.createOscillator();
+            lfoGain = audioContext.createGain();
+            filter = audioContext.createBiquadFilter();
+
+            oscillator1.type = 'sine';
+            oscillator2.type = 'sawtooth';
+            lfo.type = 'sine';
+            filter.type = 'lowpass';
+            filter.frequency.value = 2000;
+
+            lfo.frequency.value = parseFloat(document.getElementById('modSpeed').value);
+            lfoGain.gain.value = 50;
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(oscillator1.frequency);
+
+            oscillator1.connect(filter);
+            oscillator2.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            gainNode.gain.value = parseFloat(document.getElementById('volume').value);
+        }
+
+        function startAudio() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            initAudio();
+            
+            const freq = parseFloat(document.getElementById('frequency').value);
+            oscillator1.frequency.value = freq;
+            oscillator2.frequency.value = freq * 1.5;
+            
+            oscillator1.start();
+            oscillator2.start();
+            lfo.start();
+            
+            isPlaying = true;
+            document.getElementById('playBtn').classList.add('active');
+            document.getElementById('playBtn').textContent = 'Stop Music';
+        }
+
+        function stopAudio() {
+            if (oscillator1) oscillator1.stop();
+            if (oscillator2) oscillator2.stop();
+            if (lfo) lfo.stop();
+            isPlaying = false;
+            document.getElementById('playBtn').classList.remove('active');
+            document.getElementById('playBtn').textContent = 'Play Music';
+        }
+
+        // Fractal parameters
+        let params = {
+            type: 'mandelbrot',
+            zoom: 1.0,
+            centerX: -0.5,
+            centerY: 0,
+            iterations: 50,
+            juliaReal: -0.4,
+            juliaImag: 0.6,
+            colorShift: 0,
+            audioInfluence: 0
+        };
+
+        let autoMode = false;
+        let autoTime = 0;
+
+        function mandelbrot(x, y) {
+            let zx = 0, zy = 0;
+            let cx = x, cy = y;
+            let i = 0;
+            
+            while (i < params.iterations && zx * zx + zy * zy < 4) {
+                let temp = zx * zx - zy * zy + cx;
+                zy = 2 * zx * zy + cy;
+                zx = temp;
+                i++;
+            }
+            
+            return i;
+        }
+
+        function julia(x, y) {
+            let zx = x, zy = y;
+            let cx = params.juliaReal, cy = params.juliaImag;
+            let i = 0;
+            
+            while (i < params.iterations && zx * zx + zy * zy < 4) {
+                let temp = zx * zx - zy * zy + cx;
+                zy = 2 * zx * zy + cy;
+                zx = temp;
+                i++;
+            }
+            
+            return i;
+        }
+
+        function burningShip(x, y) {
+            let zx = 0, zy = 0;
+            let cx = x, cy = y;
+            let i = 0;
+            
+            while (i < params.iterations && zx * zx + zy * zy < 4) {
+                let temp = zx * zx - zy * zy + cx;
+                zy = 2 * Math.abs(zx * zy) + cy;
+                zx = Math.abs(temp);
+                i++;
+            }
+            
+            return i;
+        }
+
+        function getColor(iterations) {
+            if (iterations === params.iterations) {
+                return [0, 0, 0, 255];
+            }
+            
+            const smoothed = iterations + 1 - Math.log(Math.log(2)) / Math.log(2);
+            const hue = (smoothed * 10 + params.colorShift + params.audioInfluence * 100) % 360;
+            const saturation = 100;
+            const lightness = 50 + params.audioInfluence * 20;
+            
+            return hslToRgb(hue, saturation, lightness);
+        }
+
+        function hslToRgb(h, s, l) {
+            s /= 100;
+            l /= 100;
+            const k = n => (n + h / 30) % 12;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+            return [255 * f(0), 255 * f(8), 255 * f(4), 255];
+        }
+
+        function drawFractal() {
+            const data = imageData.data;
+            const aspect = width / height;
+            
+            for (let py = 0; py < height; py++) {
+                for (let px = 0; px < width; px++) {
+                    const x0 = params.centerX + (px / width - 0.5) * 4 / params.zoom * aspect;
+                    const y0 = params.centerY + (py / height - 0.5) * 4 / params.zoom;
+                    
+                    let iterations;
+                    switch(params.type) {
+                        case 'julia':
+                            iterations = julia(x0, y0);
+                            break;
+                        case 'burningship':
+                            iterations = burningShip(x0, y0);
+                            break;
+                        default:
+                            iterations = mandelbrot(x0, y0);
+                    }
+                    
+                    const color = getColor(iterations);
+                    const idx = (py * width + px) * 4;
+                    data[idx] = color[0];
+                    data[idx + 1] = color[1];
+                    data[idx + 2] = color[2];
+                    data[idx + 3] = color[3];
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function animate() {
+            if (isPlaying) {
+                const analyzer = audioContext.createAnalyser();
+                gainNode.connect(analyzer);
+                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                analyzer.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                params.audioInfluence = average / 255;
+            } else {
+                params.audioInfluence *= 0.9;
+            }
+
+            if (autoMode) {
+                autoTime += 0.02;
+                params.juliaReal = Math.sin(autoTime) * 0.8;
+                params.juliaImag = Math.cos(autoTime * 0.7) * 0.8;
+                params.colorShift = (params.colorShift + 1) % 360;
+                document.getElementById('juliaReal').value = params.juliaReal;
+                document.getElementById('juliaImag').value = params.juliaImag;
+                document.getElementById('colorShift').value = params.colorShift;
+                updateValueDisplays();
+            }
+
+            drawFractal();
+            requestAnimationFrame(animate);
+        }
+
+        function updateValueDisplays() {
+            document.getElementById('zoomValue').textContent = params.zoom.toFixed(1);
+            document.getElementById('iterValue').textContent = params.iterations;
+            document.getElementById('juliaRealValue').textContent = params.juliaReal.toFixed(2);
+            document.getElementById('juliaImagValue').textContent = params.juliaImag.toFixed(2);
+            document.getElementById('colorShiftValue').textContent = params.colorShift;
+            document.getElementById('freqValue').textContent = document.getElementById('frequency').value;
+            document.getElementById('volumeValue').textContent = document.getElementById('volume').value;
+            document.getElementById('modSpeedValue').textContent = document.getElementById('modSpeed').value;
+        }
+
+        // Event listeners
+        document.getElementById('fractalType').addEventListener('change', (e) => {
+            params.type = e.target.value;
+            if (params.type === 'mandelbrot') {
+                params.centerX = -0.5;
+                params.centerY = 0;
+            } else if (params.type === 'burningship') {
+                params.centerX = -0.5;
+                params.centerY = -0.5;
+            }
+        });
+
+        document.getElementById('zoom').addEventListener('input', (e) => {
+            params.zoom = parseFloat(e.target.value);
+            updateValueDisplays();
+        });
+
+        document.getElementById('iterations').addEventListener('input', (e) => {
+            params.iterations = parseInt(e.target.value);
+            updateValueDisplays();
+        });
+
+        document.getElementById('juliaReal').addEventListener('input', (e) => {
+            params.juliaReal = parseFloat(e.target.value);
+            updateValueDisplays();
+        });
+
+        document.getElementById('juliaImag').addEventListener('input', (e) => {
+            params.juliaImag = parseFloat(e.target.value);
+            updateValueDisplays();
+        });
+
+        document.getElementById('colorShift').addEventListener('input', (e) => {
+            params.colorShift = parseFloat(e.target.value);
+            updateValueDisplays();
+        });
+
+        document.getElementById('frequency').addEventListener('input', (e) => {
+            const freq = parseFloat(e.target.value);
+            if (isPlaying) {
+                oscillator1.frequency.value = freq;
+                oscillator2.frequency.value = freq * 1.5;
+            }
+            updateValueDisplays();
+        });
+
+        document.getElementById('volume').addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            if (isPlaying) {
+                gainNode.gain.value = vol;
+            }
+            updateValueDisplays();
+        });
+
+        document.getElementById('modSpeed').addEventListener('input', (e) => {
+            const speed = parseFloat(e.target.value);
+            if (isPlaying) {
+                lfo.frequency.value = speed;
+            }
+            updateValueDisplays();
+        });
+
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        });
+
+        document.getElementById('randomize').addEventListener('click', () => {
+            params.juliaReal = Math.random() * 2 - 1;
+            params.juliaImag = Math.random() * 2 - 1;
+            params.colorShift = Math.random() * 360;
+            params.zoom = Math.random() * 3 + 0.5;
+            
+            document.getElementById('juliaReal').value = params.juliaReal;
+            document.getElementById('juliaImag').value = params.juliaImag;
+            document.getElementById('colorShift').value = params.colorShift;
+            document.getElementById('zoom').value = params.zoom;
+            
+            if (isPlaying) {
+                const freq = 200 + Math.random() * 400;
+                document.getElementById('frequency').value = freq;
+                oscillator1.frequency.value = freq;
+                oscillator2.frequency.value = freq * 1.5;
+            }
+            
+            updateValueDisplays();
+        });
+
+        document.getElementById('autoMode').addEventListener('click', (e) => {
+            autoMode = !autoMode;
+            e.target.classList.toggle('active');
+            e.target.textContent = autoMode ? 'Stop Auto Morph' : 'Auto Morph Mode';
+        });
+
+        // Start animation
+        updateValueDisplays();
+        animate();
+    </script>
+</body>
+</html>

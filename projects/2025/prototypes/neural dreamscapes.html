@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Dreamscapes</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle, #0b0033, #150050, #240090, #3500d3);
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+        }
+
+        #ui h1 {
+            font-size: 18px;
+            margin: 0 0 10px;
+            color: #00ffcc;
+        }
+
+        #ui p {
+            margin: 5px 0;
+        }
+
+        #ui .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        #ui .controls button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: linear-gradient(to bottom, #240090, #3f00ff);
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        #ui .controls button:hover {
+            background: linear-gradient(to bottom, #2a00b3, #4b00ff);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>Neural Dreamscapes</h1>
+        <p>Interact with the living neural system.</p>
+        <div class="controls">
+            <button id="activate">Activate Network</button>
+            <button id="reset">Reset</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0x00ffcc, 2, 50);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Create neural network nodes (particles)
+        const nodeCount = 200;
+        const nodeGeometry = new THREE.BufferGeometry();
+        const nodeMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.2,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const nodePositions = new Float32Array(nodeCount * 3);
+        for (let i = 0; i < nodeCount; i++) {
+            nodePositions[i * 3] = (Math.random() - 0.5) * 30;
+            nodePositions[i * 3 + 1] = (Math.random() - 0.5) * 30;
+            nodePositions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+        }
+        nodeGeometry.setAttribute('position', new THREE.BufferAttribute(nodePositions, 3));
+
+        const nodes = new THREE.Points(nodeGeometry, nodeMaterial);
+        scene.add(nodes);
+
+        // Neural connections (lines between nodes)
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0x00ffcc,
+            transparent: true,
+            opacity: 0.7
+        });
+
+        const connectionGeometry = new THREE.BufferGeometry();
+        const maxConnections = 100;
+        const connectionPositions = new Float32Array(maxConnections * 3 * 2); // Start and end points
+        connectionGeometry.setAttribute('position', new THREE.BufferAttribute(connectionPositions, 3));
+
+        const connections = new THREE.LineSegments(connectionGeometry, lineMaterial);
+        scene.add(connections);
+
+        // Thought particles (floating orbs)
+        const thoughtGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+        const thoughtMaterial = new THREE.MeshPhongMaterial({
+            color: 0xff00ff,
+            emissive: 0x300050,
+            transparent: true,
+            opacity: 0.6
+        });
+        const thoughtParticles = [];
+        for (let i = 0; i < 10; i++) {
+            const particle = new THREE.Mesh(thoughtGeometry, thoughtMaterial);
+            particle.position.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20);
+            scene.add(particle);
+            thoughtParticles.push(particle);
+        }
+
+        // Camera position
+        camera.position.z = 35;
+
+        // Animation and logic
+        let activateNetwork = false;
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate nodes and connections
+            nodes.rotation.y += 0.002;
+            connections.rotation.y += 0.002;
+
+            // Move thought particles in random directions
+            thoughtParticles.forEach(particle => {
+                particle.position.x += (Math.random() - 0.5) * 0.1;
+                particle.position.y += (Math.random() - 0.5) * 0.1;
+                particle.position.z += (Math.random() - 0.5) * 0.1;
+            });
+
+            if (activateNetwork) {
+                // Dynamically connect random nodes
+                const positions = connectionGeometry.attributes.position.array;
+                for (let i = 0; i < maxConnections; i++) {
+                    const node1 = Math.floor(Math.random() * nodeCount);
+                    const node2 = Math.floor(Math.random() * nodeCount);
+                    positions[i * 6] = nodePositions[node1 * 3];
+                    positions[i * 6 + 1] = nodePositions[node1 * 3 + 1];
+                    positions[i * 6 + 2] = nodePositions[node1 * 3 + 2];
+                    positions[i * 6 + 3] = nodePositions[node2 * 3];
+                    positions[i * 6 + 4] = nodePositions[node2 * 3 + 1];
+                    positions[i * 6 + 5] = nodePositions[node2 * 3 + 2];
+                }
+                connectionGeometry.attributes.position.needsUpdate = true;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Event listeners
+        document.getElementById('activate').addEventListener('click', () => {
+            activateNetwork = true;
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            activateNetwork = false;
+            connectionGeometry.attributes.position.array.fill(0);
+            connectionGeometry.attributes.position.needsUpdate = true;
+        });
+
+        // Adjust renderer on window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

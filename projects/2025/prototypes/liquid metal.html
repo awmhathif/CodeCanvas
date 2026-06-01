@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Metal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #0ff;
+            font-size: 22px;
+            letter-spacing: 8px;
+            text-shadow: 0 0 20px #0ff;
+            z-index: 10;
+        }
+
+        .stats {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            color: #0f8;
+            font-size: 11px;
+            line-height: 1.8;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">LIQUID METAL</div>
+    <div class="stats">MATERIAL: CHROME<br>TEMP: <span id="temp">2847</span>K<br>VISCOSITY: LOW</div>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+        canvas.width = innerWidth; canvas.height = innerHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+
+        const vs = `attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}`;
+        const fs = `
+        precision highp float;
+        uniform float t;
+        uniform vec2 r;
+        
+        float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+        float sphere(vec3 p,float s){return length(p)-s;}
+        
+        float map(vec3 p){
+            float d=1e10;
+            for(int i=0;i<5;i++){
+                float fi=float(i);
+                vec3 c=vec3(sin(t*.7+fi*1.3)*2.,cos(t*.5+fi*.9)*1.5,sin(t*.6+fi*1.1)*2.);
+                d=smin(d,sphere(p-c,.8+sin(t+fi)*.2),.5);
+            }
+            return d;
+        }
+        
+        vec3 norm(vec3 p){vec2 e=vec2(.001,0);return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));}
+        
+        vec3 sky(vec3 d){
+            vec3 col=vec3(.02,.02,.05);
+            float g=floor(d.x*10.+t)+floor(d.y*10.);
+            if(mod(g,2.)<1.)col+=vec3(0,.02,.03);
+            col+=vec3(1,.2,.5)*pow(max(0.,d.y),4.);
+            col+=vec3(.2,.5,1)*pow(max(0.,-d.y),2.);
+            for(int i=0;i<8;i++){
+                float fi=float(i);
+                vec3 lp=vec3(sin(fi*.8)*10.,cos(fi*.6)*3.+2.,cos(fi*.8)*10.);
+                vec3 ld=normalize(lp);
+                float inten=pow(max(0.,dot(d,ld)),50.);
+                col+=vec3(1.,.5+sin(fi)*.5,.2+cos(fi)*.2)*inten*.5;
+            }
+            return col;
+        }
+        
+        void main(){
+            vec2 uv=(gl_FragCoord.xy-.5*r)/r.y;
+            vec3 ro=vec3(0,0,-6),rd=normalize(vec3(uv,1.5));
+            float d=0.;
+            for(int i=0;i<64;i++){
+                vec3 p=ro+rd*d;
+                float h=map(p);
+                if(h<.001||d>20.)break;
+                d+=h;
+            }
+            vec3 col=sky(rd);
+            if(d<20.){
+                vec3 p=ro+rd*d;
+                vec3 n=norm(p);
+                vec3 ref=reflect(rd,n);
+                col=sky(ref)*vec3(.9,.95,1.);
+                col+=pow(1.-abs(dot(rd,n)),3.)*vec3(.5,.8,1.)*.3;
+                float spec=pow(max(0.,dot(ref,normalize(vec3(1,1,-1)))),32.);
+                col+=spec*vec3(1);
+            }
+            col=pow(col,vec3(.45));
+            gl_FragColor=vec4(col,1);
+        }`;
+
+        function compile(src, type) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            return s;
+        }
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, compile(vs, gl.VERTEX_SHADER));
+        gl.attachShader(prog, compile(fs, gl.FRAGMENT_SHADER));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const p = gl.getAttribLocation(prog, 'p');
+        gl.enableVertexAttribArray(p);
+        gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
+
+        const tLoc = gl.getUniformLocation(prog, 't');
+        const rLoc = gl.getUniformLocation(prog, 'r');
+
+        function render(time) {
+            gl.uniform1f(tLoc, time * 0.001);
+            gl.uniform2f(rLoc, canvas.width, canvas.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            document.getElementById('temp').textContent = Math.floor(2800 + Math.sin(time * 0.001) * 100);
+            requestAnimationFrame(render);
+        }
+        render(0);
+
+        addEventListener('resize', () => {
+            canvas.width = innerWidth; canvas.height = innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+
+</html>

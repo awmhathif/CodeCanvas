@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Clock</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle, #000022, #000033, #000044);
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            color: white;
+            z-index: 10;
+        }
+
+        #info h1 {
+            font-size: 18px;
+            margin: 0 0 10px;
+            color: #00ffcc;
+        }
+
+        #info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Stellar Clock</h1>
+        <p>Watch the passage of time in a cosmic clock.</p>
+        <p><strong>Center Star:</strong> Hours<br>
+           <strong>Inner Planet:</strong> Minutes<br>
+           <strong>Outer Planet:</strong> Seconds</p>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 2, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Star (Center for hours)
+        const starGeometry = new THREE.SphereGeometry(2, 32, 32);
+        const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700, emissive: 0xffa500 });
+        const star = new THREE.Mesh(starGeometry, starMaterial);
+        scene.add(star);
+
+        // Orbital tracks (representing hours, minutes, seconds)
+        const clockOrbits = new THREE.Group();
+
+        function createOrbit(radius, color) {
+            const orbitGeometry = new THREE.RingGeometry(radius - 0.05, radius + 0.05, 64);
+            const orbitMaterial = new THREE.MeshBasicMaterial({
+                color: color,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.5
+            });
+            const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+            orbit.rotation.x = Math.PI / 2;
+            clockOrbits.add(orbit);
+        }
+
+        createOrbit(5, 0x00ffcc); // Inner orbit for minutes
+        createOrbit(8, 0x00aaff); // Outer orbit for seconds
+        scene.add(clockOrbits);
+
+        // Planets
+        const planetMaterial = new THREE.MeshPhongMaterial({ color: 0x00ffcc, emissive: 0x0044ff });
+        const minutePlanet = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), planetMaterial);
+        minutePlanet.position.set(5, 0, 0);
+        scene.add(minutePlanet);
+
+        const secondPlanetMaterial = new THREE.MeshPhongMaterial({ color: 0xff0077, emissive: 0x770044 });
+        const secondPlanet = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), secondPlanetMaterial);
+        secondPlanet.position.set(8, 0, 0);
+        scene.add(secondPlanet);
+
+        // Moon (orbiting the minute planet)
+        const moonMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, emissive: 0x333333 });
+        const moon = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), moonMaterial);
+        moon.position.set(1, 0, 0);
+        minutePlanet.add(moon); // Attach the moon to the minute planet
+
+        // Camera position
+        camera.position.z = 20;
+
+        // Animation
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Get current time
+            const now = new Date();
+            const seconds = now.getSeconds();
+            const minutes = now.getMinutes();
+            const hours = now.getHours() % 12;
+
+            // Rotate planets based on time
+            minutePlanet.position.set(
+                Math.cos((minutes / 60) * 2 * Math.PI) * 5,
+                0,
+                Math.sin((minutes / 60) * 2 * Math.PI) * 5
+            );
+
+            secondPlanet.position.set(
+                Math.cos((seconds / 60) * 2 * Math.PI) * 8,
+                0,
+                Math.sin((seconds / 60) * 2 * Math.PI) * 8
+            );
+
+            // Moon rotation around the minute planet
+            moon.position.set(
+                Math.cos((seconds / 60) * 2 * Math.PI) * 1,
+                0,
+                Math.sin((seconds / 60) * 2 * Math.PI) * 1
+            );
+
+            // Slowly rotate the star (hour hand)
+            star.rotation.y += (hours / 12) * 0.01;
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

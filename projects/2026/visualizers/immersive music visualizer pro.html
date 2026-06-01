@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immersive Music Visualizer Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        :root {
+            --primary: #00d4ff;
+            --secondary: #ff006e;
+            --accent: #00ff88;
+            --glass-bg: rgba(15, 15, 25, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0b3d1;
+            --blur: 20px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* LAYER 0: Background Visualizer Canvas */
+        #visualizer-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* LAYER 1: Floating UI System */
+        .ui-overlay {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            pointer-events: auto;
+            transition: var(--transition);
+        }
+
+        /* Header Bar */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            pointer-events: auto;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .control-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+
+        .control-btn:hover {
+            background: var(--primary);
+            color: #000;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .control-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        /* Main Content Area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        /* Collapsible Sidebar */
+        .sidebar {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(0);
+            opacity: 1;
+            transition: var(--transition);
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-370px);
+            opacity: 0;
+            width: 0;
+        }
+
+        .sidebar-header {
+            display: flex;
+            padding: 15px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .tab-button {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .tab-button.active {
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--primary);
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: 15px;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 212, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        /* Track List */
+        .track-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .track-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .track-item.active {
+            background: linear-gradient(90deg, rgba(0, 212, 255, 0.3), rgba(255, 0, 110, 0.2));
+            border-left: 3px solid var(--primary);
+        }
+
+        .track-info {
+            flex: 1;
+            margin-left: 12px;
+            min-width: 0;
+        }
+
+        .track-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            width: 320px;
+            padding: 20px;
+            overflow-y: auto;
+            transform: translateX(0);
+            opacity: 1;
+            transition: var(--transition);
+        }
+
+        .settings-panel.collapsed {
+            transform: translateX(340px);
+            opacity: 0;
+            width: 0;
+        }
+
+        .settings-group {
+            margin-bottom: 25px;
+        }
+
+        .settings-label {
+            display: block;
+            color: var(--secondary);
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .viz-button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 10px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .viz-button:hover {
+            border-color: var(--primary);
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .viz-button.active {
+            background: var(--primary);
+            color: #000;
+            font-weight: 700;
+        }
+
+        .color-themes {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .color-theme {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: var(--transition);
+        }
+
+        .color-theme:hover {
+            transform: scale(1.15);
+        }
+
+        .color-theme.active {
+            border-color: white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Equalizer */
+        .eq-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 120px;
+            gap: 4px;
+        }
+
+        .eq-band {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .eq-slider {
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
+            width: 6px;
+            height: 90px;
+            background: #333;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+
+        .eq-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* Player Bar */
+        .player-bar {
+            margin: 0 20px 20px 20px;
+            height: 90px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            gap: 25px;
+            pointer-events: auto;
+            transform: translateY(0);
+            opacity: 1;
+            transition: var(--transition);
+        }
+
+        .player-bar.hidden {
+            transform: translateY(120px);
+            opacity: 0;
+        }
+
+        .now-playing {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            min-width: 250px;
+        }
+
+        .album-art {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .track-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .current-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .current-artist {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .player-controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .play-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary);
+            color: #000;
+            font-size: 2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .play-button:hover {
+            background: var(--secondary);
+            transform: scale(1.1);
+            box-shadow: 0 0 30px var(--primary);
+        }
+
+        .progress-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .time-display {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* Fullscreen Mode */
+        body.fullscreen-mode .header-bar,
+        body.fullscreen-mode .sidebar,
+        body.fullscreen-mode .settings-panel,
+        body.fullscreen-mode .player-bar {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        body.fullscreen-mode .ui-overlay:hover .header-bar,
+        body.fullscreen-mode .ui-overlay:hover .player-bar {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .fullscreen-hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--blur));
+            padding: 20px 30px;
+            border-radius: 15px;
+            border: 1px solid var(--glass-border);
+            z-index: 100;
+            opacity: 0;
+            transition: var(--transition);
+            pointer-events: none;
+        }
+
+        body.fullscreen-mode .fullscreen-hint {
+            opacity: 1;
+        }
+
+        body.fullscreen-mode .ui-overlay:hover .fullscreen-hint {
+            opacity: 0;
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            width: 500px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .content-area {
+                padding: 10px;
+                gap: 0;
+            }
+
+            .sidebar,
+            .settings-panel {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                z-index: 50;
+                width: 85%;
+                max-width: 320px;
+            }
+
+            .sidebar {
+                left: 0;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .settings-panel {
+                right: 0;
+                transform: translateX(100%);
+            }
+
+            .settings-panel.mobile-open {
+                transform: translateX(0);
+            }
+
+            .player-bar {
+                flex-direction: column;
+                height: auto;
+                padding: 20px;
+                gap: 15px;
+                margin: 0 10px 10px 10px;
+            }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .pulsing {
+            animation: pulse 2s infinite;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Visualizer Canvas -->
+    <canvas id="visualizer-canvas"></canvas>
+
+    <!-- Fullscreen Hint -->
+    <div class="fullscreen-hint">
+        Press ESC or hover to show controls
+    </div>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Header -->
+        <header class="header-bar">
+            <div class="logo">🎵 IMMERSIVE VISUALIZER</div>
+            <div class="header-controls">
+                <button class="control-btn" id="library-toggle" title="Toggle Library">📚</button>
+                <button class="control-btn" id="settings-toggle" title="Toggle Settings">⚙️</button>
+                <button class="control-btn" id="fullscreen-btn" title="Fullscreen Mode">⛶</button>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Library Sidebar -->
+            <aside class="sidebar glass-panel">
+                <div class="sidebar-header">
+                    <button class="tab-button active" data-tab="library">Library</button>
+                    <button class="tab-button" data-tab="queue">Queue</button>
+                    <button class="tab-button" data-tab="favorites">Favorites</button>
+                </div>
+
+                <!-- Library Tab -->
+                <div class="tab-content active" id="library-tab">
+                    <div class="upload-zone" id="upload-zone">
+                        <h3 style="margin-bottom: 10px; color: var(--primary);">📁 Add Music</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Drag & drop or click to browse</p>
+                        <p style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 5px;">MP3, WAV, OGG, FLAC, M4A, AAC, WebM</p>
+                        <input type="file" id="file-input" multiple accept="audio/*" style="display: none;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="search-input" placeholder="Search tracks..." 
+                               style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                    </div>
+
+                    <div id="track-list"></div>
+                </div>
+
+                <!-- Queue Tab -->
+                <div class="tab-content" id="queue-tab">
+                    <div id="queue-list"></div>
+                </div>
+
+                <!-- Favorites Tab -->
+                <div class="tab-content" id="favorites-tab">
+                    <div id="favorites-list"></div>
+                </div>
+            </aside>
+
+            <!-- Settings Panel -->
+            <aside class="settings-panel glass-panel collapsed">
+                <div class="settings-group">
+                    <label class="settings-label">🎨 Visualization</label>
+                    <div class="viz-grid" id="viz-types">
+                        <button class="viz-button active" data-type="bars">Bars</button>
+                        <button class="viz-button" data-type="circular">Circular</button>
+                        <button class="viz-button" data-type="waveform">Wave</button>
+                        <button class="viz-button" data-type="particles">Particles</button>
+                        <button class="viz-button" data-type="spectrum">Spectrum</button>
+                        <button class="viz-button" data-type="galaxy">Galaxy</button>
+                        <button class="viz-button" data-type="geometric">Geometric</button>
+                        <button class="viz-button" data-type="radial">Radial</button>
+                        <button class="viz-button" data-type="3d">3D</button>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <label class="settings-label">🌈 Color Theme</label>
+                    <div class="color-themes">
+                        <div class="color-theme active" data-theme="cyan" 
+                             style="background: linear-gradient(45deg, #00d4ff, #0099cc);" title="Cyan"></div>
+                        <div class="color-theme" data-theme="purple" 
+                             style="background: linear-gradient(45deg, #8b5cf6, #a855f7);" title="Purple"></div>
+                        <div class="color-theme" data-theme="pink" 
+                             style="background: linear-gradient(45deg, #ff006e, #fb7185);" title="Pink"></div>
+                        <div class="color-theme" data-theme="green" 
+                             style="background: linear-gradient(45deg, #00ff88, #10b981);" title="Green"></div>
+                        <div class="color-theme" data-theme="orange" 
+                             style="background: linear-gradient(45deg, #ff6b35, #f97316);" title="Orange"></div>
+                        <div class="color-theme" data-theme="rainbow" 
+                             style="background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);" title="Rainbow"></div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <label class="settings-label">🎚️ Equalizer</label>
+                    <select id="eq-preset" style="width: 100%; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 6px; color: white; margin-bottom: 15px;">
+                        <option value="flat">Flat</option>
+                        <option value="rock">Rock</option>
+                        <option value="pop">Pop</option>
+                        <option value="jazz">Jazz</option>
+                        <option value="classical">Classical</option>
+                        <option value="electronic">Electronic</option>
+                        <option value="bass">Bass Boost</option>
+                    </select>
+                    <div class="eq-container" id="eq-container"></div>
+                </div>
+
+                <div class="settings-group">
+                    <label class="settings-label">⚡ Playback Speed</label>
+                    <input type="range" min="0.5" max="2.0" step="0.1" value="1.0" id="speed-slider"
+                           style="width: 100%; margin-bottom: 8px;">
+                    <div style="text-align: center; color: var(--primary); font-weight: bold;" id="speed-display">1.0x</div>
+                </div>
+
+                <div class="settings-group">
+                    <button class="viz-button" style="width: 100%;" id="settings-modal-btn">System Settings</button>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Player Bar -->
+        <footer class="player-bar glass-panel">
+            <div class="now-playing">
+                <div class="album-art" id="album-art">🎵</div>
+                <div class="track-details">
+                    <div class="current-title" id="current-title">No track selected</div>
+                    <div class="current-artist" id="current-artist">Upload music to start</div>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="control-buttons">
+                    <button class="control-btn" id="shuffle-btn" title="Shuffle">🔀</button>
+                    <button class="control-btn" id="prev-btn" title="Previous">⏮️</button>
+                    <button class="play-button" id="play-pause-btn">▶️</button>
+                    <button class="control-btn" id="next-btn" title="Next">⏭️</button>
+                    <button class="control-btn" id="repeat-btn" title="Repeat">🔁</button>
+                </div>
+
+                <div class="progress-section">
+                    <span class="time-display" id="current-time">0:00</span>
+                    <div class="progress-bar" id="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <span class="time-display" id="total-time">0:00</span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 15px; min-width: 150px;">
+                <button class="control-btn" id="volume-btn" title="Volume">🔊</button>
+                <input type="range" min="0" max="1" step="0.01" value="0.8" id="volume-slider"
+                       style="flex: 1; -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px;">
+                <span style="font-size: 0.8rem; color: var(--text-secondary); min-width: 35px;" id="volume-display">80%</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal-content glass-panel">
+            <h2 style="margin-bottom: 20px; color: var(--primary);">System Settings</h2>
+            
+            <div class="settings-group">
+                <label class="settings-label">Performance</label>
+                <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="high-quality"> High Quality Rendering
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="motion-blur"> Motion Blur Effect
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="auto-hide-ui"> Auto-hide UI in Fullscreen
+                </label>
+            </div>
+
+            <div class="settings-group">
+                <label class="settings-label">Data Management</label>
+                <button class="viz-button" style="width: 100%; margin-bottom: 10px;" onclick="app.clearLibrary()">Clear All Data</button>
+                <button class="viz-button" style="width: 100%;" onclick="app.exportSettings()">Export Settings</button>
+            </div>
+
+            <button class="viz-button active" style="width: 100%; padding: 15px; font-size: 1rem;" onclick="app.closeSettings()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        class ImmersiveVisualizerPro {
+            constructor() {
+                // Audio System
+                this.audioContext = null;
+                this.audioElement = null;
+                this.sourceNode = null;
+                this.analyser = null;
+                this.gainNode = null;
+                this.eqFilters = [];
+
+                // Application State
+                this.tracks = [];
+                this.currentTrack = null;
+                this.currentIndex = -1;
+                this.queue = [];
+                this.favorites = [];
+                this.isPlaying = false;
+                this.isShuffle = false;
+                this.repeatMode = 0; // 0: off, 1: all, 2: one
+                this.volume = 0.8;
+                this.isMuted = false;
+                this.playbackRate = 1.0;
+
+                // Visualizer Settings
+                this.visualizerType = 'bars';
+                this.colorTheme = 'cyan';
+                this.animationId = null;
+                this.canvas = null;
+                this.ctx = null;
+
+                // EQ Configuration
+                this.eqFrequencies = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
+                this.eqPresets = {
+                    flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    rock: [5, 4, 3, 1, -1, -1, 0, 2, 4, 5],
+                    pop: [2, 4, 5, 4, 1, -1, -2, -2, 1, 2],
+                    jazz: [4, 3, 1, 2, -1, -1, 0, 1, 3, 4],
+                    classical: [5, 4, 3, 2, -1, -1, -1, 2, 3, 4],
+                    electronic: [5, 4, 2, 0, -2, 2, 1, 2, 4, 5],
+                    bass: [8, 6, 4, 2, 0, 0, 0, 0, 0, 0]
+                };
+
+                // Storage
+                this.dbName = 'ImmersiveVisualizerDB';
+                this.dbVersion = 1;
+                this.db = null;
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.initDatabase();
+                    this.initAudioSystem();
+                    this.initCanvas();
+                    this.setupEventListeners();
+                    this.setupDragAndDrop();
+                    this.setupKeyboardControls();
+                    this.setupEqualizer();
+                    this.loadSettings();
+                    await this.loadLibrary();
+                    this.startVisualization();
+                    
+                    console.log('🎵 Immersive Visualizer Pro initialized successfully');
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                }
+            }
+
+            // Database Management
+            async initDatabase() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+                    
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve();
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        
+                        if (!db.objectStoreNames.contains('tracks')) {
+                            const tracksStore = db.createObjectStore('tracks', { keyPath: 'id', autoIncrement: true });
+                            tracksStore.createIndex('title', 'title', { unique: false });
+                            tracksStore.createIndex('artist', 'artist', { unique: false });
+                        }
+                    };
+                });
+            }
+
+            // Audio System Initialization
+            initAudioSystem() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.audioElement = new Audio();
+                this.audioElement.crossOrigin = 'anonymous';
+                
+                this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+                this.analyser = this.audioContext.createAnalyser();
+                this.gainNode = this.audioContext.createGain();
+                
+                this.analyser.fftSize = 2048;
+                this.analyser.smoothingTimeConstant = 0.8;
+                
+                // Create EQ filters
+                this.eqFilters = this.eqFrequencies.map(freq => {
+                    const filter = this.audioContext.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = freq;
+                    filter.Q.value = 1;
+                    filter.gain.value = 0;
+                    return filter;
+                });
+                
+                // Connect audio graph
+                this.connectAudioNodes();
+                this.gainNode.gain.value = this.volume;
+                
+                // Audio event listeners
+                this.audioElement.addEventListener('timeupdate', () => this.updateProgress());
+                this.audioElement.addEventListener('ended', () => this.handleTrackEnd());
+                this.audioElement.addEventListener('error', (e) => {
+                    console.error('Audio error:', e);
+                });
+            }
+
+            connectAudioNodes() {
+                let previousNode = this.sourceNode;
+                this.eqFilters.forEach(filter => {
+                    previousNode.connect(filter);
+                    previousNode = filter;
+                });
+                previousNode.connect(this.analyser);
+                this.analyser.connect(this.gainNode);
+                this.gainNode.connect(this.audioContext.destination);
+            }
+
+            // Canvas Setup
+            initCanvas() {
+                this.canvas = document.getElementById('visualizer-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            // Event Listeners Setup
+            setupEventListeners() {
+                // Tab switching
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.switchTab(e.target.dataset.tab);
+                    });
+                });
+
+                // UI toggles
+                document.getElementById('library-toggle').addEventListener('click', () => {
+                    this.togglePanel('.sidebar');
+                });
+
+                document.getElementById('settings-toggle').addEventListener('click', () => {
+                    this.togglePanel('.settings-panel');
+                });
+
+                document.getElementById('fullscreen-btn').addEventListener('click', () => {
+                    this.toggleFullscreen();
+                });
+
+                // Player controls
+                document.getElementById('play-pause-btn').addEventListener('click', () => {
+                    this.togglePlayPause();
+                });
+
+                document.getElementById('prev-btn').addEventListener('click', () => {
+                    this.previousTrack();
+                });
+
+                document.getElementById('next-btn').addEventListener('click', () => {
+                    this.nextTrack();
+                });
+
+                document.getElementById('shuffle-btn').addEventListener('click', () => {
+                    this.toggleShuffle();
+                });
+
+                document.getElementById('repeat-btn').addEventListener('click', () => {
+                    this.toggleRepeat();
+                });
+
+                // Volume control
+                document.getElementById('volume-slider').addEventListener('input', (e) => {
+                    this.setVolume(parseFloat(e.target.value));
+                });
+
+                document.getElementById('volume-btn').addEventListener('click', () => {
+                    this.toggleMute();
+                });
+
+                // Progress control
+                document.getElementById('progress-bar').addEventListener('click', (e) => {
+                    this.seekTo(e);
+                });
+
+                // Visualizer controls
+                document.querySelectorAll('.viz-button[data-type]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setVisualizerType(e.target.dataset.type);
+                    });
+                });
+
+                document.querySelectorAll('.color-theme').forEach(theme => {
+                    theme.addEventListener('click', (e) => {
+                        this.setColorTheme(e.target.dataset.theme);
+                    });
+                });
+
+                // EQ preset
+                document.getElementById('eq-preset').addEventListener('change', (e) => {
+                    this.applyEQPreset(e.target.value);
+                });
+
+                // Speed control
+                document.getElementById('speed-slider').addEventListener('input', (e) => {
+                    this.setPlaybackRate(parseFloat(e.target.value));
+                });
+
+                // Search
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    this.searchTracks(e.target.value);
+                });
+
+                // Settings modal
+                document.getElementById('settings-modal-btn').addEventListener('click', () => {
+                    document.getElementById('settings-modal').classList.add('active');
+                });
+            }
+
+            // Drag and Drop Setup
+            setupDragAndDrop() {
+                const uploadZone = document.getElementById('upload-zone');
+                const fileInput = document.getElementById('file-input');
+
+                uploadZone.addEventListener('click', () => fileInput.click());
+
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    this.handleFiles(e.dataTransfer.files);
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFiles(e.target.files);
+                });
+
+                // Global drop zone
+                document.body.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+
+                document.body.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.handleFiles(e.dataTransfer.files);
+                });
+            }
+
+            // Keyboard Controls
+            setupKeyboardControls() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                    switch (e.code) {
+                        case 'Space':
+                            e.preventDefault();
+                            this.togglePlayPause();
+                            break;
+                        case 'ArrowLeft':
+                            this.previousTrack();
+                            break;
+                        case 'ArrowRight':
+                            this.nextTrack();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.adjustVolume(0.1);
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.adjustVolume(-0.1);
+                            break;
+                        case 'KeyM':
+                            this.toggleMute();
+                            break;
+                        case 'KeyS':
+                            this.toggleShuffle();
+                            break;
+                        case 'KeyR':
+                            this.toggleRepeat();
+                            break;
+                        case 'KeyF':
+                            this.toggleFullscreen();
+                            break;
+                        case 'Escape':
+                            if (document.body.classList.contains('fullscreen-mode')) {
+                                this.toggleFullscreen();
+                            }
+                            break;
+                    }
+                });
+            }
+
+            // Equalizer Setup
+            setupEqualizer() {
+                const container = document.getElementById('eq-container');
+                
+                this.eqFrequencies.forEach((freq, index) => {
+                    const band = document.createElement('div');
+                    band.className = 'eq-band';
+                    
+                    const slider = document.createElement('input');
+                    slider.type = 'range';
+                    slider.className = 'eq-slider';
+                    slider.min = '-12';
+                    slider.max = '12';
+                    slider.step = '0.5';
+                    slider.value = '0';
+                    slider.addEventListener('input', (e) => {
+                        this.updateEQBand(index, parseFloat(e.target.value));
+                    });
+                    
+                    const label = document.createElement('div');
+                    label.className = 'eq-label';
+                    label.textContent = freq >= 1000 ? `${freq/1000}k` : `${freq}`;
+                    
+                    band.appendChild(slider);
+                    band.appendChild(label);
+                    container.appendChild(band);
+                });
+            }
+
+            // File Handling
+            async handleFiles(files) {
+                const supportedFormats = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 
+                                        'audio/mp4', 'audio/aac', 'audio/x-ms-wma', 'video/webm'];
+                
+                for (const file of files) {
+                    if (supportedFormats.some(format => file.type.includes(format.split('/')[1])) ||
+                        file.name.match(/\.(mp3|wav|ogg|flac|m4a|aac|wma|webm)$/i)) {
+                        await this.addTrack(file);
+                    }
+                }
+            }
+
+            async addTrack(file) {
+                try {
+                    const trackData = {
+                        title: file.name.replace(/\.[^/.]+$/, ''),
+                        artist: 'Unknown Artist',
+                        album: 'Unknown Album',
+                        duration: 0,
+                        file: file,
+                        dateAdded: new Date(),
+                        playCount: 0,
+                        favorite: false
+                    };
+
+                    await this.extractMetadata(file, trackData);
+                    const id = await this.saveTrack(trackData);
+                    trackData.id = id;
+                    this.tracks.push(trackData);
+                    this.renderTrackList();
+                    
+                } catch (error) {
+                    console.error('Error adding track:', error);
+                }
+            }
+
+            async extractMetadata(file, trackData) {
+                return new Promise((resolve) => {
+                    const audio = new Audio();
+                    const url = URL.createObjectURL(file);
+                    
+                    audio.addEventListener('loadedmetadata', () => {
+                        trackData.duration = audio.duration;
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    });
+                    
+                    audio.addEventListener('error', () => {
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    });
+                    
+                    audio.src = url;
+                });
+            }
+
+            async saveTrack(trackData) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['tracks'], 'readwrite');
+                    const store = transaction.objectStore('tracks');
+                    const request = store.add(trackData);
+                    
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async loadLibrary() {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['tracks'], 'readonly');
+                    const store = transaction.objectStore('tracks');
+                    const request = store.getAll();
+                    
+                    request.onsuccess = () => {
+                        this.tracks = request.result;
+                        this.renderTrackList();
+                        resolve();
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            // Playback Control
+            async playTrack(index) {
+                if (index < 0 || index >= this.tracks.length) return;
+                
+                try {
+                    if (this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
+                    
+                    const track = this.tracks[index];
+                    this.currentTrack = track;
+                    this.currentIndex = index;
+                    
+                    const url = URL.createObjectURL(track.file);
+                    this.audioElement.src = url;
+                    
+                    this.updateNowPlaying();
+                    this.renderTrackList();
+                    
+                    await this.audioElement.play();
+                    this.isPlaying = true;
+                    this.updatePlayButton();
+                    
+                    track.playCount++;
+                    this.saveSettings();
+                    
+                } catch (error) {
+                    console.error('Error playing track:', error);
+                }
+            }
+
+            togglePlayPause() {
+                if (!this.currentTrack) {
+                    if (this.tracks.length > 0) {
+                        this.playTrack(0);
+                    }
+                    return;
+                }
+
+                if (this.isPlaying) {
+                    this.audioElement.pause();
+                    this.isPlaying = false;
+                } else {
+                    this.audioElement.play();
+                    this.isPlaying = true;
+                }
+                
+                this.updatePlayButton();
+            }
+
+            previousTrack() {
+                if (this.currentIndex > 0) {
+                    this.playTrack(this.currentIndex - 1);
+                } else if (this.repeatMode === 1) {
+                    this.playTrack(this.tracks.length - 1);
+                }
+            }
+
+            nextTrack() {
+                if (this.queue.length > 0) {
+                    const nextTrack = this.queue.shift();
+                    const index = this.tracks.findIndex(t => t.id === nextTrack.id);
+                    if (index !== -1) {
+                        this.playTrack(index);
+                        this.renderQueue();
+                        return;
+                    }
+                }
+
+                if (this.isShuffle) {
+                    const randomIndex = Math.floor(Math.random() * this.tracks.length);
+                    this.playTrack(randomIndex);
+                } else if (this.currentIndex < this.tracks.length - 1) {
+                    this.playTrack(this.currentIndex + 1);
+                } else if (this.repeatMode === 1) {
+                    this.playTrack(0);
+                }
+            }
+
+            handleTrackEnd() {
+                if (this.repeatMode === 2) {
+                    this.playTrack(this.currentIndex);
+                } else {
+                    this.nextTrack();
+                }
+            }
+
+            // UI Updates
+            updateNowPlaying() {
+                if (!this.currentTrack) return;
+                
+                document.getElementById('current-title').textContent = this.currentTrack.title;
+                document.getElementById('current-artist').textContent = this.currentTrack.artist;
+            }
+
+            updatePlayButton() {
+                const btn = document.getElementById('play-pause-btn');
+                btn.textContent = this.isPlaying ? '⏸️' : '▶️';
+            }
+
+            updateProgress() {
+                if (!this.audioElement.duration) return;
+                
+                const progress = (this.audioElement.currentTime / this.audioElement.duration) * 100;
+                document.getElementById('progress-fill').style.width = `${progress}%`;
+                
+                document.getElementById('current-time').textContent = this.formatTime(this.audioElement.currentTime);
+                document.getElementById('total-time').textContent = this.formatTime(this.audioElement.duration);
+            }
+
+            // Control Functions
+            setVolume(value) {
+                this.volume = Math.max(0, Math.min(1, value));
+                this.gainNode.gain.value = this.isMuted ? 0 : this.volume;
+                document.getElementById('volume-display').textContent = `${Math.round(this.volume * 100)}%`;
+                document.getElementById('volume-slider').value = this.volume;
+                this.saveSettings();
+            }
+
+            adjustVolume(delta) {
+                this.setVolume(this.volume + delta);
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                this.gainNode.gain.value = this.isMuted ? 0 : this.volume;
+                document.getElementById('volume-btn').textContent = this.isMuted ? '🔇' : '🔊';
+                this.saveSettings();
+            }
+
+            seekTo(event) {
+                if (!this.audioElement.duration) return;
+                
+                const rect = event.target.getBoundingClientRect();
+                const percent = (event.clientX - rect.left) / rect.width;
+                this.audioElement.currentTime = percent * this.audioElement.duration;
+            }
+
+            setPlaybackRate(rate) {
+                this.playbackRate = rate;
+                this.audioElement.playbackRate = rate;
+                document.getElementById('speed-display').textContent = `${rate.toFixed(1)}x`;
+                this.saveSettings();
+            }
+
+            toggleShuffle() {
+                this.isShuffle = !this.isShuffle;
+                document.getElementById('shuffle-btn').classList.toggle('active', this.isShuffle);
+                this.saveSettings();
+            }
+
+            toggleRepeat() {
+                this.repeatMode = (this.repeatMode + 1) % 3;
+                const btn = document.getElementById('repeat-btn');
+                const modes = ['🔁', '🔁', '🔂'];
+                btn.textContent = modes[this.repeatMode];
+                btn.classList.toggle('active', this.repeatMode > 0);
+                this.saveSettings();
+            }
+
+            toggleFullscreen() {
+                document.body.classList.toggle('fullscreen-mode');
+                
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            }
+
+            togglePanel(selector) {
+                const panel = document.querySelector(selector);
+                if (window.innerWidth <= 768) {
+                    panel.classList.toggle('mobile-open');
+                } else {
+                    panel.classList.toggle('collapsed');
+                }
+            }
+
+            // Visualizer Control
+            setVisualizerType(type) {
+                this.visualizerType = type;
+                document.querySelectorAll('.viz-button[data-type]').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.type === type);
+                });
+                this.saveSettings();
+            }
+
+            setColorTheme(theme) {
+                this.colorTheme = theme;
+                document.querySelectorAll('.color-theme').forEach(themeEl => {
+                    themeEl.classList.toggle('active', themeEl.dataset.theme === theme);
+                });
+                this.saveSettings();
+            }
+
+            updateEQBand(index, value) {
+                if (this.eqFilters[index]) {
+                    this.eqFilters[index].gain.value = value;
+                    this.saveSettings();
+                }
+            }
+
+            applyEQPreset(presetName) {
+                const preset = this.eqPresets[presetName];
+                if (!preset) return;
+                
+                const sliders = document.querySelectorAll('.eq-slider');
+                preset.forEach((value, index) => {
+                    if (sliders[index]) {
+                        sliders[index].value = value;
+                        this.updateEQBand(index, value);
+                    }
+                });
+            }
+
+            // Visualization Engine
+            startVisualization() {
+                const animate = () => {
+                    this.animationId = requestAnimationFrame(animate);
+                    this.drawVisualization();
+                };
+                animate();
+            }
+
+            drawVisualization() {
+                if (!this.ctx || !this.analyser) return;
+                
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                
+                // Clear with fade effect
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                this.ctx.fillRect(0, 0, width, height);
+                
+                const bufferLength = this.analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                this.analyser.getByteFrequencyData(dataArray);
+                
+                switch (this.visualizerType) {
+                    case 'bars':
+                        this.drawBars(dataArray, width, height);
+                        break;
+                    case 'circular':
+                        this.drawCircular(dataArray, width, height);
+                        break;
+                    case 'waveform':
+                        this.drawWaveform(width, height);
+                        break;
+                    case 'particles':
+                        this.drawParticles(dataArray, width, height);
+                        break;
+                    case 'spectrum':
+                        this.drawSpectrum(dataArray, width, height);
+                        break;
+                    case 'galaxy':
+                        this.drawGalaxy(dataArray, width, height);
+                        break;
+                    case 'geometric':
+                        this.drawGeometric(dataArray, width, height);
+                        break;
+                    case 'radial':
+                        this.drawRadial(dataArray, width, height);
+                        break;
+                    case '3d':
+                        this.draw3D(dataArray, width, height);
+                        break;
+                }
+            }
+
+            drawBars(dataArray, width, height) {
+                const barCount = 128;
+                const barWidth = (width / barCount) * 0.8;
+                let x = (width - (barCount * barWidth)) / 2;
+
+                for (let i = 0; i < barCount; i++) {
+                    const barHeight = (dataArray[i] / 255) * height * 0.8;
+                    const hue = this.getThemeHue() + (i / barCount) * 60;
+                    
+                    const gradient = this.ctx.createLinearGradient(0, height - barHeight, 0, height);
+                    gradient.addColorStop(0, `hsla(${hue}, 80%, 60%, 0.9)`);
+                    gradient.addColorStop(1, `hsla(${hue}, 80%, 40%, 0.6)`);
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                    
+                    x += barWidth + 2;
+                }
+            }
+
+            drawCircular(dataArray, width, height) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = Math.min(width, height) / 4;
+                const bars = 180;
+
+                for (let i = 0; i < bars; i++) {
+                    const angle = (i / bars) * Math.PI * 2;
+                    const barHeight = (dataArray[i * 2] / 255) * radius * 0.8;
+                    
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                    const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+                    
+                    const hue = this.getThemeHue() + (i / bars) * 120;
+                    this.ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 0.8)`;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x1, y1);
+                    this.ctx.lineTo(x2, y2);
+                    this.ctx.stroke();
+                }
+            }
+
+            drawWaveform(width, height) {
+                const bufferLength = this.analyser.fftSize;
+                const dataArray = new Uint8Array(bufferLength);
+                this.analyser.getByteTimeDomainData(dataArray);
+
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeStyle = this.getThemeColor();
+                this.ctx.beginPath();
+
+                const sliceWidth = width / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = (v * height) / 2;
+
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                    x += sliceWidth;
+                }
+                this.ctx.stroke();
+            }
+
+            drawParticles(dataArray, width, height) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const particleCount = 100;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (i / particleCount) * Math.PI * 2;
+                    const intensity = dataArray[i * Math.floor(dataArray.length / particleCount)] / 255;
+                    const radius = intensity * Math.min(width, height) / 3;
+                    
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    const size = 2 + intensity * 6;
+                    
+                    const hue = this.getThemeHue() + (i / particleCount) * 120;
+                    const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, size);
+                    gradient.addColorStop(0, `hsla(${hue}, 80%, 60%, 1)`);
+                    gradient.addColorStop(1, `hsla(${hue}, 80%, 60%, 0)`);
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+
+            drawSpectrum(dataArray, width, height) {
+                const gradient = this.ctx.createLinearGradient(0, height, 0, 0);
+                const baseHue = this.getThemeHue();
+                gradient.addColorStop(0, `hsla(${baseHue}, 80%, 50%, 0.8)`);
+                gradient.addColorStop(0.5, `hsla(${baseHue + 30}, 80%, 50%, 0.6)`);
+                gradient.addColorStop(1, `hsla(${baseHue + 60}, 80%, 50%, 0.2)`);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, height);
+                
+                for (let i = 0; i < dataArray.length; i += 2) {
+                    const x = (i / dataArray.length) * width;
+                    const y = height - (dataArray[i] / 255) * height * 0.9;
+                    this.ctx.lineTo(x, y);
+                }
+                
+                this.ctx.lineTo(width, height);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+
+            drawGalaxy(dataArray, width, height) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const time = Date.now() * 0.0005;
+                const stars = 300;
+                
+                for (let i = 0; i < stars; i++) {
+                    const angle = (i / stars) * Math.PI * 6 + time;
+                    const intensity = dataArray[Math.floor(i * dataArray.length / stars)] / 255;
+                    const distance = (i / stars) * Math.min(width, height) / 2;
+                    const radius = distance * (1 + intensity * 0.5);
+                    
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    const size = 1 + intensity * 4;
+                    
+                    const hue = this.getThemeHue() + (i / stars) * 180;
+                    this.ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${0.5 + intensity * 0.5})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+
+            drawGeometric(dataArray, width, height) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const avgFreq = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                const size = (avgFreq / 255) * 200 + 50;
+                const rotation = Date.now() * 0.001;
+                const sides = 6;
+                
+                this.ctx.save();
+                this.ctx.translate(centerX, centerY);
+                this.ctx.rotate(rotation);
+                
+                for (let layer = 3; layer > 0; layer--) {
+                    const layerSize = size * (layer / 3);
+                    const hue = this.getThemeHue() + layer * 30;
+                    
+                    this.ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${0.3 + (layer / 3) * 0.5})`;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    
+                    for (let i = 0; i <= sides; i++) {
+                        const angle = (i / sides) * Math.PI * 2;
+                        const x = Math.cos(angle) * layerSize;
+                        const y = Math.sin(angle) * layerSize;
+                        
+                        if (i === 0) {
+                            this.ctx.moveTo(x, y);
+                        } else {
+                            this.ctx.lineTo(x, y);
+                        }
+                    }
+                    this.ctx.stroke();
+                }
+                
+                this.ctx.restore();
+            }
+
+            drawRadial(dataArray, width, height) {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const maxRadius = Math.min(width, height) / 2.2;
+                const rings = 60;
+                
+                for (let i = 0; i < rings; i++) {
+                    const intensity = dataArray[i * Math.floor(dataArray.length / rings)] / 255;
+                    const radius = (i / rings) * maxRadius + intensity * 30;
+                    const hue = this.getThemeHue() + (i / rings) * 120;
+                    
+                    this.ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${0.3 + intensity * 0.5})`;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
+            }
+
+            draw3D(dataArray, width, height) {
+                const rows = 25;
+                const cols = 100;
+                const step = width / cols;
+                const depthScale = height / 4;
+                
+                for (let z = 0; z < rows; z++) {
+                    const zOffset = z * 15;
+                    const hue = this.getThemeHue() + z * 10;
+                    
+                    this.ctx.strokeStyle = `hsla(${hue}, 80%, ${60 - z * 2}%, ${1 - z / rows})`;
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    
+                    for (let x = 0; x < cols; x++) {
+                        const dataIndex = Math.floor((x / cols) * dataArray.length);
+                        const amplitude = (dataArray[dataIndex] / 255) * depthScale;
+                        const screenX = x * step;
+                        const screenY = height - amplitude - zOffset;
+                        
+                        if (x === 0) {
+                            this.ctx.moveTo(screenX, screenY);
+                        } else {
+                            this.ctx.lineTo(screenX, screenY);
+                        }
+                    }
+                    this.ctx.stroke();
+                }
+            }
+
+            getThemeHue() {
+                const themes = {
+                    cyan: 180,
+                    purple: 270,
+                    pink: 330,
+                    green: 140,
+                    orange: 30,
+                    rainbow: Date.now() * 0.05 % 360
+                };
+                return themes[this.colorTheme] || 180;
+            }
+
+            getThemeColor() {
+                const hue = this.getThemeHue();
+                return `hsl(${hue}, 80%, 60%)`;
+            }
+
+            // UI Management
+            switchTab(tabName) {
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.tab === tabName);
+                });
+                
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.toggle('active', content.id === `${tabName}-tab`);
+                });
+                
+                switch (tabName) {
+                    case 'library':
+                        this.renderTrackList();
+                        break;
+                    case 'queue':
+                        this.renderQueue();
+                        break;
+                    case 'favorites':
+                        this.renderFavorites();
+                        break;
+                }
+            }
+
+            renderTrackList() {
+                const container = document.getElementById('track-list');
+                container.innerHTML = '';
+                
+                if (this.tracks.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">🎵</div>
+                            <div style="font-size: 1.1rem; margin-bottom: 8px;">No tracks in library</div>
+                            <div style="font-size: 0.9rem; opacity: 0.7;">Upload some music to get started</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                this.tracks.forEach((track, index) => {
+                    const trackEl = document.createElement('div');
+                    trackEl.className = `track-item ${index === this.currentIndex ? 'active' : ''}`;
+                    
+                    trackEl.innerHTML = `
+                        <div style="width: 30px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">${index + 1}</div>
+                        <div class="track-info">
+                            <div class="track-title">${track.title}</div>
+                            <div class="track-meta">${track.artist} • ${this.formatTime(track.duration)}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.addToQueue(${index})" title="Add to Queue">➕</button>
+                            <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.toggleFavorite(${index})" title="Favorite">${track.favorite ? '❤️' : '🤍'}</button>
+                        </div>
+                    `;
+                    
+                    trackEl.addEventListener('click', (e) => {
+                        if (!e.target.closest('button')) {
+                            this.playTrack(index);
+                        }
+                    });
+                    
+                    container.appendChild(trackEl);
+                });
+            }
+
+            renderQueue() {
+                const container = document.getElementById('queue-list');
+                container.innerHTML = '';
+                
+                if (this.queue.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">📋</div>
+                            <div style="font-size: 1.1rem; margin-bottom: 8px;">Queue is empty</div>
+                            <div style="font-size: 0.9rem; opacity: 0.7;">Add tracks from library</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                this.queue.forEach((track, index) => {
+                    const trackEl = document.createElement('div');
+                    trackEl.className = 'track-item';
+                    trackEl.innerHTML = `
+                        <div style="width: 30px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">${index + 1}</div>
+                        <div class="track-info">
+                            <div class="track-title">${track.title}</div>
+                            <div class="track-meta">${track.artist}</div>
+                        </div>
+                        <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.removeFromQueue(${index})">❌</button>
+                    `;
+                    container.appendChild(trackEl);
+                });
+            }
+
+            renderFavorites() {
+                const container = document.getElementById('favorites-list');
+                container.innerHTML = '';
+                
+                const favoriteTracks = this.tracks.filter(track => track.favorite);
+                
+                if (favoriteTracks.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">❤️</div>
+                            <div style="font-size: 1.1rem; margin-bottom: 8px;">No favorite tracks</div>
+                            <div style="font-size: 0.9rem; opacity: 0.7;">Mark tracks as favorites</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                favoriteTracks.forEach(track => {
+                    const index = this.tracks.findIndex(t => t.id === track.id);
+                    const trackEl = document.createElement('div');
+                    trackEl.className = `track-item ${index === this.currentIndex ? 'active' : ''}`;
+                    trackEl.innerHTML = `
+                        <div class="track-info">
+                            <div class="track-title">${track.title}</div>
+                            <div class="track-meta">${track.artist} • ${this.formatTime(track.duration)}</div>
+                        </div>
+                        <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.playTrack(${index})">▶️</button>
+                    `;
+                    container.appendChild(trackEl);
+                });
+            }
+
+            // Queue Management
+            addToQueue(index) {
+                if (index >= 0 && index < this.tracks.length) {
+                    this.queue.push(this.tracks[index]);
+                    if (document.getElementById('queue-tab').classList.contains('active')) {
+                        this.renderQueue();
+                    }
+                }
+            }
+
+            removeFromQueue(index) {
+                if (index >= 0 && index < this.queue.length) {
+                    this.queue.splice(index, 1);
+                    this.renderQueue();
+                }
+            }
+
+            toggleFavorite(index) {
+                if (index >= 0 && index < this.tracks.length) {
+                    this.tracks[index].favorite = !this.tracks[index].favorite;
+                    this.renderTrackList();
+                    this.renderFavorites();
+                    this.saveSettings();
+                }
+            }
+
+            searchTracks(query) {
+                const searchTerm = query.toLowerCase().trim();
+                
+                if (!searchTerm) {
+                    this.renderTrackList();
+                    return;
+                }
+                
+                const filteredTracks = this.tracks.filter(track => 
+                    track.title.toLowerCase().includes(searchTerm) ||
+                    track.artist.toLowerCase().includes(searchTerm) ||
+                    track.album.toLowerCase().includes(searchTerm)
+                );
+                
+                const container = document.getElementById('track-list');
+                container.innerHTML = '';
+                
+                if (filteredTracks.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
+                            <div>No tracks found for "${query}"</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                filteredTracks.forEach(track => {
+                    const index = this.tracks.findIndex(t => t.id === track.id);
+                    const trackEl = document.createElement('div');
+                    trackEl.className = `track-item ${index === this.currentIndex ? 'active' : ''}`;
+                    
+                    trackEl.innerHTML = `
+                        <div style="width: 30px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">${index + 1}</div>
+                        <div class="track-info">
+                            <div class="track-title">${track.title}</div>
+                            <div class="track-meta">${track.artist} • ${this.formatTime(track.duration)}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.addToQueue(${index})">➕</button>
+                            <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;" onclick="app.toggleFavorite(${index})">${track.favorite ? '❤️' : '🤍'}</button>
+                        </div>
+                    `;
+                    
+                    trackEl.addEventListener('click', (e) => {
+                        if (!e.target.closest('button')) {
+                            this.playTrack(index);
+                        }
+                    });
+                    
+                    container.appendChild(trackEl);
+                });
+            }
+
+            // Utility Functions
+            formatTime(seconds) {
+                if (!seconds || isNaN(seconds)) return '0:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            // Settings Management
+            saveSettings() {
+                const settings = {
+                    volume: this.volume,
+                    isMuted: this.isMuted,
+                    playbackRate: this.playbackRate,
+                    isShuffle: this.isShuffle,
+                    repeatMode: this.repeatMode,
+                    visualizerType: this.visualizerType,
+                    colorTheme: this.colorTheme,
+                    favorites: this.tracks.filter(t => t.favorite).map(t => t.id),
+                    eqSettings: this.eqFilters.map(f => f.gain.value)
+                };
+                
+                localStorage.setItem('immersiveVisualizerSettings', JSON.stringify(settings));
+            }
+
+            loadSettings() {
+                const saved = localStorage.getItem('immersiveVisualizerSettings');
+                if (!saved) return;
+                
+                try {
+                    const settings = JSON.parse(saved);
+                    
+                    this.volume = settings.volume || 0.8;
+                    this.isMuted = settings.isMuted || false;
+                    this.playbackRate = settings.playbackRate || 1.0;
+                    this.isShuffle = settings.isShuffle || false;
+                    this.repeatMode = settings.repeatMode || 0;
+                    this.visualizerType = settings.visualizerType || 'bars';
+                    this.colorTheme = settings.colorTheme || 'cyan';
+                    
+                    // Apply settings to UI
+                    document.getElementById('volume-slider').value = this.volume;
+                    document.getElementById('speed-slider').value = this.playbackRate;
+                    this.setVolume(this.volume);
+                    this.setPlaybackRate(this.playbackRate);
+                    this.setVisualizerType(this.visualizerType);
+                    this.setColorTheme(this.colorTheme);
+                    
+                    if (settings.eqSettings) {
+                        const sliders = document.querySelectorAll('.eq-slider');
+                        settings.eqSettings.forEach((value, index) => {
+                            if (sliders[index]) {
+                                sliders[index].value = value;
+                                this.updateEQBand(index, value);
+                            }
+                        });
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading settings:', error);
+                }
+            }
+
+            // Global Functions
+            clearLibrary() {
+                if (confirm('Clear all music and data? This cannot be undone.')) {
+                    this.tracks = [];
+                    this.queue = [];
+                    this.favorites = [];
+                    this.currentTrack = null;
+                    this.currentIndex = -1;
+                    this.audioElement.pause();
+                    this.isPlaying = false;
+                    
+                    // Clear database
+                    const transaction = this.db.transaction(['tracks'], 'readwrite');
+                    const store = transaction.objectStore('tracks');
+                    store.clear();
+                    
+                    this.renderTrackList();
+                    this.renderQueue();
+                    this.renderFavorites();
+                    this.updateNowPlaying();
+                    this.updatePlayButton();
+                }
+            }
+
+            exportSettings() {
+                const settings = {
+                    settings: JSON.parse(localStorage.getItem('immersiveVisualizerSettings') || '{}'),
+                    exportDate: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'visualizer-settings.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            closeSettings() {
+                document.getElementById('settings-modal').classList.remove('active');
+            }
+        }
+
+        // Initialize the application
+        const app = new ImmersiveVisualizerPro();
+        window.app = app;
+
+        // Handle fullscreen change events
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('fullscreen-mode');
+            }
+        });
+    </script>
+</body>
+</html>

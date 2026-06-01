@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Fatigue Meter - Energy Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            color: white;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 20px 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Energy Display */
+        .energy-display {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            max-width: 90vw;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .energy-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .energy-text {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .energy-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #43e97b;
+        }
+
+        .energy-bar-container {
+            width: 100%;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .energy-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #43e97b 0%, #667eea 50%, #fa709a 100%);
+            transition: width 0.5s ease;
+            position: relative;
+            box-shadow: 0 0 20px rgba(67, 233, 123, 0.5);
+        }
+
+        .energy-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .energy-status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .status-critical { color: #fa709a; }
+        .status-low { color: #fee140; }
+        .status-medium { color: #667eea; }
+        .status-high { color: #43e97b; }
+
+        /* Decision Panel */
+        .decision-panel {
+            position: absolute;
+            left: 20px;
+            top: 300px;
+            width: 350px;
+            max-height: calc(100vh - 320px);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .decision-panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .decision-category {
+            margin-bottom: 20px;
+        }
+
+        .category-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .decision-btn {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .decision-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #667eea;
+            transform: translateX(-3px);
+        }
+
+        .decision-btn:active {
+            transform: scale(0.98);
+        }
+
+        .decision-cost {
+            background: rgba(250, 112, 154, 0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #fa709a;
+            font-weight: bold;
+        }
+
+        /* Activity Panel */
+        .activity-panel {
+            position: absolute;
+            right: 20px;
+            top: 300px;
+            width: 350px;
+            max-height: calc(100vh - 320px);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .activity-panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #43e97b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rest-btn {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 2px solid rgba(67, 233, 123, 0.5);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(67, 233, 123, 0.2) 0%, rgba(56, 249, 215, 0.2) 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rest-btn:hover {
+            background: linear-gradient(135deg, rgba(67, 233, 123, 0.3) 0%, rgba(56, 249, 215, 0.3) 100%);
+            border-color: #43e97b;
+            transform: translateX(3px);
+        }
+
+        .rest-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .rest-btn.disabled:hover {
+            transform: none;
+        }
+
+        .rest-gain {
+            background: rgba(67, 233, 123, 0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #43e97b;
+            font-weight: bold;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+
+        /* History */
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .history-decision {
+            color: #fa709a;
+        }
+
+        .history-rest {
+            color: #43e97b;
+        }
+
+        .history-time {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 10px;
+        }
+
+        /* Modal */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(30px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 500px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .modal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .modal-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .modal h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .modal-critical { color: #fa709a; }
+        .modal-rest { color: #43e97b; }
+
+        .modal p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .modal-btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        /* Tips */
+        .tips-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 15px 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .tips-panel-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .tips-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+
+        /* Toast */
+        .toast {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 2000;
+            max-width: 300px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.decision {
+            border-left: 4px solid #fa709a;
+        }
+
+        .toast.rest {
+            border-left: 4px solid #43e97b;
+        }
+
+        .toast.warning {
+            border-left: 4px solid #fee140;
+        }
+
+        /* Scrollbar */
+        .decision-panel::-webkit-scrollbar,
+        .activity-panel::-webkit-scrollbar,
+        .history-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .decision-panel::-webkit-scrollbar-track,
+        .activity-panel::-webkit-scrollbar-track,
+        .history-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .decision-panel::-webkit-scrollbar-thumb,
+        .activity-panel::-webkit-scrollbar-thumb,
+        .history-list::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .pulsing {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .shaking {
+            animation: shake 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="energyCanvas"></canvas>
+
+    <div class="ui-overlay">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧠 Decision Fatigue Meter</h1>
+            <div class="header-subtitle">Every choice costs mental energy. Rest to recharge.</div>
+        </div>
+
+        <!-- Energy Display -->
+        <div class="energy-display" id="energyDisplay">
+            <div class="energy-label">
+                <span class="energy-text">Mental Energy</span>
+                <span class="energy-value" id="energyValue">100%</span>
+            </div>
+            <div class="energy-bar-container">
+                <div class="energy-bar" id="energyBar" style="width: 100%;"></div>
+            </div>
+            <div class="energy-status" id="energyStatus">Fully Charged & Ready</div>
+        </div>
+
+        <!-- Decision Panel -->
+        <div class="decision-panel">
+            <h2>🤔 Make Decisions</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="decisionsToday">0</div>
+                    <div class="stat-label">Decisions Today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgCost">0</div>
+                    <div class="stat-label">Avg Cost</div>
+                </div>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">🍽️ Daily Choices</div>
+                <button class="decision-btn" data-cost="5">
+                    <span>What to eat for lunch?</span>
+                    <span class="decision-cost">-5%</span>
+                </button>
+                <button class="decision-btn" data-cost="3">
+                    <span>Which outfit to wear?</span>
+                    <span class="decision-cost">-3%</span>
+                </button>
+                <button class="decision-btn" data-cost="2">
+                    <span>Coffee or tea?</span>
+                    <span class="decision-cost">-2%</span>
+                </button>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">💼 Work Decisions</div>
+                <button class="decision-btn" data-cost="10">
+                    <span>Which project to prioritize?</span>
+                    <span class="decision-cost">-10%</span>
+                </button>
+                <button class="decision-btn" data-cost="8">
+                    <span>How to solve this problem?</span>
+                    <span class="decision-cost">-8%</span>
+                </button>
+                <button class="decision-btn" data-cost="12">
+                    <span>Should I switch jobs?</span>
+                    <span class="decision-cost">-12%</span>
+                </button>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">🏠 Life Choices</div>
+                <button class="decision-btn" data-cost="15">
+                    <span>Where to live?</span>
+                    <span class="decision-cost">-15%</span>
+                </button>
+                <button class="decision-btn" data-cost="20">
+                    <span>Major purchase decision</span>
+                    <span class="decision-cost">-20%</span>
+                </button>
+                <button class="decision-btn" data-cost="7">
+                    <span>Plan weekend activities</span>
+                    <span class="decision-cost">-7%</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Activity Panel -->
+        <div class="activity-panel">
+            <h2>🔋 Recharge Energy</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="restCount">0</div>
+                    <div class="stat-label">Rest Sessions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRestored">0%</div>
+                    <div class="stat-label">Energy Restored</div>
+                </div>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">😌 Quick Breaks</div>
+                <button class="rest-btn" data-restore="5" data-cooldown="5">
+                    <span>Deep breath (5s)</span>
+                    <span class="rest-gain">+5%</span>
+                </button>
+                <button class="rest-btn" data-restore="10" data-cooldown="10">
+                    <span>Stretch break (10s)</span>
+                    <span class="rest-gain">+10%</span>
+                </button>
+                <button class="rest-btn" data-restore="15" data-cooldown="15">
+                    <span>Short meditation (15s)</span>
+                    <span class="rest-gain">+15%</span>
+                </button>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">🛌 Longer Rest</div>
+                <button class="rest-btn" data-restore="30" data-cooldown="30">
+                    <span>Power nap (30s)</span>
+                    <span class="rest-gain">+30%</span>
+                </button>
+                <button class="rest-btn" data-restore="50" data-cooldown="45">
+                    <span>Full rest (45s)</span>
+                    <span class="rest-gain">+50%</span>
+                </button>
+                <button class="rest-btn" data-restore="100" data-cooldown="60">
+                    <span>Sleep cycle (60s)</span>
+                    <span class="rest-gain">+100%</span>
+                </button>
+            </div>
+
+            <div class="decision-category">
+                <div class="category-title">📜 Recent History</div>
+                <div class="history-list" id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Tips Panel -->
+        <div class="tips-panel" id="tipsPanel">
+            <span class="tips-panel-icon">💡</span>
+            <span class="tips-text" id="tipsText">Make decisions when energy is high. Rest when feeling drained.</span>
+        </div>
+
+        <!-- Critical Energy Modal -->
+        <div class="modal" id="criticalModal">
+            <div class="modal-icon">⚠️</div>
+            <h2 class="modal-critical">Critical Energy Level!</h2>
+            <p>Your mental energy is critically low. Making more decisions now will be difficult and draining. Consider taking a rest break to recharge.</p>
+            <button class="modal-btn" onclick="closeModal('criticalModal')">I Understand</button>
+        </div>
+
+        <!-- Rest Complete Modal -->
+        <div class="modal" id="restModal">
+            <div class="modal-icon">✨</div>
+            <h2 class="modal-rest">Energy Restored!</h2>
+            <p id="restModalText">You've recharged your mental energy. You're ready to tackle more decisions with renewed clarity!</p>
+            <button class="modal-btn" onclick="closeModal('restModal')">Feeling Refreshed!</button>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('energyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // ==================== Application State ====================
+        const state = {
+            energy: 100, // 0-100
+            maxEnergy: 100,
+            decisionsToday: 0,
+            totalDecisionCost: 0,
+            restCount: 0,
+            totalRestored: 0,
+            history: [],
+            restingButtons: new Map(), // Track cooldown timers
+            particles: [],
+            time: 0
+        };
+
+        // ==================== Particle System ====================
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3 - 2;
+                this.life = 1.0;
+                this.size = 3 + Math.random() * 5;
+                this.type = type; // 'drain' or 'restore'
+                
+                if (type === 'drain') {
+                    this.color = { r: 250, g: 112, b: 154 };
+                } else {
+                    this.color = { r: 67, g: 233, b: 123 };
+                }
+            }
+
+            update(deltaTime) {
+                this.x += this.vx * deltaTime * 0.05;
+                this.y += this.vy * deltaTime * 0.05;
+                this.vy += 0.1 * deltaTime * 0.05; // Gravity
+                this.life -= 0.01 * deltaTime * 0.05;
+                
+                return this.life > 0;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                gradient.addColorStop(0, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 1)`);
+                gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        function createParticles(x, y, count, type) {
+            for (let i = 0; i < count; i++) {
+                state.particles.push(new Particle(x, y, type));
+            }
+        }
+
+        // ==================== Energy Visualization ====================
+        function drawEnergyVisualization() {
+            // Clear with gradient background
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+            bgGradient.addColorStop(0, '#1e3c72');
+            bgGradient.addColorStop(0.5, '#2a5298');
+            bgGradient.addColorStop(1, '#7e22ce');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw energy waves
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.min(width, height) / 3;
+            
+            const energyPercent = state.energy / state.maxEnergy;
+            
+            // Multiple concentric circles based on energy level
+            const numCircles = 8;
+            for (let i = 0; i < numCircles; i++) {
+                const progress = i / numCircles;
+                const radius = maxRadius * progress;
+                const alpha = (1 - progress) * energyPercent * 0.3;
+                
+                // Pulsing effect
+                const pulse = Math.sin(state.time * 0.002 + i * 0.5) * 0.1 + 0.9;
+                const finalRadius = radius * pulse;
+                
+                // Color based on energy level
+                let color;
+                if (energyPercent > 0.6) {
+                    color = `rgba(67, 233, 123, ${alpha})`;
+                } else if (energyPercent > 0.3) {
+                    color = `rgba(102, 126, 234, ${alpha})`;
+                } else {
+                    color = `rgba(250, 112, 154, ${alpha})`;
+                }
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, finalRadius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Central energy orb
+            const orbRadius = 60 * energyPercent;
+            const orbGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, orbRadius
+            );
+            
+            if (energyPercent > 0.6) {
+                orbGradient.addColorStop(0, 'rgba(67, 233, 123, 1)');
+                orbGradient.addColorStop(0.5, 'rgba(67, 233, 123, 0.5)');
+                orbGradient.addColorStop(1, 'rgba(67, 233, 123, 0)');
+            } else if (energyPercent > 0.3) {
+                orbGradient.addColorStop(0, 'rgba(102, 126, 234, 1)');
+                orbGradient.addColorStop(0.5, 'rgba(102, 126, 234, 0.5)');
+                orbGradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+            } else {
+                orbGradient.addColorStop(0, 'rgba(250, 112, 154, 1)');
+                orbGradient.addColorStop(0.5, 'rgba(250, 112, 154, 0.5)');
+                orbGradient.addColorStop(1, 'rgba(250, 112, 154, 0)');
+            }
+            
+            ctx.fillStyle = orbGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, orbRadius * 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Core
+            ctx.fillStyle = energyPercent > 0.6 ? '#43e97b' : energyPercent > 0.3 ? '#667eea' : '#fa709a';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, orbRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Update and draw particles
+            state.particles = state.particles.filter(p => {
+                const alive = p.update(1);
+                if (alive) p.draw(ctx);
+                return alive;
+            });
+            
+            state.time++;
+            requestAnimationFrame(drawEnergyVisualization);
+        }
+
+        // ==================== UI Functions ====================
+        function updateEnergyDisplay() {
+            const energyPercent = Math.max(0, Math.min(100, state.energy));
+            
+            document.getElementById('energyValue').textContent = Math.round(energyPercent) + '%';
+            document.getElementById('energyBar').style.width = energyPercent + '%';
+            
+            // Update energy bar color
+            const energyBar = document.getElementById('energyBar');
+            if (energyPercent > 60) {
+                energyBar.style.background = 'linear-gradient(90deg, #43e97b 0%, #667eea 100%)';
+                energyBar.style.boxShadow = '0 0 20px rgba(67, 233, 123, 0.5)';
+            } else if (energyPercent > 30) {
+                energyBar.style.background = 'linear-gradient(90deg, #667eea 0%, #fa709a 100%)';
+                energyBar.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.5)';
+            } else {
+                energyBar.style.background = 'linear-gradient(90deg, #fa709a 0%, #fee140 100%)';
+                energyBar.style.boxShadow = '0 0 20px rgba(250, 112, 154, 0.5)';
+            }
+            
+            // Update status text
+            const statusEl = document.getElementById('energyStatus');
+            if (energyPercent > 80) {
+                statusEl.textContent = '✨ Fully Charged & Ready';
+                statusEl.className = 'energy-status status-high';
+            } else if (energyPercent > 50) {
+                statusEl.textContent = '💪 Good Energy Levels';
+                statusEl.className = 'energy-status status-medium';
+            } else if (energyPercent > 20) {
+                statusEl.textContent = '😓 Getting Tired';
+                statusEl.className = 'energy-status status-low';
+            } else {
+                statusEl.textContent = '⚠️ Critically Drained';
+                statusEl.className = 'energy-status status-critical pulsing';
+            }
+            
+            // Shake effect when critical
+            if (energyPercent <= 20 && energyPercent > 0) {
+                document.getElementById('energyDisplay').classList.add('shaking');
+                setTimeout(() => {
+                    document.getElementById('energyDisplay').classList.remove('shaking');
+                }, 500);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('decisionsToday').textContent = state.decisionsToday;
+            
+            const avgCost = state.decisionsToday > 0 
+                ? Math.round(state.totalDecisionCost / state.decisionsToday)
+                : 0;
+            document.getElementById('avgCost').textContent = avgCost + '%';
+            
+            document.getElementById('restCount').textContent = state.restCount;
+            document.getElementById('totalRestored').textContent = state.totalRestored + '%';
+        }
+
+        function updateHistory() {
+            const historyList = document.getElementById('historyList');
+            
+            if (state.history.length === 0) {
+                historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.5);">No activity yet</div>';
+                return;
+            }
+            
+            const recent = state.history.slice(-10).reverse();
+            historyList.innerHTML = recent.map(item => {
+                const time = new Date(item.timestamp).toLocaleTimeString();
+                if (item.type === 'decision') {
+                    return `
+                        <div class="history-item">
+                            <div>
+                                <div class="history-decision">🤔 Decision: -${item.cost}%</div>
+                                <div class="history-time">${time}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="history-item">
+                            <div>
+                                <div class="history-rest">🔋 Rest: +${item.restore}%</div>
+                                <div class="history-time">${time}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function updateTips() {
+            const energyPercent = state.energy / state.maxEnergy;
+            const tips = [];
+            
+            if (energyPercent > 0.8) {
+                tips.push('💡 Your energy is high! Great time for important decisions.');
+                tips.push('🎯 Tackle complex problems while your mind is fresh.');
+            } else if (energyPercent > 0.5) {
+                tips.push('⚖️ Consider saving complex decisions for after a rest.');
+                tips.push('🔄 Mix decisions with short breaks to maintain energy.');
+            } else if (energyPercent > 0.2) {
+                tips.push('⚠️ Energy is getting low. Consider taking a break soon.');
+                tips.push('🛑 Avoid major decisions when mentally drained.');
+            } else {
+                tips.push('🚨 Critical! Rest before making important decisions.');
+                tips.push('😴 Your decision quality suffers at low energy levels.');
+            }
+            
+            const randomTip = tips[Math.floor(Math.random() * tips.length)];
+            document.getElementById('tipsText').textContent = randomTip;
+        }
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // ==================== Decision Logic ====================
+        function makeDecision(cost, buttonEl) {
+            // Check if energy is sufficient
+            if (state.energy - cost < 0) {
+                showToast('⚠️ Not enough energy for this decision!', 'warning');
+                if (state.energy < 20) {
+                    showModal('criticalModal');
+                }
+                return;
+            }
+            
+            // Deduct energy
+            state.energy = Math.max(0, state.energy - cost);
+            state.decisionsToday++;
+            state.totalDecisionCost += cost;
+            
+            // Add to history
+            state.history.push({
+                type: 'decision',
+                cost: cost,
+                timestamp: Date.now()
+            });
+            
+            // Create drain particles
+            const rect = buttonEl.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            createParticles(centerX, centerY, 15, 'drain');
+            
+            // Update UI
+            updateEnergyDisplay();
+            updateStats();
+            updateHistory();
+            updateTips();
+            
+            // Show toast
+            showToast(`🤔 Decision made: -${cost}% energy`, 'decision');
+            
+            // Check for critical level
+            if (state.energy <= 20 && state.energy > 0) {
+                setTimeout(() => showModal('criticalModal'), 500);
+            }
+        }
+
+        // ==================== Rest Logic ====================
+        function startRest(restore, cooldown, buttonEl) {
+            // Check if button is on cooldown
+            if (state.restingButtons.has(buttonEl)) {
+                showToast('⏳ Still resting... Please wait.', 'warning');
+                return;
+            }
+            
+            // Disable button
+            buttonEl.classList.add('disabled');
+            state.restingButtons.set(buttonEl, true);
+            
+            // Show countdown
+            const originalText = buttonEl.querySelector('span').textContent;
+            let remainingTime = cooldown;
+            
+            const countdownInterval = setInterval(() => {
+                remainingTime--;
+                buttonEl.querySelector('span').textContent = `Resting... ${remainingTime}s`;
+                
+                if (remainingTime <= 0) {
+                    clearInterval(countdownInterval);
+                    buttonEl.querySelector('span').textContent = originalText;
+                    buttonEl.classList.remove('disabled');
+                    state.restingButtons.delete(buttonEl);
+                }
+            }, 1000);
+            
+            // Restore energy after cooldown
+            setTimeout(() => {
+                const actualRestore = Math.min(restore, state.maxEnergy - state.energy);
+                state.energy = Math.min(state.maxEnergy, state.energy + restore);
+                state.restCount++;
+                state.totalRestored += actualRestore;
+                
+                // Add to history
+                state.history.push({
+                    type: 'rest',
+                    restore: actualRestore,
+                    timestamp: Date.now()
+                });
+                
+                // Create restore particles
+                const rect = buttonEl.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                createParticles(centerX, centerY, 20, 'restore');
+                
+                // Update UI
+                updateEnergyDisplay();
+                updateStats();
+                updateHistory();
+                updateTips();
+                
+                // Show modal if significant restore
+                if (actualRestore >= 30) {
+                    document.getElementById('restModalText').textContent = 
+                        `You've restored ${actualRestore}% energy! You're feeling refreshed and ready to make clear decisions again.`;
+                    showModal('restModal');
+                }
+                
+                showToast(`✨ Energy restored: +${actualRestore}%`, 'rest');
+            }, cooldown * 1000);
+        }
+
+        // ==================== Event Listeners ====================
+        // Decision buttons
+        document.querySelectorAll('.decision-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cost = parseInt(btn.dataset.cost);
+                makeDecision(cost, btn);
+            });
+        });
+
+        // Rest buttons
+        document.querySelectorAll('.rest-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const restore = parseInt(btn.dataset.restore);
+                const cooldown = parseInt(btn.dataset.cooldown);
+                startRest(restore, cooldown, btn);
+            });
+        });
+
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        });
+
+        // Periodic energy drain (passive)
+        setInterval(() => {
+            // Small passive drain (0.5% every 10 seconds)
+            if (state.energy > 0) {
+                state.energy = Math.max(0, state.energy - 0.5);
+                updateEnergyDisplay();
+            }
+        }, 10000);
+
+        // Update tips periodically
+        setInterval(() => {
+            updateTips();
+        }, 15000);
+
+        // ==================== Initialization ====================
+        function init() {
+            updateEnergyDisplay();
+            updateStats();
+            updateHistory();
+            updateTips();
+            drawEnergyVisualization();
+            
+            // Show welcome tip
+            setTimeout(() => {
+                showToast('👋 Welcome! Make decisions to see energy drain, rest to recharge.', 'rest');
+            }, 1000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>NoteWorld 3D — IndexedDB Notes (CRUD + Search + Recycle) — Single File</title>
+  <style>
+    :root{
+      --bg:#0b0c0c;
+      --panel:#151816;
+      --panel2:#1b1f1c;
+      --text:#e9eceb;
+      --muted:#a8b0ac;
+      --line:rgba(255,255,255,.10);
+      --accent:#d4a24f;     /* warm gold */
+      --accent2:#b85f49;    /* terracotta */
+      --good:#6fbf73;
+      --bad:#d06b6b;
+      --shadow: 0 18px 44px rgba(0,0,0,.50);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1100px 800px at 18% 10%, rgba(212,162,79,.10), transparent 55%),
+        radial-gradient(900px 650px at 90% 22%, rgba(184,95,73,.10), transparent 60%),
+        radial-gradient(1000px 900px at 50% 110%, rgba(111,191,115,.07), transparent 62%),
+        var(--bg);
+      overflow:hidden;
+    }
+    header{
+      position:fixed; left:0; right:0; top:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .title{display:flex; flex-direction:column; gap:2px}
+    .title h1{margin:0; font-size:14px; font-weight:950; letter-spacing:.2px}
+    .title .sub{margin:0; font-size:12px; color:var(--muted); line-height:1.25}
+    .hdrRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:12px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+    .pill b{color:var(--text); font-family:var(--mono); font-weight:900}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:12.5px;
+      color:var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{background: linear-gradient(180deg, rgba(212,162,79,.18), rgba(212,162,79,.06));}
+    .btn.danger{background: linear-gradient(180deg, rgba(208,107,107,.18), rgba(208,107,107,.07));}
+
+    #wrap{position:fixed; inset:0; padding-top:52px;}
+    canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
+    /* Side panel */
+    #panel{
+      position:fixed;
+      left:14px;
+      top:66px;
+      width:min(420px, calc(100vw - 28px));
+      max-height: calc(100vh - 80px);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      z-index:12;
+      display:flex;
+      flex-direction:column;
+    }
+    #panel .ph{
+      padding:10px 10px 8px;
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+    }
+    #panel .ph .h{font-weight:950; font-size:12.5px; letter-spacing:.2px}
+    #panel .pb{padding:10px; overflow:auto;}
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin:10px 0 6px;
+    }
+    input[type="text"], textarea, select{
+      width:100%;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      border-radius: 12px;
+      padding:9px 10px;
+      outline:none;
+      font-size:13px;
+    }
+    textarea{min-height:120px; resize:vertical; line-height:1.35}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px}
+    .small{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.35}
+    .k{
+      display:inline-block;
+      padding:1px 6px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:8px;
+      background: rgba(255,255,255,.03);
+      font-family: var(--mono);
+      color: var(--text);
+      font-size:11.5px;
+      margin:0 2px;
+    }
+    .list{
+      margin-top:10px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+    }
+    .item{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+    }
+    .item:last-child{border-bottom:none}
+    .item:hover{background: rgba(255,255,255,.03)}
+    .item .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+    .item .title{font-weight:950; font-size:13px}
+    .item .meta{font-family:var(--mono); font-size:11px; color:var(--muted)}
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      font-size:11px;
+      color:var(--muted);
+      margin-right:6px;
+    }
+    .tag.good{border-color: rgba(111,191,115,.30); color: rgba(215,255,218,.85); background: rgba(111,191,115,.10)}
+    .tag.bad{border-color: rgba(208,107,107,.30); color: rgba(255,220,220,.85); background: rgba(208,107,107,.10)}
+    .tag.warn{border-color: rgba(212,162,79,.32); color: rgba(255,240,210,.92); background: rgba(212,162,79,.10)}
+
+    /* Bottom hint */
+    #hint{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      max-width:min(520px, calc(100vw - 28px));
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 14px;
+      padding:10px 12px;
+      color: var(--muted);
+      font-size:12px;
+      line-height:1.35;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      z-index:12;
+    }
+    #hint b{color:var(--text)}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="title">
+    <h1>NoteWorld 3D</h1>
+    <div class="sub">A small 3D “note universe” where notes are planets. CRUD + search + recycle bin. Stored in IndexedDB.</div>
+  </div>
+  <div class="hdrRight">
+    <div class="pill">view: <b id="pillView">All</b></div>
+    <div class="pill">notes: <b id="pillCount">0</b></div>
+    <div class="pill">fps: <b id="pillFps">—</b></div>
+    <button class="btn" id="btnFocus">Focus selected</button>
+    <button class="btn" id="btnTogglePanel">Panel</button>
+    <button class="btn primary" id="btnNew">New note</button>
+  </div>
+</header>
+
+<div id="wrap">
+  <canvas id="cv"></canvas>
+</div>
+
+<section id="panel">
+  <div class="ph">
+    <div class="h">Notes</div>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end">
+      <button class="btn" id="btnSeed">Seed demo</button>
+      <button class="btn danger" id="btnEmptyTrash">Empty trash</button>
+    </div>
+  </div>
+  <div class="pb">
+    <div class="row">
+      <div>
+        <label for="q">Search</label>
+        <input id="q" type="text" placeholder="title, body, tags… (try: #idea, @work, or a word)"/>
+      </div>
+      <div>
+        <label for="view">View</label>
+        <select id="view">
+          <option value="all" selected>All</option>
+          <option value="pinned">Pinned</option>
+          <option value="active">Active (not deleted)</option>
+          <option value="trash">Recycle bin</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="btn secondary" id="btnExport">Export JSON</button>
+      <button class="btn secondary" id="btnImport">Import JSON</button>
+    </div>
+
+    <label for="io">Import/Export box</label>
+    <textarea id="io" class="mono" placeholder="Exported JSON appears here. Paste JSON here and click Import."></textarea>
+
+    <div class="list" id="list"></div>
+
+    <div class="small">
+      3D controls: drag to orbit · scroll to zoom · click a planet to select · double‑click to open.
+      Keys: <span class="k">N</span> new, <span class="k">/</span> focus search, <span class="k">F</span> focus planet, <span class="k">Del</span> to recycle/restore, <span class="k">P</span> pin, <span class="k">Esc</span> close editor.
+    </div>
+  </div>
+</section>
+
+<div id="hint">
+  <b>Creative bits:</b> notes become planets; tags affect orbit ring color; pinned notes glow; deleted notes drift into a “graveyard” orbit. Search reshapes the whole system.
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  /******************************************************************
+   * IndexedDB layer
+   ******************************************************************/
+  const DB_NAME = "noteworld3d_db";
+  const DB_VER  = 1;
+  const STORE   = "notes";
+
+  /** @typedef {{
+   *  id:string, title:string, body:string, tags:string[],
+   *  color:string, pinned:boolean, deleted:boolean,
+   *  createdAt:number, updatedAt:number, deletedAt:number|null,
+   *  world:{ orbit:number, angle:number, size:number, tilt:number, wobble:number }
+   * }} Note
+   */
+
+  function idbOpen(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        const st = db.createObjectStore(STORE, { keyPath: "id" });
+        st.createIndex("updatedAt", "updatedAt");
+        st.createIndex("deleted", "deleted");
+        st.createIndex("pinned", "pinned");
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function tx(db, mode="readonly"){
+    return db.transaction(STORE, mode).objectStore(STORE);
+  }
+
+  async function idbGetAll(db){
+    return new Promise((resolve, reject) => {
+      const req = tx(db).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbPut(db, note){
+    return new Promise((resolve, reject) => {
+      const req = tx(db, "readwrite").put(note);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbDelete(db, id){
+    return new Promise((resolve, reject) => {
+      const req = tx(db, "readwrite").delete(id);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbClear(db){
+    return new Promise((resolve, reject) => {
+      const req = tx(db, "readwrite").clear();
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /******************************************************************
+   * Utilities
+   ******************************************************************/
+  const $ = (s) => document.querySelector(s);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+
+  function uuid(){
+    return (crypto.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2) + Date.now().toString(16)));
+  }
+
+  function now(){ return Date.now(); }
+
+  function norm(s){ return (s||"").replace(/\s+/g," ").trim(); }
+
+  function parseTags(s){
+    // tags from comma or inline (#tag)
+    const arr = [];
+    const raw = (s||"").split(",").map(x=>x.trim()).filter(Boolean);
+    arr.push(...raw);
+    return Array.from(new Set(arr.map(t => t.replace(/^#/, "").toLowerCase()))).filter(Boolean);
+  }
+
+  function tagsFromText(title, body){
+    const t = `${title||""} ${body||""}`;
+    const m = t.match(/#[\p{L}\p{N}_-]{1,24}/gu) || [];
+    return Array.from(new Set(m.map(x=>x.slice(1).toLowerCase())));
+  }
+
+  function hashHue(str){
+    let h=2166136261;
+    for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+    const v = (h>>>0) % 360;
+    return v;
+  }
+
+  function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
+
+  function wordTokens(s){
+    return (s||"").toLowerCase().match(/[\p{L}\p{N}_-]+/gu) || [];
+  }
+
+  /******************************************************************
+   * App State
+   ******************************************************************/
+  const UI = {
+    cv: $("#cv"),
+    panel: $("#panel"),
+    btnTogglePanel: $("#btnTogglePanel"),
+    btnNew: $("#btnNew"),
+    btnFocus: $("#btnFocus"),
+    btnSeed: $("#btnSeed"),
+    btnEmptyTrash: $("#btnEmptyTrash"),
+    btnExport: $("#btnExport"),
+    btnImport: $("#btnImport"),
+    io: $("#io"),
+    q: $("#q"),
+    view: $("#view"),
+    list: $("#list"),
+    pillView: $("#pillView"),
+    pillCount: $("#pillCount"),
+    pillFps: $("#pillFps"),
+  };
+
+  const S = {
+    db: null,
+    notes: /** @type {Note[]} */([]),
+    filtered: /** @type {Note[]} */([]),
+    selectedId: null,
+    editorOpen: false,
+
+    // canvas size
+    w: 0, h: 0, dpr: 1,
+
+    // camera/orbit controls
+    yaw: 0.8,
+    pitch: 0.42,
+    dist: 680,
+    targetYaw: 0.8,
+    targetPitch: 0.42,
+    targetDist: 680,
+    panX: 0, panY: 0,
+    targetPanX: 0, targetPanY: 0,
+
+    // rendering
+    t: 0,
+    running: true,
+    fps: 0,
+    _fpsN: 0,
+    _fpsT: 0,
+
+    // picking
+    pointerDown: false,
+    dragMoved: false,
+    lastX: 0, lastY: 0,
+
+    // search shaping
+    query: "",
+    viewMode: "all",
+  };
+
+  /******************************************************************
+   * Note creation & world mapping
+   ******************************************************************/
+  function makeWorldForNote(note, idx){
+    const baseOrbit = 120 + (idx % 60) * 8;
+    const orbit = baseOrbit + Math.random()*24;
+    const angle = Math.random() * Math.PI*2;
+    const size = 10 + Math.random()*18;
+    const tilt = (Math.random()*2-1) * 0.55;
+    const wobble = Math.random()*2-1;
+
+    note.world = { orbit, angle, size, tilt, wobble };
+    return note;
+  }
+
+  function newNoteTemplate(seedTitle="Untitled"){
+    const id = uuid();
+    const createdAt = now();
+    const title = seedTitle;
+    const body = "";
+    const tags = [];
+    const hue = hashHue(id);
+    const color = hsl(hue, 75, 58, 1);
+    /** @type {Note} */
+    const note = {
+      id, title, body, tags,
+      color,
+      pinned:false,
+      deleted:false,
+      createdAt, updatedAt: createdAt,
+      deletedAt: null,
+      world: { orbit: 200, angle: 0, size: 14, tilt: 0, wobble: 0 }
+    };
+    return note;
+  }
+
+  function scoreNoteForQuery(note, qTokens, rawQ){
+    if (!rawQ) return 0;
+    const hay = (note.title + " " + note.body + " " + (note.tags||[]).join(" ")).toLowerCase();
+    let score = 0;
+    for (const tok of qTokens){
+      if (!tok) continue;
+      if (hay.includes(tok)) score += 2;
+      if (note.title.toLowerCase().includes(tok)) score += 3;
+      if ((note.tags||[]).includes(tok.replace(/^#/,""))) score += 4;
+    }
+    // allow @pinned, @trash
+    if (rawQ.includes("@pinned") && note.pinned) score += 6;
+    if (rawQ.includes("@trash") && note.deleted) score += 6;
+    return score;
+  }
+
+  /******************************************************************
+   * Filtering + list UI
+   ******************************************************************/
+  function applyFilters(){
+    const rawQ = norm(UI.q.value);
+    const qTokens = wordTokens(rawQ.replace(/[@#]/g,""));
+    const view = UI.view.value;
+
+    S.query = rawQ;
+    S.viewMode = view;
+    UI.pillView.textContent = view[0].toUpperCase() + view.slice(1);
+
+    let arr = S.notes.slice();
+
+    if (view === "pinned") arr = arr.filter(n => n.pinned && !n.deleted);
+    else if (view === "active") arr = arr.filter(n => !n.deleted);
+    else if (view === "trash") arr = arr.filter(n => n.deleted);
+
+    if (rawQ){
+      // tag search: "#tag"
+      const tagHits = (rawQ.match(/#[\p{L}\p{N}_-]{1,24}/gu) || []).map(x=>x.slice(1).toLowerCase());
+      // quick includes
+      arr = arr.filter(n => {
+        const hay = (n.title + " " + n.body + " " + (n.tags||[]).join(" ")).toLowerCase();
+        let ok = qTokens.every(tok => hay.includes(tok));
+        if (tagHits.length) ok = ok && tagHits.every(t => (n.tags||[]).includes(t));
+        // @pinned, @trash
+        if (rawQ.includes("@pinned")) ok = ok && n.pinned;
+        if (rawQ.includes("@trash")) ok = ok && n.deleted;
+        return ok;
+      });
+
+      // sort by score then updatedAt
+      arr.sort((a,b) => {
+        const sa = scoreNoteForQuery(a, qTokens, rawQ);
+        const sb = scoreNoteForQuery(b, qTokens, rawQ);
+        if (sb !== sa) return sb - sa;
+        return b.updatedAt - a.updatedAt;
+      });
+    } else {
+      // default sort: pinned first, then updatedAt
+      arr.sort((a,b) => {
+        if (a.deleted !== b.deleted) return a.deleted ? 1 : -1;
+        if (b.pinned !== a.pinned) return (b.pinned?1:0) - (a.pinned?1:0);
+        return b.updatedAt - a.updatedAt;
+      });
+    }
+
+    S.filtered = arr;
+    UI.pillCount.textContent = String(arr.length);
+
+    renderList();
+  }
+
+  function formatTime(ts){
+    const d = new Date(ts);
+    return d.toLocaleString(undefined, { year:"2-digit", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+  }
+
+  function renderList(){
+    const sel = S.selectedId;
+    UI.list.innerHTML = "";
+    const frag = document.createDocumentFragment();
+
+    for (const n of S.filtered.slice(0, 400)){
+      const div = document.createElement("div");
+      div.className = "item";
+      div.style.borderLeft = `4px solid ${n.color}`;
+
+      const tagBits = [];
+      if (n.pinned) tagBits.push(`<span class="tag warn">PIN</span>`);
+      if (n.deleted) tagBits.push(`<span class="tag bad">TRASH</span>`);
+      if (!n.deleted && !n.pinned) tagBits.push(`<span class="tag good">LIVE</span>`);
+
+      const tags = (n.tags||[]).slice(0,4).map(t=>`<span class="tag">#${escapeHtml(t)}</span>`).join("");
+
+      div.innerHTML = `
+        <div class="top">
+          <div class="title">${escapeHtml(n.title || "(untitled)")} ${sel===n.id ? "•" : ""}</div>
+          <div class="meta">${escapeHtml(formatTime(n.updatedAt))}</div>
+        </div>
+        <div style="margin-top:6px">${tagBits.join("")}${tags}</div>
+        <div class="small" style="margin-top:6px; color: var(--muted)">
+          ${escapeHtml(snippet(n.body, 100))}
+        </div>
+      `;
+
+      div.addEventListener("click", () => selectNote(n.id));
+      div.addEventListener("dblclick", () => openEditor(n.id));
+      frag.appendChild(div);
+    }
+
+    UI.list.appendChild(frag);
+  }
+
+  function snippet(s, n){
+    s = norm(s);
+    if (s.length <= n) return s;
+    return s.slice(0, n-1) + "…";
+  }
+
+  function escapeHtml(s){
+    return (s ?? "").replace(/[&<>"']/g, ch => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[ch]));
+  }
+
+  /******************************************************************
+   * Editor modal (inline, lightweight)
+   ******************************************************************/
+  let editorEl = null;
+  function ensureEditor(){
+    if (editorEl) return;
+    editorEl = document.createElement("div");
+    editorEl.style.position = "fixed";
+    editorEl.style.inset = "0";
+    editorEl.style.zIndex = "50";
+    editorEl.style.display = "none";
+    editorEl.style.background = "rgba(0,0,0,.45)";
+    editorEl.style.backdropFilter = "blur(10px)";
+    editorEl.style.webkitBackdropFilter = "blur(10px)";
+
+    editorEl.innerHTML = `
+      <div style="
+        position:absolute; left:50%; top:50%;
+        transform:translate(-50%,-50%);
+        width:min(760px, calc(100vw - 28px));
+        max-height: calc(100vh - 28px);
+        overflow:auto;
+        border:1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(0,0,0,.35);
+        box-shadow: var(--shadow);
+      ">
+        <div style="padding:12px 12px 10px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; justify-content:space-between; gap:10px; align-items:center">
+          <div style="font-weight:950; font-size:13px">Edit note</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
+            <button class="btn" id="edPin">Pin</button>
+            <button class="btn" id="edRecycle">Recycle</button>
+            <button class="btn danger" id="edDelete">Delete forever</button>
+            <button class="btn primary" id="edSave">Save</button>
+            <button class="btn" id="edClose">Close</button>
+          </div>
+        </div>
+        <div style="padding:12px">
+          <label>Title</label>
+          <input id="edTitle" type="text" placeholder="Title"/>
+          <div class="row">
+            <div>
+              <label>Tags (comma) — auto: #tags in text too</label>
+              <input id="edTags" type="text" placeholder="idea, work, journal"/>
+            </div>
+            <div>
+              <label>Color</label>
+              <input id="edColor" type="text" placeholder="hsla(...)" />
+            </div>
+          </div>
+          <label>Body</label>
+          <textarea id="edBody" placeholder="Write… (tip: include #tags inside)"></textarea>
+          <div class="small" id="edMeta"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(editorEl);
+
+    editorEl.addEventListener("click", (e) => {
+      if (e.target === editorEl) closeEditor();
+    });
+  }
+
+  let editingId = null;
+
+  function openEditor(id){
+    ensureEditor();
+    const note = S.notes.find(n=>n.id===id);
+    if (!note) return;
+    editingId = id;
+    S.editorOpen = true;
+
+    $("#edTitle").value = note.title || "";
+    $("#edBody").value = note.body || "";
+    $("#edTags").value = (note.tags||[]).join(", ");
+    $("#edColor").value = note.color || "";
+    $("#edMeta").textContent = `created: ${formatTime(note.createdAt)} · updated: ${formatTime(note.updatedAt)} · ${note.deleted ? "IN TRASH" : "ACTIVE"}`;
+
+    const setButtons = () => {
+      $("#edPin").textContent = note.pinned ? "Unpin" : "Pin";
+      $("#edRecycle").textContent = note.deleted ? "Restore" : "Recycle";
+      $("#edRecycle").className = note.deleted ? "btn primary" : "btn";
+    };
+    setButtons();
+
+    $("#edSave").onclick = async () => {
+      const title = norm($("#edTitle").value);
+      const body = $("#edBody").value || "";
+      const tagManual = parseTags($("#edTags").value);
+      const tagAuto = tagsFromText(title, body);
+      const tags = Array.from(new Set([...tagManual, ...tagAuto])).slice(0, 24);
+
+      note.title = title || "Untitled";
+      note.body = body;
+      note.tags = tags;
+      note.color = norm($("#edColor").value) || note.color;
+      note.updatedAt = now();
+
+      // update world slightly based on content
+      const w = note.world;
+      w.wobble = clamp(w.wobble + (Math.random()*2-1)*0.08, -1, 1);
+      w.size = clamp(w.size + (Math.random()*2-1)*0.8, 8, 36);
+
+      await idbPut(S.db, note);
+      await reloadNotes();
+      selectNote(note.id);
+      toast("Saved.");
+    };
+
+    $("#edClose").onclick = closeEditor;
+
+    $("#edPin").onclick = async () => {
+      note.pinned = !note.pinned;
+      note.updatedAt = now();
+      await idbPut(S.db, note);
+      await reloadNotes();
+      toast(note.pinned ? "Pinned." : "Unpinned.");
+      openEditor(id); // refresh
+    };
+
+    $("#edRecycle").onclick = async () => {
+      if (!note.deleted){
+        note.deleted = true;
+        note.deletedAt = now();
+      } else {
+        note.deleted = false;
+        note.deletedAt = null;
+      }
+      note.updatedAt = now();
+      await idbPut(S.db, note);
+      await reloadNotes();
+      toast(note.deleted ? "Moved to recycle bin." : "Restored.");
+      closeEditor();
+    };
+
+    $("#edDelete").onclick = async () => {
+      if (!confirm("Delete forever? This cannot be undone.")) return;
+      await idbDelete(S.db, note.id);
+      await reloadNotes();
+      if (S.selectedId === note.id) S.selectedId = null;
+      toast("Deleted forever.");
+      closeEditor();
+    };
+
+    editorEl.style.display = "block";
+  }
+
+  function closeEditor(){
+    if (!editorEl) return;
+    editorEl.style.display = "none";
+    editingId = null;
+    S.editorOpen = false;
+  }
+
+  function toast(msg){
+    // simple: set document title briefly
+    const old = document.title;
+    document.title = msg + " — NoteWorld 3D";
+    setTimeout(()=>document.title = old, 900);
+  }
+
+  /******************************************************************
+   * CRUD actions
+   ******************************************************************/
+  async function createNewNote(){
+    const n = newNoteTemplate("New note");
+    makeWorldForNote(n, S.notes.length);
+    await idbPut(S.db, n);
+    await reloadNotes();
+    selectNote(n.id);
+    openEditor(n.id);
+  }
+
+  async function recycleOrRestoreSelected(){
+    const id = S.selectedId;
+    if (!id) return;
+    const n = S.notes.find(x=>x.id===id);
+    if (!n) return;
+
+    if (!n.deleted){
+      n.deleted = true;
+      n.deletedAt = now();
+    } else {
+      n.deleted = false;
+      n.deletedAt = null;
+    }
+    n.updatedAt = now();
+    await idbPut(S.db, n);
+    await reloadNotes();
+    toast(n.deleted ? "Recycled." : "Restored.");
+  }
+
+  async function togglePinSelected(){
+    const id = S.selectedId;
+    if (!id) return;
+    const n = S.notes.find(x=>x.id===id);
+    if (!n || n.deleted) return;
+    n.pinned = !n.pinned;
+    n.updatedAt = now();
+    await idbPut(S.db, n);
+    await reloadNotes();
+    toast(n.pinned ? "Pinned." : "Unpinned.");
+  }
+
+  async function emptyTrash(){
+    if (!confirm("Empty recycle bin? This permanently deletes trashed notes.")) return;
+    const trash = S.notes.filter(n=>n.deleted);
+    for (const n of trash){
+      await idbDelete(S.db, n.id);
+    }
+    await reloadNotes();
+    toast("Trash emptied.");
+  }
+
+  async function seedDemo(){
+    // Create a handful of creative notes
+    const samples = [
+      {t:"Staircase of ideas", b:"Every note is a planet.\nWhen you search, the universe reshapes.\n#idea #system", tags:["idea","system"]},
+      {t:"Grocery list (but cosmic)", b:"tea, rice, olives\nremember: call mom\n#life", tags:["life"]},
+      {t:"Project: Lantern", b:"Ship v1:\n- tiny scope\n- clear UI\n- cut features\nThen add wonder.\n#work #plan", tags:["work","plan"]},
+      {t:"Dream fragment", b:"A library where the shelves hum.\nI took a book and it took my name.\n#dream", tags:["dream"]},
+      {t:"Angry draft", b:"Delete later. But keep the truth.\n#journal", tags:["journal"]},
+      {t:"Recipe: time", b:"Take one hour.\nRemove notifications.\nStir.\n#focus", tags:["focus"]},
+    ];
+    for (let i=0;i<samples.length;i++){
+      const n = newNoteTemplate(samples[i].t);
+      n.body = samples[i].b;
+      n.tags = Array.from(new Set([...samples[i].tags, ...tagsFromText(n.title, n.body)]));
+      n.color = hsl(hashHue(n.title), 75, 58, 1);
+      makeWorldForNote(n, S.notes.length + i);
+      await idbPut(S.db, n);
+    }
+    await reloadNotes();
+    toast("Seeded demo notes.");
+  }
+
+  /******************************************************************
+   * Export / Import
+   ******************************************************************/
+  function exportJSON(){
+    const payload = {
+      v: 1,
+      exportedAt: now(),
+      notes: S.notes
+    };
+    UI.io.value = JSON.stringify(payload, null, 2);
+    UI.io.focus(); UI.io.select();
+    toast("Exported JSON.");
+  }
+
+  async function importJSON(){
+    const raw = norm(UI.io.value);
+    if (!raw){ alert("Paste JSON into the box first."); return; }
+    try{
+      const payload = JSON.parse(raw);
+      const arr = payload.notes;
+      if (!Array.isArray(arr)) throw new Error("Invalid format: notes[] missing");
+      for (const n of arr){
+        if (!n.id) n.id = uuid();
+        if (!n.createdAt) n.createdAt = now();
+        if (!n.updatedAt) n.updatedAt = now();
+        if (!n.world) makeWorldForNote(n, S.notes.length);
+        if (!n.color) n.color = hsl(hashHue(n.id), 75, 58, 1);
+        if (!Array.isArray(n.tags)) n.tags = [];
+        // sanitize
+        n.title = norm(n.title) || "Untitled";
+        n.body = String(n.body ?? "");
+        n.tags = Array.from(new Set(n.tags.map(x=>String(x).toLowerCase().replace(/^#/,"")))).slice(0,24);
+        n.pinned = !!n.pinned;
+        n.deleted = !!n.deleted;
+        n.deletedAt = n.deleted ? (n.deletedAt || now()) : null;
+
+        await idbPut(S.db, n);
+      }
+      await reloadNotes();
+      toast("Imported.");
+    } catch (e){
+      alert("Import failed: " + (e.message || e));
+    }
+  }
+
+  /******************************************************************
+   * 3D-ish renderer (no external libs)
+   * - Notes are spheres in orbit rings (pseudo-3D projection)
+   * - We do simple camera orbit + perspective projection
+   * - Selection uses ray-ish 2D distance after projection
+   ******************************************************************/
+  const ctx = UI.cv.getContext("2d");
+
+  function resize(){
+    const dpr = Math.max(1, Math.min(2, devicePixelRatio || 1));
+    S.dpr = dpr;
+    S.w = innerWidth;
+    S.h = innerHeight - 52;
+
+    UI.cv.width = Math.floor(S.w * dpr);
+    UI.cv.height = Math.floor(S.h * dpr);
+    UI.cv.style.width = S.w + "px";
+    UI.cv.style.height = S.h + "px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function project(x,y,z){
+    // camera orbit around origin
+    const yaw = S.yaw, pitch = S.pitch;
+    // rotate around Y (yaw)
+    let X = x*Math.cos(yaw) - z*Math.sin(yaw);
+    let Z = x*Math.sin(yaw) + z*Math.cos(yaw);
+    // rotate around X (pitch)
+    let Y = y*Math.cos(pitch) - Z*Math.sin(pitch);
+    Z = y*Math.sin(pitch) + Z*Math.cos(pitch);
+
+    // camera distance
+    const dist = S.dist;
+    const fov = 560; // focal length
+    const scale = fov / (fov + (Z + dist));
+    const sx = (S.w*0.5 + S.panX) + X*scale;
+    const sy = (S.h*0.52 + S.panY) + Y*scale;
+    return { sx, sy, scale, z: Z };
+  }
+
+  function draw(){
+    const w = S.w, h = S.h;
+    ctx.clearRect(0,0,w,h);
+
+    // space gradient
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, "rgba(2,3,3,1)");
+    g.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+
+    // subtle stars
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "white";
+    const starN = Math.floor((w*h)/18000);
+    for (let i=0;i<starN;i++){
+      const x = (Math.sin(i*12.9898 + S.t*0.00012)*43758.5453)%1;
+      const y = (Math.sin(i*78.233 + S.t*0.00009)*12345.6789)%1;
+      const px = (x<0?x+1:x)*w;
+      const py = (y<0?y+1:y)*h;
+      ctx.fillRect(px, py, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+
+    const q = norm(UI.q.value);
+    const hasQ = !!q;
+    const qTokens = wordTokens(q.replace(/[@#]/g,""));
+
+    // derive "gravity well" strength from search: search pulls matching planets inward
+    const pullK = hasQ ? 0.35 : 0.0;
+
+    // prepare draw list with depth sorting
+    const drawables = [];
+
+    const active = S.filtered; // show only filtered in the world, so search reshapes everything
+    const graveyardRadius = 420;
+
+    for (let i=0;i<active.length;i++){
+      const n = active[i];
+      const wld = n.world;
+
+      // base orbit
+      let orbit = wld.orbit;
+
+      // deleted notes drift to graveyard ring
+      if (n.deleted){
+        orbit = lerp(orbit, graveyardRadius, 0.8);
+      }
+
+      // search pull: matching notes move closer and glow
+      let score = 0;
+      if (hasQ) score = scoreNoteForQuery(n, qTokens, q);
+      const match = hasQ ? clamp(score/10, 0, 1) : 0;
+      orbit = lerp(orbit, 120 + wld.orbit*0.55, match*pullK);
+
+      // orbit position
+      const speed = 0.00015 + (wld.size*0.000002);
+      const ang = wld.angle + S.t*speed*(n.pinned ? 0.7 : 1.0) + wld.wobble*Math.sin(S.t*0.0003 + i);
+      const tilt = wld.tilt;
+
+      // 3D coordinates
+      const x = Math.cos(ang) * orbit;
+      const z = Math.sin(ang) * orbit;
+      const y = Math.sin(ang*0.7 + tilt) * 24 * (0.6 + wld.size*0.03);
+
+      const P = project(x, y, z);
+
+      // apparent radius
+      const r = wld.size * (0.55 + P.scale*0.9);
+
+      drawables.push({ n, P, r, match, orbit });
+    }
+
+    drawables.sort((a,b) => a.P.z - b.P.z);
+
+    // orbit rings
+    ctx.globalAlpha = 0.55;
+    const ringCount = 7;
+    for (let i=0;i<ringCount;i++){
+      const rr = 120 + i*70;
+      drawRing(rr, "rgba(255,255,255,0.06)");
+    }
+    // graveyard ring
+    drawRing(420, "rgba(208,107,107,0.12)");
+    ctx.globalAlpha = 1;
+
+    // draw planets
+    for (const d of drawables){
+      const {n, P, r, match} = d;
+      const selected = (n.id === S.selectedId);
+
+      // glow intensity
+      const pinGlow = n.pinned && !n.deleted ? 0.18 : 0;
+      const matchGlow = match * 0.22;
+
+      // deleted dim
+      const dim = n.deleted ? 0.55 : 1.0;
+
+      // planet body gradient
+      const grd = ctx.createRadialGradient(P.sx - r*0.35, P.sy - r*0.35, 1, P.sx, P.sy, r*1.25);
+      const hue = hashHue(n.color + n.id);
+      grd.addColorStop(0, `hsla(${hue}, 80%, 70%, ${0.95*dim})`);
+      grd.addColorStop(0.55, `hsla(${hue}, 80%, 52%, ${0.85*dim})`);
+      grd.addColorStop(1, `hsla(${hue}, 80%, 28%, ${0.0})`);
+
+      // outer glow
+      if (pinGlow + matchGlow > 0){
+        const glowR = r*(2.8 + 3.0*(pinGlow + matchGlow));
+        const ga = (pinGlow + matchGlow) * dim;
+        const gg = ctx.createRadialGradient(P.sx,P.sy, 1, P.sx,P.sy, glowR);
+        gg.addColorStop(0, `hsla(${hue}, 90%, 70%, ${0.22*ga})`);
+        gg.addColorStop(1, `hsla(${hue}, 90%, 40%, 0)`);
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(P.sx,P.sy, glowR, 0, Math.PI*2); ctx.fill();
+      }
+
+      // selection halo
+      if (selected){
+        const selR = r*2.2;
+        const gg = ctx.createRadialGradient(P.sx,P.sy, 1, P.sx,P.sy, selR);
+        gg.addColorStop(0, `rgba(212,162,79,0.22)`);
+        gg.addColorStop(1, `rgba(212,162,79,0)`);
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(P.sx,P.sy, selR, 0, Math.PI*2); ctx.fill();
+      }
+
+      // planet
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(P.sx, P.sy, r, 0, Math.PI*2);
+      ctx.fill();
+
+      // rim
+      ctx.strokeStyle = `rgba(255,255,255,${0.12*dim})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(P.sx, P.sy, r, 0, Math.PI*2);
+      ctx.stroke();
+
+      // tiny "title label" for nearby/selected
+      if (selected || (match>0.2) || r>18){
+        const label = n.title || "Untitled";
+        ctx.font = `700 ${Math.max(11, Math.min(14, r*0.6))}px system-ui`;
+        ctx.fillStyle = `rgba(231,236,235,${selected?0.95:0.55})`;
+        ctx.fillText(label.slice(0, 26), P.sx + r + 8, P.sy + 4);
+      }
+
+      // store screen pos for picking
+      n._screen = { x: P.sx, y: P.sy, r };
+    }
+
+    // center "sun" (your workspace)
+    const sunR = 14 + 6*Math.sin(S.t*0.001);
+    const sg = ctx.createRadialGradient(w*0.5 + S.panX, h*0.52 + S.panY, 1, w*0.5 + S.panX, h*0.52 + S.panY, sunR*6);
+    sg.addColorStop(0, "rgba(212,162,79,0.26)");
+    sg.addColorStop(1, "rgba(212,162,79,0)");
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(w*0.5 + S.panX, h*0.52 + S.panY, sunR*6, 0, Math.PI*2); ctx.fill();
+
+    // camera easing
+    S.yaw = lerp(S.yaw, S.targetYaw, 0.12);
+    S.pitch = lerp(S.pitch, S.targetPitch, 0.12);
+    S.dist = lerp(S.dist, S.targetDist, 0.12);
+    S.panX = lerp(S.panX, S.targetPanX, 0.10);
+    S.panY = lerp(S.panY, S.targetPanY, 0.10);
+  }
+
+  function drawRing(r, stroke){
+    const steps = 120;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i=0;i<=steps;i++){
+      const a = (i/steps)*Math.PI*2;
+      const x = Math.cos(a)*r;
+      const z = Math.sin(a)*r;
+      const P = project(x, 0, z);
+      if (i===0) ctx.moveTo(P.sx, P.sy);
+      else ctx.lineTo(P.sx, P.sy);
+    }
+    ctx.stroke();
+  }
+
+  function pickNoteAt(x,y){
+    // find closest by screen distance, prefer smaller distance and larger radius
+    let best = null;
+    let bestD = 1e9;
+    for (const n of S.filtered){
+      const s = n._screen;
+      if (!s) continue;
+      const dx = x - s.x, dy = y - s.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < s.r*1.05 && d < bestD){
+        bestD = d;
+        best = n;
+      }
+    }
+    return best;
+  }
+
+  function selectNote(id){
+    S.selectedId = id;
+    // small camera nudge to bring it into view
+    const n = S.notes.find(x=>x.id===id);
+    if (n && n._screen){
+      // pan target slightly toward it
+      const cx = S.w*0.5 + S.panX;
+      const cy = S.h*0.52 + S.panY;
+      const dx = (cx - n._screen.x);
+      const dy = (cy - n._screen.y);
+      S.targetPanX += dx*0.12;
+      S.targetPanY += dy*0.12;
+      S.targetPanX = clamp(S.targetPanX, -S.w*0.18, S.w*0.18);
+      S.targetPanY = clamp(S.targetPanY, -S.h*0.18, S.h*0.18);
+    }
+    renderList();
+  }
+
+  function focusSelected(){
+    const id = S.selectedId;
+    if (!id) return;
+    const n = S.notes.find(x=>x.id===id);
+    if (!n) return;
+    // zoom a bit in
+    S.targetDist = clamp(S.targetDist * 0.86, 280, 1200);
+    toast("Focus.");
+  }
+
+  /******************************************************************
+   * Input handling (orbit controls)
+   ******************************************************************/
+  function onPointerDown(e){
+    S.pointerDown = true;
+    S.dragMoved = false;
+    S.lastX = e.clientX;
+    S.lastY = e.clientY;
+    UI.cv.setPointerCapture?.(e.pointerId);
+  }
+  function onPointerMove(e){
+    if (!S.pointerDown) return;
+    const dx = e.clientX - S.lastX;
+    const dy = e.clientY - S.lastY;
+    S.lastX = e.clientX;
+    S.lastY = e.clientY;
+    if (Math.abs(dx)+Math.abs(dy) > 2) S.dragMoved = true;
+
+    // orbit
+    S.targetYaw += dx * 0.0042;
+    S.targetPitch += dy * 0.0032;
+    S.targetPitch = clamp(S.targetPitch, -0.25, 1.25);
+  }
+  function onPointerUp(e){
+    S.pointerDown = false;
+
+    if (!S.dragMoved){
+      // click select
+      const r = UI.cv.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const hit = pickNoteAt(x,y);
+      if (hit) selectNote(hit.id);
+    }
+  }
+  function onDblClick(e){
+    const r = UI.cv.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const hit = pickNoteAt(x,y);
+    if (hit) openEditor(hit.id);
+  }
+  function onWheel(e){
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY);
+    S.targetDist *= (delta > 0) ? 1.08 : 0.92;
+    S.targetDist = clamp(S.targetDist, 240, 1400);
+  }
+
+  UI.cv.addEventListener("pointerdown", onPointerDown, { passive:true });
+  UI.cv.addEventListener("pointermove", onPointerMove, { passive:true });
+  UI.cv.addEventListener("pointerup", onPointerUp, { passive:true });
+  UI.cv.addEventListener("pointercancel", () => S.pointerDown=false, { passive:true });
+  UI.cv.addEventListener("dblclick", onDblClick);
+  UI.cv.addEventListener("wheel", onWheel, { passive:false });
+
+  /******************************************************************
+   * Loop
+   ******************************************************************/
+  let lastT = performance.now();
+  function loop(t){
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.033, Math.max(0.001, (t - lastT)/1000));
+    lastT = t;
+    S.t = t;
+
+    // fps
+    S._fpsN++; S._fpsT += dt;
+    if (S._fpsT >= 0.5){
+      S.fps = S._fpsN / S._fpsT;
+      S._fpsN = 0; S._fpsT = 0;
+      UI.pillFps.textContent = S.fps.toFixed(0);
+    }
+
+    draw();
+  }
+
+  /******************************************************************
+   * Load / reload
+   ******************************************************************/
+  async function reloadNotes(){
+    S.notes = await idbGetAll(S.db);
+
+    // Ensure each note has a world and valid fields
+    for (let i=0;i<S.notes.length;i++){
+      const n = S.notes[i];
+      if (!n.world) makeWorldForNote(n, i);
+      if (!n.color) n.color = hsl(hashHue(n.id), 75, 58, 1);
+      if (!Array.isArray(n.tags)) n.tags = [];
+      if (typeof n.pinned !== "boolean") n.pinned = false;
+      if (typeof n.deleted !== "boolean") n.deleted = false;
+      if (!n.createdAt) n.createdAt = now();
+      if (!n.updatedAt) n.updatedAt = n.createdAt;
+      if (!("deletedAt" in n)) n.deletedAt = n.deleted ? now() : null;
+    }
+
+    applyFilters();
+  }
+
+  /******************************************************************
+   * UI wiring
+   ******************************************************************/
+  UI.btnTogglePanel.addEventListener("click", () => {
+    UI.panel.style.display = (UI.panel.style.display === "none") ? "flex" : "none";
+  });
+
+  UI.btnNew.addEventListener("click", createNewNote);
+  UI.btnFocus.addEventListener("click", focusSelected);
+  UI.btnSeed.addEventListener("click", seedDemo);
+  UI.btnEmptyTrash.addEventListener("click", emptyTrash);
+  UI.btnExport.addEventListener("click", exportJSON);
+  UI.btnImport.addEventListener("click", importJSON);
+
+  UI.q.addEventListener("input", applyFilters);
+  UI.view.addEventListener("change", applyFilters);
+
+  window.addEventListener("keydown", (e) => {
+    if (S.editorOpen){
+      if (e.key === "Escape"){ e.preventDefault(); closeEditor(); }
+      return;
+    }
+    const k = e.key;
+    if (k === "n" || k === "N"){
+      e.preventDefault(); createNewNote();
+    }
+    if (k === "/"){
+      e.preventDefault(); UI.q.focus(); UI.q.select();
+    }
+    if (k === "f" || k === "F"){
+      e.preventDefault(); focusSelected();
+    }
+    if (k === "p" || k === "P"){
+      e.preventDefault(); togglePinSelected();
+    }
+    if (k === "Delete" || k === "Backspace"){
+      // avoid interfering with typing if focus in input
+      const ae = document.activeElement;
+      const typing = ae && (ae.tagName==="INPUT" || ae.tagName==="TEXTAREA");
+      if (typing) return;
+      e.preventDefault();
+      recycleOrRestoreSelected();
+    }
+    if (k === "Enter"){
+      // open editor if selected and not typing
+      const ae = document.activeElement;
+      const typing = ae && (ae.tagName==="INPUT" || ae.tagName==="TEXTAREA");
+      if (typing) return;
+      if (S.selectedId) openEditor(S.selectedId);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    resize();
+  });
+
+  /******************************************************************
+   * Boot
+   ******************************************************************/
+  async function boot(){
+    resize();
+    ensureEditor();
+    S.db = await idbOpen();
+    await reloadNotes();
+    requestAnimationFrame(loop);
+  }
+
+  boot().catch(err => {
+    alert("Failed to start: " + (err?.message || err));
+    console.error(err);
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Candle Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --dark-bg: #0a0a0a;
+            --panel-bg: #151515;
+            --candle-color: #ffddc1;
+            --flame-primary: #ff6347;
+            --flame-secondary: #ffb347;
+            --glow-color: rgba(255, 99, 71, 0.6);
+            --accent-color: #00fff2;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            overflow: hidden;
+        }
+
+        .control-panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-right: 1px solid var(--accent-color);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .info-section {
+            padding: 15px;
+            background: rgba(0, 255, 242, 0.1);
+            border-radius: 10px;
+            border: 1px solid var(--accent-color);
+        }
+
+        .datetime {
+            font-size: 0.9em;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .username {
+            color: var(--text-secondary);
+        }
+
+        .main-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .candle-container {
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .candle {
+            width: 60px;
+            height: 200px;
+            background: linear-gradient(to bottom, 
+                var(--candle-color) 0%,
+                #ffe4cc 20%,
+                var(--candle-color) 100%);
+            border-radius: 10px;
+            position: relative;
+            transform-style: preserve-3d;
+            box-shadow: 
+                0 0 20px rgba(255, 221, 193, 0.3),
+                0 0 40px rgba(255, 221, 193, 0.1);
+        }
+
+        .wax-drips {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .wax-drip {
+            position: absolute;
+            background: var(--candle-color);
+            width: 5px;
+            border-radius: 0 0 5px 5px;
+            opacity: 0.7;
+        }
+
+        .flame-container {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform-style: preserve-3d;
+            transform: translateX(-50%);
+        }
+
+        .flame {
+            width: 24px;
+            height: 48px;
+            background: var(--flame-primary);
+            border-radius: 50% 50% 20% 20%;
+            position: relative;
+            transform-origin: center bottom;
+            animation: flicker 0.15s infinite alternate ease-in-out;
+            box-shadow: 
+                0 0 20px var(--glow-color),
+                0 0 40px var(--glow-color),
+                0 0 60px var(--glow-color);
+        }
+
+        .flame::before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 28px;
+            background: var(--flame-secondary);
+            border-radius: 50% 50% 20% 20%;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .flame::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            filter: blur(2px);
+        }
+
+        .wick {
+            width: 4px;
+            height: 15px;
+            background: #333;
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @keyframes flicker {
+            0% {
+                transform: translateX(-50%) scale(1) rotate(-1deg);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateX(-50%) scale(1.05) rotate(1deg);
+                opacity: 1;
+            }
+        }
+
+        .control-group {
+            padding: 15px;
+            background: rgba(0, 255, 242, 0.05);
+            border-radius: 10px;
+            border: 1px solid var(--accent-color);
+        }
+
+        .control-group h3 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .control {
+            margin-bottom: 15px;
+        }
+
+        .control label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+            font-size: 0.8em;
+        }
+
+        .control input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        .control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .control input[type="color"] {
+            width: 100%;
+            height: 30px;
+            border: none;
+            background: var(--panel-bg);
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .effect-toggle {
+            padding: 8px 15px;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            color: var(--text-primary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .effect-toggle.active {
+            background: var(--accent-color);
+            color: var(--dark-bg);
+        }
+
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: var(--flame-primary);
+            border-radius: 50%;
+            filter: blur(1px);
+            animation: float 3s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0) translateX(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(var(--x-offset));
+                opacity: 0;
+            }
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .preset-btn {
+            padding: 8px;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            color: var(--text-primary);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s ease;
+        }
+
+        .preset-btn:hover {
+            background: var(--accent-color);
+            color: var(--dark-bg);
+        }
+
+        .environment-effects {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .wind-effect {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .wind-effect.active {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .control-panel {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <div class="info-section">
+            <div class="datetime">2025-02-02 17:31:56 UTC</div>
+            <div class="username">Player</div>
+        </div>
+
+        <div class="control-group">
+            <h3>Flame Controls</h3>
+            <div class="control">
+                <label>Primary Color</label>
+                <input type="color" id="flameColor" value="#ff6347">
+            </div>
+            <div class="control">
+                <label>Secondary Color</label>
+                <input type="color" id="flameSecondary" value="#ffb347">
+            </div>
+            <div class="control">
+                <label>Flicker Speed</label>
+                <input type="range" id="flickerSpeed" min="0.05" max="0.5" step="0.01" value="0.15">
+            </div>
+            <div class="control">
+                <label>Flame Size</label>
+                <input type="range" id="flameSize" min="0.5" max="2" step="0.1" value="1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Glow Effects</h3>
+            <div class="control">
+                <label>Glow Color</label>
+                <input type="color" id="glowColor" value="#ff6347">
+            </div>
+            <div class="control">
+                <label>Glow Intensity</label>
+                <input type="range" id="glowIntensity" min="0" max="100" value="60">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Environment</h3>
+            <div class="control">
+                <label>Wind Effect</label>
+                <button class="effect-toggle" id="windToggle">Off</button>
+            </div>
+            <div class="control">
+                <label>Particles</label>
+                <button class="effect-toggle" id="particlesToggle">Off</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Presets</h3>
+            <div class="preset-buttons">
+                <button class="preset-btn" data-preset="calm">Calm</button>
+                <button class="preset-btn" data-preset="storm">Storm</button>
+                <button class="preset-btn" data-preset="mystical">Mystical</button>
+                <button class="preset-btn" data-preset="romantic">Romantic</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="candle-container">
+            <div class="candle">
+                <div class="wax-drips"></div>
+                <div class="wick"></div>
+                <div class="flame-container">
+                    <div class="flame"></div>
+                </div>
+            </div>
+        </div>
+        <div class="particles" id="particles"></div>
+        <div class="environment-effects">
+            <div class="wind-effect"></div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript implementation for the interactive features
+        const flame = document.querySelector('.flame');
+        const flameContainer = document.querySelector('.flame-container');
+        const particles = document.getElementById('particles');
+        
+        // Control elements
+        const flameColorInput = document.getElementById('flameColor');
+        const flameSecondaryInput = document.getElementById('flameSecondary');
+        const flickerSpeedInput = document.getElementById('flickerSpeed');
+        const flameSizeInput = document.getElementById('flameSize');
+        const glowColorInput = document.getElementById('glowColor');
+        const glowIntensityInput = document.getElementById('glowIntensity');
+        const windToggle = document.getElementById('windToggle');
+        const particlesToggle = document.getElementById('particlesToggle');
+
+        // Update flame colors
+        flameColorInput.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--flame-primary', e.target.value);
+        });
+
+        flameSecondaryInput.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--flame-secondary', e.target.value);
+        });
+
+        // Update flicker speed
+        flickerSpeedInput.addEventListener('input', (e) => {
+            flame.style.animationDuration = `${e.target.value}s`;
+        });
+
+        // Update flame size
+        flameSizeInput.addEventListener('input', (e) => {
+            flame.style.transform = `scale(${e.target.value})`;
+        });
+
+        // Update glow effects
+        glowColorInput.addEventListener('input', (e) => {
+            const color = e.target.value;
+            document.documentElement.style.setProperty('--glow-color', `${color}80`);
+        });
+
+        glowIntensityInput.addEventListener('input', (e) => {
+            const intensity = e.target.value / 100;
+            flame.style.boxShadow = `
+                0 0 ${20 * intensity}px var(--glow-color),
+                0 0 ${40 * intensity}px var(--glow-color),
+                0 0 ${60 * intensity}px var(--glow-color)
+            `;
+        });
+
+        // Toggle wind effect
+        windToggle.addEventListener('click', () => {
+            windToggle.classList.toggle('active');
+            if (windToggle.classList.contains('active')) {
+                windToggle.textContent = 'On';
+                flameContainer.style.animation = 'sway 2s ease-in-out infinite';
+            } else {
+                windToggle.textContent = 'Off';
+                flameContainer.style.animation = '';
+            }
+        });
+
+        // Particle system
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.setProperty('--x-offset', `${Math.random() * 100 - 50}px`);
+            particles.appendChild(particle);
+
+            setTimeout(() => {
+                particles.removeChil
+                
+                particles.removeChild(particle);
+            }, 3000);
+        }
+
+        let particleInterval;
+        particlesToggle.addEventListener('click', () => {
+            particlesToggle.classList.toggle('active');
+            if (particlesToggle.classList.contains('active')) {
+                particlesToggle.textContent = 'On';
+                particleInterval = setInterval(() => {
+                    createParticle();
+                }, 100);
+            } else {
+                particlesToggle.textContent = 'Off';
+                clearInterval(particleInterval);
+                while (particles.firstChild) {
+                    particles.removeChild(particles.firstChild);
+                }
+            }
+        });
+
+        // Wax drip effect
+        function createWaxDrip() {
+            const waxDrips = document.querySelector('.wax-drips');
+            const drip = document.createElement('div');
+            drip.className = 'wax-drip';
+            
+            const startPosition = Math.random() * 100;
+            const height = Math.random() * 20 + 10;
+            const duration = Math.random() * 2 + 2;
+            
+            drip.style.left = `${startPosition}%`;
+            drip.style.height = `${height}px`;
+            drip.style.animation = `drip ${duration}s ease-in`;
+            
+            waxDrips.appendChild(drip);
+            
+            setTimeout(() => {
+                waxDrips.removeChild(drip);
+            }, duration * 1000);
+        }
+
+        // Add wax drip animation
+        const waxDripStyle = document.createElement('style');
+        waxDripStyle.textContent = `
+            @keyframes drip {
+                0% {
+                    height: 0;
+                    opacity: 0.7;
+                }
+                100% {
+                    height: var(--drip-height);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(waxDripStyle);
+
+        // Create periodic wax drips
+        setInterval(createWaxDrip, 3000);
+
+        // Preset configurations
+        const presets = {
+            calm: {
+                flameColor: '#ff6347',
+                flameSecondary: '#ffb347',
+                flickerSpeed: 0.15,
+                flameSize: 1,
+                glowColor: '#ff6347',
+                glowIntensity: 60,
+                wind: false,
+                particles: false
+            },
+            storm: {
+                flameColor: '#4287f5',
+                flameSecondary: '#42c5f5',
+                flickerSpeed: 0.08,
+                flameSize: 1.2,
+                glowColor: '#4287f5',
+                glowIntensity: 80,
+                wind: true,
+                particles: true
+            },
+            mystical: {
+                flameColor: '#9d00ff',
+                flameSecondary: '#ff00f7',
+                flickerSpeed: 0.2,
+                flameSize: 1.5,
+                glowColor: '#9d00ff',
+                glowIntensity: 90,
+                wind: false,
+                particles: true
+            },
+            romantic: {
+                flameColor: '#ff3366',
+                flameSecondary: '#ff6b6b',
+                flickerSpeed: 0.25,
+                flameSize: 0.9,
+                glowColor: '#ff3366',
+                glowIntensity: 70,
+                wind: false,
+                particles: false
+            }
+        };
+
+        // Apply preset configuration
+        function applyPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+
+            flameColorInput.value = preset.flameColor;
+            flameSecondaryInput.value = preset.flameSecondary;
+            flickerSpeedInput.value = preset.flickerSpeed;
+            flameSizeInput.value = preset.flameSize;
+            glowColorInput.value = preset.glowColor;
+            glowIntensityInput.value = preset.glowIntensity;
+
+            // Update flame colors
+            document.documentElement.style.setProperty('--flame-primary', preset.flameColor);
+            document.documentElement.style.setProperty('--flame-secondary', preset.flameSecondary);
+
+            // Update animations and effects
+            flame.style.animationDuration = `${preset.flickerSpeed}s`;
+            flame.style.transform = `scale(${preset.flameSize})`;
+            
+            // Update glow
+            const color = preset.glowColor;
+            document.documentElement.style.setProperty('--glow-color', `${color}80`);
+            const intensity = preset.glowIntensity / 100;
+            flame.style.boxShadow = `
+                0 0 ${20 * intensity}px var(--glow-color),
+                0 0 ${40 * intensity}px var(--glow-color),
+                0 0 ${60 * intensity}px var(--glow-color)
+            `;
+
+            // Toggle effects
+            if (preset.wind !== windToggle.classList.contains('active')) {
+                windToggle.click();
+            }
+            if (preset.particles !== particlesToggle.classList.contains('active')) {
+                particlesToggle.click();
+            }
+        }
+
+        // Add preset button listeners
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyPreset(btn.dataset.preset);
+            });
+        });
+
+        // Update datetime
+        function updateDateTime() {
+            const now = new Date();
+            const formatted = now.toISOString().replace('T', ' ').substr(0, 19) + ' UTC';
+            document.querySelector('.datetime').textContent = formatted;
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // Save and load user preferences
+        function savePreferences() {
+            const preferences = {
+                flameColor: flameColorInput.value,
+                flameSecondary: flameSecondaryInput.value,
+                flickerSpeed: flickerSpeedInput.value,
+                flameSize: flameSizeInput.value,
+                glowColor: glowColorInput.value,
+                glowIntensity: glowIntensityInput.value,
+                wind: windToggle.classList.contains('active'),
+                particles: particlesToggle.classList.contains('active')
+            };
+            localStorage.setItem('candlePreferences', JSON.stringify(preferences));
+        }
+
+        function loadPreferences() {
+            const saved = localStorage.getItem('candlePreferences');
+            if (saved) {
+                const preferences = JSON.parse(saved);
+                applyPreset(preferences);
+            }
+        }
+
+        // Save preferences when changes are made
+        const controls = document.querySelectorAll('input, .effect-toggle');
+        controls.forEach(control => {
+            control.addEventListener('change', savePreferences);
+        });
+
+        // Load saved preferences on startup
+        loadPreferences();
+
+        // Add wind animation
+        const windStyle = document.createElement('style');
+        windStyle.textContent = `
+            @keyframes sway {
+                0% { transform: rotate(-5deg); }
+                50% { transform: rotate(5deg); }
+                100% { transform: rotate(-5deg); }
+            }
+        `;
+        document.head.appendChild(windStyle);
+    </script>
+</body>
+</html>

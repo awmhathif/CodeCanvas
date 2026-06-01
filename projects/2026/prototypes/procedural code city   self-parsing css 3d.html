@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procedural Code City — Self-Parsing CSS 3D</title>
+<style id="mainStyles">
+/* ============================================================
+   ROOT STYLES & CSS CUSTOM PROPERTIES
+   ============================================================ */
+:root {
+  --sky-top: #0a0e1a;
+  --sky-bottom: #1a1040;
+  --ground: #0c0f18;
+  --grid-line: rgba(0, 200, 255, 0.06);
+  --grid-bright: rgba(0, 200, 255, 0.12);
+  --accent: #00e8ff;
+  --accent2: #bc13fe;
+  --accent3: #ff006e;
+  --text: #c8d0e0;
+  --dim: #556;
+  --panel-bg: rgba(8, 10, 20, 0.94);
+  --border: rgba(0, 232, 255, 0.12);
+  --building-base: #141828;
+  --road: rgba(0, 180, 220, 0.08);
+  --traffic: #00e8ff;
+  --glow-cyan: rgba(0, 232, 255, 0.15);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+  color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ============================================================
+   LAYOUT: 3D VIEWPORT + EDITOR PANEL
+   ============================================================ */
+#app {
+  display: flex;
+  width: 100%; height: 100%;
+}
+
+#viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  perspective: 1800px;
+  perspective-origin: 50% 40%;
+  cursor: grab;
+}
+#viewport:active { cursor: grabbing; }
+
+#editor-panel {
+  width: 420px;
+  min-width: 320px;
+  max-width: 50vw;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  transition: width 0.3s;
+}
+#editor-panel.collapsed { width: 0; min-width: 0; overflow: hidden; border: none; }
+
+#editor-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+#editor-header h3 { color: var(--accent); font-size: 12px; letter-spacing: 1px; }
+
+#codeEditor {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  color: #b8c8e0;
+  border: none;
+  padding: 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+#codeEditor:focus { background: rgba(0,0,0,0.4); }
+
+#editor-stats {
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 9px;
+  color: var(--dim);
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   TOP CONTROLS OVERLAY
+   ============================================================ */
+#controls {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 15;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn {
+  background: rgba(0, 232, 255, 0.07);
+  border: 1px solid rgba(0, 232, 255, 0.2);
+  color: var(--accent);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { background: rgba(0, 232, 255, 0.15); box-shadow: 0 0 8px var(--glow-cyan); }
+.btn.active { background: rgba(0, 232, 255, 0.18); border-color: var(--accent); }
+
+#info-overlay {
+  position: absolute;
+  bottom: 10px; left: 10px;
+  z-index: 15;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 10px;
+  max-width: 280px;
+  pointer-events: none;
+}
+#info-overlay .label { color: var(--dim); }
+#info-overlay .val { color: var(--accent); }
+
+/* ============================================================
+   3D SCENE CONTAINER
+   ============================================================ */
+#scene {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+/* Ground plane */
+#ground {
+  position: absolute;
+  width: 2000px; height: 2000px;
+  left: -1000px; top: -1000px;
+  transform: rotateX(90deg) translateZ(-1px);
+  background:
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 40px),
+    radial-gradient(ellipse at center, rgba(0,30,60,0.3) 0%, transparent 60%),
+    var(--ground);
+  backface-visibility: hidden;
+}
+
+/* ============================================================
+   BUILDING STYLES (generated dynamically, base classes here)
+   ============================================================ */
+.building {
+  position: absolute;
+  transform-style: preserve-3d;
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+}
+
+.building-face {
+  position: absolute;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+/* Front face */
+.face-front {
+  transform-origin: bottom center;
+}
+
+/* Back face */
+.face-back {
+  transform-origin: bottom center;
+}
+
+/* Left face */
+.face-left {
+  transform-origin: center left;
+}
+
+/* Right face */
+.face-right {
+  transform-origin: center right;
+}
+
+/* Top face */
+.face-top {
+  transform-origin: center center;
+}
+
+/* Window grid pattern on building faces */
+.windows {
+  position: absolute;
+  inset: 4px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 8px,
+      rgba(0,0,0,0.3) 8px,
+      rgba(0,0,0,0.3) 10px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 6px,
+      rgba(0,0,0,0.3) 6px,
+      rgba(0,0,0,0.3) 8px
+    );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Glowing windows at night */
+.window-glow {
+  position: absolute;
+  border-radius: 1px;
+  pointer-events: none;
+  animation: windowFlicker 3s ease-in-out infinite alternate;
+}
+
+@keyframes windowFlicker {
+  0%, 100% { opacity: 0.6; }
+  33% { opacity: 1; }
+  66% { opacity: 0.4; }
+}
+
+/* Building hover effect */
+.building:hover .face-front,
+.building:hover .face-back,
+.building:hover .face-left,
+.building:hover .face-right {
+  filter: brightness(1.3);
+}
+
+.building.selected .face-front,
+.building.selected .face-back,
+.building.selected .face-left,
+.building.selected .face-right {
+  filter: brightness(1.2);
+  outline: 1px solid var(--accent);
+}
+
+/* Building label */
+.building-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateZ(1px);
+  white-space: nowrap;
+  font-size: 8px;
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(0, 232, 255, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.building:hover .building-label { opacity: 1; }
+
+/* ============================================================
+   TRAFFIC / DATA FLOW LINES
+   ============================================================ */
+.traffic-line {
+  position: absolute;
+  height: 2px;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.traffic-particle {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  top: -2px;
+  pointer-events: none;
+  box-shadow: 0 0 6px currentColor;
+}
+
+@keyframes trafficFlow {
+  0% { left: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* ============================================================
+   LEGEND / TOOLTIP
+   ============================================================ */
+#tooltip {
+  position: fixed;
+  z-index: 100;
+  background: rgba(5, 8, 18, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 10px;
+  max-width: 300px;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+#tooltip .tt-title { color: var(--accent); font-weight: bold; margin-bottom: 4px; }
+#tooltip .tt-code { color: #8aa; font-size: 9px; white-space: pre-wrap; max-height: 80px; overflow: hidden; }
+#tooltip .tt-meta { color: var(--dim); margin-top: 4px; font-size: 9px; }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes buildingRise {
+  0% { transform: scaleY(0); opacity: 0; }
+  60% { transform: scaleY(1.05); }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+
+.building-animate {
+  animation: buildingRise 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  transform-origin: bottom center;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50% { box-shadow: 0 0 12px currentColor, 0 0 20px currentColor; }
+}
+
+/* Stars / atmosphere */
+#stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.star {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+@keyframes twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 0.7; transform: scale(1.2); }
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  #editor-panel { width: 100%; position: absolute; bottom: 0; height: 40%; min-width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  #app { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- 3D Viewport -->
+  <div id="viewport">
+    <div id="stars"></div>
+    <div id="scene">
+      <div id="ground"></div>
+      <!-- Buildings and traffic are generated here -->
+    </div>
+
+    <div id="controls">
+      <button class="btn" onclick="toggleEditor()" title="Toggle Editor (E)">📝 Editor</button>
+      <button class="btn" onclick="rebuildCity()" title="Rebuild (R)">🔄 Rebuild</button>
+      <button class="btn" onclick="toggleAutoRotate()" id="btnRotate" title="Auto Rotate (A)">🔄 Rotate</button>
+      <button class="btn" onclick="resetCamera()" title="Reset Camera (Home)">🏠 Reset</button>
+      <button class="btn" onclick="toggleTraffic()" id="btnTraffic" title="Toggle Traffic (T)">🚦 Traffic</button>
+      <button class="btn" onclick="cycleColorScheme()" title="Color Scheme (C)">🎨 Colors</button>
+    </div>
+
+    <div id="info-overlay">
+      <div><span class="label">Functions: </span><span class="val" id="infoFuncs">0</span></div>
+      <div><span class="label">Lines: </span><span class="val" id="infoLines">0</span></div>
+      <div><span class="label">Buildings: </span><span class="val" id="infoBuildings">0</span></div>
+      <div><span class="label">Variables: </span><span class="val" id="infoVars">0</span></div>
+      <div><span class="label">Traffic Links: </span><span class="val" id="infoTraffic">0</span></div>
+    </div>
+  </div>
+
+  <!-- Code Editor Panel -->
+  <div id="editor-panel">
+    <div id="editor-header">
+      <h3>📄 SOURCE CODE — LIVE EDITOR</h3>
+      <div>
+        <button class="btn" onclick="resetCode()">Reset</button>
+        <button class="btn" onclick="toggleEditor()">✕</button>
+      </div>
+    </div>
+    <textarea id="codeEditor" spellcheck="false"></textarea>
+    <div id="editor-stats">
+      <span id="edStatLines">Lines: 0</span>
+      <span id="edStatFuncs">Functions: 0</span>
+      <span id="edStatVars">Variables: 0</span>
+      <span id="edStatSize">Size: 0 B</span>
+    </div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script id="mainScript">
+// ============================================================
+// CODE CITY ENGINE — SELF-PARSING CSS 3D PROCEDURAL CITY
+// ============================================================
+
+// ---- Configuration ----
+const CONFIG = {
+  blockSize: 42,           // base building width/depth
+  blockGap: 12,            // gap between buildings
+  heightScale: 3.5,        // multiplier: complexity → height
+  minHeight: 15,           // minimum building height in px
+  maxHeight: 350,          // maximum building height
+  gridCols: 0,             // auto-calculated
+  gridRows: 0,
+  trafficEnabled: true,
+  autoRotate: true,
+  rotateSpeed: 0.08,
+  colorScheme: 0,
+  rebuildDelay: 600,       // ms debounce for live editing
+  maxWindows: 12,          // max glowing windows per face
+};
+
+// Color palettes for buildings
+const COLOR_SCHEMES = [
+  // Cyberpunk blues
+  { bases: ['#0d1428','#101a30','#0e1525','#141e38','#0a1020'],
+    accents: ['#00e8ff','#00b4d8','#48cae4','#0096c7','#0077b6'],
+    windows: ['#00e8ff','#48cae4','#90e0ef','#00b4d8','#ade8f4'],
+    traffic: '#00e8ff' },
+  // Neon purple
+  { bases: ['#14081e','#1a0a28','#180c22','#200e30','#100818'],
+    accents: ['#bc13fe','#9b59b6','#8e44ad','#d63afe','#a855f7'],
+    windows: ['#d63afe','#bc13fe','#e879f9','#c084fc','#a855f7'],
+    traffic: '#bc13fe' },
+  // Matrix green
+  { bases: ['#081208','#0a180a','#061006','#0c1e0c','#040e04'],
+    accents: ['#00ff41','#39ff14','#00e436','#32cd32','#00c853'],
+    windows: ['#00ff41','#39ff14','#76ff03','#00e436','#b2ff59'],
+    traffic: '#00ff41' },
+  // Sunset fire
+  { bases: ['#1a0a05','#221008','#180c04','#2a1208','#140802'],
+    accents: ['#ff6b00','#ff006e','#ff4444','#ff8c00','#ff5722'],
+    windows: ['#ff6b00','#ffab40','#ff006e','#ff8a65','#ffcc02'],
+    traffic: '#ff6b00' },
+];
+
+// ---- State ----
+let STATE = {
+  rotX: -25,
+  rotY: 30,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  isDragging: false,
+  lastMouseX: 0,
+  lastMouseY: 0,
+  buildings: [],
+  trafficLines: [],
+  selectedBuilding: null,
+  codeBlocks: [],
+  variables: new Map(),
+  functions: new Map(),
+  rebuildTimer: null,
+  animFrame: 0,
+  originalCode: '',
+};
+
+// ---- DOM References ----
+const viewport = document.getElementById('viewport');
+const scene = document.getElementById('scene');
+const editor = document.getElementById('codeEditor');
+const tooltip = document.getElementById('tooltip');
+
+// ============================================================
+// CODE PARSING ENGINE
+// Analyzes the source code of this very file to extract
+// functions, variables, complexity metrics, and data flow
+// ============================================================
+
+function parseCode(source) {
+  const lines = source.split('\n');
+  const blocks = [];        // each block → one building
+  const functions = new Map();
+  const variables = new Map();
+  const references = [];    // cross-references for traffic
+
+  let currentBlock = null;
+  let braceDepth = 0;
+  let blockId = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines and pure comments for block detection
+    if (trimmed === '' || trimmed.startsWith('//')) continue;
+
+    // Detect function declarations
+    const funcMatch = trimmed.match(
+      /(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:function|\(.*?\)\s*=>|\w+\s*=>))|(\w+)\s*\(.*?\)\s*\{/
+    );
+
+    if (funcMatch || trimmed.match(/^(?:class|if|for|while|switch|try)\b/) || (braceDepth === 0 && trimmed.includes('{'))) {
+      // Start a new block
+      if (currentBlock) {
+        currentBlock.endLine = i - 1;
+        currentBlock.complexity = calculateComplexity(currentBlock);
+        blocks.push(currentBlock);
+      }
+
+      const funcName = funcMatch ? (funcMatch[1] || funcMatch[2] || funcMatch[3]) : null;
+      const blockType = detectBlockType(trimmed);
+
+      currentBlock = {
+        id: blockId++,
+        name: funcName || blockType || `block_${blockId}`,
+        type: blockType,
+        startLine: i,
+        endLine: i,
+        lines: [line],
+        complexity: 1,
+        branchCount: 0,
+        loopCount: 0,
+        callCount: 0,
+        varCount: 0,
+        lineCount: 1,
+        rawCode: trimmed,
+      };
+
+      if (funcName) {
+        functions.set(funcName, { blockId: currentBlock.id, line: i, params: extractParams(trimmed) });
+      }
+    } else if (currentBlock) {
+      currentBlock.lines.push(line);
+      currentBlock.lineCount++;
+      currentBlock.endLine = i;
+    } else {
+      // Top-level code, create an implicit block
+      currentBlock = {
+        id: blockId++,
+        name: `global_${blockId}`,
+        type: 'global',
+        startLine: i,
+        endLine: i,
+        lines: [line],
+        complexity: 1,
+        branchCount: 0,
+        loopCount: 0,
+        callCount: 0,
+        varCount: 0,
+        lineCount: 1,
+        rawCode: trimmed,
+      };
+    }
+
+    // Track variables
+    const varMatch = trimmed.match(/(?:const|let|var)\s+(\w+)/g);
+    if (varMatch) {
+      varMatch.forEach(m => {
+        const name = m.replace(/^(?:const|let|var)\s+/, '');
+        variables.set(name, { blockId: currentBlock?.id || 0, line: i });
+        if (currentBlock) currentBlock.varCount++;
+      });
+    }
+
+    // Track complexity indicators
+    if (currentBlock) {
+      if (trimmed.match(/\b(if|else|switch|case|\?)\b/)) currentBlock.branchCount++;
+      if (trimmed.match(/\b(for|while|do|forEach|map|filter|reduce)\b/)) currentBlock.loopCount++;
+      if (trimmed.match(/\w+\s*\(/)) currentBlock.callCount++;
+    }
+
+    // Track brace depth
+    braceDepth += (trimmed.match(/\{/g) || []).length;
+    braceDepth -= (trimmed.match(/\}/g) || []).length;
+    if (braceDepth < 0) braceDepth = 0;
+  }
+
+  // Push final block
+  if (currentBlock) {
+    currentBlock.complexity = calculateComplexity(currentBlock);
+    blocks.push(currentBlock);
+  }
+
+  // Detect cross-references (which functions call which)
+  for (const block of blocks) {
+    const code = block.lines.join('\n');
+    for (const [funcName, funcInfo] of functions) {
+      if (funcInfo.blockId !== block.id) {
+        const regex = new RegExp(`\\b${funcName}\\s*\\(`, 'g');
+        const matches = code.match(regex);
+        if (matches) {
+          references.push({
+            from: block.id,
+            to: funcInfo.blockId,
+            count: matches.length,
+            type: 'call',
+          });
+        }
+      }
+    }
+
+    // Variable references across blocks
+    for (const [varName, varInfo] of variables) {
+      if (varInfo.blockId !== block.id && varName.length > 2) {
+        const regex = new RegExp(`\\b${varName}\\b`, 'g');
+        const matches = code.match(regex);
+        if (matches && matches.length > 0) {
+          references.push({
+            from: block.id,
+            to: varInfo.blockId,
+            count: matches.length,
+            type: 'variable',
+          });
+        }
+      }
+    }
+  }
+
+  return { blocks, functions, variables, references, lineCount: lines.length };
+}
+
+function detectBlockType(line) {
+  if (line.match(/^function\b/)) return 'function';
+  if (line.match(/^(?:const|let|var)\s+\w+\s*=\s*(?:function|\()/)) return 'function';
+  if (line.match(/=>\s*\{?/)) return 'arrow';
+  if (line.match(/^class\b/)) return 'class';
+  if (line.match(/^if\b/)) return 'conditional';
+  if (line.match(/^for\b|^while\b/)) return 'loop';
+  if (line.match(/^switch\b/)) return 'switch';
+  if (line.match(/^try\b/)) return 'trycatch';
+  if (line.match(/addEventListener|on\w+\s*=/)) return 'event';
+  return 'block';
+}
+
+function extractParams(line) {
+  const match = line.match(/\(([^)]*)\)/);
+  return match ? match[1].split(',').map(p => p.trim()).filter(Boolean) : [];
+}
+
+// Cyclomatic-like complexity metric
+function calculateComplexity(block) {
+  let c = 1; // base complexity
+  c += block.branchCount * 2;
+  c += block.loopCount * 3;
+  c += Math.floor(block.callCount * 0.5);
+  c += Math.floor(block.lineCount / 5);
+  c += block.varCount;
+  return Math.max(1, c);
+}
+
+// ============================================================
+// CITY BUILDER
+// Transforms parsed code blocks into 3D CSS buildings
+// ============================================================
+
+function buildCity(parsed) {
+  // Clear existing buildings and traffic
+  const existingBuildings = scene.querySelectorAll('.building, .traffic-line');
+  existingBuildings.forEach(el => el.remove());
+
+  STATE.buildings = [];
+  STATE.trafficLines = [];
+  STATE.codeBlocks = parsed.blocks;
+
+  const blocks = parsed.blocks;
+  if (blocks.length === 0) return;
+
+  // Calculate grid layout
+  const cols = Math.ceil(Math.sqrt(blocks.length));
+  const rows = Math.ceil(blocks.length / cols);
+  CONFIG.gridCols = cols;
+  CONFIG.gridRows = rows;
+
+  const totalWidth = cols * (CONFIG.blockSize + CONFIG.blockGap);
+  const totalDepth = rows * (CONFIG.blockSize + CONFIG.blockGap);
+  const offsetX = -totalWidth / 2;
+  const offsetZ = -totalDepth / 2;
+
+  const scheme = COLOR_SCHEMES[CONFIG.colorScheme % COLOR_SCHEMES.length];
+
+  // Create buildings
+  blocks.forEach((block, idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+
+    const x = offsetX + col * (CONFIG.blockSize + CONFIG.blockGap);
+    const z = offsetZ + row * (CONFIG.blockSize + CONFIG.blockGap);
+
+    // Height from complexity
+    const height = Math.min(CONFIG.maxHeight,
+      Math.max(CONFIG.minHeight, block.complexity * CONFIG.heightScale + block.lineCount * 1.5)
+    );
+
+    const width = CONFIG.blockSize;
+    const depth = CONFIG.blockSize;
+
+    // Color based on block type
+    const baseColor = scheme.bases[idx % scheme.bases.length];
+    const accentColor = scheme.accents[idx % scheme.accents.length];
+    const windowColor = scheme.windows[idx % scheme.windows.length];
+
+    // Create building container
+    const building = document.createElement('div');
+    building.className = 'building building-animate';
+    building.dataset.blockId = block.id;
+    building.dataset.blockName = block.name;
+    building.style.cssText = `
+      left: ${x}px;
+      top: ${-height}px;
+      width: ${width}px;
+      height: ${height}px;
+      transform: translateZ(${z}px);
+      animation-delay: ${idx * 40}ms;
+    `;
+
+    // Build 5 faces of the building (bottom is ground)
+    // Front face
+    const front = createFace('front', width, height, baseColor, accentColor, windowColor, block);
+    front.style.transform = `translateZ(${depth / 2}px)`;
+    building.appendChild(front);
+
+    // Back face
+    const back = createFace('back', width, height, baseColor, accentColor, windowColor, block);
+    back.style.transform = `rotateY(180deg) translateZ(${depth / 2}px)`;
+    building.appendChild(back);
+
+    // Left face
+    const left = createFace('left', depth, height, baseColor, accentColor, windowColor, block);
+    left.style.transform = `rotateY(-90deg) translateZ(${width / 2}px)`;
+    building.appendChild(left);
+
+    // Right face
+    const right = createFace('right', depth, height, baseColor, accentColor, windowColor, block);
+    right.style.transform = `rotateY(90deg) translateZ(${width / 2}px)`;
+    building.appendChild(right);
+
+    // Top face
+    const top = document.createElement('div');
+    top.className = 'building-face face-top';
+    const topShade = adjustBrightness(accentColor, 0.3);
+    top.style.cssText = `
+      width: ${width}px; height: ${depth}px;
+      background: ${topShade};
+      transform: rotateX(90deg) translateZ(${0}px);
+      left: 0; top: 0;
+      box-shadow: inset 0 0 ${Math.min(20, height/8)}px rgba(0,200,255,0.1);
+    `;
+    // Rooftop antenna/detail for functions
+    if (block.type === 'function' || block.type === 'arrow') {
+      const antenna = document.createElement('div');
+      antenna.style.cssText = `
+        position:absolute; left:50%; top:50%; width:2px; height:2px;
+        background:${accentColor}; border-radius:50%;
+        box-shadow: 0 0 8px ${accentColor}, 0 0 16px ${accentColor};
+        transform:translate(-50%,-50%);
+      `;
+      top.appendChild(antenna);
+    }
+    building.appendChild(top);
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'building-label';
+    label.textContent = block.name;
+    label.style.top = '-14px';
+    building.appendChild(label);
+
+    // Event handlers
+    building.addEventListener('mouseenter', (e) => showTooltip(e, block));
+    building.addEventListener('mouseleave', hideTooltip);
+    building.addEventListener('click', () => selectBuilding(block, building));
+
+    scene.appendChild(building);
+
+    STATE.buildings.push({
+      el: building,
+      block,
+      x: x + width / 2,
+      z: z + depth / 2,
+      y: -height / 2,
+      height,
+      col, row,
+    });
+  });
+
+  // Create traffic lines (data flow connections)
+  if (CONFIG.trafficEnabled) {
+    buildTraffic(parsed.references, scheme);
+  }
+
+  // Update info overlay
+  document.getElementById('infoFuncs').textContent = parsed.functions.size;
+  document.getElementById('infoLines').textContent = parsed.lineCount;
+  document.getElementById('infoBuildings').textContent = blocks.length;
+  document.getElementById('infoVars').textContent = parsed.variables.size;
+  document.getElementById('infoTraffic').textContent = parsed.references.length;
+}
+
+function createFace(type, width, height, baseColor, accentColor, windowColor, block) {
+  const face = document.createElement('div');
+  face.className = `building-face face-${type}`;
+
+  // Gradient based on building type
+  let gradient;
+  const typeGradients = {
+    'function': `linear-gradient(180deg, ${accentColor}22, ${baseColor} 30%, ${baseColor})`,
+    'arrow': `linear-gradient(180deg, ${accentColor}18, ${baseColor} 25%, ${baseColor})`,
+    'class': `linear-gradient(180deg, ${accentColor}30, ${baseColor} 40%, ${baseColor})`,
+    'conditional': `linear-gradient(180deg, ${baseColor}, ${accentColor}15 50%, ${baseColor})`,
+    'loop': `linear-gradient(180deg, ${baseColor}, ${baseColor}, ${accentColor}20)`,
+    'event': `linear-gradient(180deg, ${accentColor}25, ${baseColor} 35%, ${baseColor})`,
+  };
+  gradient = typeGradients[block.type] || `linear-gradient(180deg, ${baseColor}, ${adjustBrightness(baseColor, 0.8)})`;
+
+  face.style.cssText = `
+    width: ${width}px;
+    height: ${height}px;
+    left: ${-width / 2}px;
+    top: 0;
+    background: ${gradient};
+    border: 1px solid ${accentColor}15;
+  `;
+
+  // Add window pattern overlay
+  const windows = document.createElement('div');
+  windows.className = 'windows';
+  face.appendChild(windows);
+
+  // Add glowing windows
+  const numWindows = Math.min(CONFIG.maxWindows, Math.floor(block.lineCount / 2));
+  for (let w = 0; w < numWindows; w++) {
+    const glow = document.createElement('div');
+    glow.className = 'window-glow';
+    const wx = 4 + Math.random() * (width - 14);
+    const wy = 4 + Math.random() * (height - 14);
+    const ww = 3 + Math.random() * 4;
+    const wh = 3 + Math.random() * 5;
+    glow.style.cssText = `
+      left: ${wx}px; top: ${wy}px;
+      width: ${ww}px; height: ${wh}px;
+      background: ${windowColor};
+      opacity: ${0.2 + Math.random() * 0.5};
+      animation-delay: ${Math.random() * 4}s;
+      animation-duration: ${2 + Math.random() * 4}s;
+    `;
+    face.appendChild(glow);
+  }
+
+  return face;
+}
+
+// ============================================================
+// TRAFFIC / DATA FLOW VISUALIZATION
+// Lines connecting buildings that reference each other
+// ============================================================
+
+function buildTraffic(references, scheme) {
+  // Remove existing traffic
+  scene.querySelectorAll('.traffic-line').forEach(el => el.remove());
+  STATE.trafficLines = [];
+
+  const buildingMap = new Map();
+  STATE.buildings.forEach(b => buildingMap.set(b.block.id, b));
+
+  // Deduplicate and limit references
+  const uniqueRefs = [];
+  const seen = new Set();
+  for (const ref of references) {
+    const key = `${ref.from}-${ref.to}`;
+    if (!seen.has(key) && buildingMap.has(ref.from) && buildingMap.has(ref.to)) {
+      seen.add(key);
+      uniqueRefs.push(ref);
+    }
+  }
+
+  // Limit to top N most significant connections
+  const sortedRefs = uniqueRefs.sort((a, b) => b.count - a.count).slice(0, 40);
+
+  for (const ref of sortedRefs) {
+    const fromB = buildingMap.get(ref.from);
+    const toB = buildingMap.get(ref.to);
+    if (!fromB || !toB) continue;
+
+    const dx = toB.x - fromB.x;
+    const dz = toB.z - fromB.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 1) continue;
+
+    const angle = Math.atan2(dz, dx) * (180 / Math.PI);
+    const elevation = 2; // slightly above ground
+    const color = ref.type === 'call' ? scheme.traffic : scheme.accents[0];
+
+    const line = document.createElement('div');
+    line.className = 'traffic-line';
+    line.style.cssText = `
+      left: ${fromB.x}px;
+      top: ${-elevation}px;
+      width: ${dist}px;
+      transform: translateZ(${fromB.z}px) rotateY(${-angle}deg) rotateX(${0}deg);
+      background: linear-gradient(90deg, transparent, ${color}40, ${color}60, ${color}40, transparent);
+    `;
+
+    // Animated particle
+    const particle = document.createElement('div');
+    particle.className = 'traffic-particle';
+    const speed = 2 + dist / 50;
+    particle.style.cssText = `
+      background: ${color};
+      color: ${color};
+      animation: trafficFlow ${speed}s linear infinite;
+      animation-delay: ${Math.random() * speed}s;
+    `;
+    line.appendChild(particle);
+
+    // Second particle for busy connections
+    if (ref.count > 2) {
+      const particle2 = particle.cloneNode(true);
+      particle2.style.animationDelay = `${speed / 2 + Math.random()}s`;
+      line.appendChild(particle2);
+    }
+
+    scene.appendChild(line);
+    STATE.trafficLines.push({ el: line, ref });
+  }
+}
+
+// ============================================================
+// COLOR UTILITIES
+// ============================================================
+
+function adjustBrightness(hex, factor) {
+  // Parse hex color and adjust brightness
+  let r, g, b;
+  if (hex.length === 7) {
+    r = parseInt(hex.slice(1, 3), 16);
+    g = parseInt(hex.slice(3, 5), 16);
+    b = parseInt(hex.slice(5, 7), 16);
+  } else {
+    return hex;
+  }
+  r = Math.min(255, Math.floor(r * factor));
+  g = Math.min(255, Math.floor(g * factor));
+  b = Math.min(255, Math.floor(b * factor));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+// CAMERA / 3D INTERACTION
+// ============================================================
+
+function updateSceneTransform() {
+  scene.style.transform = `
+    scale(${STATE.zoom})
+    rotateX(${STATE.rotX}deg)
+    rotateY(${STATE.rotY}deg)
+    translate3d(${STATE.panX}px, ${STATE.panY}px, 0)
+  `;
+}
+
+function resetCamera() {
+  STATE.rotX = -25;
+  STATE.rotY = 30;
+  STATE.zoom = 1;
+  STATE.panX = 0;
+  STATE.panY = 0;
+  updateSceneTransform();
+}
+
+// Mouse drag to rotate
+viewport.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.building') || e.target.closest('.btn')) return;
+  STATE.isDragging = true;
+  STATE.lastMouseX = e.clientX;
+  STATE.lastMouseY = e.clientY;
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!STATE.isDragging) return;
+  const dx = e.clientX - STATE.lastMouseX;
+  const dy = e.clientY - STATE.lastMouseY;
+
+  if (e.shiftKey) {
+    // Pan
+    STATE.panX += dx * 0.5;
+    STATE.panY += dy * 0.5;
+  } else {
+    // Rotate
+    STATE.rotY += dx * 0.3;
+    STATE.rotX = Math.max(-89, Math.min(10, STATE.rotX + dy * 0.3));
+  }
+
+  STATE.lastMouseX = e.clientX;
+  STATE.lastMouseY = e.clientY;
+  updateSceneTransform();
+});
+
+window.addEventListener('mouseup', () => { STATE.isDragging = false; });
+
+// Scroll to zoom
+viewport.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  STATE.zoom = Math.max(0.2, Math.min(3, STATE.zoom + delta));
+  updateSceneTransform();
+}, { passive: false });
+
+// Touch support
+let touchStartDist = 0, touchStartZoom = 1;
+viewport.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    STATE.isDragging = true;
+    STATE.lastMouseX = e.touches[0].clientX;
+    STATE.lastMouseY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    touchStartDist = Math.sqrt(dx * dx + dy * dy);
+    touchStartZoom = STATE.zoom;
+  }
+}, { passive: true });
+
+viewport.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && STATE.isDragging) {
+    const dx = e.touches[0].clientX - STATE.lastMouseX;
+    const dy = e.touches[0].clientY - STATE.lastMouseY;
+    STATE.rotY += dx * 0.3;
+    STATE.rotX = Math.max(-89, Math.min(10, STATE.rotX + dy * 0.3));
+    STATE.lastMouseX = e.touches[0].clientX;
+    STATE.lastMouseY = e.touches[0].clientY;
+    updateSceneTransform();
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    STATE.zoom = Math.max(0.2, Math.min(3, touchStartZoom * (dist / touchStartDist)));
+    updateSceneTransform();
+  }
+}, { passive: false });
+
+viewport.addEventListener('touchend', () => { STATE.isDragging = false; });
+
+// ============================================================
+// TOOLTIP
+// ============================================================
+
+function showTooltip(e, block) {
+  const tt = tooltip;
+  const codePreview = block.lines.slice(0, 6).join('\n') + (block.lines.length > 6 ? '\n...' : '');
+  tt.innerHTML = `
+    <div class="tt-title">${block.name} (${block.type})</div>
+    <div class="tt-code">${escapeHTML(codePreview)}</div>
+    <div class="tt-meta">
+      Lines: ${block.startLine + 1}–${block.endLine + 1} | 
+      Complexity: ${block.complexity} | 
+      Branches: ${block.branchCount} | 
+      Loops: ${block.loopCount} | 
+      Calls: ${block.callCount}
+    </div>
+  `;
+  tt.style.display = 'block';
+  tt.style.left = Math.min(e.clientX + 12, window.innerWidth - 320) + 'px';
+  tt.style.top = Math.min(e.clientY + 12, window.innerHeight - 140) + 'px';
+}
+
+function hideTooltip() {
+  tooltip.style.display = 'none';
+}
+
+function escapeHTML(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ============================================================
+// BUILDING SELECTION
+// ============================================================
+
+function selectBuilding(block, el) {
+  // Deselect previous
+  document.querySelectorAll('.building.selected').forEach(b => b.classList.remove('selected'));
+
+  el.classList.add('selected');
+  STATE.selectedBuilding = block;
+
+  // Highlight the code in the editor
+  const ta = document.getElementById('codeEditor');
+  const lines = ta.value.split('\n');
+  let startPos = 0;
+  for (let i = 0; i < block.startLine && i < lines.length; i++) {
+    startPos += lines[i].length + 1;
+  }
+  let endPos = startPos;
+  for (let i = block.startLine; i <= block.endLine && i < lines.length; i++) {
+    endPos += lines[i].length + 1;
+  }
+  ta.focus();
+  ta.setSelectionRange(startPos, endPos);
+  ta.scrollTop = (block.startLine / lines.length) * ta.scrollHeight;
+}
+
+// ============================================================
+// LIVE CODE EDITOR
+// ============================================================
+
+function initEditor() {
+  // Load this file's own source code
+  const source = document.documentElement.outerHTML;
+  STATE.originalCode = source;
+  editor.value = source;
+  updateEditorStats(source);
+}
+
+function updateEditorStats(code) {
+  const lines = code.split('\n').length;
+  const funcs = (code.match(/function\s+\w+|=>\s*\{|=>\s*[^{]/g) || []).length;
+  const vars = (code.match(/(?:const|let|var)\s+\w+/g) || []).length;
+  document.getElementById('edStatLines').textContent = `Lines: ${lines}`;
+  document.getElementById('edStatFuncs').textContent = `Functions: ${funcs}`;
+  document.getElementById('edStatVars').textContent = `Variables: ${vars}`;
+  document.getElementById('edStatSize').textContent = `Size: ${(code.length / 1024).toFixed(1)} KB`;
+}
+
+// Debounced rebuild on code change
+editor.addEventListener('input', () => {
+  clearTimeout(STATE.rebuildTimer);
+  STATE.rebuildTimer = setTimeout(() => {
+    const code = editor.value;
+    updateEditorStats(code);
+    const parsed = parseCode(code);
+    buildCity(parsed);
+  }, CONFIG.rebuildDelay);
+});
+
+// Tab key support in editor
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+  }
+});
+
+// ============================================================
+// UI CONTROLS
+// ============================================================
+
+function toggleEditor() {
+  document.getElementById('editor-panel').classList.toggle('collapsed');
+}
+
+function toggleAutoRotate() {
+  CONFIG.autoRotate = !CONFIG.autoRotate;
+  document.getElementById('btnRotate').classList.toggle('active', CONFIG.autoRotate);
+}
+
+function toggleTraffic() {
+  CONFIG.trafficEnabled = !CONFIG.trafficEnabled;
+  document.getElementById('btnTraffic').classList.toggle('active', CONFIG.trafficEnabled);
+  const trafficEls = scene.querySelectorAll('.traffic-line');
+  trafficEls.forEach(el => el.style.display = CONFIG.trafficEnabled ? '' : 'none');
+  if (CONFIG.trafficEnabled && STATE.trafficLines.length === 0) {
+    rebuildCity();
+  }
+}
+
+function cycleColorScheme() {
+  CONFIG.colorScheme = (CONFIG.colorScheme + 1) % COLOR_SCHEMES.length;
+  rebuildCity();
+}
+
+function resetCode() {
+  editor.value = STATE.originalCode;
+  updateEditorStats(STATE.originalCode);
+  rebuildCity();
+}
+
+function rebuildCity() {
+  const code = editor.value;
+  const parsed = parseCode(code);
+  buildCity(parsed);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target === editor) return; // don't intercept editor keys
+  switch (e.key.toLowerCase()) {
+    case 'e': toggleEditor(); break;
+    case 'r': rebuildCity(); break;
+    case 'a': toggleAutoRotate(); break;
+    case 't': toggleTraffic(); break;
+    case 'c': cycleColorScheme(); break;
+    case 'home': resetCamera(); break;
+  }
+});
+
+// ============================================================
+// STARS BACKGROUND
+// ============================================================
+
+function createStars() {
+  const container = document.getElementById('stars');
+  container.innerHTML = '';
+  const count = 80;
+  for (let i = 0; i < count; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 60 + '%';
+    star.style.animationDelay = Math.random() * 5 + 's';
+    star.style.animationDuration = (3 + Math.random() * 4) + 's';
+    star.style.width = star.style.height = (1 + Math.random() * 2) + 'px';
+    container.appendChild(star);
+  }
+}
+
+// ============================================================
+// ANIMATION LOOP
+// Auto-rotation and ambient effects
+// ============================================================
+
+function animationLoop() {
+  requestAnimationFrame(animationLoop);
+  STATE.animFrame++;
+
+  // Auto rotate
+  if (CONFIG.autoRotate && !STATE.isDragging) {
+    STATE.rotY += CONFIG.rotateSpeed;
+    updateSceneTransform();
+  }
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+function init() {
+  // Create stars
+  createStars();
+
+  // Initialize editor with this file's source
+  initEditor();
+
+  // Parse the source and build the initial city
+  const parsed = parseCode(editor.value);
+  buildCity(parsed);
+
+  // Set initial camera
+  updateSceneTransform();
+
+  // Start animation loop
+  animationLoop();
+
+  // Set initial UI states
+  document.getElementById('btnRotate').classList.add('active');
+  document.getElementById('btnTraffic').classList.add('active');
+
+  console.log('%c🏙️ Procedural Code City initialized', 'color: #00e8ff; font-size: 14px; font-weight: bold;');
+  console.log(`Parsed ${parsed.blocks.length} code blocks, ${parsed.functions.size} functions, ${parsed.variables.size} variables, ${parsed.references.length} cross-references`);
+}
+
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

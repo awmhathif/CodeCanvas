@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrossForge 3D — Crossword Generator</title>
+<style>
+:root{
+--bg:#08090d;--bg2:#0c0e14;--panel:rgba(14,17,24,.94);--card:#141820;--surface:#1a1e2a;
+--border:rgba(130,150,180,.1);--border-h:rgba(130,150,180,.2);
+--text:#dce4f0;--muted:#8a98b0;--dim:#5c6a80;--faint:#3a4555;
+--pri:#a78bfa;--pri-g:rgba(167,139,250,.15);--pri-l:#c4b5fd;--pri-d:#7c3aed;
+--pri2:#38bdf8;--pri2-g:rgba(56,189,248,.12);
+--acc:#fbbf24;--acc-g:rgba(251,191,36,.12);
+--grn:#34d399;--grn-g:rgba(52,211,153,.12);
+--red:#f87171;--red-g:rgba(248,113,113,.12);
+--pink:#f472b6;--cyan:#22d3ee;
+--gold:linear-gradient(135deg,#fbbf24,#f59e0b,#d97706);
+--font:system-ui,'Segoe UI',sans-serif;
+--mono:'Cascadia Code','Fira Code','SF Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px}
+
+.app{display:grid;grid-template-columns:320px 1fr;grid-template-rows:50px 1fr 36px;height:100vh}
+
+/* TOP BAR */
+.top{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;z-index:20}
+.logo{font-weight:800;font-size:1rem;display:flex;align-items:center;gap:8px;letter-spacing:-.3px}
+.logo .cube{width:24px;height:24px;background:var(--gold);border-radius:5px;display:grid;place-items:center;color:#000;font-weight:900;font-size:11px}
+.logo span{background:linear-gradient(135deg,var(--pri-l),var(--pri2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.top-spacer{flex:1}
+.hbtn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.73rem;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;font-family:var(--font)}
+.hbtn:hover{border-color:var(--pri);background:var(--pri-g)}
+.hbtn.pri{background:rgba(124,58,237,.3);border-color:var(--pri-d);color:var(--pri-l)}.hbtn.pri:hover{background:rgba(124,58,237,.5)}
+.hbtn.grn{border-color:var(--grn);color:var(--grn)}.hbtn.grn:hover{background:var(--grn-g)}
+.hbtn.acc{border-color:var(--acc);color:var(--acc)}.hbtn.acc:hover{background:var(--acc-g)}
+.hbtn:disabled{opacity:.3;pointer-events:none}
+.view-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.view-toggle .vt{padding:5px 12px;font-size:.7rem;font-weight:600;color:var(--dim);cursor:pointer;transition:.12s;background:transparent;border:none;font-family:var(--font)}
+.view-toggle .vt:hover{color:var(--muted)}.view-toggle .vt.on{background:var(--pri-g);color:var(--pri-l)}
+
+/* SIDEBAR */
+.sidebar{grid-row:2/4;background:var(--panel);backdrop-filter:blur(12px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:10}
+.sb-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.sb-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.sb-label .count{background:var(--surface);padding:1px 7px;border-radius:8px;font-size:.6rem;color:var(--muted)}
+.word-input-row{display:flex;gap:6px;margin-bottom:8px}
+.word-input-row input{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.8rem;outline:none;font-family:var(--font)}
+.word-input-row input:focus{border-color:var(--pri)}
+.word-input-row input::placeholder{color:var(--faint)}
+.word-list{overflow-y:auto;flex:1;padding:6px 0}
+.word-item{padding:8px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.12s;border-left:3px solid transparent}
+.word-item:hover{background:rgba(255,255,255,.02)}
+.word-item.placed{border-left-color:var(--grn)}
+.word-item.unplaced{border-left-color:var(--red);opacity:.6}
+.word-item .wi-num{min-width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:.65rem;font-weight:800;background:var(--surface);color:var(--muted)}
+.word-item.placed .wi-num{background:var(--grn-g);color:var(--grn)}
+.word-item .wi-word{font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.5px}
+.word-item .wi-dir{font-size:.6rem;color:var(--dim);font-family:var(--mono)}
+.word-item .wi-remove{margin-left:auto;opacity:0;color:var(--red);cursor:pointer;font-size:.75rem;padding:4px}
+.word-item:hover .wi-remove{opacity:.7}
+.word-item .wi-remove:hover{opacity:1}
+.clue-input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.75rem;outline:none;margin-top:4px;font-family:var(--font)}
+.clue-input:focus{border-color:var(--pri)}
+.clue-input::placeholder{color:var(--faint)}
+.presets-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.preset-btn{padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:.7rem;font-weight:600;cursor:pointer;transition:.12s;text-align:center;font-family:var(--font)}
+.preset-btn:hover{border-color:var(--pri);color:var(--pri-l);background:var(--pri-g)}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slider-row label{font-size:.7rem;color:var(--dim);min-width:60px}
+.slider-row input[type=range]{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:var(--faint);outline:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--pri);cursor:pointer}
+.slider-row .sv{font-size:.7rem;color:var(--muted);min-width:24px;text-align:right;font-family:var(--mono)}
+.color-row{display:flex;gap:6px;flex-wrap:wrap}
+.color-swatch{width:24px;height:24px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:.12s}
+.color-swatch:hover,.color-swatch.on{border-color:#fff;transform:scale(1.15)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.toggle-row label{font-size:.72rem;color:var(--muted)}
+.toggle{width:34px;height:18px;border-radius:9px;background:var(--faint);cursor:pointer;position:relative;transition:.2s}
+.toggle.on{background:var(--pri)}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
+.toggle.on::after{left:18px}
+
+/* MAIN */
+.main-area{position:relative;overflow:hidden}
+canvas#cv3d{width:100%;height:100%;display:block}
+
+/* 2D Grid overlay */
+.grid-2d{position:absolute;top:0;left:0;width:100%;height:100%;overflow:auto;display:none;background:var(--bg);padding:40px}
+.grid-2d.show{display:block}
+.grid-2d table{border-collapse:collapse;margin:0 auto}
+.grid-2d td{width:38px;height:38px;border:2px solid var(--border);text-align:center;font-weight:800;font-size:1rem;text-transform:uppercase;position:relative;transition:.12s}
+.grid-2d td.filled{background:var(--card);color:var(--text);cursor:pointer}
+.grid-2d td.filled:hover{background:var(--pri-g);border-color:var(--pri)}
+.grid-2d td.empty{background:transparent;border-color:transparent}
+.grid-2d td.active{background:var(--pri-g);border-color:var(--pri)}
+.grid-2d td .cell-num{position:absolute;top:1px;left:3px;font-size:.5rem;color:var(--dim);font-weight:700}
+.grid-2d td.filled input{width:100%;height:100%;border:none;background:transparent;color:var(--text);font-size:1rem;font-weight:800;text-align:center;text-transform:uppercase;outline:none;position:absolute;top:0;left:0;font-family:var(--font)}
+
+/* Clues Panel */
+.clues-panel{position:absolute;right:0;top:0;width:280px;height:100%;background:var(--panel);backdrop-filter:blur(12px);border-left:1px solid var(--border);overflow-y:auto;padding:16px;transform:translateX(100%);transition:.3s;z-index:5}
+.clues-panel.show{transform:translateX(0)}
+.clues-panel h3{font-size:.8rem;font-weight:700;margin-bottom:10px;color:var(--pri-l)}
+.clue-item{padding:6px 0;border-bottom:1px solid var(--border);font-size:.78rem;display:flex;gap:8px}
+.clue-item .cn{font-weight:800;color:var(--acc);min-width:24px}
+.clue-item .ct{color:var(--muted)}
+
+/* STATUS */
+.status{grid-column:2/-1;background:var(--pri-d);display:flex;align-items:center;padding:0 16px;font-size:.68rem;color:rgba(255,255,255,.85);gap:16px}
+.status .si{display:flex;align-items:center;gap:4px}
+.status .spacer{flex:1}
+
+/* Toast */
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 20px;font-size:.8rem;font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Print */
+@media print{
+.top,.sidebar,.status,.clues-panel,.toast{display:none!important}
+.app{display:block!important}
+.main-area{position:static!important}
+.grid-2d{display:block!important;position:static!important;padding:20px!important}
+.grid-2d td{border:1.5px solid #333!important;width:30px!important;height:30px!important;font-size:0!important}
+.grid-2d td.filled{background:#fff!important}
+.grid-2d td.empty{border-color:transparent!important}
+.grid-2d td .cell-num{font-size:.45rem!important;color:#333!important}
+}
+
+@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOP BAR -->
+<div class="top">
+<div class="logo"><div class="cube">✦</div><span>CrossForge 3D</span></div>
+<div class="top-spacer"></div>
+<div class="view-toggle">
+<button class="vt on" data-view="3d">3D View</button>
+<button class="vt" data-view="2d">2D Grid</button>
+<button class="vt" data-view="play">Play</button>
+</div>
+<button class="hbtn pri" id="btn-generate">⚡ Generate</button>
+<button class="hbtn" id="btn-clues">📋 Clues</button>
+<button class="hbtn acc" id="btn-export">📤 Export</button>
+<button class="hbtn" id="btn-print">🖨</button>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+<div class="sb-section">
+<div class="sb-label">Add Words <span class="count" id="word-count">0</span></div>
+<div class="word-input-row">
+<input type="text" id="word-in" placeholder="Type a word...">
+<button class="hbtn pri" id="btn-add-word" style="padding:6px 10px">+</button>
+</div>
+<div class="word-input-row">
+<input type="text" id="clue-in" placeholder="Clue (optional)...">
+</div>
+</div>
+<div class="sb-section" style="padding-bottom:6px">
+<div class="sb-label">Presets</div>
+<div class="presets-grid">
+<button class="preset-btn" data-preset="animals">🐾 Animals</button>
+<button class="preset-btn" data-preset="science">🔬 Science</button>
+<button class="preset-btn" data-preset="countries">🌍 Countries</button>
+<button class="preset-btn" data-preset="tech">💻 Technology</button>
+<button class="preset-btn" data-preset="food">🍕 Food</button>
+<button class="preset-btn" data-preset="space">🚀 Space</button>
+</div>
+</div>
+<div class="sb-section">
+<div class="sb-label">Grid Settings</div>
+<div class="slider-row"><label>Grid Size</label><input type="range" id="sl-size" min="8" max="25" value="15"><span class="sv" id="sv-size">15</span></div>
+<div class="slider-row"><label>Block Height</label><input type="range" id="sl-height" min="2" max="20" value="8"><span class="sv" id="sv-height">8</span></div>
+<div class="slider-row"><label>Spacing</label><input type="range" id="sl-spacing" min="0" max="10" value="2"><span class="sv" id="sv-spacing">2</span></div>
+<div class="toggle-row"><label>Animate</label><div class="toggle on" id="tgl-animate"></div></div>
+<div class="toggle-row"><label>Show Letters</label><div class="toggle on" id="tgl-letters"></div></div>
+<div class="toggle-row"><label>Show Numbers</label><div class="toggle on" id="tgl-numbers"></div></div>
+</div>
+<div class="sb-section">
+<div class="sb-label">Theme</div>
+<div class="color-row" id="color-row"></div>
+</div>
+<div class="word-list" id="word-list"></div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-area">
+<canvas id="cv3d"></canvas>
+<div class="grid-2d" id="grid-2d"></div>
+<div class="clues-panel" id="clues-panel">
+<h3>📝 Across</h3>
+<div id="clues-across"></div>
+<h3 style="margin-top:16px">📝 Down</h3>
+<div id="clues-down"></div>
+</div>
+</div>
+
+<!-- STATUS -->
+<div class="status">
+<span class="si" id="st-words">Words: 0/0</span>
+<span class="si" id="st-grid">Grid: 15×15</span>
+<span class="si" id="st-fill">Fill: 0%</span>
+<span class="spacer"></span>
+<span class="si">Drag to rotate · Scroll to zoom</span>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════ */
+const STORE='crossforge3d_v2';
+let words=[];// {word,clue,placed,row,col,dir,num}
+let grid=[];// 2D array: null or {letter,wordIds:[]}
+let gridSize=15;
+let blockHeight=8;
+let blockSpacing=2;
+let showLetters=true;
+let showNumbers=true;
+let animate=true;
+let currentView='3d';
+let themeIdx=0;
+let clueCounter=0;
+
+const THEMES=[
+  {name:'Amethyst',block:'#7c3aed',blockTop:'#a78bfa',filled:'#1e1633',letter:'#e2e8f0',bg:[0.03,0.035,0.05],accent:'#c4b5fd'},
+  {name:'Ocean',block:'#0369a1',blockTop:'#38bdf8',filled:'#0c1929',letter:'#e0f2fe',bg:[0.02,0.04,0.07],accent:'#7dd3fc'},
+  {name:'Emerald',block:'#047857',blockTop:'#34d399',filled:'#0c1f17',letter:'#d1fae5',bg:[0.02,0.05,0.04],accent:'#6ee7b7'},
+  {name:'Sunset',block:'#b45309',blockTop:'#fbbf24',filled:'#1f1508',letter:'#fef3c7',bg:[0.06,0.04,0.02],accent:'#fcd34d'},
+  {name:'Rose',block:'#be123c',blockTop:'#f472b6',filled:'#1f0c14',letter:'#fce7f3',bg:[0.05,0.02,0.04],accent:'#f9a8d4'},
+  {name:'Monochrome',block:'#374151',blockTop:'#9ca3af',filled:'#111827',letter:'#e5e7eb',bg:[0.04,0.04,0.05],accent:'#d1d5db'},
+];
+
+const PRESETS={
+animals:{words:['ELEPHANT','GIRAFFE','PENGUIN','DOLPHIN','PANTHER','EAGLE','COBRA','WOLF','TIGER','RABBIT','FALCON','WHALE','HORSE','OTTER','LYNX'],clues:['Largest land animal','Tallest living animal','Flightless bird of Antarctica','Intelligent marine mammal','Black big cat','Bird of prey symbol of freedom','Hooded snake','Pack hunter','Striped big cat','Hops around','Fast diving bird','Largest ocean mammal','Riding animal','Playful water mammal','Wild cat with tufted ears']},
+science:{words:['QUANTUM','NEUTRON','GENOME','ENZYME','PHOTON','GRAVITY','PLASMA','FUSION','PROTON','HELIX','ORBIT','QUARK','ATOM','CELL','ION'],clues:['Smallest unit of energy','Neutral subatomic particle','Complete set of DNA','Biological catalyst','Particle of light','Force of attraction','Fourth state of matter','Nuclear joining process','Positive subatomic particle','Spiral shape of DNA','Path around a body','Fundamental particle in protons','Basic unit of matter','Basic unit of life','Charged atom']},
+countries:{words:['BRAZIL','JAPAN','EGYPT','FRANCE','CANADA','INDIA','MEXICO','NORWAY','CHILE','SPAIN','PERU','CUBA','IRAN','FIJI','CHAD'],clues:['Largest South American country','Land of the Rising Sun','Home of the Pyramids','Eiffel Tower country','Maple leaf country','Most populous democracy','Southern neighbor of USA','Fjord country','Long narrow South American country','Iberian Peninsula country','Machu Picchu country','Caribbean island nation','Persian civilization','Pacific island nation','Central African nation']},
+tech:{words:['PYTHON','KERNEL','BINARY','SERVER','ROUTER','CLOUD','PIXEL','CACHE','LINUX','ARRAY','STACK','DEBUG','QUERY','HASH','NODE'],clues:['Popular programming language','Core of an OS','Base-2 number system','Provides services to clients','Network traffic director','Remote computing','Smallest unit of a display','Fast memory storage','Open-source OS','Ordered data collection','LIFO data structure','Finding and fixing errors','Database request','One-way function','Connection point']},
+food:{words:['SAFFRON','TRUFFLE','QUINOA','WASABI','MANGO','PASTA','CURRY','BREAD','OLIVE','CREPE','TOFU','RICE','LIME','KALE','FIG'],clues:['Most expensive spice','Rare underground fungus','Andean super grain','Japanese hot condiment','Tropical stone fruit','Italian staple dish','Spiced South Asian dish','Baked flour staple','Mediterranean fruit','Thin French pancake','Soy bean curd','Asian staple grain','Green citrus fruit','Superfood leafy green','Sweet Mediterranean fruit']},
+space:{words:['NEBULA','QUASAR','PULSAR','GALAXY','COMET','ORBIT','LUNAR','SOLAR','VENUS','PLUTO','MARS','NOVA','STAR','MOON','SUN'],clues:['Cloud of gas in space','Extremely bright distant object','Rotating neutron star','Collection of billions of stars','Icy body with a tail','Path around a celestial body','Related to the moon','Related to the sun','Hottest planet','Dwarf planet','Red planet','Exploding star event','Self-luminous celestial body','Earth natural satellite','Our closest star']},
+};
+
+function saveState(){
+  try{localStorage.setItem(STORE,JSON.stringify({words,gridSize,blockHeight,blockSpacing,showLetters,showNumbers,animate,themeIdx}));}catch(e){}
+}
+function loadState(){
+  try{
+    const d=JSON.parse(localStorage.getItem(STORE));
+    if(d){
+      if(d.words)words=d.words;
+      if(d.gridSize)gridSize=d.gridSize;
+      if(d.blockHeight)blockHeight=d.blockHeight;
+      if(d.blockSpacing!==undefined)blockSpacing=d.blockSpacing;
+      if(d.showLetters!==undefined)showLetters=d.showLetters;
+      if(d.showNumbers!==undefined)showNumbers=d.showNumbers;
+      if(d.animate!==undefined)animate=d.animate;
+      if(d.themeIdx!==undefined)themeIdx=d.themeIdx;
+    }
+  }catch(e){}
+  if(!words.length)loadPreset('science');
+}
+
+/* ═══════════════════════════════════════════
+   CROSSWORD GENERATOR
+   ═══════════════════════════════════════════ */
+function generateCrossword(){
+  grid=[];
+  for(let r=0;r<gridSize;r++){grid[r]=[];for(let c=0;c<gridSize;c++)grid[r][c]=null;}
+  words.forEach(w=>{w.placed=false;w.row=-1;w.col=-1;w.dir='';w.num=0;});
+
+  // Sort words by length descending
+  const sorted=[...words].sort((a,b)=>b.word.length-a.word.length);
+  if(!sorted.length)return;
+
+  // Place first word in center
+  const first=sorted[0];
+  const startCol=Math.floor((gridSize-first.word.length)/2);
+  const startRow=Math.floor(gridSize/2);
+  placeWord(first,startRow,startCol,'across');
+
+  // Try to place remaining words
+  let maxAttempts=200;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    let placed=false;
+    for(const w of sorted){
+      if(w.placed)continue;
+      if(tryPlaceWord(w)){placed=true;break;}
+    }
+    if(!placed)break;
+    if(sorted.every(w=>w.placed))break;
+  }
+
+  // Assign clue numbers
+  assignNumbers();
+  saveState();
+  renderWordList();
+  render2DGrid();
+  renderClues();
+  updateStatus();
+}
+
+function placeWord(w,row,col,dir){
+  w.placed=true;w.row=row;w.col=col;w.dir=dir;
+  for(let i=0;i<w.word.length;i++){
+    const r=dir==='across'?row:row+i;
+    const c=dir==='across'?col+i:col;
+    if(!grid[r][c])grid[r][c]={letter:w.word[i],wordIds:[]};
+    grid[r][c].wordIds.push(words.indexOf(w));
+  }
+}
+
+function tryPlaceWord(w){
+  const candidates=[];
+  // Find intersections with placed letters
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++){
+    if(!grid[r][c])continue;
+    const letter=grid[r][c].letter;
+    for(let i=0;i<w.word.length;i++){
+      if(w.word[i]!==letter)continue;
+      // Try across: word[i] at (r,c), so word starts at (r, c-i)
+      const acCol=c-i;
+      if(acCol>=0&&acCol+w.word.length<=gridSize){
+        if(canPlace(w.word,r,acCol,'across'))candidates.push({row:r,col:acCol,dir:'across',score:scorePlace(w.word,r,acCol,'across')});
+      }
+      // Try down: word[i] at (r,c), so word starts at (r-i, c)
+      const dnRow=r-i;
+      if(dnRow>=0&&dnRow+w.word.length<=gridSize){
+        if(canPlace(w.word,dnRow,c,'down'))candidates.push({row:dnRow,col:c,dir:'down',score:scorePlace(w.word,dnRow,c,'down')});
+      }
+    }
+  }
+  if(!candidates.length)return false;
+  candidates.sort((a,b)=>b.score-a.score);
+  const best=candidates[0];
+  placeWord(w,best.row,best.col,best.dir);
+  return true;
+}
+
+function canPlace(word,row,col,dir){
+  let intersections=0;
+  for(let i=0;i<word.length;i++){
+    const r=dir==='across'?row:row+i;
+    const c=dir==='across'?col+i:col;
+    if(r<0||r>=gridSize||c<0||c>=gridSize)return false;
+    const cell=grid[r][c];
+    if(cell){
+      if(cell.letter!==word[i])return false;
+      intersections++;
+      // Don't allow parallel adjacency: check that the existing cell
+      // is part of a word going the OTHER direction
+      const existingDirs=cell.wordIds.map(id=>words[id].dir);
+      if(existingDirs.includes(dir))return false; // same direction overlap without cross
+    }else{
+      // Check adjacency: no adjacent filled cells in perpendicular direction
+      if(dir==='across'){
+        if(r>0&&grid[r-1][c]&&!isPartOfWordAt(word,i,r-1,c,dir))return false;
+        if(r<gridSize-1&&grid[r+1][c]&&!isPartOfWordAt(word,i,r+1,c,dir))return false;
+      }else{
+        if(c>0&&grid[r][c-1]&&!isPartOfWordAt(word,i,r,c-1,dir))return false;
+        if(c<gridSize-1&&grid[r][c+1]&&!isPartOfWordAt(word,i,r,c+1,dir))return false;
+      }
+    }
+  }
+  // Must have at least one intersection
+  if(intersections===0)return false;
+  // Check before/after word is empty
+  if(dir==='across'){
+    if(col>0&&grid[row][col-1])return false;
+    if(col+word.length<gridSize&&grid[row][col+word.length])return false;
+  }else{
+    if(row>0&&grid[row-1][col])return false;
+    if(row+word.length<gridSize&&grid[row+word.length][col])return false;
+  }
+  return true;
+}
+
+function isPartOfWordAt(word,i,r,c,dir){return false;}// simplified: reject adjacent
+
+function scorePlace(word,row,col,dir){
+  let score=0;
+  for(let i=0;i<word.length;i++){
+    const r=dir==='across'?row:row+i;
+    const c=dir==='across'?col+i:col;
+    if(grid[r][c])score+=10;// intersection bonus
+  }
+  // Prefer center placement
+  const centerR=gridSize/2,centerC=gridSize/2;
+  const midR=dir==='across'?row:row+word.length/2;
+  const midC=dir==='across'?col+word.length/2:col;
+  score-=Math.abs(midR-centerR)+Math.abs(midC-centerC);
+  return score;
+}
+
+function assignNumbers(){
+  clueCounter=0;
+  const numbered=new Map();
+  // Sort words by position (top-left to bottom-right)
+  const placed=words.filter(w=>w.placed).sort((a,b)=>a.row-b.row||a.col-b.col);
+  for(const w of placed){
+    const key=`${w.row},${w.col}`;
+    if(!numbered.has(key)){
+      clueCounter++;
+      numbered.set(key,clueCounter);
+    }
+    w.num=numbered.get(key);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   3D RENDERER (WebGL)
+   ═══════════════════════════════════════════ */
+const canvas=document.getElementById('cv3d');
+const gl=canvas.getContext('webgl2',{antialias:true,alpha:false});
+let W3,H3;
+
+function resize3D(){
+  const r=canvas.parentElement.getBoundingClientRect();
+  W3=canvas.width=r.width*devicePixelRatio;
+  H3=canvas.height=r.height*devicePixelRatio;
+  canvas.style.width=r.width+'px';canvas.style.height=r.height+'px';
+  gl.viewport(0,0,W3,H3);
+}
+window.addEventListener('resize',()=>{resize3D();});
+resize3D();
+
+// Shader
+function mkShader(src,type){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));}return s;}
+function mkProgram(vs,fs){const p=gl.createProgram();gl.attachShader(p,mkShader(vs,gl.VERTEX_SHADER));gl.attachShader(p,mkShader(fs,gl.FRAGMENT_SHADER));gl.linkProgram(p);return p;}
+
+const VS=`#version 300 es
+layout(location=0)in vec3 aPos;
+layout(location=1)in vec3 aNorm;
+layout(location=2)in vec3 aCol;
+layout(location=3)in vec2 aUV;
+uniform mat4 uProj,uView,uModel;
+uniform float uTime;
+out vec3 vPos,vNorm,vCol,vWorld;
+out vec2 vUV;
+void main(){
+  vec4 wp=uModel*vec4(aPos,1.0);
+  vWorld=wp.xyz;
+  vPos=(uView*wp).xyz;
+  vNorm=mat3(uModel)*aNorm;
+  vCol=aCol;
+  vUV=aUV;
+  gl_Position=uProj*uView*wp;
+}`;
+const FS=`#version 300 es
+precision highp float;
+in vec3 vPos,vNorm,vCol,vWorld;
+in vec2 vUV;
+uniform vec3 uLightDir;
+uniform vec3 uCamPos;
+uniform float uTime;
+uniform vec3 uFogCol;
+uniform float uFogDensity;
+out vec4 fragColor;
+void main(){
+  vec3 N=normalize(vNorm);
+  vec3 L=normalize(uLightDir);
+  vec3 V=normalize(uCamPos-vWorld);
+  vec3 H=normalize(L+V);
+  float diff=max(dot(N,L),0.0)*0.65;
+  float spec=pow(max(dot(N,H),0.0),48.0)*0.35;
+  float ambient=0.25;
+  float rim=pow(1.0-max(dot(N,V),0.0),3.0)*0.15;
+  vec3 col=vCol*(ambient+diff)+vec3(1.0)*spec+vCol*rim;
+  float dist=length(vPos);
+  float fog=1.0-exp(-dist*uFogDensity);
+  col=mix(col,uFogCol,fog);
+  // Subtle gradient from top
+  col+=vec3(0.02,0.01,0.03)*max(N.y,0.0);
+  fragColor=vec4(col,1.0);
+}`;
+
+const prog=mkProgram(VS,FS);
+const uProj=gl.getUniformLocation(prog,'uProj');
+const uView=gl.getUniformLocation(prog,'uView');
+const uModel=gl.getUniformLocation(prog,'uModel');
+const uLightDir=gl.getUniformLocation(prog,'uLightDir');
+const uCamPos=gl.getUniformLocation(prog,'uCamPos');
+const uTime=gl.getUniformLocation(prog,'uTime');
+const uFogCol=gl.getUniformLocation(prog,'uFogCol');
+const uFogDensity=gl.getUniformLocation(prog,'uFogDensity');
+
+// Matrix math (minimal)
+function mat4(){return new Float32Array(16)}
+function mat4Id(){const m=mat4();m[0]=m[5]=m[10]=m[15]=1;return m;}
+function mat4Pers(fov,a,n,f){const t=1/Math.tan(fov/2),nf=1/(n-f),m=mat4();m[0]=t/a;m[5]=t;m[10]=(f+n)*nf;m[11]=-1;m[14]=2*f*n*nf;return m;}
+function mat4Look(eye,ctr,up){let zx=eye[0]-ctr[0],zy=eye[1]-ctr[1],zz=eye[2]-ctr[2];let zl=Math.hypot(zx,zy,zz);zx/=zl;zy/=zl;zz/=zl;let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx;let xl=Math.hypot(xx,xy,xz);xx/=xl;xy/=xl;xz/=xl;let yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;const m=mat4();m[0]=xx;m[1]=yx;m[2]=zx;m[4]=xy;m[5]=yy;m[6]=zy;m[8]=xz;m[9]=yz;m[10]=zz;m[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);m[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);m[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);m[15]=1;return m;}
+
+// Build crossword mesh
+let meshVAO=null,meshCount=0;
+
+function hexToRGB(hex){const n=parseInt(hex.replace('#',''),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255];}
+
+function buildMesh(){
+  const positions=[],normals=[],colors=[],uvs=[];
+  const theme=THEMES[themeIdx];
+  const blockCol=hexToRGB(theme.block);
+  const topCol=hexToRGB(theme.blockTop);
+  const spacing=blockSpacing*0.1;
+  const cellSize=1+spacing;
+  const offsetX=-(gridSize*cellSize)/2;
+  const offsetZ=-(gridSize*cellSize)/2;
+
+  function addFace(v,n,c){
+    const idx=[0,1,2,0,2,3];
+    for(const i of idx){
+      positions.push(v[i][0],v[i][1],v[i][2]);
+      normals.push(n[0],n[1],n[2]);
+      colors.push(c[0],c[1],c[2]);
+      uvs.push(0,0);
+    }
+  }
+
+  // Floor grid
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++){
+    if(!grid[r]||!grid[r][c])continue;
+    const x=offsetX+c*cellSize;
+    const z=offsetZ+r*cellSize;
+    const h=blockHeight*0.3;
+
+    // Top face (letter face)
+    addFace([[x,h,z],[x+1,h,z],[x+1,h,z+1],[x,h,z+1]],[0,1,0],topCol);
+    // Front
+    addFace([[x,0,z+1],[x+1,0,z+1],[x+1,h,z+1],[x,h,z+1]],[0,0,1],[blockCol[0]*.8,blockCol[1]*.8,blockCol[2]*.8]);
+    // Back
+    addFace([[x+1,0,z],[x,0,z],[x,h,z],[x+1,h,z]],[0,0,-1],[blockCol[0]*.7,blockCol[1]*.7,blockCol[2]*.7]);
+    // Left
+    addFace([[x,0,z],[x,0,z+1],[x,h,z+1],[x,h,z]],[-1,0,0],[blockCol[0]*.75,blockCol[1]*.75,blockCol[2]*.75]);
+    // Right
+    addFace([[x+1,0,z+1],[x+1,0,z],[x+1,h,z],[x+1,h,z+1]],[1,0,0],[blockCol[0]*.85,blockCol[1]*.85,blockCol[2]*.85]);
+    // Bottom
+    addFace([[x,0,z+1],[x,0,z],[x+1,0,z],[x+1,0,z+1]],[0,-1,0],[blockCol[0]*.5,blockCol[1]*.5,blockCol[2]*.5]);
+  }
+
+  meshCount=positions.length/3;
+  if(!meshCount)return;
+
+  if(meshVAO)gl.deleteVertexArray(meshVAO);
+  meshVAO=gl.createVertexArray();
+  gl.bindVertexArray(meshVAO);
+
+  const pb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(positions),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(normals),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  const cb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(colors),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,3,gl.FLOAT,false,0,0);
+  const ub=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ub);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(uvs),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(3);gl.vertexAttribPointer(3,2,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);
+}
+
+// Camera
+let camAngle=0.5,camPitch=0.6,camDist=25;
+let targetAngle=0.5,targetPitch=0.6,targetDist=25;
+let dragging=false,lastMX=0,lastMY=0;
+
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;lastMY=e.clientY;});
+document.addEventListener('mousemove',e=>{if(!dragging)return;targetAngle-=(e.clientX-lastMX)*0.005;targetPitch=Math.max(0.1,Math.min(1.45,targetPitch+(e.clientY-lastMY)*0.005));lastMX=e.clientX;lastMY=e.clientY;});
+document.addEventListener('mouseup',()=>{dragging=false;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();targetDist=Math.max(5,Math.min(60,targetDist+e.deltaY*0.03));},{passive:false});
+
+// Touch
+let touchDist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){dragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;touchDist=Math.hypot(dx,dy);}
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&dragging){targetAngle-=(e.touches[0].clientX-lastMX)*0.005;targetPitch=Math.max(0.1,Math.min(1.45,targetPitch+(e.touches[0].clientY-lastMY)*0.005));lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;const nd=Math.hypot(dx,dy);if(touchDist>0)targetDist=Math.max(5,Math.min(60,targetDist*(touchDist/nd)));touchDist=nd;}
+},{passive:false});
+canvas.addEventListener('touchend',()=>{dragging=false;touchDist=0;});
+
+// Text rendering on canvas (for letter overlay)
+let textCanvas,textCtx;
+function initTextCanvas(){
+  textCanvas=document.createElement('canvas');
+  textCanvas.width=2048;textCanvas.height=2048;
+  textCtx=textCanvas.getContext('2d');
+}
+initTextCanvas();
+
+function render3DText(){
+  if(!showLetters&&!showNumbers)return;
+  const theme=THEMES[themeIdx];
+  textCtx.clearRect(0,0,2048,2048);
+
+  const proj=mat4Pers(60*Math.PI/180,W3/H3,0.1,200);
+  const camX=Math.sin(camAngle)*Math.cos(camPitch)*camDist;
+  const camY=Math.sin(camPitch)*camDist;
+  const camZ=Math.cos(camAngle)*Math.cos(camPitch)*camDist;
+  const view=mat4Look([camX,camY,camZ],[0,0,0],[0,1,0]);
+
+  const spacing=blockSpacing*0.1;
+  const cellSize=1+spacing;
+  const offsetX=-(gridSize*cellSize)/2;
+  const offsetZ=-(gridSize*cellSize)/2;
+  const h=blockHeight*0.3;
+
+  const rect=canvas.getBoundingClientRect();
+
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++){
+    if(!grid[r]||!grid[r][c])continue;
+    const cell=grid[r][c];
+    const wx=offsetX+c*cellSize+0.5;
+    const wy=h+0.01;
+    const wz=offsetZ+r*cellSize+0.5;
+
+    // Project to screen
+    const sp=project([wx,wy,wz],proj,view);
+    if(!sp)continue;
+    const sx=sp[0]/devicePixelRatio;
+    const sy=sp[1]/devicePixelRatio;
+
+    // Check if within canvas
+    if(sx<0||sx>rect.width||sy<0||sy>rect.height)continue;
+
+    const scale=Math.max(8,Math.min(28,400/camDist));
+
+    if(showLetters){
+      textCtx.fillStyle=theme.letter||'#fff';
+      textCtx.font=`bold ${scale}px system-ui`;
+      textCtx.textAlign='center';textCtx.textBaseline='middle';
+      textCtx.fillText(cell.letter,sx*(2048/rect.width),sy*(2048/rect.height));
+    }
+
+    // Number
+    if(showNumbers){
+      const wordAtStart=words.find(w=>w.placed&&w.row===r&&w.col===c);
+      if(wordAtStart&&wordAtStart.num){
+        textCtx.fillStyle=theme.accent||'#fbbf24';
+        textCtx.font=`bold ${scale*0.45}px system-ui`;
+        textCtx.textAlign='left';textCtx.textBaseline='top';
+        textCtx.fillText(wordAtStart.num,(sx-scale*0.4)*(2048/rect.width),(sy-scale*0.4)*(2048/rect.height));
+      }
+    }
+  }
+}
+
+function project(p,proj,view){
+  let v=[p[0],p[1],p[2],1];
+  let vt=[0,0,0,0];for(let i=0;i<4;i++)vt[i]=view[i]*v[0]+view[4+i]*v[1]+view[8+i]*v[2]+view[12+i]*v[3];
+  let pt=[0,0,0,0];for(let i=0;i<4;i++)pt[i]=proj[i]*vt[0]+proj[4+i]*vt[1]+proj[8+i]*vt[2]+proj[12+i]*vt[3];
+  if(pt[3]<=0)return null;
+  return[(pt[0]/pt[3]*0.5+0.5)*W3,(1-(pt[1]/pt[3]*0.5+0.5))*H3];
+}
+
+// Render loop
+let time=0;
+function render3D(t){
+  requestAnimationFrame(render3D);
+  if(currentView!=='3d')return;
+
+  time=t*0.001;
+  const dt=0.016;
+
+  const sm=1-Math.pow(0.001,dt);
+  camAngle+=(targetAngle-camAngle)*sm;
+  camPitch+=(targetPitch-camPitch)*sm;
+  camDist+=(targetDist-camDist)*sm;
+  if(animate)targetAngle+=dt*0.08;
+
+  const theme=THEMES[themeIdx];
+  const bg=theme.bg;
+  gl.clearColor(bg[0],bg[1],bg[2],1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+
+  if(!meshCount)return;
+
+  const camX=Math.sin(camAngle)*Math.cos(camPitch)*camDist;
+  const camY=Math.sin(camPitch)*camDist;
+  const camZ=Math.cos(camAngle)*Math.cos(camPitch)*camDist;
+
+  const proj=mat4Pers(60*Math.PI/180,W3/H3,0.1,200);
+  const view=mat4Look([camX,camY,camZ],[0,0,0],[0,1,0]);
+  const model=mat4Id();
+
+  gl.useProgram(prog);
+  gl.uniformMatrix4fv(uProj,false,proj);
+  gl.uniformMatrix4fv(uView,false,view);
+  gl.uniformMatrix4fv(uModel,false,model);
+  gl.uniform3f(uLightDir,0.4,0.8,0.3);
+  gl.uniform3f(uCamPos,camX,camY,camZ);
+  gl.uniform1f(uTime,time);
+  gl.uniform3f(uFogCol,bg[0],bg[1],bg[2]);
+  gl.uniform1f(uFogDensity,0.012);
+
+  gl.bindVertexArray(meshVAO);
+  gl.drawArrays(gl.TRIANGLES,0,meshCount);
+
+  // Overlay text
+  render3DText();
+  // Draw text canvas as 2D overlay
+  const ctx2d=document.createElement('canvas').getContext('2d');// We'll use the main canvas overlay instead
+  // Actually, draw text directly onto a 2D canvas overlay
+  drawTextOverlay();
+}
+
+let overlayCanvas,overlayCtx;
+function initOverlay(){
+  overlayCanvas=document.createElement('canvas');
+  overlayCanvas.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1';
+  canvas.parentElement.appendChild(overlayCanvas);
+  overlayCtx=overlayCanvas.getContext('2d');
+}
+initOverlay();
+
+function resizeOverlay(){
+  const r=canvas.parentElement.getBoundingClientRect();
+  overlayCanvas.width=r.width*devicePixelRatio;
+  overlayCanvas.height=r.height*devicePixelRatio;
+  overlayCanvas.style.width=r.width+'px';
+  overlayCanvas.style.height=r.height+'px';
+}
+window.addEventListener('resize',resizeOverlay);
+resizeOverlay();
+
+function drawTextOverlay(){
+  if(!showLetters&&!showNumbers)return;
+  const ctx=overlayCtx;
+  const dpr=devicePixelRatio;
+  ctx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+  ctx.save();
+  ctx.scale(dpr,dpr);
+
+  const theme=THEMES[themeIdx];
+  const proj=mat4Pers(60*Math.PI/180,W3/H3,0.1,200);
+  const camX=Math.sin(camAngle)*Math.cos(camPitch)*camDist;
+  const camY=Math.sin(camPitch)*camDist;
+  const camZ=Math.cos(camAngle)*Math.cos(camPitch)*camDist;
+  const view=mat4Look([camX,camY,camZ],[0,0,0],[0,1,0]);
+
+  const spacing=blockSpacing*0.1;
+  const cellSize=1+spacing;
+  const ox=-(gridSize*cellSize)/2;
+  const oz=-(gridSize*cellSize)/2;
+  const h=blockHeight*0.3;
+  const rect=canvas.parentElement.getBoundingClientRect();
+
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++){
+    if(!grid[r]||!grid[r][c])continue;
+    const cell=grid[r][c];
+    const sp=project([ox+c*cellSize+0.5,h+0.01,oz+r*cellSize+0.5],proj,view);
+    if(!sp)continue;
+    const sx=sp[0]/dpr;
+    const sy=sp[1]/dpr;
+    if(sx<-20||sx>rect.width+20||sy<-20||sy>rect.height+20)continue;
+
+    const scale=Math.max(6,Math.min(24,300/camDist));
+
+    if(showLetters){
+      ctx.fillStyle=theme.letter||'#fff';
+      ctx.font=`bold ${scale}px system-ui`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.globalAlpha=Math.max(0.3,Math.min(1,20/camDist));
+      ctx.fillText(cell.letter,sx,sy);
+      ctx.globalAlpha=1;
+    }
+    if(showNumbers){
+      const wordAtStart=words.find(w=>w.placed&&w.row===r&&w.col===c);
+      if(wordAtStart&&wordAtStart.num){
+        ctx.fillStyle=theme.accent||'#fbbf24';
+        ctx.font=`bold ${scale*0.42}px system-ui`;
+        ctx.textAlign='left';ctx.textBaseline='top';
+        ctx.fillText(wordAtStart.num,sx-scale*0.38,sy-scale*0.42);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+requestAnimationFrame(render3D);
+
+/* ═══════════════════════════════════════════
+   2D GRID & PLAY MODE
+   ═══════════════════════════════════════════ */
+function render2DGrid(){
+  const el=document.getElementById('grid-2d');
+  let html='<table>';
+  for(let r=0;r<gridSize;r++){
+    html+='<tr>';
+    for(let c=0;c<gridSize;c++){
+      const cell=grid[r]?grid[r][c]:null;
+      if(cell){
+        const wordAtStart=words.find(w=>w.placed&&w.row===r&&w.col===c);
+        const num=wordAtStart?wordAtStart.num:'';
+        if(currentView==='play'){
+          html+=`<td class="filled" data-r="${r}" data-c="${c}">${num?`<span class="cell-num">${num}</span>`:''}<input maxlength="1" data-r="${r}" data-c="${c}" autocomplete="off"></td>`;
+        }else{
+          html+=`<td class="filled">${num?`<span class="cell-num">${num}</span>`:''}${cell.letter}</td>`;
+        }
+      }else{
+        html+='<td class="empty"></td>';
+      }
+    }
+    html+='</tr>';
+  }
+  html+='</table>';
+  el.innerHTML=html;
+
+  // Play mode: wire up inputs
+  if(currentView==='play'){
+    el.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input',e=>{
+        const v=e.target.value.toUpperCase();
+        e.target.value=v;
+        const r=+e.target.dataset.r,c=+e.target.dataset.c;
+        if(grid[r][c]&&v===grid[r][c].letter){
+          e.target.parentElement.style.background='var(--grn-g)';
+          e.target.style.color='var(--grn)';
+        }else if(v){
+          e.target.parentElement.style.background='var(--red-g)';
+          e.target.style.color='var(--red)';
+        }else{
+          e.target.parentElement.style.background='';
+          e.target.style.color='var(--text)';
+        }
+        // Auto-advance
+        if(v){
+          const next=e.target.parentElement.nextElementSibling;
+          if(next){const ni=next.querySelector('input');if(ni)ni.focus();}
+        }
+      });
+      inp.addEventListener('keydown',e=>{
+        if(e.key==='Backspace'&&!e.target.value){
+          const prev=e.target.parentElement.previousElementSibling;
+          if(prev){const pi=prev.querySelector('input');if(pi){pi.focus();pi.value='';pi.parentElement.style.background='';}}
+        }
+      });
+    });
+  }
+}
+
+function renderClues(){
+  const across=words.filter(w=>w.placed&&w.dir==='across').sort((a,b)=>a.num-b.num);
+  const down=words.filter(w=>w.placed&&w.dir==='down').sort((a,b)=>a.num-b.num);
+  document.getElementById('clues-across').innerHTML=across.map(w=>`<div class="clue-item"><span class="cn">${w.num}.</span><span class="ct">${w.clue||w.word+' (no clue)'}</span></div>`).join('');
+  document.getElementById('clues-down').innerHTML=down.map(w=>`<div class="clue-item"><span class="cn">${w.num}.</span><span class="ct">${w.clue||w.word+' (no clue)'}</span></div>`).join('');
+}
+
+/* ═══════════════════════════════════════════
+   WORD LIST MANAGEMENT
+   ═══════════════════════════════════════════ */
+function addWord(word,clue=''){
+  word=word.toUpperCase().replace(/[^A-Z]/g,'');
+  if(!word||word.length<2)return;
+  if(words.find(w=>w.word===word)){toast('Word already added');return;}
+  words.push({word,clue,placed:false,row:-1,col:-1,dir:'',num:0});
+  renderWordList();
+  saveState();
+  toast(`Added "${word}"`);
+}
+
+function removeWord(idx){
+  words.splice(idx,1);
+  generateCrossword();
+}
+
+function renderWordList(){
+  document.getElementById('word-count').textContent=words.length;
+  const list=document.getElementById('word-list');
+  list.innerHTML=words.map((w,i)=>`
+    <div class="word-item ${w.placed?'placed':'unplaced'}">
+      <span class="wi-num">${w.placed?w.num:'—'}</span>
+      <div>
+        <div class="wi-word">${w.word}</div>
+        <div class="wi-dir">${w.placed?w.dir+' @ ('+w.row+','+w.col+')':'not placed'}</div>
+      </div>
+      <span class="wi-remove" data-idx="${i}">✕</span>
+    </div>
+  `).join('');
+  list.querySelectorAll('.wi-remove').forEach(el=>{
+    el.onclick=()=>removeWord(+el.dataset.idx);
+  });
+}
+
+function loadPreset(name){
+  const p=PRESETS[name];
+  if(!p)return;
+  words=p.words.map((w,i)=>({word:w.toUpperCase(),clue:p.clues[i]||'',placed:false,row:-1,col:-1,dir:'',num:0}));
+  generateCrossword();
+  toast(`Loaded ${name} preset`);
+}
+
+function updateStatus(){
+  const placed=words.filter(w=>w.placed).length;
+  document.getElementById('st-words').textContent=`Words: ${placed}/${words.length}`;
+  document.getElementById('st-grid').textContent=`Grid: ${gridSize}×${gridSize}`;
+  let filled=0,total=gridSize*gridSize;
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++)if(grid[r]&&grid[r][c])filled++;
+  document.getElementById('st-fill').textContent=`Fill: ${Math.round(filled/total*100)}%`;
+}
+
+/* ═══════════════════════════════════════════
+   UI WIRING
+   ═══════════════════════════════════════════ */
+// Add word
+document.getElementById('btn-add-word').onclick=()=>{
+  const w=document.getElementById('word-in').value;
+  const c=document.getElementById('clue-in').value;
+  addWord(w,c);
+  document.getElementById('word-in').value='';
+  document.getElementById('clue-in').value='';
+  document.getElementById('word-in').focus();
+};
+document.getElementById('word-in').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){document.getElementById('btn-add-word').click();}
+});
+
+// Generate
+document.getElementById('btn-generate').onclick=()=>{generateCrossword();buildMesh();toast('Crossword generated!');};
+
+// Presets
+document.querySelectorAll('.preset-btn').forEach(b=>{
+  b.onclick=()=>{loadPreset(b.dataset.preset);buildMesh();};
+});
+
+// View toggle
+document.querySelectorAll('.view-toggle .vt').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.view-toggle .vt').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    currentView=b.dataset.view;
+    document.getElementById('grid-2d').classList.toggle('show',currentView!=='3d');
+    canvas.style.display=currentView==='3d'?'block':'none';
+    overlayCanvas.style.display=currentView==='3d'?'block':'none';
+    if(currentView!=='3d')render2DGrid();
+  };
+});
+
+// Clues panel
+document.getElementById('btn-clues').onclick=()=>{document.getElementById('clues-panel').classList.toggle('show');};
+
+// Sliders
+document.getElementById('sl-size').addEventListener('input',e=>{gridSize=+e.target.value;document.getElementById('sv-size').textContent=gridSize;});
+document.getElementById('sl-size').addEventListener('change',()=>{generateCrossword();buildMesh();});
+document.getElementById('sl-height').addEventListener('input',e=>{blockHeight=+e.target.value;document.getElementById('sv-height').textContent=blockHeight;buildMesh();});
+document.getElementById('sl-spacing').addEventListener('input',e=>{blockSpacing=+e.target.value;document.getElementById('sv-spacing').textContent=blockSpacing;buildMesh();});
+
+// Toggles
+document.getElementById('tgl-animate').onclick=function(){this.classList.toggle('on');animate=this.classList.contains('on');};
+document.getElementById('tgl-letters').onclick=function(){this.classList.toggle('on');showLetters=this.classList.contains('on');};
+document.getElementById('tgl-numbers').onclick=function(){this.classList.toggle('on');showNumbers=this.classList.contains('on');};
+
+// Theme colors
+const colorRow=document.getElementById('color-row');
+THEMES.forEach((t,i)=>{
+  const sw=document.createElement('div');
+  sw.className='color-swatch'+(i===themeIdx?' on':'');
+  sw.style.background=t.block;
+  sw.title=t.name;
+  sw.onclick=()=>{themeIdx=i;colorRow.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('on'));sw.classList.add('on');buildMesh();saveState();};
+  colorRow.appendChild(sw);
+});
+
+// Export
+document.getElementById('btn-export').onclick=()=>{
+  const data={
+    gridSize,words:words.map(w=>({word:w.word,clue:w.clue,row:w.row,col:w.col,dir:w.dir,num:w.num,placed:w.placed})),
+    grid:grid.map(row=>row.map(cell=>cell?cell.letter:null))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='crossword.json';a.click();
+  toast('Exported!');
+};
+
+// Print
+document.getElementById('btn-print').onclick=()=>{
+  // Temporarily show 2D grid for printing
+  const was=currentView;
+  currentView='2d';
+  document.getElementById('grid-2d').classList.add('show');
+  render2DGrid();
+  setTimeout(()=>{
+    window.print();
+    if(was==='3d'){document.getElementById('grid-2d').classList.remove('show');currentView=was;}
+  },100);
+};
+
+// Sliders init
+document.getElementById('sl-size').value=gridSize;document.getElementById('sv-size').textContent=gridSize;
+document.getElementById('sl-height').value=blockHeight;document.getElementById('sv-height').textContent=blockHeight;
+document.getElementById('sl-spacing').value=blockSpacing;document.getElementById('sv-spacing').textContent=blockSpacing;
+
+// Toast
+let toastTimer;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2000);}
+
+/* ═══════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════ */
+loadState();
+renderWordList();
+generateCrossword();
+buildMesh();
+</script>
+</body>
+</html>

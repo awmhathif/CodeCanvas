@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CircuitHabit — Wire Your Routine</title>
+<style>
+/*═══════════════════════════════════════════════
+  CSS VARIABLES — PCB DARK GREEN THEME
+═══════════════════════════════════════════════*/
+:root{
+  --pcb:#0a2e1a;--pcb-light:#0f3d24;--pcb-dark:#061a0f;
+  --copper:#c8943e;--copper-bright:#e8b44e;--copper-dim:#7a5a28;
+  --trace:#9a7a30;--trace-glow:rgba(200,148,62,.35);
+  --led-on:#22ff44;--led-off:#1a3322;--led-red:#ff3333;--led-amber:#ffaa00;
+  --chip:#1a1a2e;--chip-border:#2a2a44;--chip-text:#a0d0ff;
+  --pin:#c0c0c0;--solder:#d4d4d4;
+  --tx0:#d4e8d4;--tx1:#8ab88a;--tx2:#5a8a5a;
+  --bg0:#050e08;--bg1:#0a1e12;--bg2:#0e2a18;--bg3:#163a22;
+  --accent:#22ff44;--accent2:#44ffaa;--accent-dim:#116622;
+  --danger:#ff3333;--warning:#ffaa00;--success:#22ff44;
+  --radius:6px;--radius-lg:10px;
+  --font:'Consolas','SF Mono','Fira Code',monospace;
+  --font-ui:'Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--tx0);font-family:var(--font);font-size:13px;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none;}
+input,select,textarea{font-family:var(--font);background:var(--bg1);border:1px solid var(--bg3);color:var(--tx0);border-radius:3px;padding:6px 8px;font-size:12px;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--copper);box-shadow:0 0 6px var(--trace-glow);}
+
+/*═══ PCB BACKGROUND PATTERN ═══*/
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.08;
+  background-image:
+    linear-gradient(var(--copper-dim) 1px,transparent 1px),
+    linear-gradient(90deg,var(--copper-dim) 1px,transparent 1px),
+    radial-gradient(circle 2px,var(--copper-dim) 1px,transparent 1px);
+  background-size:40px 40px,40px 40px,40px 40px;
+  background-position:0 0,0 0,20px 20px;
+}
+
+/*═══ LAYOUT ═══*/
+#app{display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;}
+
+/*── TOP BAR (Motherboard Header) ──*/
+#topBar{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--bg1);border-bottom:2px solid var(--copper-dim);min-height:48px;position:relative;}
+#topBar::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--copper),var(--copper-bright),var(--copper),transparent);opacity:.6;}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--copper-bright);white-space:nowrap;letter-spacing:1px;}
+.logo .chip-icon{width:24px;height:24px;background:var(--chip);border:1.5px solid var(--pin);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;position:relative;}
+.logo .chip-icon::before,.logo .chip-icon::after{content:'';position:absolute;background:var(--pin);border-radius:1px;}
+.logo .chip-icon::before{width:3px;height:1px;left:-4px;top:50%;box-shadow:0 -5px 0 var(--pin),0 5px 0 var(--pin);}
+.logo .chip-icon::after{width:3px;height:1px;right:-4px;top:50%;box-shadow:0 -5px 0 var(--pin),0 5px 0 var(--pin);}
+.topSpacer{flex:1;}
+
+/* Voltage Meter */
+#voltageMeter{display:flex;align-items:center;gap:8px;background:var(--chip);border:1px solid var(--chip-border);border-radius:3px;padding:4px 12px;}
+#voltageMeter .vm-label{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;}
+#voltageMeter .vm-val{font-size:18px;font-weight:900;color:var(--accent);font-variant-numeric:tabular-nums;}
+#voltageMeter .vm-unit{font-size:10px;color:var(--tx2);}
+#voltageBar{width:100px;height:6px;background:var(--bg0);border-radius:3px;overflow:hidden;border:1px solid var(--bg3);}
+#voltageBar .fill{height:100%;background:linear-gradient(90deg,var(--danger),var(--warning),var(--accent));border-radius:2px;transition:width .6s;}
+
+.topBtn{background:var(--bg3);color:var(--tx1);padding:5px 12px;border-radius:3px;font-size:11px;font-weight:600;transition:.2s;border:1px solid transparent;text-transform:uppercase;letter-spacing:.5px;}
+.topBtn:hover{border-color:var(--copper);color:var(--copper-bright);background:var(--bg2);}
+.topBtn.accent{background:var(--accent-dim);color:var(--accent);border-color:var(--accent-dim);}
+.topBtn.accent:hover{background:rgba(34,255,68,.15);border-color:var(--accent);}
+
+/*── MAIN 3-PANEL ──*/
+#main{display:flex;flex:1;overflow:hidden;}
+
+/*── LEFT: NODE LIST ──*/
+#leftPanel{width:290px;min-width:290px;background:var(--bg1);border-right:2px solid var(--copper-dim);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#leftPanel::after{content:'';position:absolute;right:-2px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,var(--copper),transparent);opacity:.4;}
+#leftHeader{padding:10px 12px;border-bottom:1px solid var(--bg3);}
+#leftHeader h3{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+#leftHeader h3::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--led-on);box-shadow:0 0 6px var(--led-on);}
+#addNodeBtn{width:100%;padding:7px;background:var(--bg2);color:var(--accent);border:1px dashed var(--accent-dim);border-radius:3px;font-size:12px;font-weight:600;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+#addNodeBtn:hover{background:rgba(34,255,68,.08);border-color:var(--accent);}
+#nodeList{flex:1;overflow-y:auto;padding:6px;}
+
+/* Node Card (chip-style) */
+.nodeCard{background:var(--chip);border:1px solid var(--chip-border);border-radius:4px;padding:10px;margin-bottom:5px;cursor:pointer;transition:.2s;position:relative;overflow:hidden;}
+.nodeCard::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--led-off);transition:.3s;}
+.nodeCard.powered::before{background:var(--led-on);box-shadow:0 0 8px var(--led-on);}
+.nodeCard.selected{border-color:var(--copper);box-shadow:0 0 10px var(--trace-glow);}
+.nodeCard:hover{border-color:var(--copper-dim);}
+.nodeCard .nTop{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.nodeCard .nLed{width:8px;height:8px;border-radius:50%;background:var(--led-off);flex-shrink:0;transition:.3s;}
+.nodeCard .nLed.on{background:var(--led-on);box-shadow:0 0 6px var(--led-on);}
+.nodeCard .nLed.red{background:var(--led-red);box-shadow:0 0 6px var(--led-red);}
+.nodeCard .nName{font-weight:600;font-size:12px;flex:1;color:var(--tx0);}
+.nodeCard .nStreak{font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+.nodeCard .nMeta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--tx2);}
+.nodeCard .nSchedule{background:var(--bg1);padding:1px 5px;border-radius:2px;font-size:9px;color:var(--tx2);}
+.nodeCard .nPriority{padding:1px 5px;border-radius:2px;font-size:9px;font-weight:700;text-transform:uppercase;}
+.nPriority.high{background:rgba(255,51,51,.15);color:var(--danger);}
+.nPriority.medium{background:rgba(255,170,0,.15);color:var(--warning);}
+.nPriority.low{background:rgba(34,255,68,.1);color:var(--accent);}
+
+/* Short circuit warning */
+.shortCircuit{background:rgba(255,51,51,.06);border-color:var(--danger) !important;}
+.shortCircuit::after{content:'⚡ SHORT CIRCUIT';position:absolute;top:3px;right:6px;font-size:8px;color:var(--danger);font-weight:700;letter-spacing:.5px;}
+
+/*── CENTER: PCB BOARD ──*/
+#centerPanel{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#pcbBoard{flex:1;position:relative;overflow:hidden;}
+#traceCanvas{position:absolute;inset:0;z-index:1;pointer-events:none;}
+#pcbContent{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px;}
+
+/* Central Chip Display */
+#centralChip{background:var(--chip);border:2px solid var(--chip-border);border-radius:4px;padding:20px 32px;position:relative;min-width:320px;text-align:center;box-shadow:0 0 30px rgba(0,0,0,.4);}
+#centralChip::before,#centralChip::after{content:'';position:absolute;top:15px;bottom:15px;width:10px;}
+#centralChip::before{left:-12px;background:repeating-linear-gradient(180deg,var(--pin) 0px,var(--pin) 4px,transparent 4px,transparent 10px);border-radius:1px;}
+#centralChip::after{right:-12px;background:repeating-linear-gradient(180deg,var(--pin) 0px,var(--pin) 4px,transparent 4px,transparent 10px);border-radius:1px;}
+#chipLabel{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;}
+#chipName{font-size:16px;font-weight:700;color:var(--copper-bright);margin-bottom:4px;}
+#chipStage{font-size:11px;color:var(--accent);margin-bottom:12px;}
+
+/* Current Flow Display */
+#currentDisplay{display:flex;align-items:baseline;gap:4px;margin-bottom:4px;}
+#currentDisplay .bigNum{font-size:56px;font-weight:900;line-height:1;color:var(--accent);text-shadow:0 0 20px rgba(34,255,68,.3);font-variant-numeric:tabular-nums;}
+#currentDisplay .unit{font-size:14px;color:var(--tx2);}
+
+#streakInfo{font-size:11px;color:var(--tx2);}
+#streakInfo span{color:var(--accent);font-weight:700;}
+
+/* Power Button */
+#powerBtn{width:180px;height:50px;background:linear-gradient(135deg,var(--accent-dim),#0a4420);color:var(--accent);font-size:14px;font-weight:800;border-radius:4px;display:flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent-dim);transition:.2s;text-transform:uppercase;letter-spacing:2px;position:relative;overflow:hidden;margin-top:8px;}
+#powerBtn::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(34,255,68,.1),transparent);transform:translateX(-100%);transition:transform .6s;}
+#powerBtn:hover::before{transform:translateX(100%);}
+#powerBtn:hover{border-color:var(--accent);box-shadow:0 0 20px rgba(34,255,68,.2);}
+#powerBtn:active{transform:scale(.97);}
+#powerBtn.powered{background:linear-gradient(135deg,#0a3320,#0a2018);color:var(--tx2);border-color:var(--bg3);}
+#powerBtn.powered::after{content:'✓ ONLINE';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent);letter-spacing:2px;}
+#powerBtn.powered>span{visibility:hidden;}
+
+/* LED Status Row */
+#ledRow{display:flex;gap:12px;margin-top:8px;}
+.ledIndicator{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.ledIndicator .led{width:10px;height:10px;border-radius:50%;background:var(--led-off);transition:.3s;}
+.ledIndicator .led.green{background:var(--led-on);box-shadow:0 0 8px var(--led-on);}
+.ledIndicator .led.red{background:var(--led-red);box-shadow:0 0 8px var(--led-red);}
+.ledIndicator .led.amber{background:var(--led-amber);box-shadow:0 0 8px var(--led-amber);}
+.ledIndicator .ledLabel{font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;}
+
+/* Empty state */
+.emptyState{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--tx2);gap:10px;text-align:center;padding:40px;}
+.emptyState .emIcon{font-size:48px;opacity:.3;filter:grayscale(1);}
+.emptyState p{max-width:260px;font-size:12px;line-height:1.5;}
+
+/* Power Grid / Heatmap */
+#gridArea{padding:10px 14px;border-top:2px solid var(--copper-dim);background:var(--bg1);position:relative;}
+#gridArea::before{content:'';position:absolute;top:-2px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--copper),transparent);opacity:.4;}
+#gridTitle{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+#gridTitle::before{content:'PWR';background:var(--chip);padding:1px 4px;border-radius:2px;font-size:8px;color:var(--copper);}
+#powerGrid{display:flex;gap:2px;flex-wrap:wrap;}
+.gridCell{width:13px;height:13px;border-radius:1px;background:var(--bg3);transition:.3s;position:relative;border:1px solid rgba(255,255,255,.03);}
+.gridCell.p1{background:rgba(34,255,68,.12);}
+.gridCell.p2{background:rgba(34,255,68,.25);}
+.gridCell.p3{background:rgba(34,255,68,.4);}
+.gridCell.p4{background:rgba(34,255,68,.6);}
+.gridCell.p5{background:var(--accent);box-shadow:0 0 3px var(--accent);}
+.gridCell.today{outline:1.5px solid var(--copper-bright);outline-offset:1px;}
+.gridCell.missed{background:rgba(255,51,51,.25);}
+
+/*── RIGHT PANEL ──*/
+#rightPanel{width:310px;min-width:310px;background:var(--bg1);border-left:2px solid var(--copper-dim);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#rightPanel::before{content:'';position:absolute;left:-2px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,var(--copper),transparent);opacity:.4;}
+#rightTabs{display:flex;border-bottom:1px solid var(--bg3);background:var(--bg0);}
+.rTab{flex:1;padding:8px 4px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);background:none;text-align:center;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap;}
+.rTab:hover{color:var(--tx0);}
+.rTab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.rTabBody{flex:1;overflow-y:auto;padding:10px;display:none;}
+.rTabBody.active{display:block;}
+
+/* Stat Chips */
+.statChip{background:var(--chip);border:1px solid var(--chip-border);border-radius:4px;padding:10px 12px;margin-bottom:6px;position:relative;}
+.statChip::before{content:'';position:absolute;top:6px;left:0;width:2px;height:calc(100% - 12px);background:var(--copper-dim);border-radius:1px;}
+.statChip h4{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+.statChip .val{font-size:24px;font-weight:900;color:var(--accent);font-variant-numeric:tabular-nums;}
+.statChip .sub{font-size:10px;color:var(--tx2);margin-top:1px;}
+.statRow{display:flex;gap:6px;}
+.statRow .statChip{flex:1;}
+
+/* Overclock Section */
+#overclockArea{background:var(--chip);border:1px solid var(--warning);border-radius:4px;padding:12px;margin-bottom:8px;}
+#overclockArea h4{font-size:11px;color:var(--warning);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+#overclockBar{width:100%;height:10px;background:var(--bg0);border-radius:5px;overflow:hidden;margin-bottom:4px;border:1px solid var(--bg3);}
+#overclockBar .fill{height:100%;background:linear-gradient(90deg,var(--warning),var(--danger));border-radius:4px;transition:width .5s;}
+#overclockInfo{font-size:10px;color:var(--tx2);}
+
+/* Debug Log */
+.debugEntry{background:var(--bg0);border:1px solid var(--bg3);border-radius:3px;padding:8px 10px;margin-bottom:4px;font-size:11px;line-height:1.4;color:var(--tx1);border-left:3px solid var(--copper-dim);}
+.debugEntry.warn{border-left-color:var(--warning);}
+.debugEntry.err{border-left-color:var(--danger);}
+.debugEntry.ok{border-left-color:var(--accent);}
+.debugEntry .dTime{font-size:9px;color:var(--tx2);margin-bottom:2px;}
+
+/* Motherboard Weekly */
+.mbDay{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg3);}
+.mbDay:last-child{border-bottom:none;}
+.mbDay .dayLabel{width:32px;font-size:10px;color:var(--tx2);text-transform:uppercase;}
+.mbDay .dayTrack{flex:1;height:8px;background:var(--bg0);border-radius:4px;overflow:hidden;border:1px solid var(--bg3);}
+.mbDay .dayFill{height:100%;border-radius:3px;transition:width .3s;}
+.mbDay .dayPct{width:36px;text-align:right;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;}
+
+/* Firmware update */
+.fwHabit{display:flex;align-items:center;gap:8px;padding:8px;background:var(--chip);border:1px solid var(--chip-border);border-radius:4px;margin-bottom:4px;}
+.fwHabit .fwLed{width:6px;height:6px;border-radius:50%;background:var(--led-on);flex-shrink:0;}
+.fwHabit .fwName{flex:1;font-size:12px;}
+.fwHabit select,.fwHabit input{width:auto;padding:3px 6px;font-size:10px;}
+
+/*═══ MODALS ═══*/
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s;}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{background:var(--bg2);border:1px solid var(--copper-dim);border-radius:var(--radius-lg);padding:24px;width:440px;max-width:92vw;max-height:82vh;overflow-y:auto;transform:translateY(16px);transition:.3s;box-shadow:0 0 40px rgba(0,0,0,.5),0 0 2px var(--copper-dim);}
+.modal-overlay.show .modal-box{transform:translateY(0);}
+.modal-box h2{font-size:16px;color:var(--copper-bright);margin-bottom:14px;font-family:var(--font);letter-spacing:1px;}
+.modal-box label{display:block;font-size:10px;color:var(--tx2);margin-bottom:3px;margin-top:10px;text-transform:uppercase;letter-spacing:1px;}
+.modal-box input,.modal-box select,.modal-box textarea{width:100%;}
+.modal-box textarea{min-height:50px;resize:vertical;}
+.mActions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;}
+.mActions button{padding:7px 18px;border-radius:3px;font-weight:600;font-size:12px;}
+.btn-cancel{background:var(--bg3);color:var(--tx1);}
+.btn-cancel:hover{background:var(--bg2);}
+.btn-save{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-dim);}
+.btn-save:hover{background:rgba(34,255,68,.15);border-color:var(--accent);}
+.btn-del{background:rgba(255,51,51,.15);color:var(--danger);border:1px solid rgba(255,51,51,.2);}
+.btn-del:hover{background:rgba(255,51,51,.25);}
+
+/* PSU Settings Modal */
+.psu-section{background:var(--chip);border:1px solid var(--chip-border);border-radius:4px;padding:12px;margin-bottom:8px;}
+.psu-section h4{font-size:10px;color:var(--copper);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+
+/*═══ TOAST ═══*/
+#toastBox{position:fixed;top:56px;right:14px;z-index:2000;display:flex;flex-direction:column;gap:4px;}
+.toast{padding:8px 14px;border-radius:3px;font-size:12px;font-weight:500;background:var(--chip);color:var(--tx0);border-left:3px solid var(--accent);animation:tIn .3s,tOut .3s 2.7s forwards;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.toast.success{border-left-color:var(--accent);}
+.toast.error{border-left-color:var(--danger);}
+.toast.warn{border-left-color:var(--warning);}
+@keyframes tIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+@keyframes tOut{to{opacity:0;transform:translateX(30px);}}
+
+/*═══ ANIMATIONS ═══*/
+@keyframes pulse-green{0%,100%{box-shadow:0 0 4px var(--accent);}50%{box-shadow:0 0 16px var(--accent);}}
+@keyframes current-flow{0%{stroke-dashoffset:20;}100%{stroke-dashoffset:0;}}
+@keyframes scanline{0%{top:-2px;}100%{top:100%;}}
+.scanning::after{content:'';position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.3;animation:scanline 3s linear infinite;}
+
+/*═══ RESPONSIVE ═══*/
+@media(max-width:960px){#leftPanel{width:240px;min-width:240px;}#rightPanel{width:260px;min-width:260px;}}
+@media(max-width:720px){#main{flex-direction:column;}#leftPanel,#rightPanel{width:100%;min-width:0;max-height:38vh;}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ════ TOP BAR ════ -->
+<div id="topBar">
+  <div class="logo">
+    <div class="chip-icon">⚡</div>
+    CIRCUITHABIT
+  </div>
+  <div id="voltageMeter">
+    <span class="vm-label">V<sub>out</sub></span>
+    <span class="vm-val" id="voltageVal">0.0</span>
+    <span class="vm-unit">V</span>
+    <div id="voltageBar"><div class="fill" id="voltageFill" style="width:0%"></div></div>
+  </div>
+  <div class="topSpacer"></div>
+  <button class="topBtn" onclick="openFirmware()">🔧 Firmware</button>
+  <button class="topBtn" onclick="openMBOverview()">🖥️ Motherboard</button>
+  <button class="topBtn" onclick="exportData()">💾 Backup</button>
+  <button class="topBtn" onclick="importData()">📂 Restore</button>
+  <button class="topBtn" onclick="openPSU()">⚙ PSU</button>
+</div>
+
+<!-- ════ MAIN ════ -->
+<div id="main">
+
+  <!-- LEFT: NODE LIST -->
+  <div id="leftPanel">
+    <div id="leftHeader">
+      <h3>Circuit Nodes</h3>
+      <button id="addNodeBtn" onclick="openAddNode()">＋ Add Node</button>
+    </div>
+    <div id="nodeList"></div>
+  </div>
+
+  <!-- CENTER: PCB -->
+  <div id="centerPanel">
+    <div id="pcbBoard">
+      <canvas id="traceCanvas"></canvas>
+      <div id="pcbContent">
+        <div id="emptyBoard" class="emptyState">
+          <div class="emIcon">🔌</div>
+          <p>No nodes on the board. Add a habit node to power up your circuit.</p>
+        </div>
+        <div id="activeBoard" style="display:none;">
+          <div id="centralChip" class="scanning">
+            <div id="chipLabel">NODE // ACTIVE</div>
+            <div id="chipName">—</div>
+            <div id="chipStage">OFFLINE</div>
+            <div id="currentDisplay">
+              <span class="bigNum" id="streakNum">0</span>
+              <span class="unit">day streak</span>
+            </div>
+            <div id="streakInfo">Best: <span id="bestStreakVal">0</span> · Total: <span id="totalHitsVal">0</span></div>
+            <div id="ledRow">
+              <div class="ledIndicator"><div class="led" id="ledPower"></div><div class="ledLabel">PWR</div></div>
+              <div class="ledIndicator"><div class="led" id="ledData"></div><div class="ledLabel">DAT</div></div>
+              <div class="ledIndicator"><div class="led" id="ledOC"></div><div class="ledLabel">O/C</div></div>
+              <div class="ledIndicator"><div class="led" id="ledErr"></div><div class="ledLabel">ERR</div></div>
+            </div>
+            <button id="powerBtn" onclick="powerOn()"><span>⚡ POWER ON</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="gridArea">
+      <div id="gridTitle">Power Grid — 30 Days</div>
+      <div id="powerGrid"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rightPanel">
+    <div id="rightTabs">
+      <button class="rTab active" onclick="switchTab('stats')">Stats</button>
+      <button class="rTab" onclick="switchTab('overclock')">⚡O/C</button>
+      <button class="rTab" onclick="switchTab('debug')">Debug</button>
+      <button class="rTab" onclick="switchTab('weekly')">Weekly</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="rTabBody active" id="tab-stats">
+      <div class="statRow">
+        <div class="statChip"><h4>Total Cycles</h4><div class="val" id="sTotal">0</div><div class="sub">lifetime check‑ins</div></div>
+        <div class="statChip"><h4>Peak Streak</h4><div class="val" id="sPeak">0</div><div class="sub">consecutive days</div></div>
+      </div>
+      <div class="statRow">
+        <div class="statChip"><h4>Active Nodes</h4><div class="val" id="sNodes">0</div></div>
+        <div class="statChip"><h4>Uptime</h4><div class="val" id="sUptime">0%</div><div class="sub">this week</div></div>
+      </div>
+      <div class="statChip"><h4>Power Efficiency</h4><div class="val" id="sEfficiency">0%</div><div class="sub">all‑time completion rate</div></div>
+      <div class="statChip"><h4>Current Draw</h4><div id="currentDrawInfo" style="font-size:11px;color:var(--tx2);margin-top:4px;line-height:1.4;"></div></div>
+    </div>
+
+    <!-- Overclock -->
+    <div class="rTabBody" id="tab-overclock">
+      <div id="overclockArea">
+        <h4>⚡ Overclock Mode</h4>
+        <div id="overclockBar"><div class="fill" id="ocFill" style="width:0%"></div></div>
+        <div id="overclockInfo">Complete all habits + bonus goals to overclock.</div>
+      </div>
+      <div class="statChip"><h4>OC Score</h4><div class="val" id="ocScore">0</div><div class="sub">overclock points this month</div></div>
+      <div class="statChip"><h4>Bonus Completions</h4><div class="val" id="ocBonus">0</div><div class="sub">extra goals hit</div></div>
+      <div id="ocChallenges" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Debug Log -->
+    <div class="rTabBody" id="tab-debug">
+      <div style="margin-bottom:8px;display:flex;gap:6px;">
+        <button class="topBtn accent" onclick="runDebug()" style="font-size:10px;">▶ Run Diagnostics</button>
+        <button class="topBtn" onclick="clearDebug()" style="font-size:10px;">Clear</button>
+      </div>
+      <div id="debugLog"></div>
+    </div>
+
+    <!-- Weekly Motherboard -->
+    <div class="rTabBody" id="tab-weekly">
+      <div style="font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Weekly Throughput</div>
+      <div id="weeklyBars"></div>
+      <div class="statChip" style="margin-top:8px;"><h4>Bottleneck</h4><div id="bottleneckInfo" style="font-size:11px;color:var(--warning);margin-top:4px;"></div></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ════ ADD/EDIT NODE MODAL ════ -->
+<div class="modal-overlay" id="nodeModal">
+  <div class="modal-box">
+    <h2 id="modalTitle">⊕ ADD CIRCUIT NODE</h2>
+    <label>Node Name</label>
+    <input id="mName" placeholder="e.g. Morning Run">
+    <label>Schedule Time</label>
+    <div style="display:flex;gap:8px;">
+      <input type="time" id="mTimeStart" style="flex:1;">
+      <span style="color:var(--tx2);align-self:center;">to</span>
+      <input type="time" id="mTimeEnd" style="flex:1;">
+    </div>
+    <label>Priority</label>
+    <select id="mPriority">
+      <option value="high">🔴 High — Critical path</option>
+      <option value="medium" selected>🟡 Medium — Standard</option>
+      <option value="low">🟢 Low — Optional</option>
+    </select>
+    <label>Category</label>
+    <select id="mCategory">
+      <option value="health">💪 Health</option>
+      <option value="mind">🧠 Mind</option>
+      <option value="work">💼 Work</option>
+      <option value="social">👥 Social</option>
+      <option value="creative">🎨 Creative</option>
+      <option value="finance">💰 Finance</option>
+      <option value="self">🧘 Self-care</option>
+      <option value="other">⚙ Other</option>
+    </select>
+    <label>Overclock Goal (optional bonus)</label>
+    <input id="mOCGoal" placeholder="e.g. Run 5km instead of 3km">
+    <label>Notes</label>
+    <textarea id="mNotes" placeholder="Additional context..."></textarea>
+    <div class="mActions">
+      <button class="btn-del" id="mDelBtn" style="display:none;margin-right:auto;" onclick="deleteNode()">Delete</button>
+      <button class="btn-cancel" onclick="closeModal('nodeModal')">Cancel</button>
+      <button class="btn-save" onclick="saveNode()">Save Node</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ FIRMWARE UPDATE MODAL ════ -->
+<div class="modal-overlay" id="fwModal">
+  <div class="modal-box" style="width:520px;">
+    <h2>🔧 FIRMWARE UPDATE — Batch Modify</h2>
+    <p style="font-size:11px;color:var(--tx2);margin-bottom:12px;">Adjust all nodes at once. Changes apply immediately.</p>
+    <div id="fwList"></div>
+    <div class="mActions">
+      <button class="btn-cancel" onclick="closeModal('fwModal')">Close</button>
+      <button class="btn-save" onclick="applyFirmware()">Apply Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MOTHERBOARD OVERVIEW MODAL ════ -->
+<div class="modal-overlay" id="mbModal">
+  <div class="modal-box" style="width:600px;">
+    <h2>🖥️ MOTHERBOARD — Weekly Overview</h2>
+    <div id="mbContent"></div>
+    <div class="mActions">
+      <button class="btn-cancel" onclick="closeModal('mbModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PSU SETTINGS MODAL ════ -->
+<div class="modal-overlay" id="psuModal">
+  <div class="modal-box">
+    <h2>⚙ POWER SUPPLY UNIT — Settings</h2>
+    <div class="psu-section">
+      <h4>Audio</h4>
+      <label>Sound Effects</label>
+      <select id="psuSound">
+        <option value="on">Enabled</option>
+        <option value="off">Disabled</option>
+      </select>
+    </div>
+    <div class="psu-section">
+      <h4>Data Management</h4>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button class="topBtn" onclick="exportData()">💾 Export JSON</button>
+        <button class="topBtn" onclick="importData()">📂 Import JSON</button>
+      </div>
+    </div>
+    <div class="psu-section">
+      <h4>Danger Zone</h4>
+      <button class="btn-del" onclick="resetAll()" style="width:100%;margin-top:4px;">🗑 Factory Reset — Erase All Data</button>
+    </div>
+    <div class="mActions">
+      <button class="btn-cancel" onclick="closePSU()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastBox"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CIRCUITHABIT — Core State & DB
+// ═══════════════════════════════════════════════
+const DB_NAME='CircuitHabitDB',DB_VER=1,STORE='state';
+let db=null;
+
+let S={
+  nodes:[],
+  selectedId:null,
+  settings:{sound:'on'},
+  ocScore:0,
+  ocBonusTotal:0,
+  debugEntries:[],
+};
+
+const CATS={health:'💪',mind:'🧠',work:'💼',social:'👥',creative:'🎨',finance:'💰',self:'🧘',other:'⚙'};
+const PRIO_ORDER={high:0,medium:1,low:2};
+
+function today(){return new Date().toISOString().slice(0,10);}
+function dayOfWeek(){return new Date().getDay();}
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ── IndexedDB ──
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VER);
+    r.onupgradeneeded=e=>{e.target.result.createObjectStore(STORE);};
+    r.onsuccess=e=>{db=e.target.result;res(db);};
+    r.onerror=e=>rej(e.target.error);
+  });
+}
+function save(){if(!db)return;const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(S,'app');}
+function load(){return new Promise(res=>{if(!db)return res(null);const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get('app');r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null);});}
+
+// ═══════════════════════════════════════════════
+//  WEB AUDIO — Electrical Sound Design
+// ═══════════════════════════════════════════════
+let audioCtx=null;
+function aud(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function soundEnabled(){return S.settings.sound!=='off';}
+
+function playHum(){
+  if(!soundEnabled())return;
+  try{
+    const c=aud(),t=c.currentTime;
+    // 60Hz electrical hum + harmonics
+    [60,120,180].forEach((f,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.type='sine';o.frequency.value=f;
+      const vol=0.08/(i+1);
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(vol,t+0.03);
+      g.gain.setValueAtTime(vol,t+0.12);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.connect(g).connect(c.destination);
+      o.start(t);o.stop(t+0.4);
+    });
+    // Click/relay sound
+    const buf=c.createBuffer(1,c.sampleRate*0.02,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.3*Math.exp(-i/(c.sampleRate*0.005));
+    const n=c.createBufferSource();n.buffer=buf;
+    const ng=c.createGain();ng.gain.value=0.25;
+    const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=2000;
+    n.connect(f).connect(ng).connect(c.destination);
+    n.start(t);n.stop(t+0.02);
+  }catch(e){}
+}
+
+function playShortCircuit(){
+  if(!soundEnabled())return;
+  try{
+    const c=aud(),t=c.currentTime;
+    const buf=c.createBuffer(1,c.sampleRate*0.15,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.4;
+    const n=c.createBufferSource();n.buffer=buf;
+    const g=c.createGain();
+    g.gain.setValueAtTime(0.3,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+    const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=4000;f.Q.value=3;
+    n.connect(f).connect(g).connect(c.destination);
+    n.start(t);n.stop(t+0.15);
+    // Descending buzz
+    const o=c.createOscillator(),og=c.createGain();
+    o.type='sawtooth';o.frequency.setValueAtTime(800,t);o.frequency.exponentialRampToValueAtTime(60,t+0.2);
+    og.gain.setValueAtTime(0.08,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.2);
+    o.connect(og).connect(c.destination);o.start(t);o.stop(t+0.2);
+  }catch(e){}
+}
+
+function playOverclock(){
+  if(!soundEnabled())return;
+  try{
+    const c=aud(),t=c.currentTime;
+    [440,554.37,659.25,880].forEach((f,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.type='square';o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+i*0.08);
+      g.gain.linearRampToValueAtTime(0.06,t+i*0.08+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+i*0.08+0.3);
+      o.connect(g).connect(c.destination);o.start(t+i*0.08);o.stop(t+i*0.08+0.3);
+    });
+  }catch(e){}
+}
+
+function playClick(){
+  if(!soundEnabled())return;
+  try{
+    const c=aud(),t=c.currentTime;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='sine';o.frequency.value=1200;
+    g.gain.setValueAtTime(0.05,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    o.connect(g).connect(c.destination);o.start(t);o.stop(t+0.05);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+//  TRACE CANVAS — Animated circuit traces
+// ═══════════════════════════════════════════════
+const tCanvas=document.getElementById('traceCanvas');
+const tCtx=tCanvas.getContext('2d');
+let traces=[];
+let pulses=[];
+
+function resizeTraceCanvas(){
+  tCanvas.width=tCanvas.parentElement.offsetWidth;
+  tCanvas.height=tCanvas.parentElement.offsetHeight;
+  generateTraces();
+}
+
+function generateTraces(){
+  traces=[];
+  const w=tCanvas.width,h=tCanvas.height;
+  const nodeCount=S.nodes.length;
+  if(nodeCount===0)return;
+  // Generate random PCB-like orthogonal traces
+  const cx=w/2,cy=h*0.42;
+  for(let i=0;i<Math.min(nodeCount*3,20);i++){
+    const pts=[];
+    let x=cx+(Math.random()-.5)*w*0.6;
+    let y=cy+(Math.random()-.5)*h*0.4;
+    pts.push({x,y});
+    const segs=2+Math.floor(Math.random()*4);
+    for(let s=0;s<segs;s++){
+      if(Math.random()>.5){x+=(Math.random()-.5)*160;}
+      else{y+=(Math.random()-.5)*120;}
+      x=Math.max(20,Math.min(w-20,x));
+      y=Math.max(20,Math.min(h-20,y));
+      pts.push({x,y});
+    }
+    const powered=Math.random()<(S.nodes.filter(n=>n.completions[today()]).length/Math.max(1,nodeCount));
+    traces.push({pts,powered,width:1.5+Math.random()*1.5});
+  }
+}
+
+function animateTraces(){
+  tCtx.clearRect(0,0,tCanvas.width,tCanvas.height);
+
+  // Draw traces
+  traces.forEach(t=>{
+    tCtx.beginPath();
+    tCtx.moveTo(t.pts[0].x,t.pts[0].y);
+    for(let i=1;i<t.pts.length;i++){
+      tCtx.lineTo(t.pts[i].x,t.pts[i].y);
+    }
+    tCtx.strokeStyle=t.powered?'rgba(200,148,62,0.35)':'rgba(100,80,40,0.12)';
+    tCtx.lineWidth=t.width;
+    tCtx.stroke();
+
+    if(t.powered){
+      tCtx.strokeStyle='rgba(200,148,62,0.08)';
+      tCtx.lineWidth=t.width+4;
+      tCtx.stroke();
+    }
+
+    // Via pads at corners
+    t.pts.forEach(p=>{
+      tCtx.beginPath();
+      tCtx.arc(p.x,p.y,t.powered?3:2,0,Math.PI*2);
+      tCtx.fillStyle=t.powered?'rgba(200,148,62,0.5)':'rgba(100,80,40,0.2)';
+      tCtx.fill();
+    });
+  });
+
+  // Animate pulses along powered traces
+  pulses=pulses.filter(p=>p.progress<1);
+  if(Math.random()<0.03*S.nodes.filter(n=>n.completions[today()]).length){
+    const poweredTraces=traces.filter(t=>t.powered);
+    if(poweredTraces.length>0){
+      const t=poweredTraces[Math.floor(Math.random()*poweredTraces.length)];
+      pulses.push({trace:t,progress:0,speed:0.008+Math.random()*0.012});
+    }
+  }
+
+  pulses.forEach(p=>{
+    p.progress+=p.speed;
+    const t=p.trace;
+    // Find position along trace
+    const totalLen=traceTotalLength(t.pts);
+    const targetLen=totalLen*p.progress;
+    const pos=posAlongTrace(t.pts,targetLen);
+    if(pos){
+      const alpha=1-Math.abs(p.progress-0.5)*2;
+      const grd=tCtx.createRadialGradient(pos.x,pos.y,0,pos.x,pos.y,8);
+      grd.addColorStop(0,`rgba(34,255,68,${0.6*alpha})`);
+      grd.addColorStop(1,`rgba(34,255,68,0)`);
+      tCtx.beginPath();
+      tCtx.arc(pos.x,pos.y,8,0,Math.PI*2);
+      tCtx.fillStyle=grd;
+      tCtx.fill();
+    }
+  });
+
+  requestAnimationFrame(animateTraces);
+}
+
+function traceTotalLength(pts){
+  let l=0;
+  for(let i=1;i<pts.length;i++){
+    l+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+  }
+  return l;
+}
+
+function posAlongTrace(pts,targetLen){
+  let accum=0;
+  for(let i=1;i<pts.length;i++){
+    const segLen=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+    if(accum+segLen>=targetLen){
+      const t=(targetLen-accum)/segLen;
+      return{x:pts[i-1].x+(pts[i].x-pts[i-1].x)*t,y:pts[i-1].y+(pts[i].y-pts[i-1].y)*t};
+    }
+    accum+=segLen;
+  }
+  return pts[pts.length-1];
+}
+
+// ═══════════════════════════════════════════════
+//  NODE LOGIC
+// ═══════════════════════════════════════════════
+function createNode(name,timeStart,timeEnd,priority,category,ocGoal,notes){
+  return{
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    name,timeStart:timeStart||'',timeEnd:timeEnd||'',
+    priority:priority||'medium',
+    category:category||'other',
+    ocGoal:ocGoal||'',
+    notes:notes||'',
+    streak:0,bestStreak:0,totalHits:0,
+    completions:{},// {"2026-02-25":true}
+    ocCompletions:{},// {"2026-02-25":true}
+    createdAt:today(),
+  };
+}
+
+function recalcStreak(n){
+  const t=new Date();
+  let streak=0,d=new Date(t);
+  if(!n.completions[today()])d.setDate(d.getDate()-1);
+  while(true){
+    if(n.completions[d.toISOString().slice(0,10)]){streak++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+  n.streak=streak;
+  if(streak>n.bestStreak)n.bestStreak=streak;
+}
+
+function getSelected(){return S.nodes.find(n=>n.id===S.selectedId)||null;}
+function isDoneToday(n){return n.completions[today()]===true;}
+function isOCToday(n){return n.ocCompletions[today()]===true;}
+
+function detectShortCircuits(){
+  // Detect overlapping schedules
+  const conflicts=[];
+  for(let i=0;i<S.nodes.length;i++){
+    if(!S.nodes[i].timeStart||!S.nodes[i].timeEnd)continue;
+    for(let j=i+1;j<S.nodes.length;j++){
+      if(!S.nodes[j].timeStart||!S.nodes[j].timeEnd)continue;
+      const a0=S.nodes[i].timeStart,a1=S.nodes[i].timeEnd;
+      const b0=S.nodes[j].timeStart,b1=S.nodes[j].timeEnd;
+      if(a0<b1&&b0<a1){
+        conflicts.push([S.nodes[i].id,S.nodes[j].id]);
+      }
+    }
+  }
+  return conflicts;
+}
+
+// ═══════════════════════════════════════════════
+//  POWER ON (Check-in)
+// ═══════════════════════════════════════════════
+function powerOn(){
+  const n=getSelected();
+  if(!n||isDoneToday(n))return;
+
+  n.completions[today()]=true;
+  n.totalHits++;
+  recalcStreak(n);
+
+  playHum();
+  generateTraces();
+  save();
+  renderAll();
+
+  // Flash central chip
+  const chip=document.getElementById('centralChip');
+  chip.style.boxShadow='0 0 40px rgba(34,255,68,.4)';
+  setTimeout(()=>chip.style.boxShadow='',500);
+
+  toast(`⚡ ${n.name} — POWERED ON`,'success');
+
+  // Check if all nodes done → overclock eligible
+  if(S.nodes.every(nd=>isDoneToday(nd))&&S.nodes.length>0){
+    toast('🔥 All nodes online! Overclock available.','warn');
+    playOverclock();
+  }
+}
+
+function overclockNode(){
+  const n=getSelected();
+  if(!n||!isDoneToday(n)||isOCToday(n)||!n.ocGoal)return;
+  n.ocCompletions[today()]=true;
+  S.ocScore++;
+  S.ocBonusTotal++;
+  playOverclock();
+  save();
+  renderAll();
+  toast(`⚡ ${n.name} — OVERCLOCKED!`,'warn');
+}
+
+// ═══════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════
+function renderAll(){
+  renderNodeList();
+  renderCenter();
+  renderPowerGrid();
+  renderVoltage();
+  renderStats();
+  renderOverclock();
+  renderWeekly();
+}
+
+function renderNodeList(){
+  const list=document.getElementById('nodeList');
+  if(S.nodes.length===0){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--tx2);font-size:11px;">No nodes configured</div>';
+    return;
+  }
+  const conflicts=detectShortCircuits();
+  const conflictIds=new Set(conflicts.flat());
+
+  // Sort by time, then priority
+  const sorted=[...S.nodes].sort((a,b)=>{
+    if(a.timeStart&&b.timeStart)return a.timeStart.localeCompare(b.timeStart);
+    if(a.timeStart)return -1;if(b.timeStart)return 1;
+    return PRIO_ORDER[a.priority]-PRIO_ORDER[b.priority];
+  });
+
+  list.innerHTML=sorted.map(n=>{
+    const done=isDoneToday(n);
+    const oc=isOCToday(n);
+    const sel=n.id===S.selectedId;
+    const sc=conflictIds.has(n.id);
+    return`<div class="nodeCard${sel?' selected':''}${done?' powered':''}${sc?' shortCircuit':''}" onclick="selectNode('${n.id}')" ondblclick="openEditNode('${n.id}')">
+      <div class="nTop">
+        <div class="nLed${done?(oc?' amber':' on'):' red'}"></div>
+        <div class="nName">${CATS[n.category]||'⚙'} ${n.name}</div>
+        <div class="nStreak">${n.streak>0?n.streak+'⚡':'—'}</div>
+      </div>
+      <div class="nMeta">
+        <span class="nPriority ${n.priority}">${n.priority}</span>
+        ${n.timeStart?`<span class="nSchedule">${n.timeStart}${n.timeEnd?'–'+n.timeEnd:''}</span>`:''}
+        ${oc?'<span style="color:var(--warning);font-size:9px;font-weight:700;">O/C</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCenter(){
+  const n=getSelected();
+  document.getElementById('emptyBoard').style.display=n?'none':'';
+  document.getElementById('activeBoard').style.display=n?'':'none';
+  if(!n)return;
+
+  const done=isDoneToday(n);
+  const oc=isOCToday(n);
+
+  document.getElementById('chipLabel').textContent=`NODE // ${n.category.toUpperCase()} — ${n.priority.toUpperCase()}`;
+  document.getElementById('chipName').textContent=n.name;
+  document.getElementById('chipStage').textContent=done?(oc?'OVERCLOCKED':'ONLINE'):'STANDBY';
+  document.getElementById('chipStage').style.color=done?(oc?'var(--warning)':'var(--accent)'):'var(--tx2)';
+  document.getElementById('streakNum').textContent=n.streak;
+  document.getElementById('bestStreakVal').textContent=n.bestStreak;
+  document.getElementById('totalHitsVal').textContent=n.totalHits;
+
+  // LEDs
+  document.getElementById('ledPower').className='led'+(done?' green':'');
+  document.getElementById('ledData').className='led'+(n.streak>7?' green':n.streak>0?' amber':'');
+  document.getElementById('ledOC').className='led'+(oc?' amber':'');
+  document.getElementById('ledErr').className='led'+(n.streak===0&&n.totalHits>0?' red':'');
+
+  // Power button
+  const btn=document.getElementById('powerBtn');
+  if(done){
+    btn.className='powered';
+    btn.innerHTML='<span>⚡ POWER ON</span>';
+    // Show OC button if eligible
+    if(n.ocGoal&&!oc){
+      btn.className='';
+      btn.style.borderColor='var(--warning)';
+      btn.style.color='var(--warning)';
+      btn.innerHTML='<span>⚡ OVERCLOCK</span>';
+      btn.onclick=overclockNode;
+    }else{
+      btn.onclick=powerOn;
+      btn.style.borderColor='';btn.style.color='';
+    }
+  }else{
+    btn.className='';
+    btn.innerHTML='<span>⚡ POWER ON</span>';
+    btn.onclick=powerOn;
+    btn.style.borderColor='';btn.style.color='';
+  }
+}
+
+function renderPowerGrid(){
+  const n=getSelected();
+  const grid=document.getElementById('powerGrid');
+  if(!n){grid.innerHTML='';return;}
+
+  const t=new Date();
+  let html='';
+  for(let i=29;i>=0;i--){
+    const d=new Date(t);d.setDate(d.getDate()-i);
+    const ds=d.toISOString().slice(0,10);
+    const done=n.completions[ds];
+    const isToday=i===0;
+    let lvl='';
+    if(done){
+      let con=0;const dd=new Date(d);
+      while(n.completions[dd.toISOString().slice(0,10)]){con++;dd.setDate(dd.getDate()-1);}
+      if(con>=25)lvl='p5';else if(con>=18)lvl='p4';else if(con>=12)lvl='p3';else if(con>=6)lvl='p2';else lvl='p1';
+    }
+    // Check if missed (had a previous day done but this one not)
+    const prevD=new Date(d);prevD.setDate(prevD.getDate()-1);
+    const wasMissed=!done&&n.completions[prevD.toISOString().slice(0,10)]&&i>0;
+    html+=`<div class="gridCell ${lvl}${isToday?' today':''}${wasMissed?' missed':''}" title="${ds}${done?' ✓':''}"></div>`;
+  }
+  grid.innerHTML=html;
+}
+
+function renderVoltage(){
+  const total=S.nodes.length;
+  const done=S.nodes.filter(n=>isDoneToday(n)).length;
+  const pct=total>0?done/total:0;
+  const voltage=(pct*5).toFixed(1);
+  document.getElementById('voltageVal').textContent=voltage;
+  document.getElementById('voltageFill').style.width=(pct*100)+'%';
+}
+
+function renderStats(){
+  const totalHits=S.nodes.reduce((s,n)=>s+n.totalHits,0);
+  const peak=S.nodes.reduce((s,n)=>Math.max(s,n.bestStreak),0);
+  document.getElementById('sTotal').textContent=totalHits;
+  document.getElementById('sPeak').textContent=peak;
+  document.getElementById('sNodes').textContent=S.nodes.length;
+
+  // Weekly uptime
+  const t=new Date(),dow=t.getDay();
+  let wTotal=0,wDone=0;
+  for(let i=0;i<=dow;i++){
+    const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+    const ds=d.toISOString().slice(0,10);
+    S.nodes.forEach(n=>{wTotal++;if(n.completions[ds])wDone++;});
+  }
+  document.getElementById('sUptime').textContent=(wTotal>0?Math.round(wDone/wTotal*100):0)+'%';
+
+  // Efficiency: all time
+  let allTotal=0,allDone=0;
+  S.nodes.forEach(n=>{
+    const created=new Date(n.createdAt);
+    const now=new Date();
+    const d=new Date(created);
+    while(d<=now){
+      allTotal++;
+      if(n.completions[d.toISOString().slice(0,10)])allDone++;
+      d.setDate(d.getDate()+1);
+    }
+  });
+  document.getElementById('sEfficiency').textContent=(allTotal>0?Math.round(allDone/allTotal*100):0)+'%';
+
+  // Current draw info
+  const done=S.nodes.filter(n=>isDoneToday(n)).length;
+  document.getElementById('currentDrawInfo').textContent=
+    `${done}/${S.nodes.length} nodes online today · ${totalHits} total cycles logged · Forge running since ${S.nodes.length>0?S.nodes.reduce((a,n)=>a<n.createdAt?a:n.createdAt,S.nodes[0].createdAt):'N/A'}`;
+}
+
+function renderOverclock(){
+  const total=S.nodes.filter(n=>n.ocGoal).length;
+  const done=S.nodes.filter(n=>isOCToday(n)).length;
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('ocFill').style.width=pct+'%';
+  document.getElementById('overclockInfo').textContent=total>0?
+    `${done}/${total} bonus goals hit today (${pct}%)`:'Set overclock goals on your nodes to enable O/C mode.';
+  document.getElementById('ocScore').textContent=S.ocScore;
+  document.getElementById('ocBonus').textContent=S.ocBonusTotal;
+
+  // Challenges
+  const ch=document.getElementById('ocChallenges');
+  if(S.nodes.length===0){ch.innerHTML='';return;}
+  let html='<div style="font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Node O/C Status</div>';
+  S.nodes.forEach(n=>{
+    if(!n.ocGoal)return;
+    const oc=isOCToday(n);
+    const done=isDoneToday(n);
+    html+=`<div class="statChip" style="padding:8px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:6px;height:6px;border-radius:50%;background:${oc?'var(--warning)':done?'var(--accent)':'var(--led-off)'};${oc||done?'box-shadow:0 0 4px currentColor':''}"></div>
+        <span style="font-size:11px;flex:1;">${n.name}</span>
+        <span style="font-size:10px;color:${oc?'var(--warning)':'var(--tx2)'}">${oc?'O/C':'Pending'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--tx2);margin-top:3px;margin-left:12px;">${n.ocGoal}</div>
+    </div>`;
+  });
+  ch.innerHTML=html;
+}
+
+function renderWeekly(){
+  const t=new Date(),dow=t.getDay();
+  let html='';
+  for(let i=0;i<7;i++){
+    const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+    const ds=d.toISOString().slice(0,10);
+    const total=S.nodes.length;
+    const done=S.nodes.filter(n=>n.completions[ds]).length;
+    const pct=total>0?Math.round(done/total*100):0;
+    const isFuture=i>dow;
+    const color=isFuture?'var(--bg3)':pct>=80?'var(--accent)':pct>=50?'var(--warning)':'var(--danger)';
+    html+=`<div class="mbDay">
+      <div class="dayLabel">${DAYS[i]}</div>
+      <div class="dayTrack"><div class="dayFill" style="width:${isFuture?0:pct}%;background:${color};"></div></div>
+      <div class="dayPct" style="color:${color};">${isFuture?'—':pct+'%'}</div>
+    </div>`;
+  }
+  document.getElementById('weeklyBars').innerHTML=html;
+
+  // Bottleneck detection
+  let worst=null,worstPct=101;
+  S.nodes.forEach(n=>{
+    let done=0;
+    for(let i=0;i<=dow;i++){
+      const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+      if(n.completions[d.toISOString().slice(0,10)])done++;
+    }
+    const pct=dow>0?done/(dow+1)*100:0;
+    if(pct<worstPct){worstPct=pct;worst=n;}
+  });
+  document.getElementById('bottleneckInfo').textContent=worst?
+    `"${worst.name}" at ${Math.round(worstPct)}% — weakest link this week`:'No data yet.';
+}
+
+// ═══════════════════════════════════════════════
+//  DEBUG LOG — Pattern Analysis
+// ═══════════════════════════════════════════════
+function runDebug(){
+  const log=[];
+  const ts=()=>new Date().toLocaleTimeString();
+
+  log.push({type:'ok',time:ts(),msg:`[INIT] Running diagnostics on ${S.nodes.length} nodes...`});
+
+  if(S.nodes.length===0){
+    log.push({type:'warn',time:ts(),msg:'[WARN] No nodes found. Add habits to begin tracking.'});
+  }
+
+  // Analyze each node
+  S.nodes.forEach(n=>{
+    recalcStreak(n);
+    const t=new Date(),dow=t.getDay();
+    let weekDone=0;
+    for(let i=0;i<=dow;i++){
+      const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+      if(n.completions[d.toISOString().slice(0,10)])weekDone++;
+    }
+    const weekPct=dow>=0?Math.round(weekDone/(dow+1)*100):0;
+
+    if(weekPct>=80){
+      log.push({type:'ok',time:ts(),msg:`[OK] "${n.name}" — ${weekPct}% this week. Strong signal.`});
+    }else if(weekPct>=50){
+      log.push({type:'warn',time:ts(),msg:`[WARN] "${n.name}" — ${weekPct}% this week. Voltage dropping. Consider scheduling earlier.`});
+    }else{
+      log.push({type:'err',time:ts(),msg:`[ERR] "${n.name}" — ${weekPct}% this week. Critical failure. Suggest: reduce scope or reschedule.`});
+    }
+
+    if(n.streak===0&&n.totalHits>3){
+      log.push({type:'err',time:ts(),msg:`[ERR] "${n.name}" — Streak broken! Was at ${n.bestStreak} best. Reconnect this node.`});
+    }
+
+    if(n.streak>=14){
+      log.push({type:'ok',time:ts(),msg:`[OK] "${n.name}" — ${n.streak}-day streak! This trace is hardened.`});
+    }
+  });
+
+  // Short circuit check
+  const conflicts=detectShortCircuits();
+  if(conflicts.length>0){
+    conflicts.forEach(([a,b])=>{
+      const na=S.nodes.find(n=>n.id===a);
+      const nb=S.nodes.find(n=>n.id===b);
+      if(na&&nb){
+        log.push({type:'err',time:ts(),msg:`[SHORT CIRCUIT] "${na.name}" and "${nb.name}" overlap in schedule (${na.timeStart}-${na.timeEnd} vs ${nb.timeStart}-${nb.timeEnd}). Resolve conflict.`});
+      }
+    });
+  }else{
+    log.push({type:'ok',time:ts(),msg:`[OK] No schedule conflicts detected.`});
+  }
+
+  // Overall
+  const totalPossible=S.nodes.length*7;
+  let totalDone=0;
+  const t=new Date(),dow=t.getDay();
+  for(let i=0;i<7;i++){
+    const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+    const ds=d.toISOString().slice(0,10);
+    S.nodes.forEach(n=>{if(n.completions[ds])totalDone++;});
+  }
+  const weekPct=totalPossible>0?Math.round(totalDone/totalPossible*100):0;
+  log.push({type:weekPct>=70?'ok':'warn',time:ts(),msg:`[SUMMARY] Weekly throughput: ${weekPct}%. ${weekPct>=80?'System optimal.':weekPct>=50?'Below target. Review bottlenecks.':'Critical. Major reconfiguration needed.'}`});
+
+  log.push({type:'ok',time:ts(),msg:`[DONE] Diagnostics complete.`});
+
+  S.debugEntries=log;
+  renderDebug();
+  save();
+  toast('🔍 Diagnostics complete','success');
+}
+
+function renderDebug(){
+  const el=document.getElementById('debugLog');
+  if(S.debugEntries.length===0){
+    el.innerHTML='<div style="color:var(--tx2);font-size:11px;padding:10px;">No diagnostics run yet. Click "Run Diagnostics" to analyze.</div>';
+    return;
+  }
+  el.innerHTML=S.debugEntries.map(e=>`
+    <div class="debugEntry ${e.type}">
+      <div class="dTime">${e.time}</div>
+      ${e.msg}
+    </div>
+  `).join('');
+}
+
+function clearDebug(){
+  S.debugEntries=[];
+  renderDebug();
+  save();
+}
+
+// ═══════════════════════════════════════════════
+//  UI INTERACTIONS
+// ═══════════════════════════════════════════════
+function selectNode(id){
+  S.selectedId=id;
+  const n=getSelected();
+  if(n)recalcStreak(n);
+  playClick();
+  generateTraces();
+  save();
+  renderAll();
+}
+
+let editingId=null;
+
+function openAddNode(){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='⊕ ADD CIRCUIT NODE';
+  document.getElementById('mName').value='';
+  document.getElementById('mTimeStart').value='';
+  document.getElementById('mTimeEnd').value='';
+  document.getElementById('mPriority').value='medium';
+  document.getElementById('mCategory').value='health';
+  document.getElementById('mOCGoal').value='';
+  document.getElementById('mNotes').value='';
+  document.getElementById('mDelBtn').style.display='none';
+  document.getElementById('nodeModal').classList.add('show');
+}
+
+function openEditNode(id){
+  const n=S.nodes.find(x=>x.id===id);
+  if(!n)return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent='✏ EDIT NODE';
+  document.getElementById('mName').value=n.name;
+  document.getElementById('mTimeStart').value=n.timeStart;
+  document.getElementById('mTimeEnd').value=n.timeEnd;
+  document.getElementById('mPriority').value=n.priority;
+  document.getElementById('mCategory').value=n.category;
+  document.getElementById('mOCGoal').value=n.ocGoal;
+  document.getElementById('mNotes').value=n.notes;
+  document.getElementById('mDelBtn').style.display='';
+  document.getElementById('nodeModal').classList.add('show');
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+function saveNode(){
+  const name=document.getElementById('mName').value.trim();
+  if(!name){toast('Node requires a name.','error');return;}
+  const timeStart=document.getElementById('mTimeStart').value;
+  const timeEnd=document.getElementById('mTimeEnd').value;
+  const priority=document.getElementById('mPriority').value;
+  const category=document.getElementById('mCategory').value;
+  const ocGoal=document.getElementById('mOCGoal').value.trim();
+  const notes=document.getElementById('mNotes').value.trim();
+
+  if(editingId){
+    const n=S.nodes.find(x=>x.id===editingId);
+    if(n){Object.assign(n,{name,timeStart,timeEnd,priority,category,ocGoal,notes});}
+    toast('Node updated.','success');
+  }else{
+    const n=createNode(name,timeStart,timeEnd,priority,category,ocGoal,notes);
+    S.nodes.push(n);
+    S.selectedId=n.id;
+    toast('Node added to circuit.','success');
+  }
+  playHum();
+  generateTraces();
+  save();
+  closeModal('nodeModal');
+  renderAll();
+}
+
+function deleteNode(){
+  if(!editingId||!confirm('Remove this node from the circuit?'))return;
+  S.nodes=S.nodes.filter(n=>n.id!==editingId);
+  if(S.selectedId===editingId)S.selectedId=S.nodes.length>0?S.nodes[0].id:null;
+  playShortCircuit();
+  generateTraces();
+  save();
+  closeModal('nodeModal');
+  renderAll();
+  toast('Node removed.','error');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.rTab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rTabBody').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.rTab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+// Firmware Update
+function openFirmware(){
+  const list=document.getElementById('fwList');
+  if(S.nodes.length===0){
+    list.innerHTML='<div style="color:var(--tx2);font-size:12px;">No nodes to update.</div>';
+  }else{
+    list.innerHTML=S.nodes.map(n=>`
+      <div class="fwHabit" data-id="${n.id}">
+        <div class="fwLed" style="background:${isDoneToday(n)?'var(--led-on)':'var(--led-red)'}"></div>
+        <div class="fwName">${CATS[n.category]} ${n.name}</div>
+        <select class="fw-prio" data-id="${n.id}">
+          <option value="high"${n.priority==='high'?' selected':''}>High</option>
+          <option value="medium"${n.priority==='medium'?' selected':''}>Med</option>
+          <option value="low"${n.priority==='low'?' selected':''}>Low</option>
+        </select>
+        <input class="fw-time" type="time" value="${n.timeStart}" data-id="${n.id}" style="width:90px;" placeholder="Time">
+      </div>
+    `).join('');
+  }
+  document.getElementById('fwModal').classList.add('show');
+}
+
+function applyFirmware(){
+  document.querySelectorAll('.fw-prio').forEach(sel=>{
+    const n=S.nodes.find(x=>x.id===sel.dataset.id);
+    if(n)n.priority=sel.value;
+  });
+  document.querySelectorAll('.fw-time').forEach(inp=>{
+    const n=S.nodes.find(x=>x.id===inp.dataset.id);
+    if(n)n.timeStart=inp.value;
+  });
+  save();
+  closeModal('fwModal');
+  renderAll();
+  toast('🔧 Firmware applied to all nodes.','success');
+  playHum();
+}
+
+// Motherboard Overview
+function openMBOverview(){
+  const content=document.getElementById('mbContent');
+  if(S.nodes.length===0){
+    content.innerHTML='<div style="color:var(--tx2);font-size:12px;">No data to display.</div>';
+  }else{
+    const t=new Date(),dow=t.getDay();
+    let html='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    html+='<tr><th style="text-align:left;padding:6px;color:var(--tx2);border-bottom:1px solid var(--bg3);">Node</th>';
+    for(let i=0;i<7;i++){
+      const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+      const isToday=i===dow;
+      html+=`<th style="padding:6px;color:${isToday?'var(--accent)':'var(--tx2)'};border-bottom:1px solid var(--bg3);text-align:center;">${DAYS[i]}</th>`;
+    }
+    html+='<th style="padding:6px;color:var(--copper);border-bottom:1px solid var(--bg3);text-align:center;">%</th></tr>';
+
+    S.nodes.forEach(n=>{
+      let done=0;
+      html+=`<tr><td style="padding:6px;border-bottom:1px solid var(--bg3);">${CATS[n.category]} ${n.name}</td>`;
+      for(let i=0;i<7;i++){
+        const d=new Date(t);d.setDate(d.getDate()-(dow-i));
+        const ds=d.toISOString().slice(0,10);
+        const ok=n.completions[ds];
+        const isFuture=i>dow;
+        if(ok)done++;
+        const color=isFuture?'var(--bg3)':ok?'var(--accent)':'var(--danger)';
+        html+=`<td style="text-align:center;padding:6px;border-bottom:1px solid var(--bg3);"><div style="width:10px;height:10px;border-radius:50%;background:${color};margin:auto;${ok?'box-shadow:0 0 4px '+color:''}"></div></td>`;
+      }
+      const pct=dow>=0?Math.round(done/(dow+1)*100):0;
+      html+=`<td style="text-align:center;padding:6px;border-bottom:1px solid var(--bg3);color:${pct>=80?'var(--accent)':pct>=50?'var(--warning)':'var(--danger)'};font-weight:700;">${pct}%</td></tr>`;
+    });
+    html+='</table></div>';
+
+    // Connection summary
+    const conflicts=detectShortCircuits();
+    if(conflicts.length>0){
+      html+=`<div style="margin-top:12px;padding:10px;background:rgba(255,51,51,.08);border:1px solid var(--danger);border-radius:4px;font-size:11px;color:var(--danger);">
+        ⚡ ${conflicts.length} short circuit(s) detected — overlapping schedules.
+      </div>`;
+    }
+    content.innerHTML=html;
+  }
+  document.getElementById('mbModal').classList.add('show');
+}
+
+// PSU Settings
+function openPSU(){
+  document.getElementById('psuSound').value=S.settings.sound;
+  document.getElementById('psuModal').classList.add('show');
+}
+function closePSU(){
+  S.settings.sound=document.getElementById('psuSound').value;
+  save();
+  closeModal('psuModal');
+}
+
+// Export/Import
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`circuithabit-backup-${today()}.json`;a.click();
+  toast('💾 Data exported.','success');
+}
+
+function importData(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{
+      const txt=await f.text();const data=JSON.parse(txt);
+      if(data.nodes&&Array.isArray(data.nodes)){
+        Object.assign(S,data);
+        S.nodes.forEach(n=>recalcStreak(n));
+        generateTraces();save();renderAll();
+        toast('📂 Data restored.','success');
+      }else{toast('Invalid file.','error');}
+    }catch(err){toast('Import failed: '+err.message,'error');}
+  };
+  inp.click();
+}
+
+function resetAll(){
+  if(!confirm('⚠ Factory reset — erase ALL data?'))return;
+  if(!confirm('This cannot be undone. Confirm?'))return;
+  S={nodes:[],selectedId:null,settings:{sound:'on'},ocScore:0,ocBonusTotal:0,debugEntries:[]};
+  playShortCircuit();generateTraces();save();renderAll();
+  toast('🗑 All data erased.','error');
+}
+
+function toast(msg,type=''){
+  const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;
+  document.getElementById('toastBox').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+
+// ═══════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show'));
+  }
+  if(e.key===' '&&!e.target.closest('input,textarea,select')){
+    e.preventDefault();
+    const n=getSelected();
+    if(n&&isDoneToday(n)&&n.ocGoal&&!isOCToday(n))overclockNode();
+    else powerOn();
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  DAILY CHECK ON LOAD
+// ═══════════════════════════════════════════════
+function dailyCheck(){
+  S.nodes.forEach(n=>{recalcStreak(n);});
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+(async function init(){
+  await openDB();
+  const saved=await load();
+  if(saved)Object.assign(S,saved);
+  // Ensure defaults
+  if(!S.settings)S.settings={sound:'on'};
+  if(!S.ocScore)S.ocScore=0;
+  if(!S.ocBonusTotal)S.ocBonusTotal=0;
+  if(!S.debugEntries)S.debugEntries=[];
+
+  resizeTraceCanvas();
+  window.addEventListener('resize',()=>{resizeTraceCanvas();});
+  animateTraces();
+  dailyCheck();
+  if(S.nodes.length>0&&!S.selectedId)S.selectedId=S.nodes[0].id;
+  renderAll();
+  renderDebug();
+})();
+</script>
+</body>
+</html>

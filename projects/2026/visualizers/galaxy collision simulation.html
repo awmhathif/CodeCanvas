@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Collision Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #fff;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(100, 150, 255, 0.5);
+        }
+
+        .time-display {
+            font-size: 2.5rem;
+            font-weight: 200;
+            color: #88ccff;
+            text-shadow: 0 0 30px rgba(100, 150, 255, 0.8);
+        }
+
+        .time-label {
+            font-size: 0.875rem;
+            color: #667;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+            background: rgba(20, 25, 35, 0.8);
+            padding: 15px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4a9eff, #2d6bbf);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #6ab0ff, #3d7bd0);
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #aab;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .btn-secondary.active {
+            background: rgba(100, 150, 255, 0.3);
+            border-color: #4a9eff;
+            color: #fff;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #889;
+            font-size: 0.8rem;
+        }
+
+        .speed-slider {
+            width: 100px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #4a9eff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(10, 15, 25, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.15);
+            z-index: 10;
+            min-width: 200px;
+        }
+
+        .info-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #667;
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.875rem;
+        }
+
+        .info-label {
+            color: #889;
+        }
+
+        .info-value {
+            color: #aaccff;
+            font-weight: 500;
+        }
+
+        .galaxy-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .galaxy-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .galaxy-1 { background: radial-gradient(circle, #ffaa66, #ff6633); }
+        .galaxy-2 { background: radial-gradient(circle, #66aaff, #3366ff); }
+
+        .phase-indicator {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .phase-name {
+            color: #88ccff;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .phase-desc {
+            font-size: 0.75rem;
+            color: #667;
+            line-height: 1.4;
+        }
+
+        .timeline {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 600px;
+            z-index: 10;
+        }
+
+        .timeline-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .timeline-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6633, #ffaa66, #88ccff, #4a9eff);
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+
+        .timeline-markers {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #556;
+        }
+
+        .marker {
+            text-align: center;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .marker:hover {
+            color: #88ccff;
+        }
+
+        .marker.active {
+            color: #4a9eff;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .recording {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="ui-overlay">
+        <div class="title">GALAXY COLLISION SIMULATION</div>
+        <div class="time-label">Time Elapsed</div>
+        <div class="time-display" id="timeDisplay">0 Million Years</div>
+    </div>
+
+    <div class="info-panel">
+        <div class="info-title">Simulation Data</div>
+        <div class="galaxy-indicator">
+            <div class="galaxy-dot galaxy-1"></div>
+            <span style="color: #ffaa66;">Andromeda-type</span>
+        </div>
+        <div class="galaxy-indicator">
+            <div class="galaxy-dot galaxy-2"></div>
+            <span style="color: #66aaff;">Milky Way-type</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Stars:</span>
+            <span class="info-value" id="starCount">0</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Separation:</span>
+            <span class="info-value" id="separation">0 kpc</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Velocity:</span>
+            <span class="info-value" id="velocity">0 km/s</span>
+        </div>
+        <div class="phase-indicator">
+            <div class="phase-name" id="phaseName">Initial Approach</div>
+            <div class="phase-desc" id="phaseDesc">Galaxies begin their gravitational dance</div>
+        </div>
+    </div>
+
+    <div class="timeline">
+        <div class="timeline-bar">
+            <div class="timeline-progress" id="timelineProgress"></div>
+        </div>
+        <div class="timeline-markers">
+            <div class="marker active" data-time="0">0 Myr</div>
+            <div class="marker" data-time="1000">1 Byr</div>
+            <div class="marker" data-time="2000">2 Byr</div>
+            <div class="marker" data-time="3000">3 Byr</div>
+            <div class="marker" data-time="4000">4 Byr</div>
+            <div class="marker" data-time="5000">5 Byr</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" id="playPauseBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+                <rect x="6" y="4" width="4" height="16"/>
+                <rect x="14" y="4" width="4" height="16"/>
+            </svg>
+            <span id="playPauseText">Pause</span>
+        </button>
+        <button class="btn btn-secondary" id="resetBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+            Reset
+        </button>
+        <div class="speed-control">
+            <span>Speed:</span>
+            <input type="range" class="speed-slider" id="speedSlider" min="0.1" max="5" step="0.1" value="1">
+            <span id="speedValue">1x</span>
+        </div>
+        <button class="btn btn-secondary" id="trailsBtn">
+            Trails
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Configuration
+        const config = {
+            numStarsPerGalaxy: 8000,
+            numDustPerGalaxy: 3000,
+            timeScale: 1, // Million years per frame
+            maxTime: 5000, // 5 billion years
+            gravitationalConstant: 0.00005,
+            softeningLength: 50,
+            showTrails: false,
+            isPlaying: true
+        };
+
+        // State
+        let time = 0;
+        let stars = [];
+        let dust = [];
+        let galaxyCenters = [];
+        let trailCanvas, trailCtx;
+
+        // Resize handler
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            if (trailCanvas) {
+                trailCanvas.width = canvas.width;
+                trailCanvas.height = canvas.height;
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Create trail canvas
+        trailCanvas = document.createElement('canvas');
+        trailCanvas.width = canvas.width;
+        trailCanvas.height = canvas.height;
+        trailCtx = trailCanvas.getContext('2d');
+
+        // Galaxy class
+        class Galaxy {
+            constructor(x, y, vx, vy, mass, rotation, color, numStars, numDust) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.mass = mass;
+                this.rotation = rotation;
+                this.color = color;
+                this.stars = [];
+                this.dust = [];
+                this.coreStars = [];
+                
+                this.createStars(numStars);
+                this.createDust(numDust);
+                this.createCore();
+            }
+
+            createStars(count) {
+                for (let i = 0; i < count; i++) {
+                    // Spiral arm distribution
+                    const arm = Math.floor(Math.random() * 2);
+                    const armOffset = arm * Math.PI;
+                    
+                    // Distance from center (exponential distribution)
+                    const r = Math.pow(Math.random(), 0.5) * 200 + 10;
+                    
+                    // Angle with spiral
+                    const spiralFactor = 0.5;
+                    const baseAngle = Math.random() * Math.PI * 2;
+                    const spiralAngle = baseAngle + r * spiralFactor * 0.01 + armOffset;
+                    
+                    // Add some scatter
+                    const scatter = (Math.random() - 0.5) * 0.5 * (1 + r * 0.005);
+                    const angle = spiralAngle + scatter;
+                    
+                    // Position relative to galaxy center
+                    const localX = Math.cos(angle) * r;
+                    const localY = Math.sin(angle) * r * 0.3; // Flatten the galaxy
+                    
+                    // Orbital velocity (circular)
+                    const orbitalSpeed = Math.sqrt(this.mass / (r + 50)) * 0.5;
+                    const vAngle = angle + Math.PI / 2 * this.rotation;
+                    
+                    // Color based on position (bluer in arms, more orange in center)
+                    const hue = this.color.h + (Math.random() - 0.5) * 30;
+                    const sat = 50 + Math.random() * 50;
+                    const light = 60 + Math.random() * 40;
+                    
+                    this.stars.push({
+                        localX,
+                        localY,
+                        x: this.x + localX,
+                        y: this.y + localY,
+                        vx: this.vx + Math.cos(vAngle) * orbitalSpeed,
+                        vy: this.vy + Math.sin(vAngle) * orbitalSpeed,
+                        size: Math.random() * 1.5 + 0.5,
+                        brightness: Math.random(),
+                        color: `hsl(${hue}, ${sat}%, ${light}%)`,
+                        r: r
+                    });
+                }
+            }
+
+            createDust(count) {
+                for (let i = 0; i < count; i++) {
+                    const arm = Math.floor(Math.random() * 2);
+                    const armOffset = arm * Math.PI;
+                    
+                    const r = Math.pow(Math.random(), 0.6) * 180 + 20;
+                    const spiralAngle = Math.random() * Math.PI * 2 + r * 0.008 + armOffset;
+                    const scatter = (Math.random() - 0.5) * 0.4;
+                    const angle = spiralAngle + scatter;
+                    
+                    const localX = Math.cos(angle) * r;
+                    const localY = Math.sin(angle) * r * 0.25;
+                    
+                    const orbitalSpeed = Math.sqrt(this.mass / (r + 50)) * 0.5;
+                    const vAngle = angle + Math.PI / 2 * this.rotation;
+                    
+                    this.dust.push({
+                        localX,
+                        localY,
+                        x: this.x + localX,
+                        y: this.y + localY,
+                        vx: this.vx + Math.cos(vAngle) * orbitalSpeed,
+                        vy: this.vy + Math.sin(vAngle) * orbitalSpeed,
+                        size: Math.random() * 3 + 1,
+                        opacity: Math.random() * 0.3 + 0.1,
+                        color: this.color
+                    });
+                }
+            }
+
+            createCore() {
+                // Dense core stars
+                for (let i = 0; i < 500; i++) {
+                    const r = Math.pow(Math.random(), 2) * 30;
+                    const angle = Math.random() * Math.PI * 2;
+                    
+                    const localX = Math.cos(angle) * r;
+                    const localY = Math.sin(angle) * r * 0.3;
+                    
+                    const orbitalSpeed = Math.sqrt(this.mass / (r + 10)) * 0.3;
+                    const vAngle = angle + Math.PI / 2 * this.rotation;
+                    
+                    const hue = this.color.h + 20;
+                    
+                    this.coreStars.push({
+                        localX,
+                        localY,
+                        x: this.x + localX,
+                        y: this.y + localY,
+                        vx: this.vx + Math.cos(vAngle) * orbitalSpeed,
+                        vy: this.vy + Math.sin(vAngle) * orbitalSpeed,
+                        size: Math.random() * 2 + 1,
+                        color: `hsl(${hue}, 80%, ${70 + Math.random() * 30}%)`
+                    });
+                }
+            }
+        }
+
+        // Initialize galaxies
+        function initSimulation() {
+            time = 0;
+            stars = [];
+            dust = [];
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Galaxy 1 - Andromeda-type (orange/yellow)
+            const galaxy1 = new Galaxy(
+                centerX - 350,
+                centerY - 100,
+                0.8,  // Initial velocity towards center
+                0.3,
+                50000,
+                1,
+                { h: 30, s: 80, l: 60 }, // Orange
+                config.numStarsPerGalaxy,
+                config.numDustPerGalaxy
+            );
+            
+            // Galaxy 2 - Milky Way-type (blue)
+            const galaxy2 = new Galaxy(
+                centerX + 350,
+                centerY + 100,
+                -0.6,
+                -0.2,
+                40000,
+                -1,
+                { h: 220, s: 70, l: 65 }, // Blue
+                config.numStarsPerGalaxy,
+                config.numDustPerGalaxy
+            );
+            
+            galaxyCenters = [
+                { x: galaxy1.x, y: galaxy1.y, vx: galaxy1.vx, vy: galaxy1.vy, mass: galaxy1.mass, color: galaxy1.color },
+                { x: galaxy2.x, y: galaxy2.y, vx: galaxy2.vx, vy: galaxy2.vy, mass: galaxy2.mass, color: galaxy2.color }
+            ];
+            
+            stars = [...galaxy1.stars, ...galaxy2.stars, ...galaxy1.coreStars, ...galaxy2.coreStars];
+            dust = [...galaxy1.dust, ...galaxy2.dust];
+            
+            // Clear trail canvas
+            trailCtx.fillStyle = 'rgba(0, 0, 0, 1)';
+            trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+            
+            updateUI();
+        }
+
+        // Physics update
+        function updatePhysics(dt) {
+            const G = config.gravitationalConstant;
+            const softening = config.softeningLength;
+            
+            // Update galaxy centers
+            for (let i = 0; i < galaxyCenters.length; i++) {
+                for (let j = i + 1; j < galaxyCenters.length; j++) {
+                    const g1 = galaxyCenters[i];
+                    const g2 = galaxyCenters[j];
+                    
+                    const dx = g2.x - g1.x;
+                    const dy = g2.y - g1.y;
+                    const distSq = dx * dx + dy * dy + softening * softening;
+                    const dist = Math.sqrt(distSq);
+                    
+                    const force = G * g1.mass * g2.mass / distSq;
+                    const fx = force * dx / dist;
+                    const fy = force * dy / dist;
+                    
+                    g1.vx += fx / g1.mass * dt;
+                    g1.vy += fy / g1.mass * dt;
+                    g2.vx -= fx / g2.mass * dt;
+                    g2.vy -= fy / g2.mass * dt;
+                }
+                
+                galaxyCenters[i].x += galaxyCenters[i].vx * dt;
+                galaxyCenters[i].y += galaxyCenters[i].vy * dt;
+            }
+            
+            // Update stars
+            for (let star of stars) {
+                let ax = 0, ay = 0;
+                
+                for (let gc of galaxyCenters) {
+                    const dx = gc.x - star.x;
+                    const dy = gc.y - star.y;
+                    const distSq = dx * dx + dy * dy + softening * softening;
+                    const dist = Math.sqrt(distSq);
+                    
+                    const force = G * gc.mass / distSq;
+                    ax += force * dx / dist;
+                    ay += force * dy / dist;
+                }
+                
+                star.vx += ax * dt;
+                star.vy += ay * dt;
+                star.x += star.vx * dt;
+                star.y += star.vy * dt;
+            }
+            
+            // Update dust
+            for (let d of dust) {
+                let ax = 0, ay = 0;
+                
+                for (let gc of galaxyCenters) {
+                    const dx = gc.x - d.x;
+                    const dy = gc.y - d.y;
+                    const distSq = dx * dx + dy * dy + softening * softening;
+                    const dist = Math.sqrt(distSq);
+                    
+                    const force = G * gc.mass / distSq;
+                    ax += force * dx / dist;
+                    ay += force * dy / dist;
+                }
+                
+                d.vx += ax * dt;
+                d.vy += ay * dt;
+                d.x += d.vx * dt;
+                d.y += d.vy * dt;
+            }
+            
+            time += config.timeScale * dt;
+        }
+
+        // Render
+        function render() {
+            // Clear main canvas
+            ctx.fillStyle = '#000008';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background stars
+            drawBackgroundStars();
+            
+            // Draw trails if enabled
+            if (config.showTrails) {
+                trailCtx.fillStyle = 'rgba(0, 0, 8, 0.02)';
+                trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+                
+                for (let star of stars) {
+                    if (Math.random() < 0.1) {
+                        trailCtx.fillStyle = star.color;
+                        trailCtx.globalAlpha = 0.3;
+                        trailCtx.beginPath();
+                        trailCtx.arc(star.x, star.y, 0.5, 0, Math.PI * 2);
+                        trailCtx.fill();
+                    }
+                }
+                trailCtx.globalAlpha = 1;
+                
+                ctx.drawImage(trailCanvas, 0, 0);
+            }
+            
+            // Draw dust clouds (behind stars)
+            ctx.globalCompositeOperation = 'screen';
+            for (let d of dust) {
+                if (d.x < -100 || d.x > canvas.width + 100 || d.y < -100 || d.y > canvas.height + 100) continue;
+                
+                const gradient = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.size * 3);
+                gradient.addColorStop(0, `hsla(${d.color.h}, ${d.color.s}%, ${d.color.l}%, ${d.opacity})`);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.size * 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalCompositeOperation = 'source-over';
+            
+            // Draw stars
+            for (let star of stars) {
+                if (star.x < -50 || star.x > canvas.width + 50 || star.y < -50 || star.y > canvas.height + 50) continue;
+                
+                ctx.fillStyle = star.color;
+                ctx.globalAlpha = 0.7 + star.brightness * 0.3;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            // Draw galaxy cores with glow
+            for (let gc of galaxyCenters) {
+                const gradient = ctx.createRadialGradient(gc.x, gc.y, 0, gc.x, gc.y, 80);
+                gradient.addColorStop(0, `hsla(${gc.color.h + 10}, 100%, 90%, 0.8)`);
+                gradient.addColorStop(0.2, `hsla(${gc.color.h}, 80%, 70%, 0.4)`);
+                gradient.addColorStop(0.5, `hsla(${gc.color.h}, 60%, 50%, 0.1)`);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(gc.x, gc.y, 80, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        let backgroundStars = [];
+        function initBackgroundStars() {
+            backgroundStars = [];
+            for (let i = 0; i < 500; i++) {
+                backgroundStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 1.5,
+                    brightness: Math.random(),
+                    twinkleSpeed: Math.random() * 0.02
+                });
+            }
+        }
+
+        function drawBackgroundStars() {
+            for (let star of backgroundStars) {
+                const twinkle = 0.3 + Math.sin(Date.now() * star.twinkleSpeed) * 0.3;
+                ctx.fillStyle = `rgba(200, 210, 255, ${twinkle * star.brightness})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // UI Updates
+        function updateUI() {
+            // Time display
+            const years = Math.floor(time);
+            let timeStr;
+            if (years >= 1000) {
+                timeStr = `${(years / 1000).toFixed(2)} Billion Years`;
+            } else {
+                timeStr = `${years} Million Years`;
+            }
+            document.getElementById('timeDisplay').textContent = timeStr;
+            
+            // Timeline progress
+            const progress = (time / config.maxTime) * 100;
+            document.getElementById('timelineProgress').style.width = `${Math.min(progress, 100)}%`;
+            
+            // Update markers
+            document.querySelectorAll('.marker').forEach(marker => {
+                const markerTime = parseInt(marker.dataset.time);
+                marker.classList.toggle('active', time >= markerTime && time < markerTime + 1000);
+            });
+            
+            // Star count
+            document.getElementById('starCount').textContent = stars.length.toLocaleString();
+            
+            // Separation
+            if (galaxyCenters.length >= 2) {
+                const dx = galaxyCenters[1].x - galaxyCenters[0].x;
+                const dy = galaxyCenters[1].y - galaxyCenters[0].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const kpc = (dist / 10).toFixed(1);
+                document.getElementById('separation').textContent = `${kpc} kpc`;
+                
+                // Velocity
+                const vx = galaxyCenters[0].vx - galaxyCenters[1].vx;
+                const vy = galaxyCenters[0].vy - galaxyCenters[1].vy;
+                const vel = Math.sqrt(vx * vx + vy * vy) * 100;
+                document.getElementById('velocity').textContent = `${vel.toFixed(0)} km/s`;
+            }
+            
+            // Phase
+            updatePhase();
+        }
+
+        function updatePhase() {
+            let phaseName, phaseDesc;
+            
+            if (time < 500) {
+                phaseName = "Initial Approach";
+                phaseDesc = "Galaxies begin their gravitational dance, drawn together across the cosmic void.";
+            } else if (time < 1200) {
+                phaseName = "First Passage";
+                phaseDesc = "The galaxies pass through each other, tidal forces begin to distort their spiral arms.";
+            } else if (time < 2000) {
+                phaseName = "Separation";
+                phaseDesc = "Gravitational slingshot effect pulls the galaxies apart temporarily.";
+            } else if (time < 3000) {
+                phaseName = "Second Approach";
+                phaseDesc = "Unable to escape, the galaxies fall back together for their final merger.";
+            } else if (time < 4000) {
+                phaseName = "Violent Merger";
+                phaseDesc = "Stars are flung across space as the galactic cores spiral toward each other.";
+            } else {
+                phaseName = "Elliptical Formation";
+                phaseDesc = "A new elliptical galaxy emerges from the collision, larger than either progenitor.";
+            }
+            
+            document.getElementById('phaseName').textContent = phaseName;
+            document.getElementById('phaseDesc').textContent = phaseDesc;
+        }
+
+        // Controls
+        document.getElementById('playPauseBtn').addEventListener('click', () => {
+            config.isPlaying = !config.isPlaying;
+            const btn = document.getElementById('playPauseBtn');
+            const icon = document.getElementById('playIcon');
+            const text = document.getElementById('playPauseText');
+            
+            if (config.isPlaying) {
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+                text.textContent = 'Pause';
+            } else {
+                icon.innerHTML = '<polygon points="5,3 19,12 5,21"/>';
+                text.textContent = 'Play';
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            initSimulation();
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            config.timeScale = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = `${config.timeScale.toFixed(1)}x`;
+        });
+
+        document.getElementById('trailsBtn').addEventListener('click', (e) => {
+            config.showTrails = !config.showTrails;
+            e.target.classList.toggle('active', config.showTrails);
+            
+            if (!config.showTrails) {
+                trailCtx.fillStyle = 'rgba(0, 0, 0, 1)';
+                trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+            }
+        });
+
+        // Timeline markers click
+        document.querySelectorAll('.marker').forEach(marker => {
+            marker.addEventListener('click', () => {
+                const targetTime = parseInt(marker.dataset.time);
+                // Fast forward or reset to reach target time
+                if (targetTime < time) {
+                    initSimulation();
+                }
+                // Simulate until we reach target time
+                while (time < targetTime) {
+                    updatePhysics(1);
+                }
+                updateUI();
+            });
+        });
+
+        // Animation loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            const deltaTime = Math.min((currentTime - lastTime) / 16.67, 3); // Cap at 3x speed
+            lastTime = currentTime;
+            
+            if (config.isPlaying && time < config.maxTime) {
+                updatePhysics(deltaTime);
+                updateUI();
+            }
+            
+            render();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize and start
+        initBackgroundStars();
+        initSimulation();
+        requestAnimationFrame(animate);
+
+        // Handle window resize for background stars
+        window.addEventListener('resize', () => {
+            initBackgroundStars();
+            trailCanvas.width = canvas.width;
+            trailCanvas.height = canvas.height;
+        });
+    </script>
+</body>
+</html>

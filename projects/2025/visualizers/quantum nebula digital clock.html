@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Nebula Digital Clock</title>
+    <style>
+        :root {
+            --primary-glow: rgba(45, 212, 255, 0.8);
+            --secondary-glow: rgba(170, 45, 255, 0.8);
+            --digit-color: rgba(220, 240, 255, 0.95);
+            --background-primary: rgb(8, 12, 30);
+            --background-secondary: rgb(12, 20, 45);
+            --particle-color-1: rgba(45, 212, 255, 0.7);
+            --particle-color-2: rgba(170, 45, 255, 0.7);
+            --particle-color-3: rgba(255, 95, 215, 0.7);
+            --colon-pulse: rgba(220, 240, 255, 0.8);
+            --animation-speed: 1;
+            --theme-transition: 2s;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            perspective: 1000px;
+            cursor: none;
+        }
+
+        .quantum-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-glow);
+            pointer-events: none;
+            mix-blend-mode: screen;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            box-shadow: 0 0 15px 5px var(--primary-glow);
+            transition: background 0.3s;
+        }
+
+        .quantum-cursor::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .cursor-trail {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--secondary-glow);
+            pointer-events: none;
+            mix-blend-mode: screen;
+            opacity: 0.7;
+            z-index: 9998;
+        }
+
+        .universe-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(125deg, var(--background-primary), var(--background-secondary));
+            transition: background var(--theme-transition);
+            z-index: -2;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: twinkle calc(3s * var(--animation-speed)) infinite;
+        }
+
+        .nebula {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--particle-color-1) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.2;
+            mix-blend-mode: screen;
+            animation: nebula-drift calc(30s * var(--animation-speed)) infinite alternate;
+            z-index: -1;
+        }
+
+        .clock-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transform-style: preserve-3d;
+            transform: rotateX(5deg);
+            animation: float calc(10s * var(--animation-speed)) infinite ease-in-out;
+            z-index: 1;
+        }
+
+        .digital-clock {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            font-size: 6rem;
+            font-weight: 100;
+            letter-spacing: 0.1em;
+            color: var(--digit-color);
+            text-shadow: 
+                0 0 10px var(--digit-color),
+                0 0 20px var(--primary-glow),
+                0 0 40px var(--primary-glow);
+            transition: color var(--theme-transition), text-shadow var(--theme-transition);
+        }
+
+        .digit {
+            position: relative;
+            width: 100px;
+            height: 150px;
+            margin: 0 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s ease-out;
+        }
+
+        .digit::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            z-index: -1;
+            transform: translateZ(-10px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .digit.animate {
+            animation: digit-change 0.5s ease-out;
+        }
+
+        .separator {
+            width: 20px;
+            height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .colon {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--colon-pulse);
+            margin: 10px 0;
+            box-shadow: 0 0 10px var(--colon-pulse), 0 0 20px var(--colon-pulse);
+            animation: pulse 1s infinite alternate;
+            transition: background var(--theme-transition), box-shadow var(--theme-transition);
+        }
+
+        .canvas-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .date-display {
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin-top: 20px;
+            opacity: 0.7;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--digit-color);
+            text-shadow: 0 0 10px var(--primary-glow);
+            transition: color var(--theme-transition), text-shadow var(--theme-transition);
+        }
+
+        .mode-display {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+            gap: 30px;
+        }
+
+        .mode-option {
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--digit-color);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .mode-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .mode-option.active {
+            background: rgba(45, 212, 255, 0.2);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .binary-display {
+            display: none;
+            margin-top: 40px;
+            font-family: monospace;
+            letter-spacing: 0.2em;
+        }
+
+        .binary-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .binary-bit {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin: 0 5px;
+            background: rgba(30, 30, 30, 0.8);
+            transition: all 0.3s;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .binary-bit.active {
+            background: var(--primary-glow);
+            box-shadow: 0 0 10px var(--primary-glow), 0 0 20px var(--primary-glow);
+        }
+
+        .binary-labels {
+            display: flex;
+            justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        .binary-label {
+            width: 22px;
+            text-align: center;
+        }
+
+        .astronomical-display {
+            display: none;
+            margin-top: 30px;
+            position: relative;
+            width: 500px;
+            height: 100px;
+        }
+
+        .horizon {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .sun {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(255, 200, 50, 0.9);
+            box-shadow: 0 0 20px rgba(255, 200, 50, 0.8);
+            transform: translate(-50%, -50%);
+        }
+
+        .moon {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: rgba(220, 220, 255, 0.9);
+            box-shadow: 0 0 15px rgba(220, 220, 255, 0.5);
+            transform: translate(-50%, -50%);
+        }
+
+        .hexadecimal-display {
+            display: none;
+            margin-top: 40px;
+            font-family: monospace;
+            font-size: 1.5rem;
+            letter-spacing: 0.5em;
+            color: var(--primary-glow);
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .theme-selector {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .theme-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .theme-option:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-option.active {
+            border-color: white;
+            box-shadow: 0 0 10px white;
+        }
+
+        .quantum-theme {
+            background: linear-gradient(45deg, #2dd4ff, #aa2dff);
+        }
+
+        .cosmic-theme {
+            background: linear-gradient(45deg, #ff5500, #ffaa00);
+        }
+
+        .circuit-theme {
+            background: linear-gradient(45deg, #00ff66, #003311);
+        }
+
+        .aurora-theme {
+            background: linear-gradient(45deg, #00ffaa, #5500ff);
+        }
+
+        .ocean-theme {
+            background: linear-gradient(45deg, #0055ff, #00ddff);
+        }
+
+        .voice-indicator {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 30px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s;
+        }
+
+        .voice-indicator.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .voice-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-glow);
+            margin-right: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .voice-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: var(--secondary-glow);
+            animation: voice-wave 0.5s infinite alternate;
+        }
+
+        .voice-text {
+            font-size: 0.9rem;
+        }
+
+        .weather-display {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 30px;
+            padding: 10px 20px;
+        }
+
+        .weather-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+
+        .weather-info {
+            font-size: 0.9rem;
+        }
+
+        .particle-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes nebula-drift {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-30%, -30%) rotate(15deg); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: rotateX(5deg) translateY(0); }
+            50% { transform: rotateX(8deg) translateY(-15px); }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes digit-change {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            20% { transform: translateY(-10px) scale(1.1); opacity: 0.8; }
+            40% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes voice-wave {
+            0% { height: 30%; }
+            100% { height: 70%; }
+        }
+
+        @media (max-width: 900px) {
+            .clock-container {
+                width: 95%;
+                height: 300px;
+            }
+            
+            .digital-clock {
+                font-size: 4rem;
+            }
+            
+            .digit {
+                width: 70px;
+                height: 100px;
+            }
+            
+            .astronomical-display {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quantum-cursor"></div>
+    <div class="universe-container"></div>
+    
+    <div class="canvas-container">
+        <canvas id="particleCanvas"></canvas>
+        <canvas id="digitCanvas"></canvas>
+    </div>
+    
+    <div class="clock-container">
+        <div class="digital-clock">
+            <div class="digit" id="hour1">0</div>
+            <div class="digit" id="hour2">0</div>
+            <div class="separator">
+                <div class="colon"></div>
+                <div class="colon"></div>
+            </div>
+            <div class="digit" id="min1">0</div>
+            <div class="digit" id="min2">0</div>
+            <div class="separator">
+                <div class="colon"></div>
+                <div class="colon"></div>
+            </div>
+            <div class="digit" id="sec1">0</div>
+            <div class="digit" id="sec2">0</div>
+        </div>
+        
+        <div class="date-display" id="dateDisplay"></div>
+        
+        <div class="mode-display">
+            <div class="mode-option active" data-mode="digital">Digital</div>
+            <div class="mode-option" data-mode="binary">Binary</div>
+            <div class="mode-option" data-mode="astronomical">Astro</div>
+            <div class="mode-option" data-mode="hexadecimal">Hex</div>
+        </div>
+        
+        <div class="binary-display">
+            <div class="binary-row" id="hourBinary"></div>
+            <div class="binary-row" id="minuteBinary"></div>
+            <div class="binary-row" id="secondBinary"></div>
+            <div class="binary-labels"></div>
+        </div>
+        
+        <div class="astronomical-display">
+            <div class="horizon"></div>
+            <div class="sun"></div>
+            <div class="moon"></div>
+        </div>
+        
+        <div class="hexadecimal-display" id="hexDisplay"></div>
+    </div>
+    
+    <div class="weather-display">
+        <div class="weather-icon">⛅</div>
+        <div class="weather-info">22°C | Clear Sky</div>
+    </div>
+    
+    <div class="voice-indicator">
+        <div class="voice-icon">
+            <div class="voice-wave"></div>
+        </div>
+        <div class="voice-text">Listening...</div>
+    </div>
+    
+    <div class="theme-selector">
+        <div class="theme-option quantum-theme active" data-theme="quantum"></div>
+        <div class="theme-option cosmic-theme" data-theme="cosmic"></div>
+        <div class="theme-option circuit-theme" data-theme="circuit"></div>
+        <div class="theme-option aurora-theme" data-theme="aurora"></div>
+        <div class="theme-option ocean-theme" data-theme="ocean"></div>
+    </div>
+    
+    <div class="particle-overlay"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize universe
+            createUniverse();
+            
+            // Initialize particle system
+            initParticleSystem();
+            
+            // Initialize digital canvas
+            initDigitCanvas();
+            
+            // Set up the clock
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Set up cursor effects
+            initCursorEffects();
+            
+            // Set up mode switching
+            initModeSwitching();
+            
+            // Set up theme switching
+            initThemeSwitching();
+            
+            // Set up voice commands simulation
+            initVoiceCommandSimulation();
+            
+            // Initialize binary display
+            initBinaryDisplay();
+            
+            // Initialize astronomical display
+            initAstronomicalDisplay();
+            
+            // Set up weather simulation
+            initWeatherSimulation();
+        });
+        
+        // Create the stars and nebula background
+        function createUniverse() {
+            const universe = document.querySelector('.universe-container');
+            
+            // Create stars
+            for (let i = 0; i < 150; i++) {
+                let star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = `${Math.random() * 3 + 1}px`;
+                star.style.height = star.style.width;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.animationDelay = `${Math.random() * 3}s`;
+                universe.appendChild(star);
+            }
+            
+            // Create nebulae
+            for (let i = 0; i < 5; i++) {
+                let nebula = document.createElement('div');
+                nebula.className = 'nebula';
+                nebula.style.left = `${Math.random() * 100}%`;
+                nebula.style.top = `${Math.random() * 100}%`;
+                nebula.style.opacity = `${Math.random() * 0.3 + 0.1}`;
+                nebula.style.animationDelay = `${Math.random() * 5}s`;
+                
+                // Random nebula color
+                const hue = Math.floor(Math.random() * 360);
+                nebula.style.background = `radial-gradient(circle, hsla(${hue}, 100%, 70%, 0.7) 0%, transparent 70%)`;
+                
+                universe.appendChild(nebula);
+            }
+        }
+        
+        // Initialize particle system
+        function initParticleSystem() {
+            const canvas = document.getElementById('particleCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const particles = [];
+            const particleCount = 100;
+            
+            // Create particles
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    color: getRandomParticleColor(),
+                    vx: Math.random() * 1 - 0.5,
+                    vy: Math.random() * 1 - 0.5,
+                    sinOffset: Math.random() * Math.PI * 2
+                });
+            }
+            
+            function getRandomParticleColor() {
+                const colors = [
+                    getComputedStyle(document.documentElement).getPropertyValue('--particle-color-1'),
+                    getComputedStyle(document.documentElement).getPropertyValue('--particle-color-2'),
+                    getComputedStyle(document.documentElement).getPropertyValue('--particle-color-3')
+                ];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            function drawParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const time = Date.now() * 0.001;
+                
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy + Math.sin(time + p.sinOffset) * 0.2;
+                    
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                    if (p.y > canvas.height) p.y = 0;
+                    
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    
+                    // Glow effect
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = p.color;
+                });
+                
+                // Connect close particles with lines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 0.5;
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                
+                requestAnimationFrame(drawParticles);
+            }
+            
+            // Adjust canvas size on window resize
+            window.addEventListener('resize', function() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+            
+            drawParticles();
+        }
+        
+        // Initialize digit canvas effects
+        function initDigitCanvas() {
+            const canvas = document.getElementById('digitCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            let digitParticles = [];
+            
+            function createDigitParticles(x, y) {
+                const particleCount = 10;
+                const spread = 100;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    digitParticles.push({
+                        x: x,
+                        y: y,
+                        targetX: x + (Math.random() * spread * 2 - spread),
+                        targetY: y + (Math.random() * spread * 2 - spread),
+                        radius: Math.random() * 3 + 1,
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--primary-glow'),
+                        life: 2,
+                        maxLife: 2
+                    });
+                }
+            }
+            
+            // Add event listener to digits
+            document.querySelectorAll('.digit').forEach(digit => {
+                digit.addEventListener('mouseover', function() {
+                    const rect = this.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    createDigitParticles(centerX, centerY);
+                });
+            });
+            
+            function drawDigitParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                digitParticles.forEach((p, index) => {
+                    // Update position
+                    p.x += (p.targetX - p.x) * 0.05;
+                    p.y += (p.targetY - p.y) * 0.05;
+                    
+                    // Update life
+                    p.life -= 0.02;
+                    
+                    if (p.life <= 0) {
+                        digitParticles.splice(index, 1);
+                        return;
+                    }
+                    
+                    // Draw particle
+                    const opacity = p.life / p.maxLife;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color.replace('0.7', opacity);
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = p.color;
+                    ctx.fill();
+                });
+                
+                requestAnimationFrame(drawDigitParticles);
+            }
+            
+            // Adjust canvas size on window resize
+            window.addEventListener('resize', function() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+            
+            drawDigitParticles();
+        }
+        
+        // Update the clock display
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            
+            updateDigit('hour1', hours[0]);
+            updateDigit('hour2', hours[1]);
+            updateDigit('min1', minutes[0]);
+            updateDigit('min2', minutes[1]);
+            updateDigit('sec1', seconds[0]);
+            updateDigit('sec2', seconds[1]);
+            
+            // Update date display
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('dateDisplay').textContent = now.toLocaleDateString(undefined, options);
+            
+            // Update binary display if visible
+            if (document.querySelector('.binary-display').style.display === 'block') {
+                updateBinaryDisplay(hours, minutes, seconds);
+            }
+            
+            // Update hex display if visible
+            if (document.querySelector('.hexadecimal-display').style.display === 'block') {
+                updateHexDisplay(hours, minutes, seconds);
+            }
+            
+            // Update astronomical display if visible
+            if (document.querySelector('.astronomical-display').style.display === 'block') {
+                updateAstronomicalDisplay(hours, minutes);
+            }
+        }
+        
+        function updateDigit(id, newValue) {
+            const digit = document.getElementById(id);
+            if (digit.textContent !== newValue) {
+                digit.textContent = newValue;
+                digit.classList.add('animate');
+                setTimeout(() => {
+                    digit.classList.remove('animate');
+                }, 500);
+            }
+        }
+        
+        // Initialize cursor effects
+        function initCursorEffects() {
+            const cursor = document.querySelector('.quantum-cursor');
+            const trails = [];
+            const maxTrails = 10;
+            
+            document.addEventListener('mousemove', (e) => {
+                cursor.style.left = e.clientX + 'px';
+                cursor.style.top = e.clientY + 'px';
+                
+                // Create trail element
+                const trail = document.createElement('div');
+                trail.className = 'cursor-trail';
+                trail.style.left = e.clientX + 'px';
+                trail.style.top = e.clientY + 'px';
+                document.body.appendChild(trail);
+                
+                // Add to trails array
+                trails.push({
+                    element: trail,
+                    createdAt: Date.now()
+                });
+                
+                // Fade out and remove old trails
+                if (trails.length > maxTrails) {
+                    const oldTrail = trails.shift();
+                    oldTrail.element.style.opacity = '0';
+                    setTimeout(() => {
+                        oldTrail.element.remove();
+                    }, 300);
+                }
+            });
+            
+            // Handle cursor over interactive elements
+            document.querySelectorAll('.mode-option, .theme-option').forEach(element => {
+                element.addEventListener('mouseenter', () => {
+                    cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                    cursor.style.background = getComputedStyle(document.documentElement).getPropertyValue('--secondary-glow');
+                });
+                
+                element.addEventListener('mouseleave', () => {
+                    cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+                    cursor.style.background = getComputedStyle(document.documentElement).getPropertyValue('--primary-glow');
+                });
+            });
+        }
+        
+        // Initialize mode switching
+        function initModeSwitching() {
+            const modeOptions = document.querySelectorAll('.mode-option');
+            const binaryDisplay = document.querySelector('.binary-display');
+            const astronomicalDisplay = document.querySelector('.astronomical-display');
+            const hexadecimalDisplay = document.querySelector('.hexadecimal-display');
+            
+            modeOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove active class from all options
+                    modeOptions.forEach(opt => opt.classList.remove('active'));
+                    
+                    // Add active class to clicked option
+                    this.classList.add('active');
+                    
+                    // Hide all special displays
+                    binaryDisplay.style.display = 'none';
+                    astronomicalDisplay.style.display = 'none';
+                    hexadecimalDisplay.style.display = 'none';
+                    
+                    // Show selected display
+                    const mode = this.getAttribute('data-mode');
+                    switch (mode) {
+                        case 'binary':
+                            binaryDisplay.style.display = 'block';
+                            updateBinaryDisplay();
+                            break;
+                        case 'astronomical':
+                            astronomicalDisplay.style.display = 'block';
+                            updateAstronomicalDisplay();
+                            break;
+                        case 'hexadecimal':
+                            hexadecimalDisplay.style.display = 'block';
+                            updateHexDisplay();
+                            break;
+                    }
+                });
+            });
+        }
+        
+        // Initialize binary display
+        function initBinaryDisplay() {
+            const hourBinary = document.getElementById('hourBinary');
+            const minuteBinary = document.getElementById('minuteBinary');
+            const secondBinary = document.getElementById('secondBinary');
+            const binaryLabels = document.querySelector('.binary-labels');
+            
+            // Create binary bits
+            ['H', 'M', 'S'].forEach((label, index) => {
+                const container = [hourBinary, minuteBinary, secondBinary][index];
+                
+                for (let i = 0; i < 8; i++) {
+                    const bit = document.createElement('div');
+                    bit.className = 'binary-bit';
+                    container.appendChild(bit);
+                }
+            });
+            
+            // Create binary labels
+            for (let i = 7; i >= 0; i--) {
+                const label = document.createElement('div');
+                label.className = 'binary-label';
+                label.textContent = 2 ** i;
+                binaryLabels.appendChild(label);
+            }
+            
+            updateBinaryDisplay();
+        }
+        
+        // Update binary display
+        function updateBinaryDisplay(hours, minutes, seconds) {
+            if (!hours || !minutes || !seconds) {
+                const now = new Date();
+                hours = now.getHours().toString().padStart(2, '0');
+                minutes = now.getMinutes().toString().padStart(2, '0');
+                seconds = now.getSeconds().toString().padStart(2, '0');
+            }
+            
+            updateBinaryRow(document.getElementById('hourBinary'), parseInt(hours));
+            updateBinaryRow(document.getElementById('minuteBinary'), parseInt(minutes));
+            updateBinaryRow(document.getElementById('secondBinary'), parseInt(seconds));
+        }
+        
+        function updateBinaryRow(container, value) {
+            const bits = container.querySelectorAll('.binary-bit');
+            const binary = value.toString(2).padStart(8, '0');
+            
+            binary.split('').forEach((bit, index) => {
+                if (bit === '1') {
+                    bits[index].classList.add('active');
+                } else {
+                    bits[index].classList.remove('active');
+                }
+            });
+        }
+        
+        // Update hexadecimal display
+        function updateHexDisplay(hours, minutes, seconds) {
+            if (!hours || !minutes || !seconds) {
+                const now = new Date();
+                hours = now.getHours().toString().padStart(2, '0');
+                minutes = now.getMinutes().toString().padStart(2, '0');
+                seconds = now.getSeconds().toString().padStart(2, '0');
+            }
+            
+            const hexHours = parseInt(hours).toString(16).toUpperCase().padStart(2, '0');
+            const hexMinutes = parseInt(minutes).toString(16).toUpperCase().padStart(2, '0');
+            const hexSeconds = parseInt(seconds).toString(16).toUpperCase().padStart(2, '0');
+            
+            document.getElementById('hexDisplay').textContent = `${hexHours}:${hexMinutes}:${hexSeconds}`;
+        }
+        
+        // Initialize astronomical display
+        function initAstronomicalDisplay() {
+            updateAstronomicalDisplay();
+        }
+        
+        // Update astronomical display
+        function updateAstronomicalDisplay(hours, minutes) {
+            if (!hours || !minutes) {
+                const now = new Date();
+                hours = now.getHours();
+                minutes = now.getMinutes();
+            } else {
+                hours = parseInt(hours);
+                minutes = parseInt(minutes);
+            }
+            
+            const container = document.querySelector('.astronomical-display');
+            const sun = container.querySelector('.sun');
+            const moon = container.querySelector('.moon');
+            
+            // Calculate sun position
+            const totalMinutes = hours * 60 + minutes;
+            const dayMinutes = 24 * 60;
+            const sunProgress = totalMinutes / dayMinutes;
+            
+            // Sun path is a semicircle above the horizon
+            let sunX, sunY;
+            if (sunProgress >= 0.25 && sunProgress <= 0.75) {
+                // Sun is above horizon
+                const sunAngle = (sunProgress - 0.25) * 2 * Math.PI;
+                sunX = 50 + 45 * Math.cos(sunAngle);
+                sunY = 50 - 45 * Math.sin(sunAngle);
+            } else {
+                // Sun is below horizon
+                const sunAngle = (sunProgress < 0.25 ? sunProgress + 0.75 : sunProgress - 0.25) * 2 * Math.PI;
+                sunX = 50 + 45 * Math.cos(sunAngle);
+                sunY = 50; // At horizon
+            }
+            
+            // Calculate moon position (opposite to sun)
+            const moonProgress = (sunProgress + 0.5) % 1;
+            let moonX, moonY;
+            if (moonProgress >= 0.25 && moonProgress <= 0.75) {
+                // Moon is above horizon
+                const moonAngle = (moonProgress - 0.25) * 2 * Math.PI;
+                moonX = 50 + 45 * Math.cos(moonAngle);
+                moonY = 50 - 45 * Math.sin(moonAngle);
+            } else {
+                // Moon is below horizon
+                const moonAngle = (moonProgress < 0.25 ? moonProgress + 0.75 : moonProgress - 0.25) * 2 * Math.PI;
+                moonX = 50 + 45 * Math.cos(moonAngle);
+                moonY = 50; // At horizon
+            }
+            
+            // Position sun and moon
+            sun.style.left = `${sunX}%`;
+            sun.style.top = `${sunY}%`;
+            sun.style.opacity = sunProgress >= 0.25 && sunProgress <= 0.75 ? '1' : '0.3';
+            
+            moon.style.left = `${moonX}%`;
+            moon.style.top = `${moonY}%`;
+            moon.style.opacity = moonProgress >= 0.25 && moonProgress <= 0.75 ? '1' : '0.3';
+        }
+        
+        // Initialize theme switching
+        function initThemeSwitching() {
+            const themeOptions = document.querySelectorAll('.theme-option');
+            
+            themeOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove active class from all options
+                    themeOptions.forEach(opt => opt.classList.remove('active'));
+                    
+                    // Add active class to clicked option
+                    this.classList.add('active');
+                    
+                    // Apply selected theme
+                    const theme = this.getAttribute('data-theme');
+                    applyTheme(theme);
+                });
+            });
+        }
+        
+        // Apply selected theme
+        function applyTheme(theme) {
+            const root = document.documentElement;
+            
+            switch (theme) {
+                case 'quantum':
+                    root.style.setProperty('--primary-glow', 'rgba(45, 212, 255, 0.8)');
+                    root.style.setProperty('--secondary-glow', 'rgba(170, 45, 255, 0.8)');
+                    root.style.setProperty('--background-primary', 'rgb(8, 12, 30)');
+                    root.style.setProperty('--background-secondary', 'rgb(12, 20, 45)');
+                    root.style.setProperty('--particle-color-1', 'rgba(45, 212, 255, 0.7)');
+                    root.style.setProperty('--particle-color-2', 'rgba(170, 45, 255, 0.7)');
+                    root.style.setProperty('--particle-color-3', 'rgba(255, 95, 215, 0.7)');
+                    break;
+                    
+                case 'cosmic':
+                    root.style.setProperty('--primary-glow', 'rgba(255, 170, 0, 0.8)');
+                    root.style.setProperty('--secondary-glow', 'rgba(255, 85, 0, 0.8)');
+                    root.style.setProperty('--background-primary', 'rgb(30, 10, 5)');
+                    root.style.setProperty('--background-secondary', 'rgb(40, 20, 5)');
+                    root.style.setProperty('--particle-color-1', 'rgba(255, 170, 0, 0.7)');
+                    root.style.setProperty('--particle-color-2', 'rgba(255, 85, 0, 0.7)');
+                    root.style.setProperty('--particle-color-3', 'rgba(255, 50, 50, 0.7)');
+                    break;
+                    
+                case 'circuit':
+                    root.style.setProperty('--primary-glow', 'rgba(0, 255, 102, 0.8)');
+                    root.style.setProperty('--secondary-glow', 'rgba(0, 204, 51, 0.8)');
+                    root.style.setProperty('--background-primary', 'rgb(5, 15, 10)');
+                    root.style.setProperty('--background-secondary', 'rgb(10, 25, 15)');
+                    root.style.setProperty('--particle-color-1', 'rgba(0, 255, 102, 0.7)');
+                    root.style.setProperty('--particle-color-2', 'rgba(0, 204, 51, 0.7)');
+                    root.style.setProperty('--particle-color-3', 'rgba(150, 255, 170, 0.7)');
+                    break;
+                    
+                case 'aurora':
+                    root.style.setProperty('--primary-glow', 'rgba(0, 255, 170, 0.8)');
+                    root.style.setProperty('--secondary-glow', 'rgba(85, 0, 255, 0.8)');
+                    root.style.setProperty('--background-primary', 'rgb(5, 15, 25)');
+                    root.style.setProperty('--background-secondary', 'rgb(10, 20, 35)');
+                    root.style.setProperty('--particle-color-1', 'rgba(0, 255, 170, 0.7)');
+                    root.style.setProperty('--particle-color-2', 'rgba(85, 0, 255, 0.7)');
+                    root.style.setProperty('--particle-color-3', 'rgba(255, 0, 170, 0.7)');
+                    break;
+                    
+                case 'ocean':
+                    root.style.setProperty('--primary-glow', 'rgba(0, 170, 255, 0.8)');
+                    root.style.setProperty('--secondary-glow', 'rgba(0, 85, 255, 0.8)');
+                    root.style.setProperty('--background-primary', 'rgb(5, 20, 30)');
+                    root.style.setProperty('--background-secondary', 'rgb(10, 30, 45)');
+                    root.style.setProperty('--particle-color-1', 'rgba(0, 170, 255, 0.7)');
+                    root.style.setProperty('--particle-color-2', 'rgba(0, 85, 255, 0.7)');
+                    root.style.setProperty('--particle-color-3', 'rgba(0, 200, 220, 0.7)');
+                    break;
+            }
+        }
+        
+        // Initialize voice command simulation
+        function initVoiceCommandSimulation() {
+            const voiceIndicator = document.querySelector('.voice-indicator');
+            const voiceText = document.querySelector('.voice-text');
+            
+            // Simulate voice command with keyboard shortcut (press 'v')
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'v') {
+                    // Show voice indicator
+                    voiceIndicator.classList.add('active');
+                    voiceText.textContent = 'Listening...';
+                    
+                    // Simulate processing after 2 seconds
+                    setTimeout(() => {
+                        voiceText.textContent = 'Changing theme...';
+                        
+                        // Simulate command execution after 1 more second
+                        setTimeout(() => {
+                            // Randomly select a theme
+                            const themes = ['quantum', 'cosmic', 'circuit', 'aurora', 'ocean'];
+                            const randomTheme = themes[Math.floor(Math.random() * themes.length)];
+                            
+                            // Apply the theme
+                            applyTheme(randomTheme);
+                            
+                            // Update active theme indicator
+                            document.querySelectorAll('.theme-option').forEach(opt => {
+                                opt.classList.toggle('active', opt.getAttribute('data-theme') === randomTheme);
+                            });
+                            
+                            // Hide voice indicator after 1 more second
+                            setTimeout(() => {
+                                voiceIndicator.classList.remove('active');
+                            }, 1000);
+                        }, 1000);
+                    }, 2000);
+                }
+                
+                // Switch display mode with keys 1-4
+                if (e.key >= '1' && e.key <= '4') {
+                    const index = parseInt(e.key) - 1;
+                    document.querySelectorAll('.mode-option')[index].click();
+                }
+            });
+        }
+        
+        // Initialize weather simulation
+        function initWeatherSimulation() {
+            const weatherTypes = [
+                { icon: '☀️', text: '25°C | Sunny' },
+                { icon: '⛅', text: '22°C | Partly Cloudy' },
+                { icon: '☁️', text: '18°C | Cloudy' },
+                { icon: '🌧️', text: '15°C | Rainy' },
+                { icon: '⛈️', text: '14°C | Thunderstorm' },
+                { icon: '❄️', text: '-2°C | Snowy' }
+            ];
+            
+            const weatherIcon = document.querySelector('.weather-icon');
+            const weatherInfo = document.querySelector('.weather-info');
+            
+            // Initially set a random weather
+            const randomWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+            weatherIcon.textContent = randomWeather.icon;
+            weatherInfo.textContent = randomWeather.text;
+            
+            // Simulate weather changing every 30 seconds
+            setInterval(() => {
+                const newWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+                weatherIcon.textContent = newWeather.icon;
+                weatherInfo.textContent = newWeather.text;
+                
+                // If it's raining, add rain effect
+                if (newWeather.icon === '🌧️' || newWeather.icon === '⛈️') {
+                    createRainEffect();
+                }
+                // If it's snowing, add snow effect
+                else if (newWeather.icon === '❄️') {
+                    createSnowEffect();
+                }
+                // Otherwise, clear weather effects
+                else {
+                    clearWeatherEffects();
+                }
+            }, 30000);
+        }
+        
+        // Create rain effect
+        function createRainEffect() {
+            clearWeatherEffects();
+            
+            const overlay = document.querySelector('.particle-overlay');
+            
+            for (let i = 0; i < 50; i++) {
+                const drop = document.createElement('div');
+                drop.style.position = 'absolute';
+                drop.style.width = '2px';
+                drop.style.height = `${Math.random() * 15 + 10}px`;
+                drop.style.backgroundColor = 'rgba(200, 220, 255, 0.7)';
+                drop.style.left = `${Math.random() * 100}%`;
+                drop.style.top = `${Math.random() * 100}%`;
+                drop.style.animationDuration = `${Math.random() * 1 + 0.5}s`;
+                drop.style.animationTimingFunction = 'linear';
+                drop.style.animationIterationCount = 'infinite';
+                drop.style.animationName = 'raindrop';
+                
+                overlay.appendChild(drop);
+            }
+            
+            // Create raindrop animation
+            if (!document.querySelector('#rainAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'rainAnimation';
+                style.textContent = `
+                    @keyframes raindrop {
+                        0% { transform: translateY(-100px); }
+                        100% { transform: translateY(calc(100vh + 100px)); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // Create snow effect
+        function createSnowEffect() {
+            clearWeatherEffects();
+            
+            const overlay = document.querySelector('.particle-overlay');
+            
+            for (let i = 0; i < 50; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.style.position = 'absolute';
+                snowflake.style.width = `${Math.random() * 5 + 2}px`;
+                snowflake.style.height = snowflake.style.width;
+                snowflake.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                snowflake.style.borderRadius = '50%';
+                snowflake.style.left = `${Math.random() * 100}%`;
+                snowflake.style.top = `${Math.random() * 100}%`;
+                snowflake.style.animationDuration = `${Math.random() * 4 + 6}s`;
+                snowflake.style.animationTimingFunction = 'ease-in-out';
+                snowflake.style.animationIterationCount = 'infinite';
+                snowflake.style.animationName = 'snowflake';
+                
+                overlay.appendChild(snowflake);
+            }
+            
+            // Create snowflake animation
+            if (!document.querySelector('#snowAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'snowAnimation';
+                style.textContent = `
+                    @keyframes snowflake {
+                        0% { 
+                            transform: translateY(-50px) rotate(0deg) translateX(0); 
+                        }
+                        25% {
+                            transform: translateY(calc(25vh - 50px)) translateX(25px) rotate(90deg);
+                        }
+                        50% {
+                            transform: translateY(calc(50vh - 50px)) translateX(0) rotate(180deg);
+                        }
+                        75% {
+                            transform: translateY(calc(75vh - 50px)) translateX(-25px) rotate(270deg);
+                        }
+                        100% { 
+                            transform: translateY(calc(100vh + 50px)) translateX(0) rotate(360deg); 
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // Clear weather effects
+        function clearWeatherEffects() {
+            const overlay = document.querySelector('.particle-overlay');
+            overlay.innerHTML = '';
+        }
+    </script>
+</body>
+</html>

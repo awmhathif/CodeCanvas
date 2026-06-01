@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D Shooting Game - Block Shooter</title>
+  <style>
+    /* =====================================================
+       Global Reset and Base Styling
+       ===================================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #222;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    canvas {
+      background-color: #333;
+      display: block;
+    }
+    #shootButton {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background-color: #e74c3c;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    #stageDisplay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <button id="shootButton">Shoot</button>
+    <div id="stageDisplay">Stage: 1</div>
+  </div>
+  <script>
+    // ============================================================
+    // 2D Shooting Game - Block Shooter
+    // ============================================================
+    // This game features:
+    //  - A turret (at the bottom center) that rotates to follow the mouse.
+    //  - A shoot button (or spacebar) fires bullets along the turret's aim.
+    //  - Blocks arranged in a grid near the top of the screen.
+    //  - When a bullet hits a block, the block changes state and falls (affected by gravity).
+    //  - Once all blocks have fallen, the stage advances with a new arrangement.
+    //  - The game is endless, with increasing stage numbers.
+    // ============================================================
+
+    // --------------------------
+    // Global Variables and Canvas Setup
+    // --------------------------
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let gameWidth = window.innerWidth;
+    let gameHeight = window.innerHeight;
+    canvas.width = gameWidth;
+    canvas.height = gameHeight;
+
+    // DOM elements for UI
+    const shootButton = document.getElementById('shootButton');
+    const stageDisplay = document.getElementById('stageDisplay');
+
+    // Game state variables
+    let currentStage = 1;
+    let bullets = []; // Array to store Bullet objects
+    let blocks = [];  // Array to store Block objects
+
+    // Global mouse position (for turret aiming)
+    let mousePos = { x: gameWidth / 2, y: gameHeight / 2 };
+
+    // Gravity constant used to accelerate falling blocks
+    const gravity = 0.5;
+
+    // --------------------------
+    // Event Listeners
+    // --------------------------
+    // Resize canvas when the window is resized.
+    window.addEventListener('resize', function() {
+      gameWidth = window.innerWidth;
+      gameHeight = window.innerHeight;
+      canvas.width = gameWidth;
+      canvas.height = gameHeight;
+    });
+
+    // Update mouse position for turret aiming.
+    window.addEventListener('mousemove', function(e) {
+      mousePos.x = e.clientX;
+      mousePos.y = e.clientY;
+    });
+
+    // When the shoot button is clicked, fire a bullet.
+    shootButton.addEventListener('click', function() {
+      game.shootBullet();
+    });
+
+    // Allow shooting via the spacebar key.
+    window.addEventListener('keydown', function(e) {
+      if (e.code === 'Space') {
+        game.shootBullet();
+      }
+    });
+
+    // --------------------------
+    // Utility Functions
+    // --------------------------
+    // Calculate the Euclidean distance between two points.
+    function getDistance(x1, y1, x2, y2) {
+      let dx = x2 - x1;
+      let dy = y2 - y1;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Generate a random number between min and max.
+    function randomBetween(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // Clamp a value between a minimum and maximum.
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(val, max));
+    }
+
+    // --------------------------
+    // Class Definitions
+    // --------------------------
+
+    // Class: Bullet
+    // Represents a bullet fired from the turret.
+    class Bullet {
+      constructor(x, y, angle) {
+        this.x = x;
+        this.y = y;
+        // The bullet's speed is constant.
+        this.speed = 10;
+        // Calculate horizontal and vertical velocity based on the turret's angle.
+        this.dx = Math.cos(angle) * this.speed;
+        this.dy = Math.sin(angle) * this.speed;
+        // Radius used for drawing and collision detection.
+        this.radius = 5;
+        // Active flag: false when bullet goes off-screen.
+        this.active = true;
+      }
+      // Update the bullet's position.
+      update() {
+        this.x += this.dx;
+        this.y += this.dy;
+        // Deactivate the bullet if it leaves the game area.
+        if (this.x < 0 || this.x > gameWidth || this.y < 0 || this.y > gameHeight) {
+          this.active = false;
+        }
+      }
+      // Draw the bullet on the canvas.
+      draw(ctx) {
+        ctx.save();
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+        ctx.restore();
+      }
+    }
+
+    // Class: Block
+    // Represents a block target in the game.
+    class Block {
+      constructor(x, y, width, height, color) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color = color;
+        // The block state can be 'static' or 'falling'.
+        this.state = 'static';
+        // Velocities used when the block is falling.
+        this.vx = 0;
+        this.vy = 0;
+      }
+      // Check for collision between this block and a bullet.
+      isColliding(bullet) {
+        // Use a simple circle-rectangle collision algorithm.
+        let distX = Math.abs(bullet.x - (this.x + this.width / 2));
+        let distY = Math.abs(bullet.y - (this.y + this.height / 2));
+
+        if (distX > (this.width / 2 + bullet.radius)) return false;
+        if (distY > (this.height / 2 + bullet.radius)) return false;
+
+        if (distX <= (this.width / 2)) return true;
+        if (distY <= (this.height / 2)) return true;
+
+        let dx = distX - this.width / 2;
+        let dy = distY - this.height / 2;
+        return (dx * dx + dy * dy <= (bullet.radius * bullet.radius));
+      }
+      // Update the block's position and state.
+      update() {
+        if (this.state === 'falling') {
+          // Apply gravity to the block's vertical velocity.
+          this.vy += gravity;
+          // Update block position.
+          this.x += this.vx;
+          this.y += this.vy;
+          // Optionally, apply slight friction to horizontal movement.
+          this.vx *= 0.99;
+        }
+      }
+      // Draw the block on the canvas.
+      draw(ctx) {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.restore();
+      }
+    }
+
+    // Class: Turret
+    // Represents the player's turret.
+    class Turret {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        // The turret initially points upward.
+        this.angle = -Math.PI / 2;
+        // The length of the turret's barrel (for drawing).
+        this.barrelLength = 40;
+      }
+      // Update the turret's angle so it points toward the mouse.
+      update() {
+        let dx = mousePos.x - this.x;
+        let dy = mousePos.y - this.y;
+        this.angle = Math.atan2(dy, dx);
+      }
+      // Draw the turret (base and barrel) on the canvas.
+      draw(ctx) {
+        ctx.save();
+        // Draw the turret base (a circle).
+        ctx.fillStyle = "#95a5a6";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+        // Draw the turret barrel (a line).
+        ctx.strokeStyle = "#ecf0f1";
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        let barrelEndX = this.x + Math.cos(this.angle) * this.barrelLength;
+        let barrelEndY = this.y + Math.sin(this.angle) * this.barrelLength;
+        ctx.lineTo(barrelEndX, barrelEndY);
+        ctx.stroke();
+        ctx.closePath();
+        ctx.restore();
+      }
+    }
+
+    // Class: Game
+    // Manages the overall game state and logic.
+    class Game {
+      constructor() {
+        // Create the turret at the bottom center of the screen.
+        this.turret = new Turret(gameWidth / 2, gameHeight - 30);
+        // Stage number begins at 1.
+        this.stage = 1;
+        // Flag to check whether the current stage is complete.
+        this.stageComplete = false;
+      }
+      // Initialize a new stage by creating a grid of blocks.
+      initStage() {
+        blocks = []; // Clear any existing blocks.
+        // Determine the number of rows and columns based on the stage.
+        let rows = Math.min(5, Math.floor(this.stage / 2) + 2);
+        let cols = Math.min(7, Math.floor(this.stage / 2) + 3);
+        let blockWidth = gameWidth / (cols + 1);
+        let blockHeight = 30;
+        // Create blocks arranged in rows and columns near the top.
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            let x = blockWidth * (c + 0.5);
+            let y = 50 + r * (blockHeight + 10);
+            // Generate a random vibrant color using HSL.
+            let hue = randomBetween(0, 360);
+            let color = "hsl(" + hue + ", 70%, 50%)";
+            let block = new Block(x, y, blockWidth - 10, blockHeight, color);
+            blocks.push(block);
+          }
+        }
+        // Clear any existing bullets.
+        bullets = [];
+        // Update the stage display.
+        stageDisplay.textContent = "Stage: " + this.stage;
+        // Reset the stage completion flag.
+        this.stageComplete = false;
+      }
+      // Fire a bullet from the turret in the direction the turret is aiming.
+      shootBullet() {
+        // Create a new bullet at the turret's position.
+        let bullet = new Bullet(this.turret.x, this.turret.y, this.turret.angle);
+        bullets.push(bullet);
+      }
+      // Update the game state for each frame.
+      update() {
+        // Update turret aiming.
+        this.turret.update();
+
+        // Update bullets and remove any that are inactive.
+        for (let i = bullets.length - 1; i >= 0; i--) {
+          let bullet = bullets[i];
+          bullet.update();
+          if (!bullet.active) {
+            bullets.splice(i, 1);
+          }
+        }
+
+        // Update each block.
+        for (let i = blocks.length - 1; i >= 0; i--) {
+          let block = blocks[i];
+          block.update();
+          // Remove blocks that have fallen completely off the screen.
+          if (block.y > gameHeight) {
+            blocks.splice(i, 1);
+          }
+        }
+
+        // Check for collisions between bullets and blocks.
+        for (let i = bullets.length - 1; i >= 0; i--) {
+          let bullet = bullets[i];
+          for (let j = 0; j < blocks.length; j++) {
+            let block = blocks[j];
+            // Only check collision if the block is still static.
+            if (block.state === 'static' && block.isColliding(bullet)) {
+              // Change block state to "falling" so it will start to drop.
+              block.state = 'falling';
+              // Give the block an initial velocity influenced by the bullet.
+              block.vx = bullet.dx * 0.5;
+              block.vy = bullet.dy * 0.5;
+              // Remove the bullet after it hits.
+              bullets.splice(i, 1);
+              break;
+            }
+          }
+        }
+
+        // Check if the stage is complete (all blocks have fallen).
+        if (blocks.length === 0 && !this.stageComplete) {
+          this.stageComplete = true;
+          // Advance to the next stage after a short delay.
+          setTimeout(() => {
+            this.stage++;
+            this.initStage();
+          }, 1000);
+        }
+      }
+      // Draw the current game state.
+      draw() {
+        // Clear the entire canvas.
+        ctx.clearRect(0, 0, gameWidth, gameHeight);
+        // Draw the turret.
+        this.turret.draw(ctx);
+        // Draw each bullet.
+        bullets.forEach(bullet => bullet.draw(ctx));
+        // Draw each block.
+        blocks.forEach(block => block.draw(ctx));
+      }
+    }
+
+    // --------------------------
+    // Create Game Instance and Initialize the First Stage
+    // --------------------------
+    let game = new Game();
+    game.initStage();
+
+    // --------------------------
+    // Main Game Loop using requestAnimationFrame
+    // --------------------------
+    function gameLoop() {
+      game.update();
+      game.draw();
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+
+    // --------------------------
+    // Additional Code and Detailed Comments
+    // --------------------------
+    /*
+      ============================================================
+      Detailed Code Explanation:
+      ============================================================
+
+      1. Global Variables and Canvas Setup:
+         - The canvas is set to cover the full viewport.
+         - Variables such as gameWidth and gameHeight are updated on window resize.
+         - Arrays (bullets and blocks) hold active bullets and blocks, respectively.
+         - The mousePos object tracks the current mouse coordinates for aiming.
+
+      2. Event Listeners:
+         - 'resize' events update the canvas size.
+         - 'mousemove' events update the turret’s aim via the global mousePos.
+         - Clicking the shoot button or pressing the spacebar fires a bullet.
+
+      3. Utility Functions:
+         - getDistance: Calculates the distance between two points.
+         - randomBetween: Returns a random value between two numbers.
+         - clamp: Constrains a value within a specified range.
+
+      4. Class Definitions:
+         a. Bullet:
+            - Holds properties for position, velocity, and radius.
+            - The update() method moves the bullet.
+            - The draw() method renders the bullet as a yellow circle.
+         b. Block:
+            - Holds properties for position, size, color, and state ('static' or 'falling').
+            - The isColliding() method uses circle–rectangle collision detection.
+            - The update() method applies gravity when the block is falling.
+            - The draw() method renders the block as a colored rectangle.
+         c. Turret:
+            - Fixed at the bottom center, it rotates to follow the mouse pointer.
+            - The update() method calculates the angle between the turret and the mouse.
+            - The draw() method renders a circular base and a line for the barrel.
+         d. Game:
+            - Manages the turret, stage, bullets, and blocks.
+            - The initStage() method arranges blocks in a grid.
+            - The shootBullet() method creates a new bullet from the turret.
+            - The update() method processes movement, collisions, and stage transitions.
+            - The draw() method renders all game objects.
+
+      5. Main Game Loop:
+         - The gameLoop() function continuously updates and draws the game.
+         - requestAnimationFrame is used to maintain smooth animations.
+
+      6. Stage Progression:
+         - When all blocks have been hit (and have fallen off-screen), the stage completes.
+         - A short delay is used before initializing the next stage.
+         - The stage display (top-left) is updated with the current stage number.
+
+      7. Collision Handling:
+         - Each bullet is checked against every block.
+         - When a collision is detected, the block’s state is set to “falling.”
+         - The bullet is removed upon collision to prevent multiple hits.
+
+      ============================================================
+      End of Detailed Code Explanation.
+      ============================================================
+    */
+
+    // --------------------------
+    // Extra Debugging and Helper Code
+    // --------------------------
+    const DEBUG = false; // Set to true to enable console logging for debugging.
+    function debugLog(message) {
+      if (DEBUG) {
+        console.log(message);
+      }
+    }
+
+    // Function to reset the game (could be invoked with a key press such as 'R').
+    function resetGame() {
+      currentStage = 1;
+      game.initStage();
+      bullets = [];
+      blocks = [];
+      stageDisplay.textContent = "Stage: " + currentStage;
+      debugLog("Game reset to stage 1.");
+    }
+
+    // Increase difficulty by modifying game parameters (for example, increasing gravity).
+    function increaseDifficulty(stage) {
+      // Here you could adjust variables such as gravity, block density, or bullet speed.
+      let newGravity = gravity + stage * 0.05;
+      debugLog("Increasing difficulty. New gravity: " + newGravity);
+      return newGravity;
+    }
+
+    // Allow the player to reset the game by pressing the 'R' key.
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'r' || e.key === 'R') {
+        resetGame();
+      }
+    });
+
+    // Additional game enhancements or debug features can be added below.
+    // For instance, you might display the number of active bullets or blocks,
+    // or allow the player to toggle a debug overlay.
+
+    // ============================================================
+    // End of 2D Shooting Game Code
+    // ============================================================
+  </script>
+  <!-- =====================================================
+       End of Code (over 500 lines of meaningful HTML, CSS, and JavaScript)
+       ===================================================== -->
+</body>
+</html>

@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestureVerse — Gesture Poetry</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#06060c;--bg2:#0c0c18;--bg3:#141428;--bg4:#1e1e3a;
+--text:#e8e8f8;--text2:#a8a8c8;--text3:#686888;
+--ink:#c4b5fd;--ink2:#a78bfa;--ink3:#8b5cf6;
+--gold:#fbbf24;--rose:#fb7185;--teal:#2dd4bf;--sky:#38bdf8;
+--panel:rgba(12,12,24,0.96);--border:rgba(139,92,246,0.2);
+--glow:rgba(139,92,246,0.12);
+}
+html,body{height:100%;overflow:hidden;font-family:'Georgia','Palatino Linotype','Book Antiqua',serif;background:var(--bg);color:var(--text)}
+.app{display:flex;height:100vh;width:100vw}
+.canvas-area{flex:1;position:relative;cursor:crosshair;overflow:hidden;user-select:none}
+canvas#inkCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+canvas#trailCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+canvas#particleCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.poem-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5}
+.floating-word{position:absolute;pointer-events:none;font-style:italic;text-shadow:0 0 20px currentColor;transition:opacity 2s;animation:wordFloat 4s ease-in-out infinite}
+@keyframes wordFloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-8px) rotate(1deg)}}
+.sidebar{width:380px;min-width:380px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:10}
+.sidebar.collapsed{width:48px;min-width:48px}
+.sidebar.collapsed .sb-body,.sidebar.collapsed .sb-title span,.sidebar.collapsed .tabs{display:none}
+.sb-header{padding:16px 16px 0;flex-shrink:0;position:relative}
+.sb-title{font-size:20px;font-weight:700;letter-spacing:-0.5px}
+.sb-title .g{background:linear-gradient(135deg,var(--ink2),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sb-sub{font-size:11px;color:var(--text3);margin-top:2px;font-family:system-ui,sans-serif}
+.toggle-sb{position:absolute;top:14px;left:-16px;width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
+.tabs{display:flex;gap:0;margin-top:12px;border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:8px 4px;text-align:center;font-size:11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-family:system-ui,sans-serif}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--ink);border-bottom-color:var(--ink3)}
+.sb-body{flex:1;overflow-y:auto;padding:16px}
+.sb-body::-webkit-scrollbar{width:4px}
+.sb-body::-webkit-scrollbar-thumb{background:var(--ink3);border-radius:4px}
+.sb-body::-webkit-scrollbar-track{background:transparent}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;font-family:system-ui,sans-serif;font-weight:600}
+.poem-display{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:120px;line-height:1.8;font-size:15px;color:var(--ink);white-space:pre-wrap;position:relative}
+.poem-display .line{opacity:0;animation:lineIn .8s forwards}
+.poem-display .line:nth-child(1){animation-delay:.1s}
+.poem-display .line:nth-child(2){animation-delay:.3s}
+.poem-display .line:nth-child(3){animation-delay:.5s}
+.poem-display .line:nth-child(4){animation-delay:.7s}
+.poem-display .line:nth-child(5){animation-delay:.9s}
+.poem-display .line:nth-child(6){animation-delay:1.1s}
+@keyframes lineIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.poem-display .cursor-blink{display:inline-block;width:2px;height:1em;background:var(--ink);animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+.gesture-info{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.gi{background:var(--bg);border-radius:8px;padding:8px 10px;font-family:system-ui,sans-serif}
+.gi .label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.gi .val{font-size:14px;font-weight:600;margin-top:2px}
+.mood-bar{height:6px;border-radius:3px;background:var(--bg);overflow:hidden;margin-top:4px}
+.mood-bar .fill{height:100%;border-radius:3px;transition:width .5s,background .5s}
+.history-item{background:var(--bg);border:1px solid rgba(255,255,255,.04);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.history-item:hover{border-color:var(--border);transform:translateY(-1px)}
+.history-item .hi-poem{font-size:13px;color:var(--ink);line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden}
+.history-item .hi-meta{font-size:10px;color:var(--text3);margin-top:6px;display:flex;justify-content:space-between;font-family:system-ui,sans-serif}
+.btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-size:12px;font-family:system-ui,sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn:hover{border-color:var(--ink2);background:var(--bg4)}
+.btn.primary{background:linear-gradient(135deg,var(--ink3),var(--rose));border:none;color:#fff;font-weight:600}
+.btn.primary:hover{opacity:.9}
+.controls-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.controls-row select,.controls-row input{padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-family:system-ui,sans-serif}
+.controls-row label{font-size:10px;color:var(--text3);display:flex;flex-direction:column;gap:3px}
+.color-dots{display:flex;gap:6px;margin-top:4px}
+.color-dot{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-dot:hover,.color-dot.active{border-color:#fff;transform:scale(1.15)}
+.style-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.style-tag{padding:3px 10px;border-radius:12px;font-size:10px;cursor:pointer;border:1px solid var(--border);color:var(--text3);transition:all .15s;font-family:system-ui,sans-serif}
+.style-tag:hover{border-color:var(--ink2);color:var(--text2)}
+.style-tag.active{background:var(--ink3);border-color:var(--ink2);color:#fff}
+.canvas-hud{position:absolute;top:12px;left:12px;font-size:10px;color:var(--text3);z-index:6;pointer-events:none;font-family:system-ui,sans-serif;line-height:1.7}
+.canvas-hud .hv{color:var(--ink)}
+.prompt-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;color:var(--text3);pointer-events:none;z-index:6;text-align:center;opacity:.5;transition:opacity 1s}
+.prompt-text.hidden{opacity:0}
+.prompt-text .small{font-size:13px;margin-top:8px;font-family:system-ui,sans-serif}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;color:var(--text);z-index:200;opacity:0;transition:all .3s;pointer-events:none;font-family:system-ui,sans-serif}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.help-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.help-overlay.show{opacity:1;pointer-events:all}
+.help-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:620px;max-width:95vw;max-height:85vh;overflow-y:auto}
+.help-box h3{font-size:22px;margin-bottom:16px;background:linear-gradient(135deg,var(--ink2),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.help-box .hs{margin-bottom:14px}
+.help-box .hs h4{font-size:13px;color:var(--ink);margin-bottom:4px;font-family:system-ui,sans-serif}
+.help-box .hs p{font-size:12px;color:var(--text2);line-height:1.6;font-family:system-ui,sans-serif}
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.sc{display:flex;gap:8px;font-size:12px;padding:3px 0;font-family:system-ui,sans-serif}
+.sc kbd{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--ink);border:1px solid var(--border);font-family:monospace}
+.sc span{color:var(--text2)}
+.export-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:250;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.export-modal.show{opacity:1;pointer-events:all}
+.export-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:500px;max-width:95vw}
+.export-box h3{font-size:18px;margin-bottom:12px;color:var(--ink)}
+.export-box textarea{width:100%;height:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--ink);padding:12px;font-size:14px;line-height:1.8;resize:vertical;font-family:'Georgia',serif}
+.export-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="canvas-area" id="canvasArea">
+<canvas id="inkCanvas"></canvas>
+<canvas id="trailCanvas"></canvas>
+<canvas id="particleCanvas"></canvas>
+<div class="poem-overlay" id="poemOverlay"></div>
+<div class="canvas-hud" id="canvasHud"></div>
+<div class="prompt-text" id="promptText">
+<div>✦ Move your mouse to write poetry ✦</div>
+<div class="small">Your gestures become verses — speed, curves, and rhythm shape the words</div>
+</div>
+</div>
+<div class="sidebar" id="sidebar">
+<div class="sb-header">
+<button class="toggle-sb" id="toggleSb">▶</button>
+<div class="sb-title"><span class="g">GestureVerse</span></div>
+<div class="sb-sub">Mouse movements become poetry</div>
+<div class="tabs">
+<div class="tab active" data-tab="live">Live</div>
+<div class="tab" data-tab="compose">Compose</div>
+<div class="tab" data-tab="history">History</div>
+<div class="tab" data-tab="settings">Settings</div>
+</div>
+</div>
+<div class="sb-body" id="sbBody"></div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="help-overlay" id="helpOverlay"><div class="help-box" id="helpBox"></div></div>
+<div class="export-modal" id="exportModal"><div class="export-box" id="exportBox"></div></div>
+
+<script>
+'use strict';
+
+// ========== CONSTANTS ==========
+const MAX_TRAIL=500,MAX_PARTICLES=2000,MAX_FLOATING_WORDS=40,FFT_SMOOTH=0.15;
+const EMOTIONS={
+joy:{name:'Joy',color:'#fbbf24',icon:'☀️'},
+melancholy:{name:'Melancholy',color:'#818cf8',icon:'🌧️'},
+fury:{name:'Fury',color:'#ef4444',icon:'🔥'},
+serenity:{name:'Serenity',color:'#2dd4bf',icon:'🌊'},
+longing:{name:'Longing',color:'#c084fc',icon:'🌙'},
+wonder:{name:'Wonder',color:'#38bdf8',icon:'✨'},
+passion:{name:'Passion',color:'#fb7185',icon:'💗'},
+dread:{name:'Dread',color:'#64748b',icon:'🕳️'}
+};
+
+const POETIC_STYLES=['free_verse','haiku','couplet','stream','imagist','surreal','romantic','minimalist'];
+const STYLE_LABELS={free_verse:'Free Verse',haiku:'Haiku',couplet:'Couplet',stream:'Stream',imagist:'Imagist',surreal:'Surreal',romantic:'Romantic',minimalist:'Minimalist'};
+
+// ========== WORD BANKS ==========
+const W = {
+// Nouns by emotion
+n_joy:['sunlight','laughter','meadow','blossom','dawn','wings','honey','carnival','firefly','prism','breeze','gold','kite','fountain','radiance','songbird','shimmer','garden','daybreak','spark'],
+n_melancholy:['rain','shadow','dust','echo','ruins','fog','ashes','moth','dusk','winter','silence','photograph','ghost','cobweb','willow','ember','mist','farewell','twilight','absence'],
+n_fury:['thunder','blade','storm','fire','volcano','fist','shatter','tempest','iron','scorpion','lightning','furnace','chain','howl','earthquake','war','magma','venom','hurricane','inferno'],
+n_serenity:['lake','moon','feather','cloud','snow','breath','lotus','horizon','tide','dewdrop','pearl','stillness','silk','garden','stream','cathedral','dove','crystal','whisper','haze'],
+n_longing:['horizon','letter','memory','bridge','window','distance','train','lighthouse','photograph','shore','stairway','doorway','melody','footprint','harbor','stars','passage','road','compass','map'],
+n_wonder:['nebula','aurora','cosmos','kaleidoscope','prism','crystal','labyrinth','cathedral','ocean','galaxy','fractal','rainbow','infinity','mirage','constellation','diamond','abyss','phoenix','miracle','tapestry'],
+n_passion:['flame','rose','pulse','silk','midnight','wine','velvet','heart','storm','dance','fever','kiss','tango','crimson','orchid','thunder','desire','scarlet','blaze','rapture'],
+n_dread:['void','abyss','shadow','maze','clock','mirror','threshold','cage','fog','silence','precipice','labyrinth','undertow','monolith','tunnel','web','pit','grave','static','entropy'],
+
+// Verbs
+v_motion:['drifting','cascading','spiraling','flowing','tumbling','soaring','dissolving','weaving','dancing','rippling','swirling','gliding','rushing','wandering','falling','rising','spinning','trembling','floating','surging'],
+v_slow:['lingering','fading','melting','settling','breathing','resting','dimming','softening','hushing','whispering','pooling','sinking','seeping','dripping','ebbing','waning','sighing','dissolving','blurring','vanishing'],
+v_fast:['shattering','exploding','racing','flashing','crashing','blazing','streaking','bursting','igniting','erupting','splitting','tearing','hurtling','jolting','surging','roaring','detonating','whipping','striking','piercing'],
+v_curve:['curling','arching','bending','embracing','cradling','coiling','unfurling','wrapping','caressing','circling','looping','winding','twisting','folding','blooming','opening','turning','revolving','swaying','curving'],
+
+// Adjectives
+a_bright:['luminous','golden','radiant','brilliant','gleaming','incandescent','dazzling','shimmering','phosphorescent','crystalline','iridescent','blazing','effulgent','resplendent','glittering','lustrous','scintillating','vivid','burning','white-hot'],
+a_dark:['shadowed','dim','fading','ashen','obscured','veiled','spectral','forgotten','hollow','muted','pallid','ghostly','tenebrous','dusky','somber','leaden','murky','umbral','crepuscular','charcoal'],
+a_soft:['gentle','silken','tender','quiet','delicate','ethereal','gossamer','diaphanous','subtle','hushed','feathered','translucent','fragile','airy','weightless','downy','gauzy','pastel','pale','soft'],
+a_sharp:['jagged','piercing','acute','fractured','angular','serrated','cutting','barbed','crystalline','brittle','splintered','edged','keen','razored','incisive','stark','severe','geometric','faceted','chiseled'],
+
+// Prepositions / connectors
+prep:['beneath','above','through','within','beyond','across','between','among','against','beside','inside','over','under','into','toward','along','around','upon','behind','amid'],
+
+// Abstract / philosophical
+abstract:['silence','time','memory','dreaming','eternity','distance','longing','gravity','oblivion','becoming','infinity','resonance','threshold','ephemera','solitude','paradox','liminal','entropy','transcendence','impermanence'],
+
+// Nature imagery
+nature:['river','mountain','ocean','forest','sky','stone','wind','leaf','root','branch','petal','thorn','seed','soil','wave','reef','glacier','canyon','meadow','prairie'],
+
+// Sounds
+sounds:['whisper','echo','hum','murmur','thunder','chime','resonance','reverb','harmony','dissonance','cadence','rhythm','pulse','drone','crescendo','diminuendo','silence','vibration','tremolo','ostinato'],
+};
+
+// ========== PHRASE TEMPLATES ==========
+const TEMPLATES = {
+free_verse:[
+'{a} {n}, {v} {prep} {n2}',
+'the {n} of {abstract} — {v} still',
+'{v} like {a} {n} {prep} the {n2}',
+'I remember the {n}, its {a} {sound}',
+'{prep} {n}, where {abstract} {v}',
+'all that remains: {a} {n}, {v}',
+'there is {a} {n} {prep} every {abstract}',
+'the {n} {v}, and I am {a}',
+'{n} after {n}, {v} into {abstract}',
+'what the {n} knows: {a} {abstract}',
+'between {n} and {n2}, a {sound} of {abstract}',
+'we were {a}, once — {v} {prep} {n}'
+],
+haiku:[
+'{a} {n} {v}\n{prep} the {a2} {n2}\n{sound} of {abstract}',
+'{n} {v} slow\n{a} {abstract} unfolds\n{prep} the {n2}',
+'a single {n}\n{v} {prep} {a} {n2}\n{abstract} remains'
+],
+couplet:[
+'the {a} {n} {v} {prep} the {n2},\nwhile {abstract} hums its {a2} {sound}.',
+'{v} the {n} of {abstract},\nwhere {a} {n2} meets the {sound}.',
+'a {n} {v} — {a} and {a2},\nthe {sound} of {abstract} {v2} through {n2}.'
+],
+stream:[
+'{n} {n2} {v} {abstract} {a} {sound} {n} {prep} {v2} {n2} {abstract}',
+'{v} {a} {n} — {abstract} — {sound} — {v2} {prep} {n2} — {a2}',
+'the {n} the {n2} the {abstract} {v} and {v2} forever {a}'
+],
+imagist:[
+'{a} {n}.\n{v} {prep} {abstract}.',
+'One {n}: {a}, {v}.',
+'{n}—\n{a} as {abstract}.',
+'the {n} {v}.\nnothing more.'
+],
+surreal:[
+'the {n} wore a coat of {abstract} and {v} into the {n2}\'s {sound}',
+'{a} clocks {v} — the {n} remembers being a {n2}',
+'if {abstract} had wings, it would {v} like {a} {n}',
+'the {n} dreamt of {v} {prep} a {a} {n2} made of {abstract}',
+'inside the {n}, a thousand {a} {n2} are {v}'
+],
+romantic:[
+'your {n} {v} through my {abstract},\n{a} as the first {n2}',
+'I trace the {n} of your {abstract},\nwhere {a} {sound} {v}',
+'in the {a} hours, your {n} is my {abstract}',
+'we are two {n}, {v} {prep} the same {abstract}',
+'your {sound} — {a}, {a2} — the only {n} I need'
+],
+minimalist:[
+'{n}.',
+'{a}.',
+'{v}.',
+'{n}. {abstract}.',
+'{a} {n}.',
+'{v} — {a}.'
+]
+};
+
+// ========== STATE ==========
+let STATE={
+trail:[],gesture:{speed:0,avgSpeed:0,curvature:0,angle:0,turbulence:0,direction:'still',pattern:'none',emotion:'serenity',arousal:0,valence:0},
+poems:[],currentPoem:[],style:'free_verse',inkColor:'#c4b5fd',
+brushSize:2,trailFade:0.92,particleDensity:1,showTrails:true,showParticles:true,showFloating:true,
+autoGenerate:true,generateInterval:1.2,lastGenTime:0,wordDelay:400,
+isDrawing:false,hasStarted:false,totalDistance:0,sessionLines:0
+};
+
+// ========== PERSISTENCE ==========
+function save(){try{localStorage.setItem('gv_poems',JSON.stringify(STATE.poems));localStorage.setItem('gv_style',STATE.style);localStorage.setItem('gv_color',STATE.inkColor)}catch(e){}}
+function load(){try{const p=localStorage.getItem('gv_poems');if(p)STATE.poems=JSON.parse(p);const s=localStorage.getItem('gv_style');if(s)STATE.style=s;const c=localStorage.getItem('gv_color');if(c)STATE.inkColor=c}catch(e){}}
+
+// ========== UTILS ==========
+const $=s=>document.querySelector(s);const $$=s=>document.querySelectorAll(s);
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function lerp(a,b,t){return a+(b-a)*t}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`}
+
+// ========== GESTURE ANALYSIS ==========
+function analyzeGesture(){
+const tr=STATE.trail;
+if(tr.length<3)return;
+const last=tr.slice(-60);
+// Speed
+let totalSpeed=0,maxSpeed=0;
+for(let i=1;i<last.length;i++){
+const dx=last[i].x-last[i-1].x,dy=last[i].y-last[i-1].y;
+const dt=Math.max(1,last[i].t-last[i-1].t);
+const sp=Math.sqrt(dx*dx+dy*dy)/dt*16;
+totalSpeed+=sp;maxSpeed=Math.max(maxSpeed,sp);
+}
+const avgSpeed=totalSpeed/Math.max(1,last.length-1);
+// Curvature: angle changes
+let totalCurv=0;
+for(let i=2;i<last.length;i++){
+const a1=Math.atan2(last[i-1].y-last[i-2].y,last[i-1].x-last[i-2].x);
+const a2=Math.atan2(last[i].y-last[i-1].y,last[i].x-last[i-1].x);
+let da=a2-a1;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;
+totalCurv+=Math.abs(da);
+}
+const curvature=totalCurv/Math.max(1,last.length-2);
+// Direction
+const dx=last[last.length-1].x-last[0].x,dy=last[last.length-1].y-last[0].y;
+const angle=Math.atan2(dy,dx);
+let dir='still';
+if(avgSpeed>0.5){
+if(angle>-Math.PI/4&&angle<Math.PI/4)dir='right';
+else if(angle>=Math.PI/4&&angle<3*Math.PI/4)dir='down';
+else if(angle>=-3*Math.PI/4&&angle<-Math.PI/4)dir='up';
+else dir='left';
+}
+// Turbulence: variance in direction changes
+let dirChanges=0;
+for(let i=2;i<last.length;i++){
+const a1=Math.atan2(last[i-1].y-last[i-2].y,last[i-1].x-last[i-2].x);
+const a2=Math.atan2(last[i].y-last[i-1].y,last[i].x-last[i-1].x);
+let da=Math.abs(a2-a1);if(da>Math.PI)da=2*Math.PI-da;
+if(da>0.3)dirChanges++;
+}
+const turbulence=dirChanges/Math.max(1,last.length-2);
+// Pattern recognition
+let pattern='wandering';
+if(avgSpeed<0.3)pattern='still';
+else if(curvature>0.8&&avgSpeed>2)pattern='spiral';
+else if(curvature>0.5)pattern='curved';
+else if(turbulence>0.5)pattern='chaotic';
+else if(avgSpeed>8)pattern='dash';
+else if(turbulence<0.1&&avgSpeed>1)pattern='line';
+else if(curvature>0.3&&turbulence<0.25)pattern='wave';
+// Looping detection
+if(last.length>20){
+const startX=last[0].x,startY=last[0].y;
+const endX=last[last.length-1].x,endY=last[last.length-1].y;
+if(Math.hypot(endX-startX,endY-startY)<50&&curvature>0.3)pattern='loop';
+}
+// Emotion mapping (valence-arousal model)
+let arousal=clamp(avgSpeed/8,0,1);
+let valence=0.5;
+// Up = positive, down = negative
+if(dir==='up')valence=lerp(valence,0.8,0.3);
+if(dir==='down')valence=lerp(valence,0.2,0.3);
+// Smooth curves = positive, jagged = negative
+valence=lerp(valence,curvature<0.4?0.7:0.3,0.2);
+// Turbulence reduces valence
+valence=lerp(valence,1-turbulence,0.15);
+let emotion='serenity';
+if(arousal>0.6&&valence>0.6)emotion='joy';
+else if(arousal>0.6&&valence<0.4)emotion='fury';
+else if(arousal<0.4&&valence>0.6)emotion='serenity';
+else if(arousal<0.4&&valence<0.4)emotion='melancholy';
+else if(arousal>0.5&&valence>0.45&&valence<0.65)emotion='passion';
+else if(arousal<0.5&&valence<0.45)emotion='longing';
+else if(arousal>0.5&&valence>0.55)emotion='wonder';
+else if(turbulence>0.5)emotion='dread';
+
+STATE.gesture={speed:maxSpeed,avgSpeed,curvature,angle,turbulence,direction:dir,pattern,emotion,arousal,valence};
+}
+
+// ========== POETRY GENERATION ==========
+function getEmotionNouns(emo){return W['n_'+emo]||W.n_serenity}
+function getMotionVerbs(){
+const g=STATE.gesture;
+if(g.avgSpeed>6)return W.v_fast;
+if(g.avgSpeed<1)return W.v_slow;
+if(g.curvature>0.4)return W.v_curve;
+return W.v_motion;
+}
+function getAdjectives(){
+const g=STATE.gesture;
+if(g.arousal>0.6&&g.valence>0.5)return W.a_bright;
+if(g.arousal<0.4&&g.valence<0.5)return W.a_dark;
+if(g.curvature>0.5)return W.a_soft;
+if(g.turbulence>0.4)return W.a_sharp;
+return [...W.a_bright.slice(0,5),...W.a_soft.slice(0,5),...W.a_dark.slice(0,5)];
+}
+function fillTemplate(tmpl){
+const emo=STATE.gesture.emotion;
+const nouns=getEmotionNouns(emo);
+const nouns2=[...W.nature,...W.abstract];
+const verbs=getMotionVerbs();
+const adjs=getAdjectives();
+return tmpl
+.replace(/\{n\}/g,()=>pick(nouns))
+.replace(/\{n2\}/g,()=>pick(nouns2))
+.replace(/\{v\}/g,()=>pick(verbs))
+.replace(/\{v2\}/g,()=>pick(W.v_motion))
+.replace(/\{a\}/g,()=>pick(adjs))
+.replace(/\{a2\}/g,()=>pick(adjs))
+.replace(/\{prep\}/g,()=>pick(W.prep))
+.replace(/\{abstract\}/g,()=>pick(W.abstract))
+.replace(/\{sound\}/g,()=>pick(W.sounds))
+.replace(/\{nature\}/g,()=>pick(W.nature));
+}
+function generateLine(){
+const templates=TEMPLATES[STATE.style]||TEMPLATES.free_verse;
+const tmpl=pick(templates);
+return fillTemplate(tmpl);
+}
+function generateFullPoem(lineCount){
+const lines=[];
+for(let i=0;i<lineCount;i++)lines.push(generateLine());
+return lines.join('\n');
+}
+
+// ========== FLOATING WORDS ==========
+let floatingWords=[];
+function spawnFloatingWord(x,y){
+if(floatingWords.length>=MAX_FLOATING_WORDS)return;
+const emo=STATE.gesture.emotion;
+const nouns=getEmotionNouns(emo);
+const adjs=getAdjectives();
+const word=Math.random()>0.5?pick(nouns):pick(adjs);
+const eData=EMOTIONS[emo];
+const el=document.createElement('div');
+el.className='floating-word';
+el.textContent=word;
+const size=12+Math.random()*14+STATE.gesture.avgSpeed*2;
+const alpha=0.3+STATE.gesture.arousal*0.5;
+el.style.cssText=`left:${x}px;top:${y}px;font-size:${size}px;color:${hexA(eData.color,alpha)};opacity:1;animation-duration:${3+Math.random()*3}s`;
+$('#poemOverlay').appendChild(el);
+const fw={el,x,y,vx:(Math.random()-0.5)*0.5,vy:-0.3-Math.random()*0.5,life:1,decay:0.003+Math.random()*0.005};
+floatingWords.push(fw);
+}
+function updateFloatingWords(){
+for(let i=floatingWords.length-1;i>=0;i--){
+const fw=floatingWords[i];
+fw.x+=fw.vx;fw.y+=fw.vy;fw.life-=fw.decay;
+fw.el.style.left=fw.x+'px';fw.el.style.top=fw.y+'px';fw.el.style.opacity=fw.life;
+if(fw.life<=0){fw.el.remove();floatingWords.splice(i,1)}
+}
+}
+
+// ========== PARTICLES ==========
+let particles=[];
+function spawnParticles(x,y,count){
+const emo=STATE.gesture.emotion;
+const col=EMOTIONS[emo].color;
+for(let i=0;i<count&&particles.length<MAX_PARTICLES;i++){
+const angle=Math.random()*Math.PI*2;
+const speed=0.5+Math.random()*3*STATE.gesture.arousal;
+particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1,decay:0.008+Math.random()*0.015,size:1+Math.random()*3,color:col});
+}
+}
+function updateParticles(ctx){
+for(let i=particles.length-1;i>=0;i--){
+const p=particles[i];
+p.x+=p.vx;p.y+=p.vy;p.vy+=0.01;p.vx*=0.99;p.life-=p.decay;
+if(p.life<=0){particles.splice(i,1);continue}
+ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);
+ctx.fillStyle=hexA(p.color,p.life*0.6);ctx.fill();
+}
+}
+
+// ========== CANVAS RENDERING ==========
+const inkCanvas=$('#inkCanvas'),inkCtx=inkCanvas.getContext('2d');
+const trailCanvas=$('#trailCanvas'),trailCtx=trailCanvas.getContext('2d');
+const particleCanvas=$('#particleCanvas'),partCtx=particleCanvas.getContext('2d');
+let CW,CH,dpr;
+function resize(){
+dpr=window.devicePixelRatio||1;
+const area=$('#canvasArea');
+CW=area.offsetWidth;CH=area.offsetHeight;
+[inkCanvas,trailCanvas,particleCanvas].forEach(c=>{
+c.width=CW*dpr;c.height=CH*dpr;
+c.style.width=CW+'px';c.style.height=CH+'px';
+c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+});
+}
+window.addEventListener('resize',resize);
+
+function drawInkStroke(x0,y0,x1,y1){
+const g=STATE.gesture;
+const emo=EMOTIONS[g.emotion];
+const pressure=clamp(g.avgSpeed/6,0.3,1);
+const width=STATE.brushSize*(1+pressure*4);
+inkCtx.beginPath();
+inkCtx.moveTo(x0,y0);inkCtx.lineTo(x1,y1);
+inkCtx.strokeStyle=hexA(STATE.inkColor,0.15+pressure*0.5);
+inkCtx.lineWidth=width;inkCtx.lineCap='round';inkCtx.lineJoin='round';
+inkCtx.stroke();
+// Glow layer
+inkCtx.beginPath();inkCtx.moveTo(x0,y0);inkCtx.lineTo(x1,y1);
+inkCtx.strokeStyle=hexA(emo.color,0.05+pressure*0.15);
+inkCtx.lineWidth=width*3;inkCtx.stroke();
+}
+
+function drawTrails(){
+if(!STATE.showTrails)return;
+trailCtx.fillStyle=`rgba(6,6,12,${1-STATE.trailFade})`;
+trailCtx.fillRect(0,0,CW,CH);
+const tr=STATE.trail;
+if(tr.length<2)return;
+const emo=EMOTIONS[STATE.gesture.emotion];
+const len=tr.length;
+for(let i=Math.max(1,len-MAX_TRAIL);i<len;i++){
+const prog=(i-(len-MAX_TRAIL))/MAX_TRAIL;
+const alpha=prog*0.4*STATE.gesture.arousal;
+if(alpha<0.005)continue;
+trailCtx.beginPath();
+trailCtx.moveTo(tr[i-1].x,tr[i-1].y);trailCtx.lineTo(tr[i].x,tr[i].y);
+trailCtx.strokeStyle=hexA(emo.color,alpha);
+trailCtx.lineWidth=1+prog*3;trailCtx.lineCap='round';trailCtx.stroke();
+}
+}
+
+// ========== MAIN LOOP ==========
+let lastMx=0,lastMy=0,lastMoveTime=0,wordSpawnAcc=0,lineGenAcc=0;
+function animate(ts){
+drawTrails();
+partCtx.clearRect(0,0,CW,CH);
+if(STATE.showParticles)updateParticles(partCtx);
+if(STATE.showFloating)updateFloatingWords();
+updateHud();
+requestAnimationFrame(animate);
+}
+
+function updateHud(){
+const g=STATE.gesture;
+const emo=EMOTIONS[g.emotion];
+$('#canvasHud').innerHTML=`
+<div>Emotion: <span class="hv" style="color:${emo.color}">${emo.icon} ${emo.name}</span></div>
+<div>Pattern: <span class="hv">${g.pattern}</span> | Speed: <span class="hv">${g.avgSpeed.toFixed(1)}</span></div>
+<div>Curvature: <span class="hv">${g.curvature.toFixed(2)}</span> | Turbulence: <span class="hv">${g.turbulence.toFixed(2)}</span></div>
+<div>Valence: <span class="hv">${g.valence.toFixed(2)}</span> | Arousal: <span class="hv">${g.arousal.toFixed(2)}</span></div>
+<div>Lines: <span class="hv">${STATE.sessionLines}</span> | Style: <span class="hv">${STYLE_LABELS[STATE.style]}</span></div>`;
+}
+
+// ========== MOUSE/TOUCH HANDLING ==========
+function onPointerMove(x,y){
+const now=performance.now();
+if(!STATE.hasStarted){STATE.hasStarted=true;$('#promptText').classList.add('hidden')}
+STATE.trail.push({x,y,t:now});
+if(STATE.trail.length>MAX_TRAIL*2)STATE.trail=STATE.trail.slice(-MAX_TRAIL);
+const dx=x-lastMx,dy=y-lastMy;
+const dist=Math.sqrt(dx*dx+dy*dy);
+STATE.totalDistance+=dist;
+// Draw ink
+if(dist>1)drawInkStroke(lastMx,lastMy,x,y);
+// Spawn particles on movement
+if(dist>3&&STATE.showParticles){
+spawnParticles(x,y,Math.ceil(STATE.particleDensity*dist*0.15));
+}
+// Spawn floating words periodically
+wordSpawnAcc+=dist;
+if(wordSpawnAcc>80&&STATE.showFloating){
+wordSpawnAcc=0;
+spawnFloatingWord(x+(-20+Math.random()*40),y+(-30+Math.random()*-20));
+}
+// Auto-generate poetry lines
+analyzeGesture();
+lineGenAcc+=dist;
+if(STATE.autoGenerate&&lineGenAcc>STATE.generateInterval*200&&now-STATE.lastGenTime>STATE.wordDelay){
+lineGenAcc=0;STATE.lastGenTime=now;
+const line=generateLine();
+STATE.currentPoem.push(line);
+STATE.sessionLines++;
+renderCurrentTab();
+}
+lastMx=x;lastMy=y;lastMoveTime=now;
+}
+$('#canvasArea').addEventListener('mousemove',e=>{
+const r=e.target.closest('.canvas-area')?e.target.getBoundingClientRect():$('#canvasArea').getBoundingClientRect();
+onPointerMove(e.clientX-r.left,e.clientY-r.top);
+});
+$('#canvasArea').addEventListener('touchmove',e=>{
+e.preventDefault();
+const t=e.touches[0];
+const r=$('#canvasArea').getBoundingClientRect();
+onPointerMove(t.clientX-r.left,t.clientY-r.top);
+},{passive:false});
+$('#canvasArea').addEventListener('mousedown',()=>STATE.isDrawing=true);
+$('#canvasArea').addEventListener('mouseup',()=>STATE.isDrawing=false);
+
+// ========== SIDEBAR ==========
+let currentTab='live';
+function switchTab(tab){
+currentTab=tab;
+
+$$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+renderCurrentTab();
+}
+function renderCurrentTab(){
+const body=$('#sbBody');
+switch(currentTab){
+case 'live':renderLiveTab(body);break;
+case 'compose':renderComposeTab(body);break;
+case 'history':renderHistoryTab(body);break;
+case 'settings':renderSettingsTab(body);break;
+}
+}
+
+function renderLiveTab(el){
+const g=STATE.gesture;
+const emo=EMOTIONS[g.emotion];
+const poemHtml=STATE.currentPoem.slice(-12).map(l=>`<div class="line">${l}</div>`).join('');
+el.innerHTML=`
+<div class="section">
+<h3>Current Poem</h3>
+<div class="poem-display">${poemHtml||'<span style="color:var(--text3);font-style:italic">Move your mouse to begin...</span>'}<span class="cursor-blink"></span></div>
+<div style="display:flex;gap:6px;margin-top:8px">
+<button class="btn" onclick="savePoemAction()">💾 Save</button>
+<button class="btn" onclick="newPoemAction()">✨ New</button>
+<button class="btn" onclick="exportPoemAction()">📤 Export</button>
+<button class="btn" onclick="copyPoemAction()">📋 Copy</button>
+</div>
+</div>
+<div class="section">
+<h3>Gesture Reading</h3>
+<div class="gesture-info">
+<div class="gi"><div class="label">Emotion</div><div class="val" style="color:${emo.color}">${emo.icon} ${emo.name}</div></div>
+<div class="gi"><div class="label">Pattern</div><div class="val">${g.pattern}</div></div>
+<div class="gi"><div class="label">Speed</div><div class="val">${g.avgSpeed.toFixed(1)}</div>
+<div class="mood-bar"><div class="fill" style="width:${clamp(g.avgSpeed/10*100,0,100)}%;background:${emo.color}"></div></div></div>
+<div class="gi"><div class="label">Curvature</div><div class="val">${g.curvature.toFixed(2)}</div>
+<div class="mood-bar"><div class="fill" style="width:${clamp(g.curvature/1.5*100,0,100)}%;background:var(--ink2)"></div></div></div>
+<div class="gi"><div class="label">Valence</div><div class="val">${g.valence.toFixed(2)}</div>
+<div class="mood-bar"><div class="fill" style="width:${g.valence*100}%;background:linear-gradient(90deg,#ef4444,#fbbf24,#22c55e)"></div></div></div>
+<div class="gi"><div class="label">Arousal</div><div class="val">${g.arousal.toFixed(2)}</div>
+<div class="mood-bar"><div class="fill" style="width:${g.arousal*100}%;background:linear-gradient(90deg,#38bdf8,#fb7185)"></div></div></div>
+</div>
+</div>
+<div class="section">
+<h3>Session</h3>
+<div class="gesture-info">
+<div class="gi"><div class="label">Lines Written</div><div class="val">${STATE.sessionLines}</div></div>
+<div class="gi"><div class="label">Distance (px)</div><div class="val">${Math.round(STATE.totalDistance).toLocaleString()}</div></div>
+</div>
+</div>`;
+}
+
+function renderComposeTab(el){
+const styleHtml=POETIC_STYLES.map(s=>`<div class="style-tag${STATE.style===s?' active':''}" data-style="${s}">${STYLE_LABELS[s]}</div>`).join('');
+const colorOpts=['#c4b5fd','#fbbf24','#fb7185','#2dd4bf','#38bdf8','#a78bfa','#f472b6','#34d399','#fcd34d','#f87171'].map(c=>`<div class="color-dot${STATE.inkColor===c?' active':''}" data-color="${c}" style="background:${c}"></div>`).join('');
+el.innerHTML=`
+<div class="section">
+<h3>Poetic Style</h3>
+<div class="style-tags" id="styleTags">${styleHtml}</div>
+</div>
+<div class="section">
+<h3>Ink Color</h3>
+<div class="color-dots" id="colorDots">${colorOpts}</div>
+</div>
+<div class="section">
+<h3>Generation Controls</h3>
+<div class="controls-row">
+<label>Frequency<input type="range" min="0.3" max="5" step="0.1" value="${STATE.generateInterval}" id="genFreq"></label>
+<label>Word Delay (ms)<input type="range" min="100" max="2000" step="100" value="${STATE.wordDelay}" id="wordDelay"></label>
+</div>
+<div class="controls-row">
+<label><input type="checkbox" ${STATE.autoGenerate?'checked':''} id="autoGenCheck"> Auto-generate on movement</label>
+</div>
+</div>
+<div class="section">
+<h3>Manual Generate</h3>
+<div class="controls-row">
+<button class="btn primary" onclick="manualGenerate(1)">+ 1 Line</button>
+<button class="btn primary" onclick="manualGenerate(4)">+ 4 Lines</button>
+<button class="btn primary" onclick="manualGenerate(8)">+ Full Poem</button>
+</div>
+</div>
+<div class="section">
+<h3>Canvas</h3>
+<div class="controls-row">
+<button class="btn" onclick="clearCanvas()">🗑️ Clear Canvas</button>
+<button class="btn" onclick="fadeCanvas()">🌫️ Fade Canvas</button>
+</div>
+<div class="controls-row">
+<label>Brush Size<input type="range" min="1" max="8" step="0.5" value="${STATE.brushSize}" id="brushSize"></label>
+<label>Trail Fade<input type="range" min="0.8" max="0.99" step="0.01" value="${STATE.trailFade}" id="trailFade"></label>
+</div>
+<div class="controls-row">
+<label>Particle Density<input type="range" min="0" max="3" step="0.1" value="${STATE.particleDensity}" id="partDensity"></label>
+</div>
+<div class="controls-row">
+<label><input type="checkbox" ${STATE.showTrails?'checked':''} id="chkTrails"> Trails</label>
+<label><input type="checkbox" ${STATE.showParticles?'checked':''} id="chkPart"> Particles</label>
+<label><input type="checkbox" ${STATE.showFloating?'checked':''} id="chkFloat"> Floating Words</label>
+</div>
+</div>`;
+// Bind events
+el.querySelectorAll('.style-tag').forEach(st=>st.addEventListener('click',()=>{STATE.style=st.dataset.style;save();renderCurrentTab()}));
+el.querySelectorAll('.color-dot').forEach(cd=>cd.addEventListener('click',()=>{STATE.inkColor=cd.dataset.color;save();renderCurrentTab()}));
+const gf=el.querySelector('#genFreq');if(gf)gf.oninput=()=>STATE.generateInterval=parseFloat(gf.value);
+const wd=el.querySelector('#wordDelay');if(wd)wd.oninput=()=>STATE.wordDelay=parseInt(wd.value);
+const ag=el.querySelector('#autoGenCheck');if(ag)ag.onchange=()=>STATE.autoGenerate=ag.checked;
+const bs=el.querySelector('#brushSize');if(bs)bs.oninput=()=>STATE.brushSize=parseFloat(bs.value);
+const tf=el.querySelector('#trailFade');if(tf)tf.oninput=()=>STATE.trailFade=parseFloat(tf.value);
+const pd=el.querySelector('#partDensity');if(pd)pd.oninput=()=>STATE.particleDensity=parseFloat(pd.value);
+const ct=el.querySelector('#chkTrails');if(ct)ct.onchange=()=>STATE.showTrails=ct.checked;
+const cp=el.querySelector('#chkPart');if(cp)cp.onchange=()=>STATE.showParticles=cp.checked;
+const cf=el.querySelector('#chkFloat');if(cf)cf.onchange=()=>STATE.showFloating=cf.checked;
+}
+
+function renderHistoryTab(el){
+if(STATE.poems.length===0){
+el.innerHTML='<div class="section"><h3>Saved Poems</h3><p style="color:var(--text3);font-size:13px;font-family:system-ui,sans-serif">No poems saved yet. Write some poetry and save it!</p></div>';
+return;
+}
+let html='<div class="section"><h3>Saved Poems ('+STATE.poems.length+')</h3>';
+STATE.poems.slice().reverse().forEach((p,ri)=>{
+const i=STATE.poems.length-1-ri;
+const lines=p.text.split('\n');
+const preview=lines.slice(0,4).join('\n')+(lines.length>4?'\n...':'');
+html+=`<div class="history-item" onclick="viewPoem(${i})">
+<div class="hi-poem">${escHtml(preview)}</div>
+<div class="hi-meta"><span>${p.style} · ${p.emotion}</span><span>${new Date(p.date).toLocaleDateString()}</span></div>
+</div>`;
+});
+html+='<div style="margin-top:8px;display:flex;gap:6px"><button class="btn" onclick="exportAllPoems()">📤 Export All</button><button class="btn" style="border-color:var(--rose);color:var(--rose)" onclick="clearAllPoems()">🗑️ Clear All</button></div></div>';
+el.innerHTML=html;
+}
+
+function renderSettingsTab(el){
+el.innerHTML=`
+<div class="section">
+<h3>About GestureVerse</h3>
+<p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
+GestureVerse translates your mouse movements into poetry. Every gesture has emotional meaning: speed becomes intensity, curves become softness, chaos becomes tension. The system analyzes your motion in real-time using a valence-arousal emotion model, then selects words from 800+ curated poetic fragments across 8 emotional dimensions and 8 poetic styles.</p>
+<p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
+Inspired by the idea that "poetry is the spontaneous overflow of powerful feelings" (Wordsworth) and research on gesture-emotion mapping, every movement you make carries expressive weight. Rapid strokes generate urgent, passionate verse. Slow, curved gestures produce contemplative, serene lines. Chaotic motion yields surreal, fractured imagery.</p>
+</div>
+<div class="section">
+<h3>Motion → Emotion Map</h3>
+<div style="font-family:system-ui,sans-serif;font-size:12px;color:var(--text2);line-height:2">
+${Object.entries(EMOTIONS).map(([k,v])=>`<div style="display:flex;align-items:center;gap:8px"><span style="color:${v.color};font-size:16px">${v.icon}</span><span style="color:${v.color};font-weight:600;min-width:80px">${v.name}</span><span style="color:var(--text3)">${getEmotionDesc(k)}</span></div>`).join('')}
+</div>
+</div>
+<div class="section">
+<h3>Keyboard Shortcuts</h3>
+<div class="sc-grid">
+<div class="sc"><kbd>1-8</kbd><span>Switch poetic style</span></div>
+<div class="sc"><kbd>Space</kbd><span>Generate a line</span></div>
+<div class="sc"><kbd>S</kbd><span>Save current poem</span></div>
+<div class="sc"><kbd>N</kbd><span>New poem</span></div>
+<div class="sc"><kbd>C</kbd><span>Clear canvas</span></div>
+<div class="sc"><kbd>H</kbd><span>Toggle help</span></div>
+<div class="sc"><kbd>F</kbd><span>Fade canvas</span></div>
+<div class="sc"><kbd>T</kbd><span>Toggle trails</span></div>
+<div class="sc"><kbd>P</kbd><span>Toggle particles</span></div>
+<div class="sc"><kbd>W</kbd><span>Toggle floating words</span></div>
+<div class="sc"><kbd>Esc</kbd><span>Close overlays</span></div>
+<div class="sc"><kbd>E</kbd><span>Export poem</span></div>
+</div>
+</div>
+<div class="section">
+<h3>Data</h3>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<button class="btn" onclick="importPoems()">📥 Import Poems (JSON)</button>
+<button class="btn" onclick="exportAllPoems()">📤 Export All</button>
+<button class="btn" onclick="resetAll()" style="border-color:var(--rose);color:var(--rose)">🔄 Reset Everything</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none">
+</div>`;
+}
+function getEmotionDesc(k){
+return{joy:'Fast upward sweeps, smooth arcs',melancholy:'Slow downward drifts, heavy stillness',fury:'Rapid chaotic slashes, sharp turns',serenity:'Gentle gliding, calm curves',longing:'Slow wandering, reaching motions',wonder:'Medium spirals, exploratory loops',passion:'Fast flowing curves, intense rhythm',dread:'Erratic turbulence, jagged stops'}[k]||'';
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// ========== ACTIONS ==========
+function savePoemAction(){
+if(STATE.currentPoem.length===0){toast('No poem to save');return}
+const poem={text:STATE.currentPoem.join('\n'),style:STYLE_LABELS[STATE.style],emotion:EMOTIONS[STATE.gesture.emotion].name,date:Date.now(),lines:STATE.currentPoem.length,distance:Math.round(STATE.totalDistance)};
+STATE.poems.push(poem);save();toast('Poem saved ✦');renderCurrentTab();
+}
+function newPoemAction(){
+if(STATE.currentPoem.length>0&&!confirm('Start a new poem? Current unsaved work will be kept on canvas.'))return;
+STATE.currentPoem=[];STATE.sessionLines=0;STATE.totalDistance=0;
+renderCurrentTab();toast('New poem started');
+}
+function copyPoemAction(){
+if(STATE.currentPoem.length===0){toast('Nothing to copy');return}
+navigator.clipboard.writeText(STATE.currentPoem.join('\n')).then(()=>toast('Copied to clipboard ✦')).catch(()=>toast('Copy failed'));
+}
+function exportPoemAction(){
+if(STATE.currentPoem.length===0){toast('Nothing to export');return}
+const box=$('#exportBox');
+box.innerHTML=`<h3>✦ Your Poem</h3>
+<textarea id="exportText" readonly>${STATE.currentPoem.join('\n')}</textarea>
+<div class="actions">
+<button class="btn" onclick="$('#exportModal').classList.remove('show')">Close</button>
+<button class="btn primary" onclick="downloadPoem()">💾 Download .txt</button>
+<button class="btn primary" onclick="navigator.clipboard.writeText($('#exportText').value);toast('Copied!')">📋 Copy</button>
+</div>`;
+$('#exportModal').classList.add('show');
+}
+function downloadPoem(){
+const text=STATE.currentPoem.join('\n');
+const blob=new Blob([`GestureVerse Poem\nStyle: ${STYLE_LABELS[STATE.style]}\nEmotion: ${EMOTIONS[STATE.gesture.emotion].name}\nDate: ${new Date().toLocaleDateString()}\n${'─'.repeat(40)}\n\n${text}\n`],{type:'text/plain'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gestureverse_poem_${Date.now()}.txt`;a.click();toast('Downloaded ✦');
+}
+function viewPoem(idx){
+const p=STATE.poems[idx];if(!p)return;
+const box=$('#exportBox');
+box.innerHTML=`<h3>✦ ${p.style} · ${p.emotion}</h3>
+<div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-family:system-ui,sans-serif">${new Date(p.date).toLocaleString()} · ${p.lines} lines</div>
+<textarea id="exportText" readonly style="font-size:15px;line-height:1.9">${p.text}</textarea>
+<div class="actions">
+<button class="btn" onclick="$('#exportModal').classList.remove('show')">Close</button>
+<button class="btn" style="border-color:var(--rose);color:var(--rose)" onclick="deletePoem(${idx})">🗑️ Delete</button>
+<button class="btn primary" onclick="navigator.clipboard.writeText($('#exportText').value);toast('Copied!')">📋 Copy</button>
+</div>`;
+$('#exportModal').classList.add('show');
+}
+function deletePoem(idx){STATE.poems.splice(idx,1);save();$('#exportModal').classList.remove('show');renderCurrentTab();toast('Poem deleted')}
+function exportAllPoems(){
+const blob=new Blob([JSON.stringify(STATE.poems,null,2)],{type:'application/json'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='gestureverse_poems.json';a.click();toast('All poems exported');
+}
+function importPoems(){
+const input=document.createElement('input');input.type='file';input.accept='.json';
+input.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d)){STATE.poems=STATE.poems.concat(d);save();renderCurrentTab();toast(`Imported ${d.length} poems`)}}catch(err){toast('Invalid file')}};r.readAsText(f)};
+input.click();
+}
+function clearAllPoems(){if(!confirm('Delete all saved poems?'))return;STATE.poems=[];save();renderCurrentTab();toast('All poems cleared')}
+function resetAll(){if(!confirm('Reset all data and settings?'))return;localStorage.clear();location.reload()}
+function manualGenerate(n){
+for(let i=0;i<n;i++){
+const line=generateLine();
+STATE.currentPoem.push(line);STATE.sessionLines++;
+}
+switchTab('live');
+}
+function clearCanvas(){
+inkCtx.clearRect(0,0,CW,CH);trailCtx.clearRect(0,0,CW,CH);
+particles=[];floatingWords.forEach(fw=>fw.el.remove());floatingWords=[];
+STATE.trail=[];toast('Canvas cleared');
+}
+function fadeCanvas(){
+inkCtx.fillStyle='rgba(6,6,12,0.5)';inkCtx.fillRect(0,0,CW,CH);
+toast('Canvas faded');
+}
+
+// ========== KEYBOARD ==========
+document.addEventListener('keydown',e=>{
+if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+const k=e.key.toLowerCase();
+if(k>='1'&&k<='8'){const idx=parseInt(k)-1;if(idx<POETIC_STYLES.length){STATE.style=POETIC_STYLES[idx];save();renderCurrentTab();toast(`Style: ${STYLE_LABELS[STATE.style]}`)}}
+else if(k===' '){e.preventDefault();manualGenerate(1)}
+else if(k==='s'&&!e.ctrlKey){savePoemAction()}
+else if(k==='n'){newPoemAction()}
+else if(k==='c'){clearCanvas()}
+else if(k==='f'){fadeCanvas()}
+else if(k==='h'){$('#helpOverlay').classList.toggle('show')}
+else if(k==='t'){STATE.showTrails=!STATE.showTrails;toast(STATE.showTrails?'Trails on':'Trails off')}
+else if(k==='p'){STATE.showParticles=!STATE.showParticles;toast(STATE.showParticles?'Particles on':'Particles off')}
+else if(k==='w'){STATE.showFloating=!STATE.showFloating;toast(STATE.showFloating?'Floating words on':'Floating words off')}
+else if(k==='escape'){$('#exportModal').classList.remove('show');$('#helpOverlay').classList.remove('show')}
+else if(k==='e'){exportPoemAction()}
+});
+
+// ========== HELP ==========
+function renderHelp(){
+$('#helpBox').innerHTML=`
+<h3>GestureVerse — Gesture Poetry</h3>
+<div class="hs"><h4>The Idea</h4><p>Every mouse movement carries emotional meaning. GestureVerse reads your gestures — speed, curvature, direction, turbulence — and translates them into poetry in real-time. Fast upward sweeps produce joyful verse. Slow downward drifts yield melancholy lines. Chaotic slashes create furious, fractured imagery. Your body becomes the pen, your motion becomes the poem.</p></div>
+<div class="hs"><h4>How It Works</h4><p>A real-time gesture analyzer computes 6 motion features (speed, curvature, direction, turbulence, valence, arousal) from your mouse trail. These map to 8 emotions using a valence-arousal model inspired by Russell's circumplex. Each emotion draws from a dedicated word bank of 20 nouns, plus shared pools of verbs (80 words across 4 motion categories), adjectives (80 words across 4 intensity categories), plus connectors, nature imagery, abstract concepts, and sound words — over 800 unique poetic fragments. Words are assembled via 50+ templates across 8 poetic forms.</p></div>
+<div class="hs"><h4>8 Poetic Styles</h4><p>Free Verse (flowing, unstructured), Haiku (5-7-5 compressed), Couplet (rhyming pairs), Stream of Consciousness (unpunctuated flow), Imagist (crystalline moments), Surreal (dream logic), Romantic (intimate emotion), Minimalist (reduction to essence). Switch styles with keys 1-8.</p></div>
+<div class="hs"><h4>8 Emotions</h4><p>Joy (☀️ fast + positive), Melancholy (🌧️ slow + negative), Fury (🔥 fast + negative), Serenity (🌊 slow + positive), Longing (🌙 slow + slightly negative), Wonder (✨ medium + positive), Passion (💗 fast + neutral-positive), Dread (🕳️ erratic + turbulent).</p></div>
+<div class="hs"><h4>Visuals</h4><p>Ink strokes color-shift with emotion. Particle bursts track your path. Trailing energy glows behind your cursor. Floating words spawn from the gesture trail, rising and fading like thoughts. All visual layers are independently toggleable.</p></div>
+<div class="hs"><h4>Shortcuts</h4>
+<div class="sc-grid">
+<div class="sc"><kbd>1-8</kbd><span>Switch poetic style</span></div>
+<div class="sc"><kbd>Space</kbd><span>Generate a line</span></div>
+<div class="sc"><kbd>S</kbd><span>Save poem</span></div>
+<div class="sc"><kbd>N</kbd><span>New poem</span></div>
+<div class="sc"><kbd>C</kbd><span>Clear canvas</span></div>
+<div class="sc"><kbd>F</kbd><span>Fade canvas</span></div>
+<div class="sc"><kbd>T</kbd><span>Toggle trails</span></div>
+<div class="sc"><kbd>P</kbd><span>Toggle particles</span></div>
+<div class="sc"><kbd>W</kbd><span>Toggle floating words</span></div>
+<div class="sc"><kbd>E</kbd><span>Export poem</span></div>
+<div class="sc"><kbd>H</kbd><span>This help</span></div>
+<div class="sc"><kbd>Esc</kbd><span>Close overlays</span></div>
+</div></div>
+<div style="text-align:center;margin-top:16px"><button class="btn primary" onclick="$('#helpOverlay').classList.remove('show')">Begin Writing ✦</button></div>`;
+}
+
+// ========== INIT ==========
+function init(){
+load();resize();renderHelp();
+
+$$('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+$('#toggleSb').addEventListener('click',()=>{
+$('#sidebar').classList.toggle('collapsed');
+$('#toggleSb').textContent=$('#sidebar').classList.contains('collapsed')?'◀':'▶';
+setTimeout(resize,350);
+});
+$('#exportModal').addEventListener('click',e=>{if(e.target===$('#exportModal'))$('#exportModal').classList.remove('show')});
+$('#helpOverlay').addEventListener('click',e=>{if(e.target===$('#helpOverlay'))$('#helpOverlay').classList.remove('show')});
+renderCurrentTab();
+requestAnimationFrame(animate);
+}
+init();
+</script>
+</body>
+</html>

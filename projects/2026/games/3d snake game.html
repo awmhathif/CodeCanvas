@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #00ff00;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* HUD Overlay */
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .hud-panel {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 30px;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .hud-label {
+            font-size: 0.9em;
+            color: #00ff00;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hud-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        /* Game Over Screen */
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px;
+            border: 5px solid #ff0000;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 200;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.5);
+        }
+
+        .game-over.active {
+            display: block;
+            animation: gameOverAppear 0.5s ease;
+        }
+
+        @keyframes gameOverAppear {
+            from {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .game-over h1 {
+            font-size: 4em;
+            color: #ff0000;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #ff0000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .game-over .final-score {
+            font-size: 2em;
+            color: #00ffff;
+            margin-bottom: 30px;
+        }
+
+        .game-over .high-score {
+            font-size: 1.5em;
+            color: #ffd700;
+            margin-bottom: 40px;
+        }
+
+        /* Start Screen */
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px;
+            border: 5px solid #00ff00;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 200;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.5);
+        }
+
+        .start-screen.hidden {
+            display: none;
+        }
+
+        .start-screen h1 {
+            font-size: 5em;
+            color: #00ff00;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ff00;
+        }
+
+        .start-screen .subtitle {
+            font-size: 1.5em;
+            color: #00ffff;
+            margin-bottom: 40px;
+        }
+
+        .controls-info {
+            background: rgba(0, 255, 0, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .controls-info h3 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .key {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 5px;
+            border: 2px solid #00ff00;
+        }
+
+        button {
+            padding: 20px 60px;
+            font-size: 1.5em;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(45deg, #00ff00, #00ffff);
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0, 255, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 255, 0, 0.5);
+        }
+
+        button.restart {
+            background: linear-gradient(45deg, #ff0000, #ff6600);
+            margin-right: 15px;
+        }
+
+        button.menu {
+            background: linear-gradient(45deg, #6600ff, #9900ff);
+        }
+
+        /* Pause Screen */
+        .pause-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px;
+            border: 5px solid #ffff00;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 200;
+            box-shadow: 0 0 50px rgba(255, 255, 0, 0.5);
+        }
+
+        .pause-screen.active {
+            display: block;
+        }
+
+        .pause-screen h2 {
+            font-size: 3em;
+            color: #ffff00;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px #ffff00;
+        }
+
+        /* Level Up Animation */
+        .level-up {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            color: #ffd700;
+            font-weight: bold;
+            text-shadow: 0 0 30px #ffd700;
+            display: none;
+            z-index: 150;
+            animation: levelUpAnim 2s ease;
+        }
+
+        @keyframes levelUpAnim {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+        }
+
+        .level-up.active {
+            display: block;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #00ff00;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(0, 255, 0, 0.3);
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fps-counter {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            font-size: 0.9em;
+            z-index: 100;
+        }
+
+        @media (max-width: 768px) {
+            .hud {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .hud-panel {
+                padding: 15px 20px;
+            }
+
+            .hud-value {
+                font-size: 2em;
+            }
+
+            .start-screen h1,
+            .game-over h1 {
+                font-size: 3em;
+            }
+
+            button {
+                padding: 15px 40px;
+                font-size: 1.2em;
+            }
+        }
+
+        .difficulty-selector {
+            margin-bottom: 30px;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .difficulty-btn {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .difficulty-btn.active {
+            background: #00ff00;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="canvas"></canvas>
+
+        <!-- Loading Screen -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>LOADING 3D SNAKE...</div>
+        </div>
+
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🐍 3D SNAKE</h1>
+            <p class="subtitle">Retro Gaming in Three Dimensions</p>
+
+            <div class="difficulty-selector">
+                <h3 style="color: #00ffff; margin-bottom: 15px;">SELECT DIFFICULTY</h3>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn active" onclick="setDifficulty('easy')">EASY</button>
+                    <button class="difficulty-btn" onclick="setDifficulty('medium')">MEDIUM</button>
+                    <button class="difficulty-btn" onclick="setDifficulty('hard')">HARD</button>
+                </div>
+            </div>
+
+            <div class="controls-info">
+                <h3>🎮 CONTROLS</h3>
+                <div class="control-item">
+                    <span>Move Up</span>
+                    <span class="key">↑ / W</span>
+                </div>
+                <div class="control-item">
+                    <span>Move Down</span>
+                    <span class="key">↓ / S</span>
+                </div>
+                <div class="control-item">
+                    <span>Move Left</span>
+                    <span class="key">← / A</span>
+                </div>
+                <div class="control-item">
+                    <span>Move Right</span>
+                    <span class="key">→ / D</span>
+                </div>
+                <div class="control-item">
+                    <span>Pause</span>
+                    <span class="key">SPACE</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()">START GAME</button>
+        </div>
+
+        <!-- HUD -->
+        <div class="hud">
+            <div class="hud-panel">
+                <div class="hud-label">Score</div>
+                <div class="hud-value" id="score">0</div>
+            </div>
+            <div class="hud-panel">
+                <div class="hud-label">High Score</div>
+                <div class="hud-value" id="highScore">0</div>
+            </div>
+            <div class="hud-panel">
+                <div class="hud-label">Level</div>
+                <div class="hud-value" id="level">1</div>
+            </div>
+            <div class="hud-panel">
+                <div class="hud-label">Length</div>
+                <div class="hud-value" id="length">1</div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="game-over" id="gameOver">
+            <h1>GAME OVER</h1>
+            <div class="final-score">SCORE: <span id="finalScore">0</span></div>
+            <div class="high-score">HIGH SCORE: <span id="finalHighScore">0</span></div>
+            <div>
+                <button class="restart" onclick="restartGame()">PLAY AGAIN</button>
+                <button class="menu" onclick="backToMenu()">MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- Pause Screen -->
+        <div class="pause-screen" id="pauseScreen">
+            <h2>⏸️ PAUSED</h2>
+            <p style="color: #00ff00; font-size: 1.3em; margin-bottom: 30px;">Press SPACE to resume</p>
+            <button onclick="togglePause()">RESUME</button>
+        </div>
+
+        <!-- Level Up -->
+        <div class="level-up" id="levelUp">LEVEL UP!</div>
+
+        <!-- FPS Counter -->
+        <div class="fps-counter" id="fpsCounter">FPS: 60</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game State
+        let scene, camera, renderer;
+        let snake = [];
+        let food;
+        let direction = { x: 1, y: 0, z: 0 };
+        let nextDirection = { x: 1, y: 0, z: 0 };
+        let gameRunning = false;
+        let gamePaused = false;
+        let score = 0;
+        let highScore = 0;
+        let level = 1;
+        let gameSpeed = 150;
+        let gridSize = 20;
+        let difficulty = 'easy';
+        let lastUpdateTime = 0;
+        let frameCount = 0;
+        let lastFpsTime = Date.now();
+
+        // Difficulty settings
+        const difficultySettings = {
+            easy: { speed: 150, speedIncrease: 5 },
+            medium: { speed: 100, speedIncrease: 8 },
+            hard: { speed: 70, speedIncrease: 10 }
+        };
+
+        // Initialize
+        function init() {
+            // Load high score
+            highScore = localStorage.getItem('snake3d_highScore') || 0;
+            document.getElementById('highScore').textContent = highScore;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1e);
+            scene.fog = new THREE.Fog(0x0a0a1e, 30, 100);
+
+            // Camera
+            const canvas = document.getElementById('canvas');
+            camera = new THREE.PerspectiveCamera(
+                60,
+                canvas.clientWidth / canvas.clientHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(15, 20, 15);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                antialias: true
+            });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Point lights for neon effect
+            const pointLight1 = new THREE.PointLight(0x00ff00, 1, 50);
+            pointLight1.position.set(10, 5, 10);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0x00ffff, 1, 50);
+            pointLight2.position.set(-10, 5, -10);
+            scene.add(pointLight2);
+
+            // Create grid floor
+            createGridFloor();
+
+            // Create walls
+            createWalls();
+
+            // Handle resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Keyboard controls
+            document.addEventListener('keydown', handleKeyPress);
+
+            // Hide loading
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 1000);
+
+            // Start animation loop
+            animate();
+        }
+
+        function createGridFloor() {
+            const gridHelper = new THREE.GridHelper(gridSize, gridSize, 0x00ff00, 0x003300);
+            gridHelper.position.y = -0.5;
+            scene.add(gridHelper);
+
+            // Floor plane
+            const floorGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x0a0a1e,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.51;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createWalls() {
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 0.3,
+                transparent: true,
+                opacity: 0.3
+            });
+
+            const wallHeight = 2;
+            const wallThickness = 0.2;
+
+            // Four walls
+            const walls = [
+                { width: gridSize, height: wallHeight, depth: wallThickness, position: { x: 0, y: wallHeight/2, z: gridSize/2 } },
+                { width: gridSize, height: wallHeight, depth: wallThickness, position: { x: 0, y: wallHeight/2, z: -gridSize/2 } },
+                { width: wallThickness, height: wallHeight, depth: gridSize, position: { x: gridSize/2, y: wallHeight/2, z: 0 } },
+                { width: wallThickness, height: wallHeight, depth: gridSize, position: { x: -gridSize/2, y: wallHeight/2, z: 0 } }
+            ];
+
+            walls.forEach(wall => {
+                const geometry = new THREE.BoxGeometry(wall.width, wall.height, wall.depth);
+                const mesh = new THREE.Mesh(geometry, wallMaterial.clone());
+                mesh.position.set(wall.position.x, wall.position.y, wall.position.z);
+                scene.add(mesh);
+            });
+        }
+
+        function setDifficulty(diff) {
+            difficulty = diff;
+            document.querySelectorAll('.difficulty-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            initGame();
+        }
+
+        function initGame() {
+            // Clear existing snake and food
+            snake.forEach(segment => scene.remove(segment));
+            if (food) scene.remove(food);
+
+            // Reset game state
+            snake = [];
+            direction = { x: 1, y: 0, z: 0 };
+            nextDirection = { x: 1, y: 0, z: 0 };
+            score = 0;
+            level = 1;
+            gameSpeed = difficultySettings[difficulty].speed;
+
+            // Create initial snake
+            createSnake();
+
+            // Create food
+            spawnFood();
+
+            // Update UI
+            updateScore();
+
+            // Start game loop
+            gameRunning = true;
+            gamePaused = false;
+            lastUpdateTime = Date.now();
+            gameLoop();
+        }
+
+        function createSnake() {
+            const segmentGeometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+            const headMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 0.5,
+                roughness: 0.3,
+                metalness: 0.7
+            });
+
+            const head = new THREE.Mesh(segmentGeometry, headMaterial);
+            head.position.set(0, 0, 0);
+            head.castShadow = true;
+            scene.add(head);
+            snake.push(head);
+        }
+
+        function addSnakeSegment() {
+            const lastSegment = snake[snake.length - 1];
+            const segmentGeometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 0.3,
+                roughness: 0.3,
+                metalness: 0.7
+            });
+
+            const segment = new THREE.Mesh(segmentGeometry, bodyMaterial);
+            segment.position.copy(lastSegment.position);
+            segment.castShadow = true;
+            scene.add(segment);
+            snake.push(segment);
+
+            document.getElementById('length').textContent = snake.length;
+        }
+
+        function spawnFood() {
+            if (food) scene.remove(food);
+
+            const foodGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+            const foodMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff00ff,
+                emissive: 0xff00ff,
+                emissiveIntensity: 0.8,
+                roughness: 0.2,
+                metalness: 0.8
+            });
+
+            food = new THREE.Mesh(foodGeometry, foodMaterial);
+            
+            // Find valid position
+            let validPosition = false;
+            let x, z;
+            
+            while (!validPosition) {
+                x = Math.floor(Math.random() * (gridSize - 2)) - Math.floor(gridSize / 2) + 1;
+                z = Math.floor(Math.random() * (gridSize - 2)) - Math.floor(gridSize / 2) + 1;
+                
+                validPosition = !snake.some(segment => 
+                    Math.round(segment.position.x) === x && 
+                    Math.round(segment.position.z) === z
+                );
+            }
+
+            food.position.set(x, 0, z);
+            food.castShadow = true;
+            scene.add(food);
+
+            // Animate food
+            animateFood();
+        }
+
+        function animateFood() {
+            if (!food || !gameRunning) return;
+
+            food.rotation.y += 0.05;
+            food.position.y = Math.sin(Date.now() * 0.003) * 0.3;
+            
+            requestAnimationFrame(animateFood);
+        }
+
+        function gameLoop() {
+            if (!gameRunning || gamePaused) return;
+
+            const currentTime = Date.now();
+            const deltaTime = currentTime - lastUpdateTime;
+
+            if (deltaTime >= gameSpeed) {
+                lastUpdateTime = currentTime;
+                update();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            // Update direction
+            direction = { ...nextDirection };
+
+            // Store old positions
+            const positions = snake.map(segment => ({ ...segment.position }));
+
+            // Move head
+            const head = snake[0];
+            head.position.x += direction.x;
+            head.position.z += direction.z;
+
+            // Check boundaries
+            const halfGrid = gridSize / 2;
+            if (Math.abs(head.position.x) >= halfGrid || Math.abs(head.position.z) >= halfGrid) {
+                gameOver();
+                return;
+            }
+
+            // Move body segments
+            for (let i = 1; i < snake.length; i++) {
+                snake[i].position.copy(positions[i - 1]);
+            }
+
+            // Check self collision
+            for (let i = 1; i < snake.length; i++) {
+                if (head.position.distanceTo(snake[i].position) < 0.5) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            // Check food collision
+            if (head.position.distanceTo(food.position) < 1) {
+                eatFood();
+            }
+        }
+
+        function eatFood() {
+            score += 10 * level;
+            addSnakeSegment();
+            spawnFood();
+            updateScore();
+
+            // Level up every 5 foods
+            if (snake.length % 5 === 0) {
+                levelUp();
+            }
+
+            // Play sound effect (visual feedback)
+            flashScreen(0x00ff00);
+        }
+
+        function levelUp() {
+            level++;
+            gameSpeed = Math.max(30, gameSpeed - difficultySettings[difficulty].speedIncrease);
+            
+            document.getElementById('level').textContent = level;
+            document.getElementById('levelUp').classList.add('active');
+            
+            setTimeout(() => {
+                document.getElementById('levelUp').classList.remove('active');
+            }, 2000);
+
+            flashScreen(0xffd700);
+        }
+
+        function flashScreen(color) {
+            const originalBg = scene.background;
+            scene.background = new THREE.Color(color);
+            setTimeout(() => {
+                scene.background = originalBg;
+            }, 100);
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snake3d_highScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalHighScore').textContent = highScore;
+            document.getElementById('gameOver').classList.add('active');
+
+            flashScreen(0xff0000);
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('active');
+            initGame();
+        }
+
+        function backToMenu() {
+            document.getElementById('gameOver').classList.remove('active');
+            document.getElementById('startScreen').classList.remove('hidden');
+            
+            // Clean up
+            snake.forEach(segment => scene.remove(segment));
+            if (food) scene.remove(food);
+            snake = [];
+        }
+
+        function togglePause() {
+            if (!gameRunning) return;
+            
+            gamePaused = !gamePaused;
+            document.getElementById('pauseScreen').classList.toggle('active');
+            
+            if (!gamePaused) {
+                lastUpdateTime = Date.now();
+                gameLoop();
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (!gameRunning) {
+                if (event.code === 'Space') {
+                    if (document.getElementById('startScreen').classList.contains('hidden')) {
+                        startGame();
+                    }
+                }
+                return;
+            }
+
+            if (event.code === 'Space') {
+                event.preventDefault();
+                togglePause();
+                return;
+            }
+
+            if (gamePaused) return;
+
+            // Prevent opposite direction
+            switch(event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    if (direction.z !== 1) nextDirection = { x: 0, y: 0, z: -1 };
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    if (direction.z !== -1) nextDirection = { x: 0, y: 0, z: 1 };
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    if (direction.x !== 1) nextDirection = { x: -1, y: 0, z: 0 };
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    if (direction.x !== -1) nextDirection = { x: 1, y: 0, z: 0 };
+                    break;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Camera rotation
+            if (gameRunning && !gamePaused) {
+                camera.position.x = Math.cos(Date.now() * 0.0001) * 20;
+                camera.position.z = Math.sin(Date.now() * 0.0001) * 20;
+                camera.lookAt(0, 0, 0);
+            }
+
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsTime >= 1000) {
+                document.getElementById('fpsCounter').textContent = `FPS: ${frameCount}`;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const canvas = document.getElementById('canvas');
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

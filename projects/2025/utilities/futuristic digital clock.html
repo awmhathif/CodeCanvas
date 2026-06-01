@@ -1,0 +1,568 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic Digital Clock</title>
+    <style>
+        /* Base styling */
+        :root {
+            --primary-glow: rgb(0, 225, 255);
+            --secondary-glow: rgb(255, 0, 128);
+            --bg-color: #000;
+            --text-color: #fff;
+        }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 2s ease;
+        }
+        
+        #clock-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 500px;
+            perspective: 1000px;
+        }
+        
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        #clock {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 1.5s ease;
+            z-index: 1;
+        }
+        
+        .time-display {
+            font-size: 5rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0;
+            text-shadow: 0 0 10px var(--primary-glow),
+                        0 0 20px var(--primary-glow),
+                        0 0 30px var(--primary-glow);
+            animation: pulse 2s infinite alternate;
+        }
+        
+        .date-display {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+        
+        .binary-time {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 5px;
+        }
+        
+        .binary-digit {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .binary-digit.active {
+            background-color: var(--primary-glow);
+            box-shadow: 0 0 10px var(--primary-glow),
+                        0 0 20px var(--primary-glow);
+        }
+        
+        .world-clocks {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 30px;
+        }
+        
+        .world-clock {
+            text-align: center;
+            font-size: 1rem;
+        }
+        
+        .world-time {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .control-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-color);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .control-btn:hover {
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+        
+        .time-fact {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 1rem;
+            opacity: 0.7;
+            padding: 0 20px;
+        }
+        
+        .visualization-container {
+            height: 100px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .bar {
+            width: 10px;
+            height: 10px;
+            margin: 0 5px;
+            background: var(--primary-glow);
+            border-radius: 5px;
+            transition: height 0.5s ease;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                text-shadow: 0 0 10px var(--primary-glow),
+                            0 0 20px var(--primary-glow);
+            }
+            100% {
+                text-shadow: 0 0 15px var(--primary-glow),
+                            0 0 30px var(--primary-glow),
+                            0 0 45px var(--primary-glow);
+            }
+        }
+        
+        @keyframes rotate {
+            0% {
+                transform: rotateY(0deg);
+            }
+            100% {
+                transform: rotateY(360deg);
+            }
+        }
+        
+        .mode-3d #clock {
+            animation: rotate 15s infinite linear;
+        }
+        
+        /* Responsive styling */
+        @media (max-width: 768px) {
+            .time-display {
+                font-size: 3rem;
+            }
+            
+            .world-clocks {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            #clock-container {
+                height: 400px;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&amp;display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="clock-container">
+        <canvas id="particle-canvas"></canvas>
+        <div id="clock">
+            <div class="time-fact" id="time-fact">Loading interesting time fact...</div>
+            
+            <h1 class="time-display" id="time">00:00:00</h1>
+            <p class="date-display" id="date">Monday, January 1, 2025</p>
+            
+            <div class="binary-time" id="binary-time">
+                <!-- Binary digits will be inserted here via JS -->
+            </div>
+            
+            <div class="visualization-container" id="visualization">
+                <!-- Visualization bars will be inserted here via JS -->
+            </div>
+            
+            <div class="world-clocks" id="world-clocks">
+                <div class="world-clock">
+                    <div>New York</div>
+                    <div class="world-time" id="new-york">00:00</div>
+                </div>
+                <div class="world-clock">
+                    <div>London</div>
+                    <div class="world-time" id="london">00:00</div>
+                </div>
+                <div class="world-clock">
+                    <div>Tokyo</div>
+                    <div class="world-time" id="tokyo">00:00</div>
+                </div>
+            </div>
+            
+            <div class="control-panel">
+                <button class="control-btn" id="mode-toggle">Change Mode</button>
+                <button class="control-btn" id="color-toggle">Change Color</button>
+                <button class="control-btn" id="sound-toggle">Sound: Off</button>
+                <button class="control-btn" id="3d-toggle">3D: Off</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize clock elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create binary time display
+            const binaryTime = document.getElementById('binary-time');
+            for (let i = 0; i < 24; i++) {
+                const digit = document.createElement('div');
+                digit.className = 'binary-digit';
+                binaryTime.appendChild(digit);
+            }
+            
+            // Create visualization bars
+            const visualization = document.getElementById('visualization');
+            for (let i = 0; i < 12; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                visualization.appendChild(bar);
+            }
+            
+            // Initialize clock
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Initialize particles
+            initParticles();
+            
+            // Load time facts
+            loadTimeFact();
+            setInterval(loadTimeFact, 30000); // New fact every 30 seconds
+        });
+        
+        // Clock modes
+        const clockModes = ['digital', 'analog', 'binary', 'minimal'];
+        let currentMode = 0;
+        
+        // Color themes
+        const colorThemes = [
+            { primary: 'rgb(0, 225, 255)', secondary: 'rgb(255, 0, 128)' },
+            { primary: 'rgb(255, 215, 0)', secondary: 'rgb(255, 0, 0)' },
+            { primary: 'rgb(0, 255, 0)', secondary: 'rgb(0, 128, 0)' },
+            { primary: 'rgb(255, 165, 0)', secondary: 'rgb(255, 0, 255)' },
+            { primary: 'rgb(138, 43, 226)', secondary: 'rgb(30, 144, 255)' }
+        ];
+        let currentTheme = 0;
+        
+        // Sound flag
+        let soundEnabled = false;
+        
+        // 3D mode flag
+        let mode3D = false;
+        
+        // Time facts
+        const timeFacts = [
+            "A day on Mercury lasts about 59 Earth days.",
+            "Time dilation means time passes slower near objects with strong gravity.",
+            "There are more than 24 time zones in the world due to political boundaries.",
+            "The concept of a second was defined as the time it takes for 9,192,631,770 cycles of radiation from a cesium-133 atom.",
+            "Daylight saving time was first introduced during World War I to save energy.",
+            "Japan's clock runs 9 hours ahead of UTC (Coordinated Universal Time).",
+            "Einstein's theory of relativity showed that time is relative, not absolute.",
+            "The ancient Egyptians were the first civilization to divide the day into smaller parts.",
+            "The world's most accurate clock would not gain or lose a second in more than 100 million years.",
+            "Some cultures use lunar calendars that have 354 days in a year instead of 365."
+        ];
+        
+        // Update clock function
+        function updateClock() {
+            const now = new Date();
+            
+            // Update main time display
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('time').textContent = `${hours}:${minutes}:${seconds}`;
+            
+            // Update date display
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('date').textContent = now.toLocaleDateString(undefined, options);
+            
+            // Update binary time display
+            updateBinaryTime(hours, minutes, seconds);
+            
+            // Update world clocks
+            updateWorldClocks(now);
+            
+            // Update visualization
+            updateVisualization(now);
+            
+            // Update background based on time of day
+            updateBackground(now);
+            
+            // Play sound if enabled
+            if (soundEnabled && seconds === '00') {
+                playTickSound();
+            }
+        }
+        
+        // Update binary time display
+        function updateBinaryTime(hours, minutes, seconds) {
+            const binaryDigits = document.querySelectorAll('.binary-digit');
+            
+            // Convert time to binary
+            const hoursBinary = parseInt(hours).toString(2).padStart(8, '0');
+            const minutesBinary = parseInt(minutes).toString(2).padStart(8, '0');
+            const secondsBinary = parseInt(seconds).toString(2).padStart(8, '0');
+            const fullBinary = hoursBinary + minutesBinary + secondsBinary;
+            
+            // Update binary display
+            for (let i = 0; i < fullBinary.length; i++) {
+                if (i < binaryDigits.length) {
+                    if (fullBinary[i] === '1') {
+                        binaryDigits[i].classList.add('active');
+                    } else {
+                        binaryDigits[i].classList.remove('active');
+                    }
+                }
+            }
+        }
+        
+        // Update world clocks
+        function updateWorldClocks(now) {
+            // New York (UTC-5)
+            const newYorkTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+            document.getElementById('new-york').textContent = 
+                `${newYorkTime.getHours().toString().padStart(2, '0')}:${newYorkTime.getMinutes().toString().padStart(2, '0')}`;
+            
+            // London (UTC+0)
+            const londonTime = new Date(now.getTime());
+            document.getElementById('london').textContent = 
+                `${londonTime.getUTCHours().toString().padStart(2, '0')}:${londonTime.getUTCMinutes().toString().padStart(2, '0')}`;
+            
+            // Tokyo (UTC+9)
+            const tokyoTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+            document.getElementById('tokyo').textContent = 
+                `${tokyoTime.getUTCHours().toString().padStart(2, '0')}:${tokyoTime.getUTCMinutes().toString().padStart(2, '0')}`;
+        }
+        
+        // Update visualization
+        function updateVisualization(now) {
+            const bars = document.querySelectorAll('.bar');
+            const seconds = now.getSeconds();
+            const minutes = now.getMinutes();
+            
+            // Create a wave pattern based on seconds and minutes
+            for (let i = 0; i < bars.length; i++) {
+                const height = 20 + Math.sin((seconds + i * 5) * Math.PI / 30) * 40;
+                const saturation = 70 + Math.cos((minutes + i * 10) * Math.PI / 30) * 30;
+                
+                bars[i].style.height = `${height}px`;
+                bars[i].style.backgroundColor = `hsl(${(seconds * 6 + i * 30) % 360}, ${saturation}%, 50%)`;
+            }
+        }
+        
+        // Update background based on time of day
+        function updateBackground(now) {
+            const hours = now.getHours();
+            let bgColor;
+            
+            if (hours >= 5 && hours < 8) {
+                // Dawn
+                bgColor = 'linear-gradient(135deg, #ff9966, #ff5e62)';
+            } else if (hours >= 8 && hours < 17) {
+                // Day
+                bgColor = 'linear-gradient(135deg, #00416a, #e4e5e6)';
+            } else if (hours >= 17 && hours < 20) {
+                // Dusk
+                bgColor = 'linear-gradient(135deg, #4568dc, #b06ab3)';
+            } else {
+                // Night
+                bgColor = 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)';
+            }
+            
+            document.body.style.background = bgColor;
+        }
+        
+        // Initialize particle effects
+        function initParticles() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            function resizeCanvas() {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            }
+            
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            
+            // Particle properties
+            const particles = [];
+            const particleCount = 50;
+            
+            // Create particles
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    color: i % 2 === 0 ? 'rgba(0, 225, 255, 0.7)' : 'rgba(255, 0, 128, 0.7)',
+                    speedX: Math.random() * 2 - 1,
+                    speedY: Math.random() * 2 - 1
+                });
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(particle => {
+                    // Move particles
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+                    
+                    // Bounce off walls
+                    if (particle.x < 0 || particle.x > canvas.width) {
+                        particle.speedX = -particle.speedX;
+                    }
+                    
+                    if (particle.y < 0 || particle.y > canvas.height) {
+                        particle.speedY = -particle.speedY;
+                    }
+                    
+                    // Draw particles
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = particle.color;
+                    ctx.fill();
+                    
+                    // Connect particles
+                    particles.forEach(otherParticle => {
+                        const dx = particle.x - otherParticle.x;
+                        const dy = particle.y - otherParticle.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 * (1 - distance/100)})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.moveTo(particle.x, particle.y);
+                            ctx.lineTo(otherParticle.x, otherParticle.y);
+                            ctx.stroke();
+                        }
+                    });
+                });
+            }
+            
+            animate();
+        }
+        
+        // Load random time fact
+        function loadTimeFact() {
+            const factElement = document.getElementById('time-fact');
+            const randomIndex = Math.floor(Math.random() * timeFacts.length);
+            factElement.textContent = timeFacts[randomIndex];
+            
+            // Fade animation
+            factElement.style.opacity = 0;
+            setTimeout(() => {
+                factElement.style.opacity = 0.7;
+            }, 500);
+        }
+        
+        // Play tick sound
+        function playTickSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 880;
+            gainNode.gain.value = 0.1;
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            
+            // Duration of the tick sound
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+            setTimeout(() => {
+                oscillator.stop();
+            }, 500);
+        }
+        
+        // Button event listeners
+        document.getElementById('mode-toggle').addEventListener('click', function() {
+            currentMode = (currentMode + 1) % clockModes.length;
+            document.getElementById('clock-container').className = clockModes[currentMode];
+            this.textContent = `Mode: ${clockModes[currentMode]}`;
+        });
+        
+        document.getElementById('color-toggle').addEventListener('click', function() {
+            currentTheme = (currentTheme + 1) % colorThemes.length;
+            document.documentElement.style.setProperty('--primary-glow', colorThemes[currentTheme].primary);
+            document.documentElement.style.setProperty('--secondary-glow', colorThemes[currentTheme].secondary);
+        });
+        
+        document.getElementById('sound-toggle').addEventListener('click', function() {
+            soundEnabled = !soundEnabled;
+            this.textContent = `Sound: ${soundEnabled ? 'On' : 'Off'}`;
+            
+            if (soundEnabled) {
+                playTickSound(); // Play a test sound
+            }
+        });
+        
+        document.getElementById('3d-toggle').addEventListener('click', function() {
+            mode3D = !mode3D;
+            this.textContent = `3D: ${mode3D ? 'On' : 'Off'}`;
+            
+            if (mode3D) {
+                document.body.classList.add('mode-3d');
+            } else {
+                document.body.classList.remove('mode-3d');
+            }
+        });
+    </script>
+
+
+</body></html>

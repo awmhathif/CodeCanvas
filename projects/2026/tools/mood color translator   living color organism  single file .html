@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>Mood Color Translator — Living Color Organism (Single File)</title>
+  <style>
+    /* Dark, warm, non-blue theme: charcoal + ember + plum + olive */
+    :root{
+      --bg0:#0b0a09;
+      --bg1:#12100e;
+      --panel:#171411;
+      --panel2:#1f1a16;
+      --line: rgba(255,255,255,.10);
+      --text:#f2efe9;
+      --muted:#bdb3a7;
+      --muted2:#8f8579;
+
+      --ember:#ff6a3d;
+      --clay:#c97a2b;
+      --plum:#b06cff;
+      --olive:#97b84f;
+      --rose:#ff4f86;
+
+      --good:#4ee08a;
+      --bad:#ff4b4b;
+      --warn:#ffb454;
+
+      --r:16px;
+      --shadow: 0 18px 70px rgba(0,0,0,.55);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; background:
+      radial-gradient(1200px 800px at 15% 10%, rgba(255,106,61,.10) 0%, rgba(0,0,0,0) 55%),
+      radial-gradient(1000px 700px at 85% 80%, rgba(176,108,255,.10) 0%, rgba(0,0,0,0) 60%),
+      radial-gradient(900px 650px at 65% 20%, rgba(151,184,79,.08) 0%, rgba(0,0,0,0) 55%),
+      linear-gradient(180deg, var(--bg1), var(--bg0));
+      color:var(--text); font-family:var(--sans); overflow:hidden;
+    }
+
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 420px 1fr 360px;
+      gap:14px;
+      padding:14px;
+    }
+
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)) , var(--panel);
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-width: 280px;
+    }
+
+    .bar{
+      padding:14px 14px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+    }
+    h1{font-size:14px; margin:0; letter-spacing:.25px}
+    .sub{margin-top:4px; font-size:12px; color:var(--muted); line-height:1.35}
+    .pill{
+      font-family:var(--mono);
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      color:rgba(255,255,255,.78);
+      background: rgba(0,0,0,.18);
+      white-space:nowrap;
+    }
+
+    .sec{padding:14px; border-bottom:1px solid var(--line)}
+    .sec:last-child{border-bottom:0}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:6px; flex:1 1 auto}
+    label{font-size:12px; color:var(--muted)}
+    input[type="range"]{width:100%}
+    input[type="text"], textarea, select, button{
+      font: inherit;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      padding:10px 12px;
+      outline:none;
+    }
+    textarea{min-height:96px; resize:vertical; line-height:1.45}
+    button{cursor:pointer; transition: transform .08s ease, border-color .15s ease, background .15s ease}
+    button:hover{border-color: rgba(255,255,255,.22)}
+    button:active{transform: translateY(1px)}
+    button.primary{
+      background: linear-gradient(135deg, rgba(255,106,61,.85), rgba(201,122,43,.75));
+      border-color: rgba(255,106,61,.55);
+      color:#120b08;
+      font-weight:700;
+    }
+    button.ghost{background: transparent}
+    button.bad{border-color: rgba(255,75,75,.45); color: rgba(255,220,220,.95)}
+    .tiny{font-size:11px; color: var(--muted2); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:12px 0}
+
+    /* Center canvas */
+    #center{
+      position:relative;
+      background: radial-gradient(900px 600px at 50% 40%, rgba(255,255,255,.04) 0%, rgba(0,0,0,0) 60%);
+    }
+    #c{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+    #hud{
+      position:absolute; left:14px; top:14px;
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.28);
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(255,255,255,.85);
+      max-width: min(860px, calc(100% - 28px));
+      white-space: pre-line;
+      pointer-events:none;
+    }
+
+    #toast{
+      position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.38);
+      box-shadow: 0 16px 55px rgba(0,0,0,.45);
+      display:none;
+      max-width: min(920px, calc(100% - 28px));
+      color: rgba(255,255,255,.92);
+    }
+
+    /* Right: chips + palette */
+    .chips{display:flex; gap:8px; flex-wrap:wrap}
+    .chip{
+      font-family:var(--mono);
+      font-size:11px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.82);
+      background: rgba(0,0,0,.18);
+      cursor:pointer;
+      user-select:none;
+      transition: background .15s ease, border-color .15s ease, transform .08s ease;
+    }
+    .chip:hover{border-color: rgba(255,255,255,.24)}
+    .chip:active{transform: translateY(1px)}
+    .chip.on{
+      border-color: rgba(255,106,61,.45);
+      background: rgba(255,106,61,.10);
+    }
+
+    .swatch{
+      width:100%;
+      height:74px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: #000;
+      position:relative;
+      overflow:hidden;
+    }
+    .swatch .t{
+      position:absolute; left:10px; bottom:8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(255,255,255,.85);
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .grid2{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+
+    /* log */
+    #log{
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      background: rgba(0,0,0,.18);
+      overflow:auto;
+      max-height: 260px;
+    }
+    .entry{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(255,255,255,.78);
+      line-height:1.35;
+    }
+    .entry:last-child{border-bottom:0}
+
+    @media (max-width: 1160px){
+      html,body{overflow:auto}
+      #app{grid-template-columns: 1fr; grid-template-rows:auto 58vh auto; overflow:auto}
+      #center{height:58vh}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Left: Input -->
+    <aside class="panel">
+      <div class="bar">
+        <div>
+          <h1>Mood Color Translator</h1>
+          <div class="sub">Describe your mood. Watch it become a living, breathing color organism.</div>
+        </div>
+        <div class="pill" id="modePill">LIVE</div>
+      </div>
+
+      <div class="sec">
+        <label>Your mood (words)</label>
+        <textarea id="mood" placeholder="Example: calm but restless, hopeful, a little tired, warm gratitude, low anxiety..."></textarea>
+
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="btnTranslate">Translate</button>
+          <button class="ghost" id="btnRandom">Random mood</button>
+          <button class="bad" id="btnClear">Clear</button>
+        </div>
+
+        <div class="tiny" style="margin-top:10px">
+          Tip: mix contradictions. The organism blends them (e.g., “sad but safe”, “angry yet focused”).
+        </div>
+      </div>
+
+      <div class="sec">
+        <label>Sliders (shape the organism)</label>
+        <div class="row" style="margin-top:10px">
+          <div class="col">
+            <label>Breath (tempo)</label>
+            <input id="breath" type="range" min="0" max="1" step="0.01" value="0.55">
+          </div>
+          <div class="col">
+            <label>Intensity</label>
+            <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.70">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="col">
+            <label>Turbulence (restlessness)</label>
+            <input id="turb" type="range" min="0" max="1" step="0.01" value="0.38">
+          </div>
+          <div class="col">
+            <label>Coherence (focus)</label>
+            <input id="coh" type="range" min="0" max="1" step="0.01" value="0.62">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="col">
+            <label>Glow</label>
+            <input id="glow" type="range" min="0" max="1" step="0.01" value="0.55">
+          </div>
+          <div class="col">
+            <label>Contrast</label>
+            <input id="contrast" type="range" min="0" max="1" step="0.01" value="0.52">
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <label>Sound (optional)</label>
+        <div class="row" style="margin-top:10px">
+          <button id="btnSound">Enable Sound</button>
+          <div class="pill">Ambient tone follows mood</div>
+        </div>
+        <div class="tiny" style="margin-top:8px">
+          Audio is generated locally. Click “Enable Sound” once (browser gesture requirement).
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Organism -->
+    <main class="panel" id="center">
+      <canvas id="c"></canvas>
+      <div id="hud"></div>
+      <div id="toast"></div>
+    </main>
+
+    <!-- Right: Analysis -->
+    <aside class="panel">
+      <div class="bar">
+        <div>
+          <h1>Color DNA</h1>
+          <div class="sub">Emotion → color, motion, and texture. Saved locally.</div>
+        </div>
+        <div class="pill" id="fpsPill">—</div>
+      </div>
+
+      <div class="sec">
+        <label>Quick moods</label>
+        <div class="chips" style="margin-top:10px" id="chips"></div>
+        <div class="tiny" style="margin-top:10px">
+          Click chips to add/remove keywords. Then Translate.
+        </div>
+      </div>
+
+      <div class="sec">
+        <label>Current palette</label>
+        <div class="swatch" id="sw1"><div class="t" id="sw1t">—</div></div>
+        <div style="height:10px"></div>
+        <div class="grid2">
+          <div class="swatch" id="sw2"><div class="t" id="sw2t">—</div></div>
+          <div class="swatch" id="sw3"><div class="t" id="sw3t">—</div></div>
+        </div>
+        <div class="sep"></div>
+        <div class="row">
+          <button id="btnCopy">Copy HEX</button>
+          <button id="btnSaveSnap">Save Snapshot</button>
+          <button id="btnExport">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <label>Snapshots</label>
+        <div id="log"></div>
+      </div>
+    </aside>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Helpers ----------
+  const $ = (q)=>document.querySelector(q);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const now=()=>performance.now();
+
+  const SAVE_KEY="mood_color_translator_v1";
+
+  function toast(msg, ms=1600){
+    const el=$("#toast");
+    el.textContent=msg;
+    el.style.display="block";
+    toast.until = now()+ms;
+  }
+  toast.until=0;
+
+  function esc(s){ return (s??"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+  function fmtHex(n){ return n.toString(16).padStart(2,"0"); }
+  function rgbToHex(r,g,b){ return "#"+fmtHex(r)+fmtHex(g)+fmtHex(b); }
+
+  function hslToRgb(h,s,l){
+    // h 0..360, s/l 0..1
+    h = ((h%360)+360)%360;
+    const c = (1 - Math.abs(2*l - 1))*s;
+    const hp = h/60;
+    const x = c*(1 - Math.abs((hp%2)-1));
+    let r1=0,g1=0,b1=0;
+    if(hp>=0 && hp<1){ r1=c; g1=x; b1=0; }
+    else if(hp<2){ r1=x; g1=c; b1=0; }
+    else if(hp<3){ r1=0; g1=c; b1=x; }
+    else if(hp<4){ r1=0; g1=x; b1=c; }
+    else if(hp<5){ r1=x; g1=0; b1=c; }
+    else { r1=c; g1=0; b1=x; }
+    const m = l - c/2;
+    return {
+      r: Math.round((r1+m)*255),
+      g: Math.round((g1+m)*255),
+      b: Math.round((b1+m)*255)
+    };
+  }
+
+  function mixRgb(a,b,t){
+    return {
+      r: Math.round(lerp(a.r,b.r,t)),
+      g: Math.round(lerp(a.g,b.g,t)),
+      b: Math.round(lerp(a.b,b.b,t)),
+    };
+  }
+
+  function luminance(rgb){
+    // relative luminance (approx)
+    const sr=rgb.r/255, sg=rgb.g/255, sb=rgb.b/255;
+    return 0.2126*sr + 0.7152*sg + 0.0722*sb;
+  }
+
+  // Seeded RNG for consistent "organism personality" per text
+  function xmur3(str){
+    let h=1779033703 ^ str.length;
+    for(let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeRng(seedStr){
+    return mulberry32(xmur3(seedStr||"seed")());
+  }
+
+  // ---------- Mood lexicon ----------
+  // Each keyword contributes to: hue shift, saturation, lightness, turbulence, coherence, breath tempo, glow, contrast.
+  const LEX = [
+    // calm / grounded
+    {k:["calm","peace","peaceful","still","serene","quiet","content","safe","steady","grounded"], hue: 95,  s:+0.08, l:+0.06, turb:-0.25, coh:+0.22, breath:+0.18, glow:+0.06, con:-0.05},
+    {k:["grateful","gratitude","warm","gentle","tender","soft"], hue: 32,  s:+0.10, l:+0.10, turb:-0.10, coh:+0.10, breath:+0.10, glow:+0.14, con:-0.05},
+    // joy / love
+    {k:["happy","joy","joyful","delight","excited","playful","fun"], hue: 25,  s:+0.18, l:+0.12, turb:+0.08, coh:+0.02, breath:+0.08, glow:+0.18, con:+0.02},
+    {k:["love","loving","affection","connected","intimate"], hue: 345, s:+0.20, l:+0.08, turb:+0.02, coh:+0.12, breath:+0.06, glow:+0.20, con:+0.02},
+    // focus / drive
+    {k:["focused","clear","clarity","determined","disciplined","productive","flow"], hue: 120, s:+0.10, l:+0.02, turb:-0.05, coh:+0.30, breath:+0.02, glow:+0.06, con:+0.08},
+    {k:["ambitious","driven","energized","charged"], hue: 18, s:+0.16, l:+0.04, turb:+0.12, coh:+0.10, breath:+0.06, glow:+0.10, con:+0.10},
+    // sadness / fatigue
+    {k:["sad","down","blue","lonely","grief","mourning","heartbroken"], hue: 285, s:-0.10, l:-0.10, turb:+0.06, coh:-0.06, breath:-0.06, glow:-0.06, con:+0.04},
+    {k:["tired","exhausted","sleepy","drained","burnout","burned","fatigued"], hue: 55,  s:-0.18, l:-0.12, turb:+0.10, coh:-0.10, breath:-0.12, glow:-0.10, con:-0.04},
+    // anxiety / fear
+    {k:["anxious","anxiety","nervous","worried","fear","scared","uneasy","panic"], hue: 36, s:+0.06, l:-0.08, turb:+0.35, coh:-0.18, breath:+0.18, glow:+0.02, con:+0.10},
+    {k:["stressed","pressure","overwhelmed","tense"], hue: 20, s:+0.10, l:-0.08, turb:+0.30, coh:-0.14, breath:+0.12, glow:+0.04, con:+0.12},
+    // anger
+    {k:["angry","anger","furious","rage","irritated","annoyed","mad"], hue: 8, s:+0.22, l:+0.02, turb:+0.40, coh:-0.08, breath:+0.12, glow:+0.12, con:+0.16},
+    // hope / curiosity
+    {k:["hope","hopeful","optimistic","uplifted","inspired"], hue: 90, s:+0.14, l:+0.10, turb:-0.02, coh:+0.14, breath:+0.08, glow:+0.14, con:+0.02},
+    {k:["curious","wonder","exploring","open","interested"], hue: 165, s:+0.12, l:+0.04, turb:+0.10, coh:+0.08, breath:+0.04, glow:+0.08, con:+0.04},
+    // shame / numbness
+    {k:["numb","empty","flat","apathetic"], hue: 40, s:-0.30, l:-0.14, turb:-0.02, coh:-0.10, breath:-0.10, glow:-0.14, con:-0.10},
+    {k:["shame","guilt","regret"], hue: 28, s:-0.06, l:-0.10, turb:+0.18, coh:-0.06, breath:+0.06, glow:-0.06, con:+0.10},
+    // confidence
+    {k:["confident","strong","capable","proud","secure"], hue: 140, s:+0.12, l:+0.04, turb:-0.06, coh:+0.18, breath:+0.02, glow:+0.06, con:+0.08},
+  ];
+
+  const QUICK_CHIPS = [
+    "calm","grounded","focused","hopeful","grateful","excited","tired","sad","anxious","stressed","angry","curious","numb","confident","lonely","warm"
+  ];
+
+  function analyzeMood(text){
+    const raw = (text||"").toLowerCase();
+    const words = raw
+      .replace(/[^a-z0-9\s'-]/g," ")
+      .split(/\s+/)
+      .filter(Boolean);
+
+    // baseline (neutral organism)
+    let hue=32;     // warm ember baseline
+    let sat=0.58;
+    let light=0.32; // dark-ish but alive
+    let turb=0.38;
+    let coh=0.62;
+    let breath=0.55;
+    let glow=0.55;
+    let contrast=0.52;
+
+    let hits=[];
+
+    // sentiment-ish counts
+    let pos=0, neg=0, arousal=0;
+
+    for(const entry of LEX){
+      for(const kk of entry.k){
+        if(raw.includes(kk)){
+          hits.push(kk);
+          // hue blend: pull hue toward entry.hue using circular interpolation
+          hue = lerpHue(hue, entry.hue, 0.18);
+          sat = clamp(sat + entry.s, 0.05, 0.98);
+          light = clamp(light + entry.l, 0.05, 0.92);
+          turb = clamp(turb + entry.turb, 0, 1);
+          coh  = clamp(coh  + entry.coh,  0, 1);
+          breath = clamp(breath + entry.breath, 0, 1);
+          glow = clamp(glow + entry.glow, 0, 1);
+          contrast = clamp(contrast + entry.con, 0, 1);
+
+          // rough pos/neg/arousal tags
+          if(["happy","joy","joyful","delight","love","hope","hopeful","grateful","confident","calm","peaceful","safe"].includes(kk)) pos++;
+          if(["sad","down","lonely","grief","anxious","panic","stressed","overwhelmed","angry","rage","numb","guilt","shame","tired","exhausted"].includes(kk)) neg++;
+          if(["angry","rage","excited","panic","stressed","overwhelmed","energized","charged","anxious"].includes(kk)) arousal++;
+          break;
+        }
+      }
+    }
+
+    // if no hits, use a subtle randomization based on text hash
+    const rng = makeRng(raw || "neutral");
+    if(hits.length===0){
+      hue = (hue + (rng()*2-1)*18 + 360) % 360;
+      sat = clamp(sat + (rng()*2-1)*0.10, 0.2, 0.85);
+      light = clamp(light + (rng()*2-1)*0.06, 0.20, 0.55);
+      turb = clamp(turb + (rng()*2-1)*0.10, 0.15, 0.65);
+      coh = clamp(coh + (rng()*2-1)*0.10, 0.35, 0.80);
+      glow = clamp(glow + (rng()*2-1)*0.10, 0.25, 0.75);
+      contrast = clamp(contrast + (rng()*2-1)*0.10, 0.25, 0.75);
+      breath = clamp(breath + (rng()*2-1)*0.10, 0.30, 0.75);
+    }
+
+    // derive "temperature" & "valence"
+    const valence = clamp((pos - neg) / 6 + 0.02, -1, 1);
+    const energy  = clamp(arousal / 6, 0, 1);
+
+    // if negative valence, reduce lightness a bit; if positive, lift it
+    light = clamp(light + valence*0.06, 0.05, 0.75);
+    // if high energy, increase turb unless coherence is high (focused energy)
+    turb = clamp(turb + energy*0.10*(1 - coh*0.6), 0, 1);
+
+    return {hue, sat, light, turb, coh, breath, glow, contrast, hits, valence, energy, seed: raw||"neutral"};
+  }
+
+  function lerpHue(a,b,t){
+    // shortest circular distance
+    const d = ((((b - a) % 360) + 540) % 360) - 180;
+    return (a + d*t + 360) % 360;
+  }
+
+  // ---------- Organism simulation ----------
+  const canvas = $("#c");
+  const ctx = canvas.getContext("2d", {alpha:false});
+
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    canvas.width = Math.floor(r.width*dpr);
+    canvas.height = Math.floor(r.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", resize);
+
+  // Particles = cells orbiting around a core, with noise-like drift
+  class Organism {
+    constructor(){
+      this.cells=[];
+      this.t=0;
+      this.target = null;
+      this.state = null;   // current mood state (smoothed)
+      this.personality = {a:0.5,b:0.5,c:0.5}; // seeded traits
+      this.pointer = {x:0,y:0,down:false};
+    }
+    setMood(m){
+      this.target = m;
+      if(!this.state) this.state = {...m};
+      // seed personality for pattern
+      const rng = makeRng(m.seed+"|persona");
+      this.personality.a = rng();
+      this.personality.b = rng();
+      this.personality.c = rng();
+      // rebuild cells count based on intensity
+      const n = Math.floor(240 + $("#intensity").value*1 * 520);
+      this.cells.length=0;
+      for(let i=0;i<n;i++){
+        const u=i/(n-1);
+        const rr = Math.pow(rng(), 0.35);
+        const ang = rng()*Math.PI*2;
+        this.cells.push({
+          u, rr, ang,
+          spin: (rng()*2-1) * (0.35 + rng()*0.7),
+          jitter: rng(),
+          phase: rng()*Math.PI*2,
+          size: 0.6 + rng()*2.2,
+          hueOff: (rng()*2-1)*28,
+          life: 0.4 + rng()*0.6
+        });
+      }
+    }
+    update(dt){
+      this.t += dt;
+
+      // smooth toward target mood & sliders
+      if(this.target){
+        const s=this.state;
+        const trg=this.target;
+        const k = 1 - Math.pow(0.001, dt); // smooth
+        s.hue = lerpHue(s.hue, trg.hue, k*0.55);
+        s.sat = lerp(s.sat, trg.sat, k*0.65);
+        s.light = lerp(s.light, trg.light, k*0.65);
+        s.turb = lerp(s.turb, trg.turb, k*0.75);
+        s.coh = lerp(s.coh, trg.coh, k*0.75);
+        s.breath = lerp(s.breath, trg.breath, k*0.65);
+        s.glow = lerp(s.glow, trg.glow, k*0.65);
+        s.contrast = lerp(s.contrast, trg.contrast, k*0.65);
+        s.valence = lerp(s.valence, trg.valence, k*0.60);
+        s.energy = lerp(s.energy, trg.energy, k*0.60);
+        s.hits = trg.hits;
+      }
+    }
+    draw(){
+      const w=canvas.clientWidth, h=canvas.clientHeight;
+      const m=this.state || DEFAULT_MOOD;
+
+      // background gradient derived from mood
+      const bgA = hslToRgb(m.hue, clamp(m.sat*0.65,0,1), clamp(0.10 + m.light*0.22, 0, 1));
+      const bgB = hslToRgb((m.hue+35)%360, clamp(m.sat*0.45,0,1), clamp(0.06 + m.light*0.14, 0, 1));
+      const g=ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0, rgbToHex(bgA.r,bgA.g,bgA.b));
+      g.addColorStop(1, rgbToHex(bgB.r,bgB.g,bgB.b));
+      ctx.fillStyle=g;
+      ctx.fillRect(0,0,w,h);
+
+      // "breathing" pulse
+      const breathTempo = lerp(0.22, 0.75, m.breath); // Hz-ish
+      const pulse = 0.5 + 0.5*Math.sin(this.t*Math.PI*2*breathTempo);
+      const pulse2 = 0.5 + 0.5*Math.sin(this.t*Math.PI*2*(breathTempo*0.5) + 1.1);
+
+      // core
+      const cx = w*0.5 + (this.pointer.down ? (this.pointer.x-w*0.5)*0.06 : 0);
+      const cy = h*0.52 + (this.pointer.down ? (this.pointer.y-h*0.52)*0.06 : 0);
+
+      // turbulence influences orbit noise
+      const turb = clamp(m.turb + Number($("#turb").value)*0.0, 0, 1);
+      const coh  = clamp(m.coh  + Number($("#coh").value)*0.0, 0, 1);
+      const intensity = Number($("#intensity").value);
+      const glow = Number($("#glow").value);
+      const contrast = Number($("#contrast").value);
+
+      const baseR = Math.min(w,h) * (0.18 + intensity*0.16);
+      const ringR = baseR * (1.10 + pulse*0.18 + turb*0.10);
+      const swirl = (0.30 + turb*1.2) * (1 - coh*0.55);
+
+      // draw a soft aura
+      const auraCol = hslToRgb(m.hue, clamp(m.sat,0,1), clamp(0.35 + m.light*0.30,0,1));
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+      ctx.globalAlpha = 0.10 + glow*0.18;
+      const rg=ctx.createRadialGradient(cx,cy, baseR*0.15, cx,cy, ringR*1.8);
+      rg.addColorStop(0, `rgba(${auraCol.r},${auraCol.g},${auraCol.b},0.55)`);
+      rg.addColorStop(1, `rgba(${auraCol.r},${auraCol.g},${auraCol.b},0.0)`);
+      ctx.fillStyle=rg;
+      ctx.beginPath(); ctx.arc(cx,cy, ringR*1.8, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // cells
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+      const rng = makeRng((this.target?.seed||"neutral")+"|frame|"+Math.floor(this.t*2));
+      for(const c of this.cells){
+        const u=c.u;
+        const rr = c.rr;
+        const a = c.ang + this.t*(0.25 + c.spin*0.22)*(0.35 + m.energy*0.9) + swirl*Math.sin(this.t*0.9 + c.phase);
+
+        // noise-ish radial wobble
+        const wob = (Math.sin(this.t*1.3 + c.phase*1.7) * 0.5 + Math.sin(this.t*2.0 + c.phase*0.8)*0.5);
+        const wob2 = (Math.sin(this.t*0.7 + u*9 + c.phase) * 0.5 + Math.sin(this.t*1.9 + u*6 + c.phase*0.3)*0.5);
+
+        const r = ringR * (0.22 + rr*1.35) * (1 + wob*0.06*turb);
+        const x = cx + Math.cos(a)*r + wob2*12*turb*(1-coh*0.6);
+        const y = cy + Math.sin(a)*r + wob*10*turb*(1-coh*0.6);
+
+        // color per cell
+        const hue = (m.hue + c.hueOff + Math.sin(this.t*0.6 + u*8)*14*turb) % 360;
+        const sat = clamp(m.sat * (0.70 + 0.45*(1-coh)) + turb*0.10, 0, 1);
+        const lit = clamp(m.light * (0.75 + pulse*0.20) + (rr-0.5)*0.18 + (m.valence*0.05), 0, 1);
+
+        const rgb = hslToRgb(hue, sat, lit);
+        const aAlpha = (0.10 + glow*0.22) * (0.55 + c.life*0.7) * (0.65 + pulse2*0.35);
+        ctx.globalAlpha = aAlpha;
+
+        const sz = c.size * (0.8 + intensity*1.6) * (0.65 + rr*1.15) * (0.75 + (1-coh)*0.35);
+
+        // draw as soft circle
+        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},1)`;
+        ctx.beginPath();
+        ctx.arc(x,y, sz, 0, Math.PI*2);
+        ctx.fill();
+
+        // occasional spark flecks when high contrast
+        if(contrast>0.6 && rng() < (contrast-0.6)*0.03){
+          ctx.globalAlpha = 0.12 + glow*0.15;
+          ctx.fillStyle = `rgba(255,255,255,1)`;
+          ctx.fillRect(x+sz*0.4, y-sz*0.4, 1, 1);
+        }
+      }
+      ctx.restore();
+
+      // "membrane" outline
+      ctx.save();
+      const memHue = (m.hue + 20 + Math.sin(this.t*0.4)*10) % 360;
+      const mem = hslToRgb(memHue, clamp(m.sat*0.85,0,1), clamp(0.35 + m.light*0.35,0,1));
+      ctx.strokeStyle = `rgba(${mem.r},${mem.g},${mem.b},${0.10 + glow*0.18})`;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      const R = ringR*(1.05 + 0.06*Math.sin(this.t*1.2));
+      for(let i=0;i<=160;i++){
+        const t=i/160*Math.PI*2;
+        const n = Math.sin(t*3 + this.t*0.8)*turb*0.06 + Math.sin(t*7 - this.t*0.5)*turb*0.03;
+        const rr = R*(1+n);
+        const x = cx + Math.cos(t)*rr;
+        const y = cy + Math.sin(t)*rr;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      // subtle vignette
+      ctx.save();
+      const vg=ctx.createRadialGradient(w/2,h/2, Math.min(w,h)*0.15, w/2,h/2, Math.min(w,h)*0.72);
+      vg.addColorStop(0, "rgba(0,0,0,0)");
+      vg.addColorStop(1, `rgba(0,0,0,${0.35 + contrast*0.30})`);
+      ctx.fillStyle=vg;
+      ctx.fillRect(0,0,w,h);
+      ctx.restore();
+    }
+  }
+
+  // ---------- Audio (optional) ----------
+  let audio = {
+    enabled:false,
+    ctx:null,
+    master:null,
+    osc1:null,
+    osc2:null,
+    lfo:null,
+    lfoGain:null,
+    filter:null
+  };
+
+  function enableSound(){
+    if(audio.enabled) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC){ toast("AudioContext not supported."); return; }
+    audio.ctx = new AC();
+    audio.master = audio.ctx.createGain();
+    audio.master.gain.value = 0.0001;
+
+    audio.filter = audio.ctx.createBiquadFilter();
+    audio.filter.type="lowpass";
+    audio.filter.frequency.value=900;
+    audio.filter.Q.value=0.8;
+
+    audio.osc1 = audio.ctx.createOscillator();
+    audio.osc2 = audio.ctx.createOscillator();
+    audio.osc1.type="sine";
+    audio.osc2.type="triangle";
+
+    const g1 = audio.ctx.createGain();
+    const g2 = audio.ctx.createGain();
+    g1.gain.value=0.10;
+    g2.gain.value=0.08;
+
+    // LFO for breathing amplitude
+    audio.lfo = audio.ctx.createOscillator();
+    audio.lfo.type="sine";
+    audio.lfo.frequency.value=0.25;
+    audio.lfoGain = audio.ctx.createGain();
+    audio.lfoGain.gain.value = 0.45;
+
+    audio.lfo.connect(audio.lfoGain);
+    audio.lfoGain.connect(audio.master.gain);
+
+    audio.osc1.connect(g1); audio.osc2.connect(g2);
+    g1.connect(audio.filter); g2.connect(audio.filter);
+    audio.filter.connect(audio.master);
+    audio.master.connect(audio.ctx.destination);
+
+    audio.osc1.start();
+    audio.osc2.start();
+    audio.lfo.start();
+
+    // fade in
+    const t0=audio.ctx.currentTime;
+    audio.master.gain.setValueAtTime(0.0001, t0);
+    audio.master.gain.exponentialRampToValueAtTime(0.07, t0+0.5);
+
+    audio.enabled=true;
+    $("#btnSound").textContent="Sound: On";
+    toast("Sound enabled.");
+  }
+
+  function updateSound(m){
+    if(!audio.enabled || !audio.ctx) return;
+    const ctx = audio.ctx;
+    const t0 = ctx.currentTime;
+
+    // Map mood to pitch & timbre (non-blue vibe: warm drones)
+    const baseHz = 80 + m.energy*70 + (m.valence*10);
+    const hueHz  = 0.6 + ((m.hue % 60)/60)*0.9; // tiny shift
+    const f1 = baseHz * hueHz;
+    const f2 = f1 * (1.5 + (1-m.coh)*0.2);
+
+    audio.osc1.frequency.setTargetAtTime(f1, t0, 0.08);
+    audio.osc2.frequency.setTargetAtTime(f2, t0, 0.08);
+
+    // Breath sets LFO speed
+    const lfoHz = lerp(0.12, 0.55, m.breath);
+    audio.lfo.frequency.setTargetAtTime(lfoHz, t0, 0.12);
+
+    // Turbulence -> filter cutoff
+    const cut = lerp(450, 2200, clamp(0.35 + m.turb*0.75,0,1));
+    audio.filter.frequency.setTargetAtTime(cut, t0, 0.10);
+  }
+
+  // ---------- UI / State ----------
+  const DEFAULT_MOOD = {
+    hue: 28, sat: 0.60, light: 0.30,
+    turb: 0.35, coh: 0.62, breath: 0.55,
+    glow: 0.55, contrast: 0.52,
+    hits: [], valence: 0.0, energy: 0.2, seed:"neutral"
+  };
+
+  const state = {
+    moodText: "",
+    mood: {...DEFAULT_MOOD},
+    snapshots: [],
+    chips: new Set(),
+    lastAnalyzeAt: 0
+  };
+
+  const org = new Organism();
+  org.setMood(DEFAULT_MOOD);
+
+  function applyFromSliders(base){
+    // Blend slider values into mood (acts like user "mixing")
+    const b = {...base};
+    b.breath = clamp(lerp(b.breath, Number($("#breath").value), 0.65), 0, 1);
+    b.turb   = clamp(lerp(b.turb,   Number($("#turb").value),   0.65), 0, 1);
+    b.coh    = clamp(lerp(b.coh,    Number($("#coh").value),    0.65), 0, 1);
+    b.glow   = clamp(lerp(b.glow,   Number($("#glow").value),   0.65), 0, 1);
+    b.contrast=clamp(lerp(b.contrast,Number($("#contrast").value),0.65),0,1);
+
+    // intensity mainly influences rendering density; keep in mood for HUD
+    b.intensity = Number($("#intensity").value);
+    return b;
+  }
+
+  function translate(){
+    const text = ($("#mood").value||"").trim();
+    const chipText = [...state.chips].join(" ");
+    const combined = (text + " " + chipText).trim();
+
+    state.moodText = combined;
+    const analyzed = analyzeMood(combined);
+    const m = applyFromSliders(analyzed);
+
+    state.mood = m;
+    org.setMood(m);
+    updatePaletteUI(m);
+    updateHUD(m);
+
+    // persist
+    save();
+    toast(analyzed.hits.length ? `Translated. Keywords: ${analyzed.hits.slice(0,6).join(", ")}${analyzed.hits.length>6?"…":""}` : "Translated. (No keywords matched; used subtle inference.)");
+  }
+
+  function updatePaletteUI(m){
+    // palette: base, complement-ish, shadow
+    const base = hslToRgb(m.hue, m.sat, clamp(0.30 + m.light*0.45, 0, 1));
+    const accent = hslToRgb((m.hue + 35 + (1-m.coh)*20)%360, clamp(m.sat*0.95,0,1), clamp(0.28 + m.light*0.40,0,1));
+    const shadow = hslToRgb((m.hue + 200)%360, clamp(m.sat*0.55,0,1), clamp(0.10 + m.light*0.20,0,1));
+
+    const baseHex = rgbToHex(base.r,base.g,base.b);
+    const accHex  = rgbToHex(accent.r,accent.g,accent.b);
+    const shHex   = rgbToHex(shadow.r,shadow.g,shadow.b);
+
+    $("#sw1").style.background = `linear-gradient(135deg, ${baseHex}, ${accHex})`;
+    $("#sw2").style.background = `linear-gradient(135deg, ${accHex}, ${shHex})`;
+    $("#sw3").style.background = `linear-gradient(135deg, ${shHex}, ${baseHex})`;
+
+    $("#sw1t").textContent = `base ${baseHex} • hue ${m.hue.toFixed(0)}`;
+    $("#sw2t").textContent = `accent ${accHex}`;
+    $("#sw3t").textContent = `shadow ${shHex}`;
+
+    state._palette = {baseHex, accHex, shHex};
+  }
+
+  function updateHUD(m){
+    const hits = m.hits?.length ? m.hits.slice(0,10).join(", ") : "—";
+    $("#hud").textContent =
+      `mood: ${state.moodText ? state.moodText.slice(0,120) + (state.moodText.length>120?"…":"") : "—"}\n`+
+      `hits: ${hits}\n`+
+      `hue=${m.hue.toFixed(1)} sat=${m.sat.toFixed(2)} light=${m.light.toFixed(2)} valence=${m.valence.toFixed(2)} energy=${m.energy.toFixed(2)}\n`+
+      `breath=${m.breath.toFixed(2)} turb=${m.turb.toFixed(2)} coh=${m.coh.toFixed(2)} glow=${m.glow.toFixed(2)} contrast=${m.contrast.toFixed(2)}`;
+  }
+
+  function randomMood(){
+    const samples=[
+      "quiet relief, warm gratitude, a little tired",
+      "focused and determined, calm confidence",
+      "sad but safe, soft and slow",
+      "anxious and restless, but hopeful",
+      "angry yet disciplined, sharp clarity",
+      "playful excitement with curiosity",
+      "numb, drained, empty—wanting rest",
+      "stressed, overwhelmed, still trying",
+      "connected, loving, tender joy",
+      "grounded, serene, stillness"
+    ];
+    $("#mood").value = samples[Math.floor(Math.random()*samples.length)];
+    translate();
+  }
+
+  function clearMood(){
+    $("#mood").value="";
+    state.chips.clear();
+    renderChips();
+    state.moodText="";
+    state.mood={...DEFAULT_MOOD};
+    org.setMood(DEFAULT_MOOD);
+    updatePaletteUI(DEFAULT_MOOD);
+    updateHUD(DEFAULT_MOOD);
+    save();
+    toast("Cleared.");
+  }
+
+  function copyHex(){
+    const p=state._palette;
+    if(!p){ toast("Nothing to copy."); return; }
+    const text = `${p.baseHex}\n${p.accHex}\n${p.shHex}`;
+    navigator.clipboard?.writeText(text).then(()=>{
+      toast("Copied HEX to clipboard.");
+    }).catch(()=>{
+      toast("Clipboard blocked. Export JSON instead.");
+    });
+  }
+
+  function saveSnapshot(){
+    const m=state.mood;
+    const p=state._palette;
+    const entry={
+      ts: Date.now(),
+      moodText: state.moodText,
+      hue:m.hue, sat:m.sat, light:m.light,
+      turb:m.turb, coh:m.coh, breath:m.breath, glow:m.glow, contrast:m.contrast,
+      valence:m.valence, energy:m.energy,
+      palette: p
+    };
+    state.snapshots.unshift(entry);
+    if(state.snapshots.length>60) state.snapshots.pop();
+    renderSnapshots();
+    save();
+    toast("Snapshot saved.");
+  }
+
+  function exportJSON(){
+    const payload={
+      v:1,
+      moodText: state.moodText,
+      mood: state.mood,
+      chips:[...state.chips],
+      snapshots: state.snapshots
+    };
+    const s=JSON.stringify(payload,null,2);
+    const blob=new Blob([s],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`mood_color_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function renderSnapshots(){
+    const el=$("#log");
+    if(!state.snapshots.length){
+      el.innerHTML = `<div class="entry">No snapshots yet. Translate a mood and click “Save Snapshot”.</div>`;
+      return;
+    }
+    el.innerHTML = state.snapshots.map(s=>{
+      const t=new Date(s.ts).toLocaleString();
+      const base=s.palette?.baseHex||"—";
+      const txt=(s.moodText||"").slice(0,120) + ((s.moodText||"").length>120?"…":"");
+      return `<div class="entry">
+        [${esc(t)}] ${esc(base)} • val=${Number(s.valence).toFixed(2)} en=${Number(s.energy).toFixed(2)}
+        <div style="margin-top:6px; color:rgba(255,255,255,.66)">${esc(txt||"—")}</div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderChips(){
+    const wrap=$("#chips");
+    wrap.innerHTML="";
+    for(const k of QUICK_CHIPS){
+      const b=document.createElement("div");
+      b.className="chip"+(state.chips.has(k)?" on":"");
+      b.textContent=k;
+      b.onclick=()=>{
+        if(state.chips.has(k)) state.chips.delete(k);
+        else state.chips.add(k);
+        renderChips();
+      };
+      wrap.appendChild(b);
+    }
+  }
+
+  // ---------- Persistence ----------
+  function save(){
+    const payload={
+      v:1,
+      moodText: state.moodText,
+      moodInput: $("#mood").value,
+      sliders:{
+        breath:$("#breath").value,
+        intensity:$("#intensity").value,
+        turb:$("#turb").value,
+        coh:$("#coh").value,
+        glow:$("#glow").value,
+        contrast:$("#contrast").value
+      },
+      chips:[...state.chips],
+      snapshots: state.snapshots
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  }
+
+  function load(){
+    try{
+      const raw=localStorage.getItem(SAVE_KEY);
+      if(!raw) return;
+      const j=JSON.parse(raw);
+      if(!j || j.v!==1) return;
+      $("#mood").value = j.moodInput || "";
+      if(j.sliders){
+        $("#breath").value = j.sliders.breath ?? $("#breath").value;
+        $("#intensity").value = j.sliders.intensity ?? $("#intensity").value;
+        $("#turb").value = j.sliders.turb ?? $("#turb").value;
+        $("#coh").value = j.sliders.coh ?? $("#coh").value;
+        $("#glow").value = j.sliders.glow ?? $("#glow").value;
+        $("#contrast").value = j.sliders.contrast ?? $("#contrast").value;
+      }
+      state.chips = new Set(j.chips || []);
+      state.snapshots = Array.isArray(j.snapshots) ? j.snapshots : [];
+    }catch{}
+  }
+
+  // ---------- Loop ----------
+  let last = now();
+  let fpsAcc=0, fpsN=0, fpsT=now();
+
+  function tick(){
+    const t=now();
+    const dt=clamp((t-last)/1000, 0, 0.2);
+    last=t;
+
+    // smooth mood update + draw
+    org.update(dt);
+    org.draw();
+
+    // update sound if enabled
+    updateSound(org.state || DEFAULT_MOOD);
+
+    // toast hide
+    if($("#toast").style.display!=="none" && t>toast.until) $("#toast").style.display="none";
+
+    // fps
+    fpsAcc += 1/Math.max(1e-6, dt); fpsN++;
+    if(t-fpsT>500){
+      $("#fpsPill").textContent = `${(fpsAcc/fpsN).toFixed(0)} fps`;
+      fpsAcc=0; fpsN=0; fpsT=t;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Pointer interaction ----------
+  function wirePointer(){
+    const el=$("#center");
+    el.addEventListener("pointerdown",(e)=>{
+      org.pointer.down=true;
+      const r=canvas.getBoundingClientRect();
+      org.pointer.x = e.clientX - r.left;
+      org.pointer.y = e.clientY - r.top;
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener("pointermove",(e)=>{
+      const r=canvas.getBoundingClientRect();
+      org.pointer.x = e.clientX - r.left;
+      org.pointer.y = e.clientY - r.top;
+    });
+    el.addEventListener("pointerup",(e)=>{
+      org.pointer.down=false;
+      try{ el.releasePointerCapture(e.pointerId); }catch{}
+    });
+  }
+
+  // ---------- Wiring ----------
+  function wireUI(){
+    $("#btnTranslate").onclick=()=>translate();
+    $("#btnRandom").onclick=()=>randomMood();
+    $("#btnClear").onclick=()=>clearMood();
+
+    $("#btnCopy").onclick=()=>copyHex();
+    $("#btnSaveSnap").onclick=()=>saveSnapshot();
+    $("#btnExport").onclick=()=>exportJSON();
+
+    $("#btnSound").onclick=()=>enableSound();
+
+    // sliders: update mood continuously (without re-analyzing text)
+    const sliderIds=["breath","intensity","turb","coh","glow","contrast"];
+    for(const id of sliderIds){
+      $("#"+id).addEventListener("input", ()=>{
+        // apply slider blending to current analyzed mood base
+        const analyzed = analyzeMood((($("#mood").value||"") + " " + [...state.chips].join(" ")).trim());
+        const m = applyFromSliders(analyzed);
+        state.mood=m;
+        org.target = m; // keep cells
+        updatePaletteUI(m);
+        updateHUD(m);
+        save();
+      });
+    }
+
+    // keyboard
+    window.addEventListener("keydown",(e)=>{
+      if(e.target && ["TEXTAREA","INPUT","SELECT"].includes(e.target.tagName)) return;
+      if(e.key==="Enter"){ e.preventDefault(); translate(); }
+      if(e.key==="r"||e.key==="R"){ randomMood(); }
+      if(e.key==="c"||e.key==="C"){ clearMood(); }
+      if(e.key==="s"||e.key==="S"){ saveSnapshot(); }
+    });
+  }
+
+  // ---------- Boot ----------
+  function boot(){
+    load();
+    renderChips();
+    renderSnapshots();
+    resize();
+    wirePointer();
+    wireUI();
+
+    // initial translate (if there is stored input/chips) else default
+    const combined = (($("#mood").value||"") + " " + [...state.chips].join(" ")).trim();
+    if(combined){
+      translate();
+    }else{
+      updatePaletteUI(DEFAULT_MOOD);
+      updateHUD(DEFAULT_MOOD);
+    }
+
+    toast("Type a mood, then Translate. Drag the organism to nudge it.");
+    requestAnimationFrame(tick);
+  }
+  boot();
+
+})();
+</script>
+</body>
+</html>

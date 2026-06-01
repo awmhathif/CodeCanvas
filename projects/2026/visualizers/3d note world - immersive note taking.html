@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Note World - Immersive Note Taking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #canvas3d {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+
+        #canvas3d:active {
+            cursor: grabbing;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .top-bar h1 {
+            font-size: 20px;
+            margin-right: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 10px 20px 10px 40px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            width: 250px;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.2);
+            width: 300px;
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-icon {
+            padding: 10px 15px;
+            font-size: 18px;
+        }
+
+        /* Side Panel */
+        .side-panel {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+        }
+
+        .side-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .note-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .note-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+        }
+
+        .note-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-5px);
+        }
+
+        .note-item.active {
+            border-left-color: #667eea;
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .note-item-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .note-item-preview {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .note-item-date {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 5px;
+        }
+
+        .note-item-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .note-item-actions button {
+            flex: 1;
+            padding: 5px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .note-item-actions button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Modal */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 500px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.selected {
+            border-color: white;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-icon {
+            font-size: 20px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid #4caf50;
+        }
+
+        .toast.error {
+            border-left: 4px solid #f44336;
+        }
+
+        .toast.info {
+            border-left: 4px solid #2196f3;
+        }
+
+        /* Controls Info */
+        .controls-info {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            font-size: 12px;
+            line-height: 1.8;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls-info h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        /* Scrollbar Styling */
+        .side-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .side-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .side-panel::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+        }
+
+        .side-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.8);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas3d"></canvas>
+
+    <div class="ui-overlay">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>📝 3D Note World</h1>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search notes...">
+            </div>
+            <button class="btn" id="newNoteBtn">✨ New Note</button>
+            <button class="btn btn-icon" id="viewRecycleBtn" title="Recycle Bin">🗑️</button>
+            <button class="btn btn-icon" id="exportBtn" title="Export All">📥</button>
+            <button class="btn btn-icon" id="resetViewBtn" title="Reset Camera">🎯</button>
+        </div>
+
+        <!-- Side Panel -->
+        <div class="side-panel" id="sidePanel">
+            <h2>📚 All Notes (<span id="noteCount">0</span>)</h2>
+            <div class="note-list" id="noteList"></div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-icon">📝</span>
+                <div>
+                    <div class="stat-label">Active</div>
+                    <div class="stat-value" id="statActive">0</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">🗑️</span>
+                <div>
+                    <div class="stat-label">Recycled</div>
+                    <div class="stat-value" id="statRecycled">0</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">🎨</span>
+                <div>
+                    <div class="stat-label">Colors</div>
+                    <div class="stat-value" id="statColors">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Info -->
+        <div class="controls-info">
+            <h3>🎮 Controls</h3>
+            🖱️ Drag to rotate<br>
+            🔍 Scroll to zoom<br>
+            📝 Click note to edit<br>
+            ⌨️ Ctrl+N for new note
+        </div>
+
+        <!-- Create/Edit Modal -->
+        <div class="modal" id="noteModal">
+            <h2 id="modalTitle">✨ Create New Note</h2>
+            <form id="noteForm">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="noteTitle" placeholder="Enter note title..." required>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea id="noteContent" placeholder="Write your thoughts..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="noteCategory">
+                        <option value="personal">💭 Personal</option>
+                        <option value="work">💼 Work</option>
+                        <option value="ideas">💡 Ideas</option>
+                        <option value="tasks">✅ Tasks</option>
+                        <option value="other">📌 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Color Theme</label>
+                    <div class="color-picker" id="colorPicker"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn" id="saveBtn">Save Note</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recycle Bin Modal -->
+        <div class="modal" id="recycleModal">
+            <h2>🗑️ Recycle Bin</h2>
+            <div id="recycleList"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn" id="closeRecycleBtn">Close</button>
+                <button type="button" class="btn" id="emptyRecycleBtn">Empty Bin</button>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // ==================== IndexedDB Setup ====================
+        class NoteDB {
+            constructor() {
+                this.dbName = '3DNoteWorld';
+                this.version = 1;
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.version);
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve();
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+
+                        // Notes store
+                        if (!db.objectStoreNames.contains('notes')) {
+                            const notesStore = db.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+                            notesStore.createIndex('title', 'title', { unique: false });
+                            notesStore.createIndex('createdAt', 'createdAt', { unique: false });
+                            notesStore.createIndex('isDeleted', 'isDeleted', { unique: false });
+                        }
+                    };
+                });
+            }
+
+            async addNote(note) {
+                const transaction = this.db.transaction(['notes'], 'readwrite');
+                const store = transaction.objectStore('notes');
+                return new Promise((resolve, reject) => {
+                    const request = store.add(note);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async updateNote(note) {
+                const transaction = this.db.transaction(['notes'], 'readwrite');
+                const store = transaction.objectStore('notes');
+                return new Promise((resolve, reject) => {
+                    const request = store.put(note);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async deleteNote(id) {
+                const transaction = this.db.transaction(['notes'], 'readwrite');
+                const store = transaction.objectStore('notes');
+                return new Promise((resolve, reject) => {
+                    const request = store.delete(id);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getAllNotes() {
+                const transaction = this.db.transaction(['notes'], 'readonly');
+                const store = transaction.objectStore('notes');
+                return new Promise((resolve, reject) => {
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getNote(id) {
+                const transaction = this.db.transaction(['notes'], 'readonly');
+                const store = transaction.objectStore('notes');
+                return new Promise((resolve, reject) => {
+                    const request = store.get(id);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+        }
+
+        // ==================== 3D World Setup ====================
+        const canvas = document.getElementById('canvas3d');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // Camera and controls
+        let camera = {
+            x: 0,
+            y: 0,
+            z: 800,
+            rotationX: 0,
+            rotationY: 0,
+            targetRotationX: 0,
+            targetRotationY: 0
+        };
+
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // 3D Note object
+        class Note3D {
+            constructor(note, index, total) {
+                this.note = note;
+                this.id = note.id;
+                
+                // Position in circular layout
+                const angle = (index / total) * Math.PI * 2;
+                const radius = 300;
+                this.x = Math.cos(angle) * radius;
+                this.y = (Math.random() - 0.5) * 200;
+                this.z = Math.sin(angle) * radius;
+                
+                // Floating animation
+                this.floatOffset = Math.random() * Math.PI * 2;
+                this.floatSpeed = 0.5 + Math.random() * 0.5;
+                
+                // Rotation
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.01;
+                
+                // Size
+                this.width = 120;
+                this.height = 160;
+                
+                // Color
+                this.color = note.color || '#667eea';
+                
+                // Hover state
+                this.isHovered = false;
+                this.scale = 1;
+            }
+
+            update(time) {
+                // Floating animation
+                this.y += Math.sin(time * 0.001 * this.floatSpeed + this.floatOffset) * 0.3;
+                
+                // Gentle rotation
+                this.rotation += this.rotationSpeed;
+                
+                // Scale animation
+                const targetScale = this.isHovered ? 1.2 : 1;
+                this.scale += (targetScale - this.scale) * 0.1;
+            }
+
+            project() {
+                // Apply camera rotation
+                const cosX = Math.cos(camera.rotationX);
+                const sinX = Math.sin(camera.rotationX);
+                const cosY = Math.cos(camera.rotationY);
+                const sinY = Math.sin(camera.rotationY);
+                
+                let x = this.x;
+                let y = this.y;
+                let z = this.z;
+                
+                // Rotate Y
+                let x1 = x * cosY - z * sinY;
+                let z1 = x * sinY + z * cosY;
+                
+                // Rotate X
+                let y1 = y * cosX - z1 * sinX;
+                let z2 = y * sinX + z1 * cosX;
+                
+                // Project to 2D
+                const scale = camera.z / (camera.z + z2);
+                const x2d = x1 * scale + width / 2;
+                const y2d = y1 * scale + height / 2;
+                
+                return { x: x2d, y: y2d, scale: scale, z: z2 };
+            }
+
+            draw(projected) {
+                if (projected.z < -camera.z) return; // Behind camera
+                
+                const drawScale = projected.scale * this.scale;
+                const w = this.width * drawScale;
+                const h = this.height * drawScale;
+                
+                ctx.save();
+                ctx.translate(projected.x, projected.y);
+                ctx.rotate(this.rotation);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(-w/2 + 5, -h/2 + 5, w, h);
+                
+                // Note card
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-w/2, -h/2, w, h);
+                
+                // Border
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-w/2, -h/2, w, h);
+                
+                // Title
+                ctx.fillStyle = 'white';
+                ctx.font = `bold ${12 * drawScale}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                
+                const title = this.note.title.length > 15 ? 
+                    this.note.title.substring(0, 15) + '...' : this.note.title;
+                ctx.fillText(title, 0, -h/2 + 10 * drawScale);
+                
+                // Content preview
+                ctx.font = `${10 * drawScale}px Arial`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                const content = this.note.content.length > 50 ? 
+                    this.note.content.substring(0, 50) + '...' : this.note.content;
+                
+                const lines = this.wrapText(content, w - 20 * drawScale);
+                lines.slice(0, 5).forEach((line, i) => {
+                    ctx.fillText(line, 0, -h/2 + 35 * drawScale + i * 15 * drawScale);
+                });
+                
+                // Category icon
+                const categoryEmoji = {
+                    'personal': '💭',
+                    'work': '💼',
+                    'ideas': '💡',
+                    'tasks': '✅',
+                    'other': '📌'
+                }[this.note.category] || '📌';
+                
+                ctx.font = `${16 * drawScale}px Arial`;
+                ctx.fillText(categoryEmoji, 0, h/2 - 25 * drawScale);
+                
+                // Hover effect
+                if (this.isHovered) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(-w/2, -h/2, w, h);
+                }
+                
+                ctx.restore();
+            }
+
+            wrapText(text, maxWidth) {
+                const words = text.split(' ');
+                const lines = [];
+                let currentLine = '';
+                
+                words.forEach(word => {
+                    const testLine = currentLine + word + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && currentLine !== '') {
+                        lines.push(currentLine);
+                        currentLine = word + ' ';
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+                
+                if (currentLine !== '') {
+                    lines.push(currentLine);
+                }
+                
+                return lines;
+            }
+
+            checkHover(mouseX, mouseY, projected) {
+                const drawScale = projected.scale * this.scale;
+                const w = this.width * drawScale;
+                const h = this.height * drawScale;
+                
+                return mouseX > projected.x - w/2 && mouseX < projected.x + w/2 &&
+                       mouseY > projected.y - h/2 && mouseY < projected.y + h/2;
+            }
+        }
+
+        // ==================== Application State ====================
+        const db = new NoteDB();
+        let notes3D = [];
+        let currentEditId = null;
+        let animationTime = 0;
+        let searchQuery = '';
+
+        const colors = [
+            '#667eea', '#764ba2', '#f093fb', '#4facfe',
+            '#43e97b', '#fa709a', '#fee140', '#30cfd0',
+            '#a8edea', '#ff6b6b', '#4ecdc4', '#45b7d1'
+        ];
+
+        // ==================== UI Functions ====================
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        async function updateStats() {
+            const allNotes = await db.getAllNotes();
+            const active = allNotes.filter(n => !n.isDeleted).length;
+            const recycled = allNotes.filter(n => n.isDeleted).length;
+            const usedColors = new Set(allNotes.map(n => n.color)).size;
+            
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statRecycled').textContent = recycled;
+            document.getElementById('statColors').textContent = usedColors;
+            document.getElementById('noteCount').textContent = active;
+        }
+
+        async function renderNoteList() {
+            const noteList = document.getElementById('noteList');
+            const allNotes = await db.getAllNotes();
+            const activeNotes = allNotes.filter(n => !n.isDeleted);
+            
+            // Filter by search
+            const filteredNotes = searchQuery ? 
+                activeNotes.filter(n => 
+                    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    n.content.toLowerCase().includes(searchQuery.toLowerCase())
+                ) : activeNotes;
+            
+            if (filteredNotes.length === 0) {
+                noteList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <div>${searchQuery ? 'No notes found' : 'No notes yet. Create your first note!'}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            noteList.innerHTML = filteredNotes
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .map(note => `
+                    <div class="note-item" data-id="${note.id}">
+                        <div class="note-item-title">${note.title}</div>
+                        <div class="note-item-preview">${note.content}</div>
+                        <div class="note-item-date">${new Date(note.createdAt).toLocaleDateString()}</div>
+                        <div class="note-item-actions">
+                            <button onclick="editNote(${note.id})">✏️ Edit</button>
+                            <button onclick="recycleNote(${note.id})">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+        }
+
+        async function renderRecycleList() {
+            const recycleList = document.getElementById('recycleList');
+            const allNotes = await db.getAllNotes();
+            const deletedNotes = allNotes.filter(n => n.isDeleted);
+            
+            if (deletedNotes.length === 0) {
+                recycleList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🗑️</div>
+                        <div>Recycle bin is empty</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            recycleList.innerHTML = `
+                <div class="note-list">
+                    ${deletedNotes.map(note => `
+                        <div class="note-item">
+                            <div class="note-item-title">${note.title}</div>
+                            <div class="note-item-preview">${note.content}</div>
+                            <div class="note-item-actions">
+                                <button onclick="restoreNote(${note.id})">↩️ Restore</button>
+                                <button onclick="permanentDelete(${note.id})">❌ Delete Forever</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function setupColorPicker() {
+            const colorPicker = document.getElementById('colorPicker');
+            colorPicker.innerHTML = colors.map(color => 
+                `<div class="color-option" style="background: ${color}" data-color="${color}"></div>`
+            ).join('');
+            
+            colorPicker.querySelectorAll('.color-option').forEach(el => {
+                el.addEventListener('click', () => {
+                    colorPicker.querySelectorAll('.color-option').forEach(e => 
+                        e.classList.remove('selected'));
+                    el.classList.add('selected');
+                });
+            });
+            
+            // Select first color by default
+            colorPicker.querySelector('.color-option').classList.add('selected');
+        }
+
+        // ==================== CRUD Operations ====================
+        async function createNote(noteData) {
+            const note = {
+                ...noteData,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                isDeleted: false
+            };
+            
+            const id = await db.addNote(note);
+            await refresh3DWorld();
+            await updateStats();
+            await renderNoteList();
+            showToast('✨ Note created successfully!', 'success');
+            return id;
+        }
+
+        async function updateNote(id, noteData) {
+            const note = await db.getNote(id);
+            const updated = {
+                ...note,
+                ...noteData,
+                updatedAt: Date.now()
+            };
+            
+            await db.updateNote(updated);
+            await refresh3DWorld();
+            await updateStats();
+            await renderNoteList();
+            showToast('✏️ Note updated successfully!', 'success');
+        }
+
+        async function recycleNote(id) {
+            const note = await db.getNote(id);
+            note.isDeleted = true;
+            note.deletedAt = Date.now();
+            
+            await db.updateNote(note);
+            await refresh3DWorld();
+            await updateStats();
+            await renderNoteList();
+            showToast('🗑️ Note moved to recycle bin', 'info');
+        }
+
+        async function restoreNote(id) {
+            const note = await db.getNote(id);
+            note.isDeleted = false;
+            delete note.deletedAt;
+            
+            await db.updateNote(note);
+            await refresh3DWorld();
+            await updateStats();
+            await renderNoteList();
+            await renderRecycleList();
+            showToast('↩️ Note restored successfully!', 'success');
+        }
+
+        async function permanentDelete(id) {
+            if (confirm('⚠️ Permanently delete this note? This cannot be undone.')) {
+                await db.deleteNote(id);
+                await updateStats();
+                await renderRecycleList();
+                showToast('❌ Note permanently deleted', 'info');
+            }
+        }
+
+        async function emptyRecycleBin() {
+            if (confirm('⚠️ Empty recycle bin? All deleted notes will be permanently removed.')) {
+                const allNotes = await db.getAllNotes();
+                const deletedNotes = allNotes.filter(n => n.isDeleted);
+                
+                for (const note of deletedNotes) {
+                    await db.deleteNote(note.id);
+                }
+                
+                await updateStats();
+                await renderRecycleList();
+                showToast('🗑️ Recycle bin emptied', 'info');
+            }
+        }
+
+        async function editNote(id) {
+            currentEditId = id;
+            const note = await db.getNote(id);
+            
+            document.getElementById('modalTitle').textContent = '✏️ Edit Note';
+            document.getElementById('noteTitle').value = note.title;
+            document.getElementById('noteContent').value = note.content;
+            document.getElementById('noteCategory').value = note.category;
+            
+            // Select color
+            document.querySelectorAll('.color-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.color === note.color);
+            });
+            
+            showModal('noteModal');
+        }
+
+        async function exportNotes() {
+            const allNotes = await db.getAllNotes();
+            const activeNotes = allNotes.filter(n => !n.isDeleted);
+            
+            const dataStr = JSON.stringify(activeNotes, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `notes-${Date.now()}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showToast('📥 Notes exported successfully!', 'success');
+        }
+
+        // ==================== 3D World Management ====================
+        async function refresh3DWorld() {
+            const allNotes = await db.getAllNotes();
+            const activeNotes = allNotes.filter(n => !n.isDeleted);
+            
+            // Filter by search
+            const filteredNotes = searchQuery ? 
+                activeNotes.filter(n => 
+                    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    n.content.toLowerCase().includes(searchQuery.toLowerCase())
+                ) : activeNotes;
+            
+            notes3D = filteredNotes.map((note, index) => 
+                new Note3D(note, index, filteredNotes.length));
+        }
+
+        function render3DWorld() {
+            // Clear canvas
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Update camera
+            camera.rotationX += (camera.targetRotationX - camera.rotationX) * 0.1;
+            camera.rotationY += (camera.targetRotationY - camera.rotationY) * 0.1;
+            
+            // Update and draw notes
+            notes3D.forEach(note => note.update(animationTime));
+            
+            // Sort by z-depth for proper rendering
+            const projected = notes3D.map(note => ({
+                note,
+                proj: note.project()
+            })).sort((a, b) => a.proj.z - b.proj.z);
+            
+            projected.forEach(({ note, proj }) => {
+                note.draw(proj);
+            });
+            
+            animationTime++;
+            requestAnimationFrame(render3DWorld);
+        }
+
+        // ==================== Event Listeners ====================
+        // Mouse controls
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                camera.targetRotationY += deltaX * 0.005;
+                camera.targetRotationX += deltaY * 0.005;
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            } else {
+                // Check hover
+                notes3D.forEach(note => {
+                    const proj = note.project();
+                    note.isHovered = note.checkHover(e.clientX, e.clientY, proj);
+                });
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            camera.z += e.deltaY * 0.5;
+            camera.z = Math.max(300, Math.min(1500, camera.z));
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!isDragging) {
+                notes3D.forEach(note => {
+                    const proj = note.project();
+                    if (note.checkHover(e.clientX, e.clientY, proj)) {
+                        editNote(note.id);
+                    }
+                });
+            }
+        });
+
+        // UI controls
+        document.getElementById('newNoteBtn').addEventListener('click', () => {
+            currentEditId = null;
+            document.getElementById('modalTitle').textContent = '✨ Create New Note';
+            document.getElementById('noteForm').reset();
+            setupColorPicker();
+            showModal('noteModal');
+        });
+
+        document.getElementById('noteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const noteData = {
+                title: document.getElementById('noteTitle').value,
+                content: document.getElementById('noteContent').value,
+                category: document.getElementById('noteCategory').value,
+                color: document.querySelector('.color-option.selected').dataset.color
+            };
+            
+            if (currentEditId) {
+                await updateNote(currentEditId, noteData);
+            } else {
+                await createNote(noteData);
+            }
+            
+            hideModal('noteModal');
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            hideModal('noteModal');
+        });
+
+        document.getElementById('viewRecycleBtn').addEventListener('click', async () => {
+            await renderRecycleList();
+            showModal('recycleModal');
+        });
+
+        document.getElementById('closeRecycleBtn').addEventListener('click', () => {
+            hideModal('recycleModal');
+        });
+
+        document.getElementById('emptyRecycleBtn').addEventListener('click', async () => {
+            await emptyRecycleBin();
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', exportNotes);
+
+        document.getElementById('resetViewBtn').addEventListener('click', () => {
+            camera.targetRotationX = 0;
+            camera.targetRotationY = 0;
+            camera.z = 800;
+            showToast('🎯 Camera reset', 'info');
+        });
+
+        document.getElementById('searchInput').addEventListener('input', async (e) => {
+            searchQuery = e.target.value;
+            await refresh3DWorld();
+            await renderNoteList();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                document.getElementById('newNoteBtn').click();
+            }
+        });
+
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        });
+
+        // ==================== Initialization ====================
+        async function init() {
+            await db.init();
+            setupColorPicker();
+            await refresh3DWorld();
+            await updateStats();
+            await renderNoteList();
+            render3DWorld();
+            
+            // Add sample notes if empty
+            const allNotes = await db.getAllNotes();
+            if (allNotes.length === 0) {
+                await createNote({
+                    title: 'Welcome to 3D Note World! 🌟',
+                    content: 'This is your first note in an immersive 3D environment. Drag to rotate the world, scroll to zoom, and click notes to edit them!',
+                    category: 'personal',
+                    color: '#667eea'
+                });
+                
+                await createNote({
+                    title: 'Getting Started 📝',
+                    content: 'Create new notes by clicking the "New Note" button. Each note appears as a floating card in 3D space. Try different colors and categories!',
+                    category: 'ideas',
+                    color: '#43e97b'
+                });
+                
+                await createNote({
+                    title: 'Features to Explore 🚀',
+                    content: 'Search notes, organize by category, recycle unwanted notes, and export all your data. Your notes are safely stored in IndexedDB!',
+                    category: 'other',
+                    color: '#f093fb'
+                });
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

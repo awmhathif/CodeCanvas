@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusType Pro 3000</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --matrix-green: #0f0;
+            --cyber-red: #ff073a;
+            --hologram-blue: rgba(0, 143, 255, 0.8);
+        }
+
+        body {
+            background: linear-gradient(45deg, #0a0a28, #1a1a4a);
+            color: var(--neon-blue);
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cyber-border {
+            border: 3px solid var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue),
+                        inset 0 0 15px var(--neon-blue);
+            position: relative;
+            padding: 2rem;
+            margin: 2rem;
+        }
+
+        .hologram-effect {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, 
+                transparent 49%,
+                var(--hologram-blue) 50%,
+                transparent 51%);
+            opacity: 0.3;
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            backdrop-filter: blur(5px);
+        }
+
+        .typing-test {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            min-height: 80vh;
+        }
+
+        .quote-display {
+            font-size: 1.5rem;
+            line-height: 2.5rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .keyboard-visualization {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .key {
+            border: 1px solid var(--neon-purple);
+            padding: 0.5rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .key.active {
+            background: var(--neon-purple);
+            transform: scale(1.1);
+        }
+
+        .input-field {
+            background: transparent;
+            border: 2px solid var(--neon-blue);
+            color: var(--matrix-green);
+            font-size: 1.5rem;
+            padding: 1rem;
+            width: 100%;
+            caret-color: var(--cyber-red);
+            text-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .stat-box {
+            padding: 1rem;
+            border: 1px solid var(--neon-purple);
+            text-align: center;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px var(--neon-blue),
+                         0 0 20px var(--neon-blue),
+                         0 0 30px var(--neon-blue);
+        }
+
+        .particle {
+            position: absolute;
+            background: var(--neon-purple);
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        .cyber-progress {
+            height: 10px;
+            background: #000;
+            border: 2px solid var(--neon-blue);
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                var(--neon-blue), 
+                var(--neon-purple));
+            transition: width 0.3s;
+        }
+
+        .voice-command {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .typing-test {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hologram-effect"></div>
+    <div class="container">
+        <div class="cyber-border">
+            <h1 class="neon-text">NEXUSTYPE PRO 3000</h1>
+            <div class="typing-test">
+                <div class="main-panel">
+                    <div class="quote-display" id="targetText"></div>
+                    <input type="text" class="input-field" id="userInput" autofocus>
+                    <div class="cyber-progress">
+                        <div class="progress-fill" id="progress"></div>
+                    </div>
+                    <div class="stats-panel">
+                        <div class="stat-box">
+                            <h3>WPM</h3>
+                            <div id="wpm">0</div>
+                        </div>
+                        <div class="stat-box">
+                            <h3>ACCURACY</h3>
+                            <div id="accuracy">100%</div>
+                        </div>
+                        <div class="stat-box">
+                            <h3>TIME</h3>
+                            <div id="timer">60.00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="keyboard-visualization" id="keyboard"></div>
+            </div>
+        </div>
+    </div>
+    <div class="voice-command" id="voiceButton">🎙️</div>
+
+    <script>
+        const quotes = [
+            "Cybernetic interfaces breach quantum firewalls in virtual datascapes.",
+            "Neural implants synchronize with holographic matrices beyond the exanet.",
+            "Synthetic consciousness emerges from fractal algorithm convergence.",
+            "Nanobot swarms reconstruct reality through quantum entanglement fields.",
+            "Bio-digital jazz synchronizes with photon oscillations in the meta-verse."
+        ];
+
+        let currentQuote = '';
+        let startTime = null;
+        let timerInterval = null;
+        let totalErrors = 0;
+        let isTestActive = false;
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+        function init() {
+            generateKeyboard();
+            loadNewQuote();
+            setupVoiceCommands();
+            setupInputHandlers();
+        }
+
+        function generateKeyboard() {
+            const keyboard = document.getElementById('keyboard');
+            const layout = '1234567890qwertyuiopasdfghjklzxcvbnm';
+            layout.split('').forEach(char => {
+                const key = document.createElement('div');
+                key.className = 'key';
+                key.textContent = char;
+                keyboard.appendChild(key);
+            });
+        }
+
+        function loadNewQuote() {
+            currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('targetText').innerHTML = 
+                currentQuote.split('').map(c => `<span>${c}</span>`).join('');
+        }
+
+        function setupInputHandlers() {
+            const input = document.getElementById('userInput');
+            input.addEventListener('keydown', handleKeyPress);
+            input.addEventListener('input', handleInput);
+        }
+
+        function handleKeyPress(e) {
+            if (!isTestActive) {
+                startTest();
+            }
+            animateKey(e.key.toLowerCase());
+            createParticle(e);
+        }
+
+        function handleInput(e) {
+            const input = e.target.value;
+            const targetSpans = document.querySelectorAll('#targetText span');
+            
+            let correct = true;
+            targetSpans.forEach((span, index) => {
+                if (index < input.length) {
+                    span.style.color = input[index] === span.textContent ? 
+                        '#0f0' : '#f00';
+                    if (input[index] !== span.textContent) {
+                        correct = false;
+                        totalErrors++;
+                    }
+                } else {
+                    span.style.color = '';
+                }
+            });
+
+            updateProgress(input.length);
+            updateAccuracy(input.length);
+            checkCompletion(input);
+        }
+
+        function startTest() {
+            isTestActive = true;
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 10);
+            document.getElementById('userInput').disabled = false;
+        }
+
+        function updateTimer() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const remaining = (60 - elapsed).toFixed(2);
+            document.getElementById('timer').textContent = remaining;
+            
+            if (remaining <= 0) {
+                endTest();
+            }
+        }
+
+        function updateProgress(length) {
+            const progress = (length / currentQuote.length) * 100;
+            document.getElementById('progress').style.width = `${progress}%`;
+        }
+
+        function updateAccuracy(length) {
+            const accuracy = ((length - totalErrors) / length * 100 || 100).toFixed(1);
+            document.getElementById('accuracy').textContent = `${accuracy}%`;
+        }
+
+        function checkCompletion(input) {
+            if (input === currentQuote) {
+                endTest();
+            }
+        }
+
+        function endTest() {
+            clearInterval(timerInterval);
+            isTestActive = false;
+            calculateWPM();
+            document.getElementById('userInput').disabled = true;
+        }
+
+        function calculateWPM() {
+            const time = (60 - parseFloat(document.getElementById('timer').textContent)) / 60;
+            const wpm = (currentQuote.split(' ').length / time).toFixed(1);
+            document.getElementById('wpm').textContent = wpm;
+        }
+
+        function animateKey(key) {
+            const keyElement = Array.from(document.getElementsByClassName('key'))
+                .find(el => el.textContent === key);
+            if (keyElement) {
+                keyElement.classList.add('active');
+                setTimeout(() => keyElement.classList.remove('active'), 100);
+            }
+        }
+
+        function createParticle(e) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = `${e.clientX}px`;
+            particle.style.top = `${e.clientY}px`;
+            document.body.appendChild(particle);
+
+            particle.animate([
+                { transform: 'scale(1)', opacity: 1 },
+                { transform: 'scale(3)', opacity: 0 }
+            ], { duration: 1000 });
+
+            setTimeout(() => particle.remove(), 1000);
+        }
+
+        function setupVoiceCommands() {
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+
+            document.getElementById('voiceButton').addEventListener('click', () => {
+                recognition.start();
+            });
+
+            recognition.onresult = (e) => {
+                const command = e.results[0][0].transcript.toLowerCase();
+                if (command.includes('start test')) {
+                    document.getElementById('userInput').value = '';
+                    loadNewQuote();
+                    startTest();
+                }
+            };
+        }
+
+        // Anti-cheat protection
+        document.getElementById('userInput').addEventListener('paste', e => e.preventDefault());
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glowing 3D Endless Car Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff88;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="instructions">
+        Use ← → arrow keys to move between lanes<br>
+        Use ↑ ↓ to control speed
+    </div>
+
+    <!-- Import Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // Game variables
+        let scene, camera, renderer;
+        let car, road, obstacles = [];
+        let score = 0;
+        let speed = 0.1;
+        let gameOver = false;
+        let lanes = [-1.5, 0, 1.5]; // Left, center, right lanes
+        let carLane = 1; // Start in center lane
+
+        // Initialize game
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000011); // Dark blue background
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, -5);
+            camera.lookAt(0, 0, 20);
+
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Add fog for depth effect
+            scene.fog = new THREE.Fog(0x000011, 10, 50);
+
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Create the car
+            createCar();
+            
+            // Create the road
+            createRoad();
+            
+            // Create initial obstacles
+            createObstacles();
+
+            // Add event listeners for controls
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Add touch controls for mobile
+            document.addEventListener('touchstart', handleTouchStart);
+            document.addEventListener('touchmove', handleTouchMove);
+            
+            // Add resize handler
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start game loop
+            animate();
+        }
+
+        // Create the player's car
+        function createCar() {
+            // Create car body
+            const carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const carMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x00ff88,
+                emissive: 0x00aa44,
+                shininess: 100
+            });
+            car = new THREE.Mesh(carGeometry, carMaterial);
+            car.position.set(0, 0.25, 0);
+            car.castShadow = true;
+            car.receiveShadow = true;
+            scene.add(car);
+            
+            // Add glowing effect to car
+            const carGlow = new THREE.PointLight(0x00ff88, 1, 3);
+            carGlow.position.set(0, 0.5, 0);
+            car.add(carGlow);
+            
+            // Add car details
+            addCarDetails();
+        }
+
+        // Add details to the car
+        function addCarDetails() {
+            // Add windshield
+            const windshieldGeometry = new THREE.BoxGeometry(0.8, 0.3, 0.7);
+            const windshieldMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.7,
+                emissive: 0x3366aa,
+                shininess: 100
+            });
+            const windshield = new THREE.Mesh(windshieldGeometry, windshieldMaterial);
+            windshield.position.set(0, 0.5, 0.3);
+            car.add(windshield);
+            
+            // Add wheels
+            const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.1, 16);
+            const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            
+            const wheelPositions = [
+                [-0.5, -0.25, -0.7], // Front left
+                [0.5, -0.25, -0.7],  // Front right
+                [-0.5, -0.25, 0.7],  // Rear left
+                [0.5, -0.25, 0.7]    // Rear right
+            ];
+            
+            wheelPositions.forEach(position => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(...position);
+                wheel.rotation.z = Math.PI / 2;
+                car.add(wheel);
+            });
+        }
+
+        // Create the road
+        function createRoad() {
+            // Create road segments
+            const segmentLength = 10;
+            const numSegments = 10;
+            
+            for (let i = 0; i < numSegments; i++) {
+                const roadGeometry = new THREE.PlaneGeometry(5, segmentLength);
+                const roadMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x444444,
+                    side: THREE.DoubleSide
+                });
+                const roadSegment = new THREE.Mesh(roadGeometry, roadMaterial);
+                roadSegment.rotation.x = Math.PI / 2;
+                roadSegment.position.z = i * segmentLength;
+                roadSegment.receiveShadow = true;
+                scene.add(roadSegment);
+                
+                // Add road lines
+                addRoadLines(roadSegment, segmentLength);
+            }
+            
+            // Add side barriers with glowing effect
+            addSideBarriers(numSegments * segmentLength);
+        }
+
+        // Add lines to the road
+        function addRoadLines(roadSegment, segmentLength) {
+            const lineGeometry = new THREE.PlaneGeometry(0.1, segmentLength / 5);
+            const lineMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffff00,
+                side: THREE.DoubleSide
+            });
+            
+            for (let i = 0; i < 5; i++) {
+                const line = new THREE.Mesh(lineGeometry, lineMaterial);
+                line.rotation.x = Math.PI / 2;
+                line.position.y = 0.01;
+                line.position.z = (i * segmentLength / 5) - (segmentLength / 2) + (segmentLength / 10);
+                roadSegment.add(line);
+            }
+        }
+
+        // Add glowing barriers to the sides of the road
+        function addSideBarriers(totalLength) {
+            const barrierGeometry = new THREE.BoxGeometry(0.3, 0.5, totalLength);
+            const barrierMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x0066ff,
+                emissive: 0x003388,
+                shininess: 50
+            });
+            
+            // Left barrier
+            const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+            leftBarrier.position.set(-2.65, 0.25, totalLength / 2);
+            scene.add(leftBarrier);
+            
+            // Right barrier
+            const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+            rightBarrier.position.set(2.65, 0.25, totalLength / 2);
+            scene.add(rightBarrier);
+            
+            // Add glowing effect to barriers
+            addGlowingLights(leftBarrier, rightBarrier, totalLength);
+        }
+
+        // Add glowing lights to the barriers
+        function addGlowingLights(leftBarrier, rightBarrier, totalLength) {
+            const spacing = 10;
+            const numLights = Math.floor(totalLength / spacing);
+            
+            for (let i = 0; i < numLights; i++) {
+                // Left barrier light
+                const leftLight = new THREE.PointLight(0x0088ff, 1, 3);
+                leftLight.position.set(0, 0.5, i * spacing - (totalLength / 2) + 5);
+                leftBarrier.add(leftLight);
+                
+                // Right barrier light
+                const rightLight = new THREE.PointLight(0x0088ff, 1, 3);
+                rightLight.position.set(0, 0.5, i * spacing - (totalLength / 2) + 5);
+                rightBarrier.add(rightLight);
+            }
+        }
+
+        // Create obstacles for the player to avoid
+        function createObstacles() {
+            // Create several obstacles at random positions
+            for (let i = 0; i < 5; i++) {
+                createObstacle(Math.random() * 3, 20 + (i * 15));
+            }
+        }
+
+        // Create a single obstacle
+        function createObstacle(laneIndex, zPosition) {
+            const types = [
+                { geometry: new THREE.BoxGeometry(1, 1, 1), color: 0xff0000, emissive: 0xaa0000 },
+                { geometry: new THREE.CylinderGeometry(0.5, 0.5, 1, 16), color: 0xff6600, emissive: 0xaa3300 },
+                { geometry: new THREE.ConeGeometry(0.5, 1.5, 16), color: 0xffaa00, emissive: 0xaa5500 }
+            ];
+            
+            const type = types[Math.floor(Math.random() * types.length)];
+            const material = new THREE.MeshPhongMaterial({ 
+                color: type.color,
+                emissive: type.emissive,
+                shininess: 50
+            });
+            
+            const obstacle = new THREE.Mesh(type.geometry, material);
+            const lane = Math.floor(laneIndex) % 3;
+            obstacle.position.set(lanes[lane], 0.5, zPosition);
+            obstacle.castShadow = true;
+            obstacle.receiveShadow = true;
+            scene.add(obstacle);
+            
+            // Add glowing effect
+            const glow = new THREE.PointLight(type.color, 0.5, 2);
+            glow.position.set(0, 0, 0);
+            obstacle.add(glow);
+            
+            obstacles.push(obstacle);
+        }
+
+        // Handle user input (keyboard)
+        function handleKeyDown(event) {
+            if (gameOver) return;
+            
+            switch(event.key) {
+                case 'ArrowLeft':
+                    moveCarLeft();
+                    break;
+                case 'ArrowRight':
+                    moveCarRight();
+                    break;
+                case 'ArrowUp':
+                    speed += 0.02;
+                    break;
+                case 'ArrowDown':
+                    speed = Math.max(0.05, speed - 0.02);
+                    break;
+            }
+        }
+
+        // Handle mobile touch start
+        let touchStartX = 0;
+        function handleTouchStart(event) {
+            touchStartX = event.touches[0].clientX;
+        }
+
+        // Handle mobile touch move
+        function handleTouchMove(event) {
+            if (gameOver) return;
+            
+            const touchEndX = event.touches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            
+            if (diff > 50) {
+                moveCarRight();
+                touchStartX = touchEndX;
+            } else if (diff < -50) {
+                moveCarLeft();
+                touchStartX = touchEndX;
+            }
+        }
+
+        // Move car left
+        function moveCarLeft() {
+            if (carLane > 0) {
+                carLane--;
+                const targetX = lanes[carLane];
+                // Animate the car movement
+                animateCarMovement(targetX);
+            }
+        }
+
+        // Move car right
+        function moveCarRight() {
+            if (carLane < 2) {
+                carLane++;
+                const targetX = lanes[carLane];
+                // Animate the car movement
+                animateCarMovement(targetX);
+            }
+        }
+
+        // Animate car lane change
+        function animateCarMovement(targetX) {
+            const startX = car.position.x;
+            const startTime = Date.now();
+            const duration = 200; // ms
+            
+            function updatePosition() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function for smooth movement
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                car.position.x = startX + (targetX - startX) * easeProgress;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updatePosition);
+                }
+            }
+            
+            updatePosition();
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Main game loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (!gameOver) {
+                updateGame();
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Update game state
+        function updateGame() {
+            // Move obstacles toward player
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.position.z -= speed;
+                
+                // Check for collision
+                if (checkCollision(obstacle)) {
+                    gameOver = true;
+                    displayGameOver();
+                }
+                
+                // Remove obstacles that pass the player
+                if (obstacle.position.z < -5) {
+                    scene.remove(obstacle);
+                    obstacles.splice(i, 1);
+                    
+                    // Add new obstacle
+                    createObstacle(Math.floor(Math.random() * 3), 100);
+                    
+                    // Increase score
+                    score += 10;
+                    document.getElementById('score').innerText = `Score: ${score}`;
+                }
+            }
+            
+            // Rotate car wheels for effect
+            car.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'CylinderGeometry') {
+                    child.rotation.x += speed * 3;
+                }
+            });
+            
+            // Gradually increase difficulty
+            if (Math.random() < 0.001) {
+                speed += 0.01;
+            }
+        }
+
+        // Check for collision between car and obstacle
+        function checkCollision(obstacle) {
+            const carBoundingBox = new THREE.Box3().setFromObject(car);
+            const obstacleBoundingBox = new THREE.Box3().setFromObject(obstacle);
+            
+            return carBoundingBox.intersectsBox(obstacleBoundingBox);
+        }
+
+        // Display game over message
+        function displayGameOver() {
+            const gameOverElement = document.createElement('div');
+            gameOverElement.id = 'gameOver';
+            gameOverElement.innerHTML = `
+                <h1>GAME OVER</h1>
+                <p>Final Score: ${score}</p>
+                <button onclick="location.reload()">Play Again</button>
+            `;
+            gameOverElement.style.position = 'absolute';
+            gameOverElement.style.top = '50%';
+            gameOverElement.style.left = '50%';
+            gameOverElement.style.transform = 'translate(-50%, -50%)';
+            gameOverElement.style.color = '#00ff88';
+            gameOverElement.style.fontFamily = 'Arial, sans-serif';
+            gameOverElement.style.textAlign = 'center';
+            gameOverElement.style.backgroundColor = 'rgba(0, 0, 20, 0.8)';
+            gameOverElement.style.padding = '30px';
+            gameOverElement.style.borderRadius = '10px';
+            gameOverElement.style.zIndex = '100';
+            
+            gameOverElement.querySelector('button').style.padding = '10px 20px';
+            gameOverElement.querySelector('button').style.backgroundColor = '#00ff88';
+            gameOverElement.querySelector('button').style.color = '#000';
+            gameOverElement.querySelector('button').style.border = 'none';
+            gameOverElement.querySelector('button').style.borderRadius = '5px';
+            gameOverElement.querySelector('button').style.fontSize = '18px';
+            gameOverElement.querySelector('button').style.cursor = 'pointer';
+            gameOverElement.querySelector('button').style.marginTop = '20px';
+            
+            document.body.appendChild(gameOverElement);
+        }
+
+        // Start the game when the page loads
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generative Music Box</title>
+    <style>
+        :root {
+            --bg: #0f0f12;
+            --accent: #ff8a80;
+            --text: #eceff1;
+            --panel: rgba(255, 255, 255, 0.05);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            pointer-events: none; /* Let clicks pass through to canvas if needed */
+        }
+
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 30px 40px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            text-align: center;
+            width: 300px;
+            transition: opacity 0.5s;
+        }
+
+        h1 {
+            font-weight: 200;
+            letter-spacing: 4px;
+            margin: 0 0 20px 0;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input[type="range"] {
+            width: 140px;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-top: -6px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        button#play-btn {
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+
+        button#play-btn:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 138, 128, 0.4);
+        }
+        
+        button#play-btn.playing {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .visualizer-hint {
+            position: absolute;
+            bottom: 30px;
+            font-size: 0.8rem;
+            opacity: 0.4;
+            letter-spacing: 1px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="panel">
+            <h1>Aether Box</h1>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Speed</label>
+                    <input type="range" id="speed" min="100" max="1000" value="400">
+                </div>
+                <div class="control-group">
+                    <label>Reverb</label>
+                    <input type="range" id="reverb" min="0" max="1" step="0.05" value="0.6">
+                </div>
+                <button id="play-btn">START</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="visualizer-hint">GENERATIVE AUDIO VISUALIZER</div>
+
+    <script>
+        /**
+         * GENERATIVE MUSIC ENGINE
+         * Uses Web Audio API
+         */
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let ctx;
+        let masterGain;
+        let reverbNode;
+        let isPlaying = false;
+        let nextNoteTime = 0;
+        let timerID;
+
+        // Settings
+        let tempo = 60; // BPM (controlled by interval)
+        let noteInterval = 400; // ms
+        let reverbMix = 0.6;
+
+        // Music Theory
+        // Pentatonic Scale (C Major Pentatonic: C, D, E, G, A)
+        // Frequencies for C3 to A5
+        const scale = [
+            130.81, 146.83, 164.81, 196.00, 220.00, // Octave 3
+            261.63, 293.66, 329.63, 392.00, 440.00, // Octave 4
+            523.25, 587.33, 659.25, 783.99, 880.00  // Octave 5
+        ];
+
+        // UI Elements
+        const btn = document.getElementById('play-btn');
+        const speedInput = document.getElementById('speed');
+        const reverbInput = document.getElementById('reverb');
+
+        // Inputs
+        speedInput.addEventListener('input', (e) => {
+            // Inverse logic: Lower value = Faster (smaller interval)
+            noteInterval = 1100 - parseInt(e.target.value); 
+        });
+
+        reverbInput.addEventListener('input', (e) => {
+            reverbMix = parseFloat(e.target.value);
+            if (reverbNode) {
+                // Adjust reverb gain (wet/dry handled by gain nodes usually, simplified here by master mix)
+                // In this simple chain, we just accept the convolution output level
+            }
+        });
+
+        btn.addEventListener('click', () => {
+            if (!isPlaying) {
+                startAudio();
+                btn.textContent = "STOP";
+                btn.classList.add('playing');
+                isPlaying = true;
+                scheduler();
+            } else {
+                stopAudio();
+                btn.textContent = "START";
+                btn.classList.remove('playing');
+                isPlaying = false;
+                clearTimeout(timerID);
+            }
+        });
+
+        function startAudio() {
+            if (!ctx) {
+                ctx = new AudioContext();
+                
+                // Master Setup
+                masterGain = ctx.createGain();
+                masterGain.gain.value = 0.3;
+                masterGain.connect(ctx.destination);
+
+                // Reverb Setup
+                reverbNode = ctx.createConvolver();
+                reverbNode.buffer = createImpulseResponse(3, 2.0); // 3 seconds, decay
+                
+                // Wet/Dry Mix
+                // We connect dry notes to master
+                // We connect wet notes to reverb -> master
+                reverbNode.connect(masterGain);
+            }
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            nextNoteTime = ctx.currentTime + 0.1;
+        }
+
+        function stopAudio() {
+            // Just stop scheduling, let tails decay
+        }
+
+        // Procedural Reverb Impulse
+        function createImpulseResponse(duration, decay) {
+            const rate = ctx.sampleRate;
+            const length = rate * duration;
+            const impulse = ctx.createBuffer(2, length, rate);
+            const left = impulse.getChannelData(0);
+            const right = impulse.getChannelData(1);
+
+            for (let i = 0; i < length; i++) {
+                // Exponential decay noise
+                const n = i / length;
+                const env = Math.pow(1 - n, decay); 
+                // Random noise
+                left[i] = (Math.random() * 2 - 1) * env;
+                right[i] = (Math.random() * 2 - 1) * env;
+            }
+            return impulse;
+        }
+
+        function playNote(time) {
+            // 1. Choose Note
+            // Favor mid-range notes, occasional high/low
+            const noteIndex = Math.floor(Math.random() * scale.length);
+            const freq = scale[noteIndex];
+            
+            // 2. Synth Voice
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const panner = ctx.createStereoPanner();
+
+            // Types: Sine is pure, Triangle is warm
+            osc.type = Math.random() > 0.3 ? 'sine' : 'triangle';
+            osc.frequency.value = freq;
+
+            // Pan: Random stereo placement
+            panner.pan.value = (Math.random() * 2) - 1;
+
+            // Envelope (ADSR ish)
+            const attack = 0.05 + Math.random() * 0.2; // Soft attack
+            const decay = 1.0 + Math.random() * 2.0;   // Long decay
+            
+            osc.connect(gain);
+            gain.connect(panner);
+
+            // Connect to Dry (Master) and Wet (Reverb)
+            panner.connect(masterGain);
+            
+            const revGain = ctx.createGain();
+            revGain.gain.value = reverbMix;
+            panner.connect(revGain);
+            revGain.connect(reverbNode);
+
+            // Scheduling
+            osc.start(time);
+            
+            // Envelope Automations
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.3, time + attack);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + attack + decay);
+            
+            osc.stop(time + attack + decay);
+
+            // Trigger Visuals
+            // Schedule the visual to happen at the playback time
+            const delayMs = (time - ctx.currentTime) * 1000;
+            setTimeout(() => {
+                visualizer.addNote(noteIndex, scale.length, panner.pan.value);
+            }, Math.max(0, delayMs));
+        }
+
+        // Lookahead Scheduler
+        function scheduler() {
+            // While there are notes that will play within the next 0.1s, schedule them
+            while (nextNoteTime < ctx.currentTime + 0.1) {
+                playNote(nextNoteTime);
+                
+                // Randomize rhythm slightly
+                const rhythmVar = (Math.random() * 0.4) + 0.8; // 0.8x to 1.2x duration
+                nextNoteTime += (noteInterval / 1000) * rhythmVar;
+            }
+            timerID = setTimeout(scheduler, 25);
+        }
+
+
+        /**
+         * VISUALIZER ENGINE
+         * Canvas API
+         */
+        const canvas = document.getElementById('canvas');
+        const c = canvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Ripple {
+            constructor(pitchNorm, pan) {
+                // Map pan (-1 to 1) to x position (0 to width)
+                // Add some randomness so it's not a straight line
+                const centerX = width / 2;
+                const panOffset = (pan * (width * 0.4)); 
+                this.x = centerX + panOffset;
+                
+                // Map pitch (low to high) to Y position (bottom to top)
+                // Low notes at bottom, high at top
+                this.y = height - (pitchNorm * height * 0.8) - (height * 0.1);
+
+                this.radius = 0;
+                this.maxRadius = Math.random() * 100 + 100;
+                this.speed = Math.random() * 2 + 1;
+                this.alpha = 1;
+                this.hue = pitchNorm * 60 + 330; // Red/Pink range (330-390)
+                if (this.hue > 360) this.hue -= 360;
+            }
+
+            update() {
+                this.radius += this.speed;
+                this.alpha -= 0.005;
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `hsla(${this.hue}, 80%, 60%, ${this.alpha})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Core
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, ${this.alpha * 0.5})`;
+                ctx.fill();
+            }
+        }
+
+        const visualizer = {
+            addNote: (noteIndex, totalNotes, pan) => {
+                const normalizedPitch = noteIndex / totalNotes;
+                particles.push(new Ripple(normalizedPitch, pan));
+            }
+        };
+
+        function animate() {
+            // Trail effect
+            c.fillStyle = 'rgba(15, 15, 18, 0.2)'; // Match bg color with opacity
+            c.fillRect(0, 0, width, height);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(c);
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>

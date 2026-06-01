@@ -1,0 +1,1816 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Pixel Animation Studio — Single File (Onion Skin + Sprite Sheets)</title>
+  <style>
+    :root{
+      --bg:#070b12;
+      --panel: rgba(16,22,36,.72);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf1ff;
+      --muted:#a4b4d6;
+      --good:#5dffb0;
+      --warn:#ffd65a;
+      --bad:#ff5a7b;
+      --accent:#6aa8ff;
+      --accent2:#b86cff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --shadow: rgba(0,0,0,.35);
+    }
+    html,body{height:100%; margin:0; background: radial-gradient(1200px 800px at 40% 0%, #13204b 0%, #070b12 55%, #04060b 100%); color:var(--text); font-family:var(--sans); overflow:hidden;}
+    *{box-sizing:border-box}
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 340px 1fr 360px;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+      padding:12px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow:hidden;
+      min-height:0;
+    }
+    #topbar{grid-column:1/4; grid-row:1; display:flex; gap:10px; align-items:center; padding:10px 12px;}
+    #brand{display:flex; flex-direction:column; gap:2px; min-width: 300px}
+    #brand b{letter-spacing:.4px}
+    #brand small{color:var(--muted)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:8px}
+    .btn{
+      appearance:none; border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:800;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+      font-size:13px;
+    }
+    .btn:hover{background: rgba(106,168,255,.18); border-color: rgba(106,168,255,.40)}
+    .btn:active{transform: scale(.98)}
+    .btn.primary{background: rgba(106,168,255,.22); border-color: rgba(106,168,255,.55)}
+    .btn.danger{background: rgba(255,90,123,.16); border-color: rgba(255,90,123,.45)}
+    .chip{
+      padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      font-size:12px; color:var(--muted);
+      display:flex; align-items:center; gap:8px;
+      font-family: var(--mono);
+      white-space:nowrap;
+    }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      font-family:var(--mono); font-size:11px; color:var(--muted);
+      border:1px solid var(--line); background: rgba(255,255,255,.04);
+      padding:3px 8px; border-radius:999px;
+    }
+    .scroll{overflow:auto; padding:12px; min-height:0}
+    .sectionTitle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; border-bottom:1px solid var(--line)}
+    .sectionTitle b{letter-spacing:.3px}
+    .tiny{font-size:11px; color:var(--muted); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:10px 0}
+    .kv{display:grid; grid-template-columns: 1fr auto; gap:6px 10px; font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .kv b{color:var(--text); font-weight:900}
+    .card{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .card h4{margin:0; font-size:13px; letter-spacing:.2px}
+    .card p{margin:0; font-size:12px; color:var(--muted); line-height:1.35}
+    input[type="range"]{width:100%}
+    select,input[type="text"],input[type="number"]{
+      width:100%;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    input[type="color"]{
+      width:100%; height:36px; border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      padding:4px;
+    }
+
+    #left{grid-column:1; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #mid{grid-column:2; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #right{grid-column:3; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #footer{grid-column:1/4; grid-row:3; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+
+    #canvasWrap{
+      position:relative;
+      flex:1;
+      min-height:0;
+      display:grid;
+      grid-template-rows: auto 1fr;
+    }
+    #canvasToolbar{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    #stage{
+      position:relative;
+      overflow:hidden;
+      min-height:0;
+      background:
+        linear-gradient(0deg, rgba(255,255,255,.03), rgba(255,255,255,.03)),
+        radial-gradient(800px 400px at 50% 40%, rgba(106,168,255,.08), rgba(0,0,0,0));
+    }
+    #stage canvas{
+      position:absolute; left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: transparent;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      touch-action:none;
+    }
+    #checkerBG{
+      position:absolute; inset:0;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.04) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.04) 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+      opacity: .8;
+      filter: saturate(.9);
+    }
+    #overlayHUD{
+      position:absolute; left:12px; top:12px; right:12px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      pointer-events:none;
+    }
+    #overlayHUD .chip{pointer-events:auto}
+
+    #timeline{
+      display:flex; gap:8px;
+      padding:10px 12px;
+      border-top:1px solid var(--line);
+      overflow:auto;
+      background: rgba(0,0,0,.14);
+    }
+    .frameThumb{
+      width:68px; min-width:68px;
+      height:68px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      cursor:pointer;
+      position:relative;
+      overflow:hidden;
+    }
+    .frameThumb.active{border-color: rgba(106,168,255,.65); box-shadow: 0 0 0 2px rgba(106,168,255,.20) inset;}
+    .frameThumb canvas{width:100%; height:100%; image-rendering: pixelated; display:block}
+    .frameThumb .idx{
+      position:absolute; left:6px; bottom:6px;
+      font-family: var(--mono); font-size: 11px;
+      color: rgba(234,241,255,.88);
+      text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    }
+
+    #toast{
+      position:fixed; left:50%; top:70px; transform:translateX(-50%);
+      padding:10px 12px; border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.40);
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      font-family:var(--mono);
+      font-size:12px;
+      max-width:min(80vw, 820px);
+      white-space:pre-wrap;
+      z-index:10;
+    }
+    #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+    .good{color:var(--good)}
+    .warn{color:var(--warn)}
+    .bad{color:var(--bad)}
+
+    kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.25);
+      color: rgba(234,241,255,.9);
+    }
+
+    @media (max-width: 1050px){
+      html,body{overflow:auto}
+      #app{position:static; inset:auto; grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto; overflow:auto}
+      #left{grid-column:1; grid-row:2}
+      #mid{grid-column:1; grid-row:3; min-height:520px}
+      #right{grid-column:1; grid-row:4}
+      #footer{grid-column:1; grid-row:5}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="topbar" class="panel">
+      <div id="brand">
+        <b>Pixel Animation Studio</b>
+        <small>Frame-by-frame pixel art • Onion skin • Sprite sheet export • Single-file save</small>
+      </div>
+
+      <div class="row" style="margin-left:auto">
+        <button class="btn primary" id="btnNew">New</button>
+        <button class="btn" id="btnSave">Save</button>
+        <button class="btn" id="btnLoad">Load</button>
+        <button class="btn danger" id="btnWipe">Wipe</button>
+      </div>
+
+      <div class="row">
+        <span class="chip">FPS <b id="uiFps">12</b></span>
+        <span class="chip">Frame <b id="uiFrame">1</b>/<b id="uiFrames">1</b></span>
+        <span class="chip">Tool <b id="uiTool">Pencil</b></span>
+      </div>
+    </div>
+
+    <div id="left" class="panel">
+      <div class="sectionTitle">
+        <b>Tools</b>
+        <span class="pill">Shortcuts</span>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <h4>Brush</h4>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Primary</label>
+              <input id="colPrimary" type="color" value="#6aa8ff"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Secondary</label>
+              <input id="colSecondary" type="color" value="#000000"/>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Size <span id="uiBrush">1</span></label>
+              <input id="rngBrush" type="range" min="1" max="8" step="1" value="1"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Opacity <span id="uiOpacity">1.00</span></label>
+              <input id="rngOpacity" type="range" min="0.05" max="1" step="0.05" value="1"/>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="toolPencil" title="(B) Brush/Pencil"><b>Pencil</b> <span class="pill"><kbd>B</kbd></span></button>
+            <button class="btn" id="toolEraser" title="(E) Eraser"><b>Eraser</b> <span class="pill"><kbd>E</kbd></span></button>
+            <button class="btn" id="toolFill" title="(G) Flood Fill"><b>Fill</b> <span class="pill"><kbd>G</kbd></span></button>
+            <button class="btn" id="toolPicker" title="(I) Color Picker"><b>Pick</b> <span class="pill"><kbd>I</kbd></span></button>
+          </div>
+          <div class="row">
+            <button class="btn" id="btnUndo" title="Ctrl/Cmd+Z">Undo</button>
+            <button class="btn" id="btnRedo" title="Ctrl/Cmd+Y / Ctrl/Cmd+Shift+Z">Redo</button>
+            <button class="btn" id="btnClear">Clear Frame</button>
+          </div>
+          <div class="tiny">
+            Draw: <kbd>Left</kbd> = primary, <kbd>Right</kbd> = secondary. Pan: <kbd>Space</kbd>+drag. Zoom: mouse wheel/pinch.
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Canvas</h4>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Width</label>
+              <input id="inpW" type="number" min="8" max="256" step="1" value="64"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Height</label>
+              <input id="inpH" type="number" min="8" max="256" step="1" value="64"/>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn" id="btnResize">Resize (nearest)</button>
+            <button class="btn" id="btnGrid">Grid: On</button>
+            <button class="btn" id="btnBG">Checker: On</button>
+          </div>
+          <div class="row">
+            <button class="btn" id="btnFlipH">Flip H</button>
+            <button class="btn" id="btnFlipV">Flip V</button>
+            <button class="btn" id="btnRotate">Rotate 90°</button>
+          </div>
+          <div class="tiny">Resize uses nearest-neighbor (pixel perfect). Transform applies to current frame.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Onion Skin</h4>
+          <div class="row">
+            <button class="btn" id="btnOnion">Onion: On</button>
+            <span class="chip">Prev/Next <b id="uiOnionCount">2</b></span>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Layers <span id="uiOnionLayers">2</span></label>
+              <input id="rngOnionLayers" type="range" min="1" max="6" step="1" value="2"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Opacity <span id="uiOnionOpacity">0.25</span></label>
+              <input id="rngOnionOpacity" type="range" min="0.05" max="0.60" step="0.01" value="0.25"/>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Prev Tint</label>
+              <input id="colPrevTint" type="color" value="#00ff88"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Next Tint</label>
+              <input id="colNextTint" type="color" value="#ff5a7b"/>
+            </div>
+          </div>
+          <div class="tiny">Previous frames show green tint, next frames show red tint (customizable).</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="mid" class="panel">
+      <div id="canvasWrap">
+        <div id="canvasToolbar">
+          <button class="btn" id="btnPlay">Play</button>
+          <button class="btn" id="btnStop">Stop</button>
+          <button class="btn" id="btnPrev">◀ Prev</button>
+          <button class="btn" id="btnNext">Next ▶</button>
+          <button class="btn" id="btnDup">Duplicate</button>
+          <button class="btn" id="btnAdd">Add Frame</button>
+          <button class="btn danger" id="btnDel">Delete</button>
+          <span class="chip">FPS <b id="uiFps2">12</b></span>
+          <input id="rngFps" type="range" min="1" max="60" step="1" value="12" style="max-width:240px"/>
+          <span class="pill">Keys: <kbd>,</kbd>/<kbd>.</kbd> frames • <kbd>Space</kbd> play/stop</span>
+        </div>
+
+        <div id="stage">
+          <div id="checkerBG"></div>
+          <canvas id="view"></canvas>
+          <canvas id="ui"></canvas>
+          <div id="overlayHUD">
+            <span class="chip">Zoom <b id="uiZoom">8.0×</b></span>
+            <span class="chip">Cursor <b id="uiCursor">—</b></span>
+            <span class="chip">Size <b id="uiSize">64×64</b></span>
+          </div>
+        </div>
+
+        <div id="timeline"></div>
+      </div>
+    </div>
+
+    <div id="right" class="panel">
+      <div class="sectionTitle">
+        <b>Export</b>
+        <span class="pill">PNG / Sheet / JSON</span>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <h4>Export PNG</h4>
+          <p>Export current frame or full animation as a sprite sheet.</p>
+          <div class="row">
+            <button class="btn primary" id="btnExportFrame">Export Frame PNG</button>
+            <button class="btn" id="btnExportSheet">Export Sprite Sheet PNG</button>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Sheet Columns</label>
+              <input id="inpCols" type="number" min="1" max="64" value="8"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Padding (px)</label>
+              <input id="inpPad" type="number" min="0" max="16" value="0"/>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Scale (export)</label>
+              <input id="inpScale" type="number" min="1" max="32" value="1"/>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Background</label>
+              <select id="selBG">
+                <option value="transparent" selected>Transparent</option>
+                <option value="#000000">Black</option>
+                <option value="#ffffff">White</option>
+                <option value="#101827">Dark Blue</option>
+              </select>
+            </div>
+          </div>
+          <div class="tiny">Sprite sheet order is frame 1..N left-to-right, top-to-bottom. Nearest-neighbor scaling.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Export Meta (JSON)</h4>
+          <p>Generate a simple JSON descriptor for your sprite sheet.</p>
+          <div class="row">
+            <button class="btn" id="btnExportJSON">Export JSON</button>
+          </div>
+          <div class="tiny">Includes frame size, count, fps, and frame rectangles (x,y,w,h).</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Import</h4>
+          <p>Import a PNG sprite sheet or a single frame PNG (same size recommended).</p>
+          <div class="row">
+            <input id="fileImport" type="file" accept="image/png,image/*"/>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Import Mode</label>
+              <select id="selImportMode">
+                <option value="single" selected>Single Frame</option>
+                <option value="sheet">Sprite Sheet</option>
+              </select>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Sheet Columns</label>
+              <input id="inpImportCols" type="number" min="1" max="64" value="8"/>
+            </div>
+          </div>
+          <div class="tiny">For sheet import: uses current canvas frame size as tile size. Extra pixels are ignored.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Project</h4>
+          <div class="row">
+            <button class="btn" id="btnCopy">Copy Project JSON</button>
+            <button class="btn" id="btnPaste">Paste Project JSON</button>
+          </div>
+          <div class="tiny">Project JSON includes all frames (compressed as base64 PNG per frame). Stored in localStorage too.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Help</h4>
+          <div class="tiny" style="line-height:1.45">
+            <b>Frames:</b> Add/Duplicate/Delete. Navigate with <kbd>,</kbd> and <kbd>.</kbd>.<br/>
+            <b>Playback:</b> <kbd>Space</kbd> toggles play. FPS slider adjusts speed.<br/>
+            <b>Tools:</b> <kbd>B</kbd> pencil, <kbd>E</kbd> eraser, <kbd>G</kbd> fill, <kbd>I</kbd> picker.<br/>
+            <b>Undo/Redo:</b> <kbd>Ctrl/Cmd+Z</kbd>, <kbd>Ctrl/Cmd+Y</kbd> or <kbd>Ctrl/Cmd+Shift+Z</kbd>.<br/>
+            <b>Pan:</b> hold <kbd>Space</kbd> and drag. <b>Zoom:</b> wheel/pinch. Right click uses secondary color.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="footer" class="panel">
+      <div class="row">
+        <span class="chip">Onion <b id="uiOnion">On</b></span>
+        <span class="chip">Grid <b id="uiGrid">On</b></span>
+        <span class="chip">BG <b id="uiChecker">On</b></span>
+        <span class="chip">Saved <b id="uiSaved">—</b></span>
+      </div>
+      <div class="row">
+        <span class="tiny">Single-file, offline, localStorage. Tip: export often. Right-click is supported on desktop; long-press on mobile toggles secondary.</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+(()=>{"use strict";
+  ///////////////////////
+  // Utilities
+  ///////////////////////
+  const $ = id => document.getElementById(id);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const fmt=(n,d=0)=>Number.isFinite(n)?(Math.round(n*10**d)/10**d).toFixed(d):"0";
+  const now=()=>performance.now();
+  function toast(msg, ms=1800){
+    const t=$("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h=setTimeout(()=>t.classList.remove("show"), ms);
+  }
+  function hexToRgba(hex, a=1){
+    const h = hex.replace("#","").trim();
+    const v = parseInt(h.length===3 ? h.split("").map(x=>x+x).join("") : h, 16);
+    const r=(v>>16)&255, g=(v>>8)&255, b=v&255;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2500);
+  }
+  function canvasToBlob(c){
+    return new Promise(res=>c.toBlob(b=>res(b),"image/png"));
+  }
+  function setBtnActive(btn, on){
+    btn.classList.toggle("primary", !!on);
+  }
+  function safeJSONParse(s){
+    try{return JSON.parse(s);}catch{return null;}
+  }
+
+  ///////////////////////
+  // State
+  ///////////////////////
+  const SAVE_KEY="pixel_anim_studio_v1";
+
+  const State = {
+    w:64, h:64,
+    fps:12,
+    frames:[], // each frame = { canvas, ctx, thumbCanvas, thumbCtx, undo:[], redo:[] }
+    i:0,
+
+    tool:"pencil", // pencil|eraser|fill|picker
+    primary:"#6aa8ff",
+    secondary:"#000000",
+    brush:1,
+    opacity:1.0,
+
+    onion:true,
+    onionLayers:2,
+    onionOpacity:0.25,
+    prevTint:"#00ff88",
+    nextTint:"#ff5a7b",
+
+    grid:true,
+    checker:true,
+
+    view: {
+      zoom: 8,
+      panX: 0,
+      panY: 0,
+      isPanning:false,
+    },
+
+    playback:{
+      playing:false,
+      t:0,
+      acc:0,
+    },
+
+    pointer:{
+      down:false,
+      button:0,
+      lastX:0,lastY:0,
+      lastCellX:null,lastCellY:null,
+      moved:false,
+      longPress:false,
+      longPressT:0,
+      id:null,
+    }
+  };
+
+  ///////////////////////
+  // Canvases
+  ///////////////////////
+  const view=$("view");
+  const ui=$("ui");
+  const stage=$("stage");
+  const checker=$("checkerBG");
+
+  const vctx=view.getContext("2d",{alpha:true});
+  const uctx=ui.getContext("2d",{alpha:true});
+
+  function resizeViewCanvases(){
+    // display size is based on zoom and art dims; but actual canvas pixels we keep modest for sharpness
+    const rect=stage.getBoundingClientRect();
+    const maxW=rect.width-24, maxH=rect.height-24;
+
+    // desired pixel size on screen
+    const displayW = State.w * State.view.zoom;
+    const displayH = State.h * State.view.zoom;
+
+    const scaleToFit = Math.min(maxW/displayW, maxH/displayH, 1);
+    const cssW = Math.floor(displayW*scaleToFit);
+    const cssH = Math.floor(displayH*scaleToFit);
+
+    // actual backing resolution = css * dpr
+    const dpr = Math.min(2, window.devicePixelRatio||1);
+    view.width = Math.max(1, Math.floor(cssW*dpr));
+    view.height= Math.max(1, Math.floor(cssH*dpr));
+    ui.width = view.width;
+    ui.height = view.height;
+
+    view.style.width = cssW+"px";
+    view.style.height= cssH+"px";
+    ui.style.width = cssW+"px";
+    ui.style.height= cssH+"px";
+
+    // set transforms to draw in CSS pixels coordinates
+    vctx.setTransform(dpr,0,0,dpr,0,0);
+    uctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", ()=>{resizeViewCanvases(); render();}, {passive:true});
+
+  ///////////////////////
+  // Frames
+  ///////////////////////
+  function makeFrame(w,h){
+    const c=document.createElement("canvas");
+    c.width=w; c.height=h;
+    const cctx=c.getContext("2d",{alpha:true});
+    cctx.imageSmoothingEnabled=false;
+
+    const tc=document.createElement("canvas");
+    tc.width=64; tc.height=64; // fixed thumb
+    const tctx=tc.getContext("2d",{alpha:true});
+    tctx.imageSmoothingEnabled=false;
+
+    return {canvas:c, ctx:cctx, thumbCanvas:tc, thumbCtx:tctx, undo:[], redo:[]};
+  }
+
+  function ensureFrames(n=1){
+    while(State.frames.length<n) State.frames.push(makeFrame(State.w, State.h));
+    State.i = clamp(State.i, 0, State.frames.length-1);
+  }
+
+  function currentFrame(){ return State.frames[State.i]; }
+
+  function updateThumb(idx){
+    const f=State.frames[idx];
+    const t=f.thumbCtx;
+    t.clearRect(0,0,f.thumbCanvas.width,f.thumbCanvas.height);
+    // draw with nearest scale
+    t.imageSmoothingEnabled=false;
+    const s=Math.min(f.thumbCanvas.width/State.w, f.thumbCanvas.height/State.h);
+    const dw=Math.floor(State.w*s), dh=Math.floor(State.h*s);
+    const ox=Math.floor((f.thumbCanvas.width-dw)/2);
+    const oy=Math.floor((f.thumbCanvas.height-dh)/2);
+    t.drawImage(f.canvas, 0,0,State.w,State.h, ox,oy,dw,dh);
+  }
+
+  function rebuildTimeline(){
+    const tl=$("timeline");
+    tl.innerHTML="";
+    for(let idx=0; idx<State.frames.length; idx++){
+      const f=State.frames[idx];
+      updateThumb(idx);
+
+      const wrap=document.createElement("div");
+      wrap.className="frameThumb"+(idx===State.i?" active":"");
+      wrap.dataset.idx=idx;
+
+      const cv=f.thumbCanvas;
+      cv.style.width="100%"; cv.style.height="100%";
+      cv.style.pointerEvents="none";
+      wrap.appendChild(cv);
+
+      const label=document.createElement("div");
+      label.className="idx";
+      label.textContent=String(idx+1);
+      wrap.appendChild(label);
+
+      tl.appendChild(wrap);
+    }
+
+    tl.onclick=(e)=>{
+      const t=e.target.closest(".frameThumb");
+      if(!t) return;
+      const idx=Number(t.dataset.idx);
+      goToFrame(idx);
+    };
+  }
+
+  function goToFrame(idx){
+    State.i = clamp(idx,0,State.frames.length-1);
+    updateUI();
+    rebuildTimeline();
+    render();
+  }
+
+  function addFrame(after=true){
+    const f=makeFrame(State.w,State.h);
+    const insertAt = after ? (State.i+1) : State.i;
+    State.frames.splice(insertAt,0,f);
+    State.i = insertAt;
+    rebuildTimeline();
+    updateUI();
+    render();
+  }
+
+  function duplicateFrame(){
+    const src=currentFrame();
+    const f=makeFrame(State.w,State.h);
+    f.ctx.drawImage(src.canvas,0,0);
+    State.frames.splice(State.i+1,0,f);
+    State.i++;
+    rebuildTimeline();
+    updateUI();
+    render();
+  }
+
+  function deleteFrame(){
+    if(State.frames.length<=1){ clearFrame(); return; }
+    State.frames.splice(State.i,1);
+    State.i = clamp(State.i,0,State.frames.length-1);
+    rebuildTimeline();
+    updateUI();
+    render();
+  }
+
+  function clearFrame(){
+    pushUndo();
+    const f=currentFrame();
+    f.ctx.clearRect(0,0,State.w,State.h);
+    f.redo.length=0;
+    updateThumb(State.i);
+    rebuildTimeline();
+    render();
+  }
+
+  ///////////////////////
+  // Undo / Redo (snapshot-based)
+  ///////////////////////
+  function pushUndo(){
+    const f=currentFrame();
+    if(f.undo.length>50) f.undo.shift();
+    f.undo.push(f.canvas.toDataURL("image/png"));
+  }
+  function undo(){
+    const f=currentFrame();
+    if(!f.undo.length) return;
+    const cur=f.canvas.toDataURL("image/png");
+    f.redo.push(cur);
+    const prev=f.undo.pop();
+    loadDataUrlIntoFrame(prev, f).then(()=>{
+      updateThumb(State.i); rebuildTimeline(); render();
+    });
+  }
+  function redo(){
+    const f=currentFrame();
+    if(!f.redo.length) return;
+    const cur=f.canvas.toDataURL("image/png");
+    f.undo.push(cur);
+    const next=f.redo.pop();
+    loadDataUrlIntoFrame(next, f).then(()=>{
+      updateThumb(State.i); rebuildTimeline(); render();
+    });
+  }
+  function loadDataUrlIntoFrame(url, frame){
+    return new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.onload=()=>{
+        frame.ctx.clearRect(0,0,State.w,State.h);
+        frame.ctx.imageSmoothingEnabled=false;
+        frame.ctx.drawImage(img,0,0);
+        resolve();
+      };
+      img.onerror=reject;
+      img.src=url;
+    });
+  }
+
+  ///////////////////////
+  // Drawing helpers
+  ///////////////////////
+  function setPixel(ctx,x,y,rgba){
+    ctx.fillStyle=rgba;
+    ctx.fillRect(x,y,1,1);
+  }
+  function drawBrush(ctx, x,y, size, rgba){
+    const s=size|0;
+    const r = Math.floor(s/2);
+    for(let dy=-r; dy<=r; dy++){
+      for(let dx=-r; dx<=r; dx++){
+        const px=x+dx, py=y+dy;
+        if(px<0||py<0||px>=State.w||py>=State.h) continue;
+        ctx.fillStyle=rgba;
+        ctx.fillRect(px,py,1,1);
+      }
+    }
+  }
+  function getPixel(imgData, x,y){
+    const i=(y*imgData.width + x)*4;
+    const d=imgData.data;
+    return [d[i],d[i+1],d[i+2],d[i+3]];
+  }
+  function sameRGBA(a,b){
+    return a[0]===b[0] && a[1]===b[1] && a[2]===b[2] && a[3]===b[3];
+  }
+  function parseHex(hex){
+    const h=hex.replace("#","").trim();
+    const v=parseInt(h.length===3 ? h.split("").map(x=>x+x).join("") : h,16);
+    return [(v>>16)&255,(v>>8)&255,v&255,255];
+  }
+  function floodFill(frame, x,y, colorHex, alpha=1){
+    const ctx=frame.ctx;
+    const img=ctx.getImageData(0,0,State.w,State.h);
+    const target=getPixel(img,x,y);
+    const fill=parseHex(colorHex);
+    fill[3]=Math.round(255*alpha);
+
+    if(sameRGBA(target, fill)) return;
+
+    const w=img.width,h=img.height;
+    const stack=[[x,y]];
+    const d=img.data;
+
+    while(stack.length){
+      const [cx,cy]=stack.pop();
+      if(cx<0||cy<0||cx>=w||cy>=h) continue;
+      const idx=(cy*w+cx)*4;
+      const cur=[d[idx],d[idx+1],d[idx+2],d[idx+3]];
+      if(!sameRGBA(cur,target)) continue;
+
+      d[idx]=fill[0]; d[idx+1]=fill[1]; d[idx+2]=fill[2]; d[idx+3]=fill[3];
+
+      stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+    }
+    ctx.putImageData(img,0,0);
+  }
+
+  function transformFrameFlipH(){
+    pushUndo();
+    const f=currentFrame();
+    const tmp=document.createElement("canvas");
+    tmp.width=State.w; tmp.height=State.h;
+    const t=tmp.getContext("2d"); t.imageSmoothingEnabled=false;
+    t.save(); t.scale(-1,1); t.drawImage(f.canvas, -State.w, 0); t.restore();
+    f.ctx.clearRect(0,0,State.w,State.h);
+    f.ctx.drawImage(tmp,0,0);
+    updateThumb(State.i); rebuildTimeline(); render();
+  }
+  function transformFrameFlipV(){
+    pushUndo();
+    const f=currentFrame();
+    const tmp=document.createElement("canvas");
+    tmp.width=State.w; tmp.height=State.h;
+    const t=tmp.getContext("2d"); t.imageSmoothingEnabled=false;
+    t.save(); t.scale(1,-1); t.drawImage(f.canvas, 0, -State.h); t.restore();
+    f.ctx.clearRect(0,0,State.w,State.h);
+    f.ctx.drawImage(tmp,0,0);
+    updateThumb(State.i); rebuildTimeline(); render();
+  }
+  function transformFrameRotate90(){
+    pushUndo();
+    const f=currentFrame();
+    const tmp=document.createElement("canvas");
+    tmp.width=State.h; tmp.height=State.w;
+    const t=tmp.getContext("2d"); t.imageSmoothingEnabled=false;
+    t.save();
+    t.translate(tmp.width/2, tmp.height/2);
+    t.rotate(Math.PI/2);
+    t.drawImage(f.canvas, -State.w/2, -State.h/2);
+    t.restore();
+
+    // swap dims project-wide?
+    // We'll rotate only within same dims if square; otherwise ask.
+    if(State.w!==State.h){
+      if(!confirm("Rotate 90° on non-square canvas changes width/height. Apply to entire project?")){
+        toast("Rotate canceled.");
+        return;
+      }
+      resizeProject(tmp.width, tmp.height, (srcCtx, dstCtx, newW,newH)=>{
+        // draw rotated version for current frame, rotate others too
+      }, /*rotateAll=*/true);
+      return;
+    }
+
+    f.ctx.clearRect(0,0,State.w,State.h);
+    f.ctx.drawImage(tmp,0,0,State.w,State.h);
+    updateThumb(State.i); rebuildTimeline(); render();
+  }
+
+  ///////////////////////
+  // View: coordinate mapping, zoom/pan
+  ///////////////////////
+  function viewMetrics(){
+    const rect=view.getBoundingClientRect();
+    const cssW=rect.width, cssH=rect.height;
+    // We draw the art scaled by zoom, then pan in "art pixels"?
+    // We'll do pan in screen pixels for simplicity, but align to pixel grid.
+    const scale=State.view.zoom * Math.min((stage.getBoundingClientRect().width-24)/(State.w*State.view.zoom),
+                                          (stage.getBoundingClientRect().height-24)/(State.h*State.view.zoom),
+                                          1);
+    const artW=State.w*scale;
+    const artH=State.h*scale;
+    const ox = cssW/2 - artW/2 + State.view.panX;
+    const oy = cssH/2 - artH/2 + State.view.panY;
+    return {cssW,cssH,scale,artW,artH,ox,oy};
+  }
+
+  function pointerToCell(clientX, clientY){
+    const rect=view.getBoundingClientRect();
+    const mx=clientX - rect.left;
+    const my=clientY - rect.top;
+    const m=viewMetrics();
+    const x = Math.floor((mx - m.ox) / m.scale);
+    const y = Math.floor((my - m.oy) / m.scale);
+    const inside = x>=0 && y>=0 && x<State.w && y<State.h;
+    return {x,y,inside};
+  }
+
+  function zoomAt(delta, clientX, clientY){
+    const before = viewMetrics();
+    const z0 = State.view.zoom;
+    const z1 = clamp(z0 * (delta>0 ? 0.9 : 1.1), 1, 64);
+    if(z1===z0) return;
+    // keep cursor stable by adjusting pan
+    const rect=view.getBoundingClientRect();
+    const mx=clientX - rect.left;
+    const my=clientY - rect.top;
+
+    // compute art coord under cursor before
+    const ax = (mx - before.ox) / before.scale;
+    const ay = (my - before.oy) / before.scale;
+
+    State.view.zoom = z1;
+    resizeViewCanvases(); // scale changes css size
+    const after = viewMetrics();
+
+    const newOx = mx - ax*after.scale;
+    const newOy = my - ay*after.scale;
+
+    // panX/panY influence ox/oy linearly, so adjust
+    State.view.panX += (newOx - after.ox);
+    State.view.panY += (newOy - after.oy);
+
+    render();
+    updateUI();
+  }
+
+  ///////////////////////
+  // Render pipeline
+  ///////////////////////
+  function render(){
+    const m=viewMetrics();
+    const rect=view.getBoundingClientRect();
+    const w=rect.width, h=rect.height;
+
+    // clear
+    vctx.clearRect(0,0,w,h);
+    uctx.clearRect(0,0,w,h);
+
+    // onion skins (draw behind)
+    if(State.onion){
+      const layers=State.onionLayers;
+      const a=State.onionOpacity;
+      const prev=State.prevTint;
+      const next=State.nextTint;
+
+      for(let k=layers; k>=1; k--){
+        const pi = State.i - k;
+        const ni = State.i + k;
+        if(pi>=0){
+          drawTinted(State.frames[pi].canvas, prev, a*(1 - (k-1)/layers)*0.9);
+        }
+        if(ni<State.frames.length){
+          drawTinted(State.frames[ni].canvas, next, a*(1 - (k-1)/layers)*0.9);
+        }
+      }
+    }
+
+    // current frame
+    vctx.imageSmoothingEnabled=false;
+    vctx.drawImage(currentFrame().canvas, 0,0,State.w,State.h, m.ox, m.oy, m.artW, m.artH);
+
+    // grid overlay
+    if(State.grid){
+      drawGrid(m);
+    }
+
+    // UI cursor highlight
+    drawCursor(m);
+  }
+
+  function drawTinted(sourceCanvas, tintHex, alpha){
+    const m=viewMetrics();
+    // draw source to an offscreen then tint via composite
+    const off=document.createElement("canvas");
+    off.width=State.w; off.height=State.h;
+    const o=off.getContext("2d"); o.imageSmoothingEnabled=false;
+    o.clearRect(0,0,State.w,State.h);
+    o.drawImage(sourceCanvas,0,0);
+
+    // tint: source-in
+    o.globalCompositeOperation="source-atop";
+    o.fillStyle=hexToRgba(tintHex, 1);
+    o.fillRect(0,0,State.w,State.h);
+    o.globalCompositeOperation="source-over";
+
+    vctx.save();
+    vctx.globalAlpha=alpha;
+    vctx.imageSmoothingEnabled=false;
+    vctx.drawImage(off, 0,0,State.w,State.h, m.ox, m.oy, m.artW, m.artH);
+    vctx.restore();
+  }
+
+  function drawGrid(m){
+    const rect=view.getBoundingClientRect();
+    const w=rect.width, h=rect.height;
+    const s=m.scale;
+
+    // Only draw grid if pixels are large enough
+    if(s<6) return;
+
+    uctx.save();
+    uctx.strokeStyle="rgba(255,255,255,0.10)";
+    uctx.lineWidth=1;
+
+    const x0=m.ox, y0=m.oy;
+    const x1=m.ox+m.artW, y1=m.oy+m.artH;
+
+    // vertical
+    for(let x=0; x<=State.w; x++){
+      const px = x0 + x*s;
+      if(px<x0-1||px>x1+1) continue;
+      uctx.beginPath();
+      uctx.moveTo(px+0.5, y0);
+      uctx.lineTo(px+0.5, y1);
+      uctx.stroke();
+    }
+    // horizontal
+    for(let y=0; y<=State.h; y++){
+      const py = y0 + y*s;
+      if(py<y0-1||py>y1+1) continue;
+      uctx.beginPath();
+      uctx.moveTo(x0, py+0.5);
+      uctx.lineTo(x1, py+0.5);
+      uctx.stroke();
+    }
+
+    // border
+    uctx.strokeStyle="rgba(106,168,255,0.30)";
+    uctx.strokeRect(x0+0.5,y0+0.5,m.artW,m.artH);
+    uctx.restore();
+  }
+
+  function drawCursor(m){
+    if(!State.pointer) return;
+    const p=State.pointer;
+    if(p.curCellX==null) return;
+
+    const s=m.scale;
+    const x=m.ox + p.curCellX*s;
+    const y=m.oy + p.curCellY*s;
+
+    uctx.save();
+    uctx.strokeStyle="rgba(255,214,90,0.85)";
+    uctx.lineWidth=2;
+    uctx.strokeRect(x+1,y+1,s-2,s-2);
+
+    // brush preview
+    const b=State.brush;
+    if(b>1){
+      const r=Math.floor(b/2);
+      uctx.strokeStyle="rgba(255,255,255,0.25)";
+      uctx.lineWidth=1.5;
+      uctx.strokeRect(x - r*s, y - r*s, b*s, b*s);
+    }
+    uctx.restore();
+  }
+
+  ///////////////////////
+  // UI updates
+  ///////////////////////
+  function updateUI(){
+    $("uiFps").textContent=State.fps;
+    $("uiFps2").textContent=State.fps;
+    $("rngFps").value=State.fps;
+
+    $("uiFrame").textContent=State.i+1;
+    $("uiFrames").textContent=State.frames.length;
+
+    $("uiTool").textContent = State.tool==="pencil"?"Pencil":State.tool==="eraser"?"Eraser":State.tool==="fill"?"Fill":"Picker";
+    $("uiBrush").textContent = State.brush;
+    $("uiOpacity").textContent = fmt(State.opacity,2);
+
+    $("uiOnion").textContent = State.onion?"On":"Off";
+    $("uiGrid").textContent  = State.grid?"On":"Off";
+    $("uiChecker").textContent = State.checker?"On":"Off";
+
+    $("uiOnionCount").textContent = State.onionLayers;
+    $("uiOnionLayers").textContent = State.onionLayers;
+    $("uiOnionOpacity").textContent = fmt(State.onionOpacity,2);
+
+    $("uiZoom").textContent = fmt(State.view.zoom,1)+"×";
+    $("uiSize").textContent = `${State.w}×${State.h}`;
+
+    setBtnActive($("toolPencil"), State.tool==="pencil");
+    setBtnActive($("toolEraser"), State.tool==="eraser");
+    setBtnActive($("toolFill"), State.tool==="fill");
+    setBtnActive($("toolPicker"), State.tool==="picker");
+
+    $("btnGrid").textContent = `Grid: ${State.grid?"On":"Off"}`;
+    $("btnBG").textContent = `Checker: ${State.checker?"On":"Off"}`;
+    $("btnOnion").textContent = `Onion: ${State.onion?"On":"Off"}`;
+    checker.style.display = State.checker ? "block" : "none";
+  }
+
+  ///////////////////////
+  // Input: tools
+  ///////////////////////
+  function setTool(t){
+    State.tool=t;
+    updateUI();
+    toast(`Tool: ${$("uiTool").textContent}`, 900);
+  }
+
+  $("toolPencil").onclick=()=>setTool("pencil");
+  $("toolEraser").onclick=()=>setTool("eraser");
+  $("toolFill").onclick=()=>setTool("fill");
+  $("toolPicker").onclick=()=>setTool("picker");
+
+  $("colPrimary").oninput=(e)=>{State.primary=e.target.value;};
+  $("colSecondary").oninput=(e)=>{State.secondary=e.target.value;};
+  $("rngBrush").oninput=(e)=>{State.brush=Number(e.target.value); updateUI(); render();};
+  $("rngOpacity").oninput=(e)=>{State.opacity=Number(e.target.value); updateUI();};
+
+  $("btnUndo").onclick=undo;
+  $("btnRedo").onclick=redo;
+  $("btnClear").onclick=clearFrame;
+
+  $("btnGrid").onclick=()=>{State.grid=!State.grid; updateUI(); render();};
+  $("btnBG").onclick=()=>{State.checker=!State.checker; updateUI(); render();};
+  $("btnOnion").onclick=()=>{State.onion=!State.onion; updateUI(); render();};
+
+  $("rngOnionLayers").oninput=(e)=>{State.onionLayers=Number(e.target.value); updateUI(); render();};
+  $("rngOnionOpacity").oninput=(e)=>{State.onionOpacity=Number(e.target.value); updateUI(); render();};
+  $("colPrevTint").oninput=(e)=>{State.prevTint=e.target.value; render();};
+  $("colNextTint").oninput=(e)=>{State.nextTint=e.target.value; render();};
+
+  ///////////////////////
+  // Frame controls
+  ///////////////////////
+  $("btnAdd").onclick=()=>addFrame(true);
+  $("btnDup").onclick=duplicateFrame;
+  $("btnDel").onclick=deleteFrame;
+  $("btnPrev").onclick=()=>goToFrame(State.i-1);
+  $("btnNext").onclick=()=>goToFrame(State.i+1);
+
+  ///////////////////////
+  // Playback
+  ///////////////////////
+  function play(){
+    if(State.playback.playing) return;
+    State.playback.playing=true;
+    State.playback.t=now();
+    State.playback.acc=0;
+    toast("Play", 700);
+  }
+  function stop(){
+    State.playback.playing=false;
+    State.playback.acc=0;
+    toast("Stop", 700);
+  }
+  $("btnPlay").onclick=play;
+  $("btnStop").onclick=stop;
+  $("rngFps").oninput=(e)=>{State.fps=Number(e.target.value); updateUI();};
+
+  function tickPlayback(dt){
+    if(!State.playback.playing) return;
+    State.playback.acc += dt;
+    const step = 1/State.fps;
+    while(State.playback.acc >= step){
+      State.playback.acc -= step;
+      State.i = (State.i+1) % State.frames.length;
+      rebuildTimeline();
+      updateUI();
+      render();
+    }
+  }
+
+  ///////////////////////
+  // Canvas operations: resize
+  ///////////////////////
+  function resizeProject(newW, newH){
+    newW=clamp(Math.floor(newW), 8, 256);
+    newH=clamp(Math.floor(newH), 8, 256);
+    if(newW===State.w && newH===State.h) return;
+
+    if(!confirm(`Resize project from ${State.w}×${State.h} to ${newW}×${newH}? (Nearest-neighbor)`)) return;
+
+    for(const f of State.frames){
+      const old=f.canvas;
+      const tmp=document.createElement("canvas");
+      tmp.width=newW; tmp.height=newH;
+      const t=tmp.getContext("2d"); t.imageSmoothingEnabled=false;
+      // nearest neighbor scaling via drawImage with smoothing disabled
+      t.clearRect(0,0,newW,newH);
+      t.drawImage(old, 0,0,State.w,State.h, 0,0,newW,newH);
+      // replace
+      f.canvas.width=newW; f.canvas.height=newH;
+      f.ctx.imageSmoothingEnabled=false;
+      f.ctx.clearRect(0,0,newW,newH);
+      f.ctx.drawImage(tmp,0,0);
+      f.undo.length=0; f.redo.length=0;
+    }
+
+    State.w=newW; State.h=newH;
+    $("inpW").value=newW;
+    $("inpH").value=newH;
+
+    resizeViewCanvases();
+    rebuildTimeline();
+    updateUI();
+    render();
+  }
+
+  $("btnResize").onclick=()=>{
+    const w=Number($("inpW").value);
+    const h=Number($("inpH").value);
+    resizeProject(w,h);
+  };
+
+  ///////////////////////
+  // Transform buttons
+  ///////////////////////
+  $("btnFlipH").onclick=transformFrameFlipH;
+  $("btnFlipV").onclick=transformFrameFlipV;
+  $("btnRotate").onclick=transformFrameRotate90;
+
+  ///////////////////////
+  // Drawing interaction
+  ///////////////////////
+  function beginStroke(){
+    pushUndo();
+    currentFrame().redo.length=0;
+  }
+
+  function applyToolAt(cellX, cellY, button){
+    const f=currentFrame();
+
+    // choose color based on button
+    const useSecondary = (button===2) || (State.pointer.longPress && isTouchDevice());
+    const hex = useSecondary ? State.secondary : State.primary;
+
+    if(State.tool==="picker"){
+      // pick from current frame only (not onion)
+      const img=f.ctx.getImageData(cellX, cellY, 1, 1).data;
+      const picked = rgbToHex(img[0],img[1],img[2]);
+      State.primary = picked;
+      $("colPrimary").value=picked;
+      toast(`Picked ${picked}`, 900);
+      updateUI(); render();
+      return;
+    }
+
+    if(State.tool==="fill"){
+      floodFill(f, cellX, cellY, hex, State.opacity);
+      updateThumb(State.i);
+      return;
+    }
+
+    if(State.tool==="eraser"){
+      // erase
+      f.ctx.clearRect(cellX - Math.floor(State.brush/2), cellY - Math.floor(State.brush/2), State.brush, State.brush);
+      updateThumb(State.i);
+      return;
+    }
+
+    // pencil
+    const rgba = hexToRgba(hex, State.opacity);
+    drawBrush(f.ctx, cellX, cellY, State.brush, rgba);
+    updateThumb(State.i);
+  }
+
+  function rgbToHex(r,g,b){
+    const to = (n)=>n.toString(16).padStart(2,"0");
+    return "#"+to(r)+to(g)+to(b);
+  }
+
+  function isTouchDevice(){
+    return matchMedia("(pointer: coarse)").matches;
+  }
+
+  // prevent context menu on view
+  view.addEventListener("contextmenu",(e)=>e.preventDefault());
+
+  // Wheel zoom
+  stage.addEventListener("wheel",(e)=>{
+    e.preventDefault();
+    zoomAt(e.deltaY, e.clientX, e.clientY);
+  }, {passive:false});
+
+  // Pointer events for drawing/panning
+  function onPointerDown(e){
+    view.setPointerCapture(e.pointerId);
+    State.pointer.down=true;
+    State.pointer.button = e.button;
+    State.pointer.lastX = e.clientX;
+    State.pointer.lastY = e.clientY;
+    State.pointer.moved=false;
+    State.pointer.longPress=false;
+    State.pointer.longPressT = now();
+    State.pointer.id = e.pointerId;
+
+    const cell=pointerToCell(e.clientX,e.clientY);
+    State.pointer.curCellX = cell.x;
+    State.pointer.curCellY = cell.y;
+    $("uiCursor").textContent = cell.inside ? `${cell.x},${cell.y}` : "—";
+
+    // panning if space held
+    if(Keys.space){
+      State.view.isPanning=true;
+      return;
+    }
+
+    // if inside, start stroke
+    if(cell.inside){
+      beginStroke();
+      applyToolAt(cell.x, cell.y, e.button);
+      State.pointer.lastCellX=cell.x;
+      State.pointer.lastCellY=cell.y;
+      render();
+    }
+  }
+  function onPointerMove(e){
+    const dx=e.clientX-State.pointer.lastX;
+    const dy=e.clientY-State.pointer.lastY;
+    State.pointer.lastX=e.clientX;
+    State.pointer.lastY=e.clientY;
+    if(Math.abs(dx)+Math.abs(dy)>1) State.pointer.moved=true;
+
+    const cell=pointerToCell(e.clientX,e.clientY);
+    State.pointer.curCellX = cell.x;
+    State.pointer.curCellY = cell.y;
+    $("uiCursor").textContent = cell.inside ? `${cell.x},${cell.y}` : "—";
+
+    // long press => secondary (mobile)
+    if(State.pointer.down && isTouchDevice() && !State.pointer.moved){
+      if(!State.pointer.longPress && (now()-State.pointer.longPressT>420)){
+        State.pointer.longPress=true;
+      }
+    }
+
+    if(State.view.isPanning && State.pointer.down){
+      State.view.panX += dx;
+      State.view.panY += dy;
+      render();
+      return;
+    }
+
+    if(!State.pointer.down) { render(); return; }
+
+    if(!cell.inside) { render(); return; }
+
+    // draw continuous: interpolate between last cell and current cell
+    if(State.tool==="fill" || State.tool==="picker"){
+      render();
+      return;
+    }
+
+    const lx=State.pointer.lastCellX;
+    const ly=State.pointer.lastCellY;
+    if(lx==null || ly==null){
+      State.pointer.lastCellX=cell.x;
+      State.pointer.lastCellY=cell.y;
+      applyToolAt(cell.x, cell.y, State.pointer.button);
+      render();
+      return;
+    }
+
+    const x0=lx,y0=ly,x1=cell.x,y1=cell.y;
+    const steps=Math.max(Math.abs(x1-x0), Math.abs(y1-y0));
+    for(let i=0;i<=steps;i++){
+      const t=steps===0?1:i/steps;
+      const x=Math.round(x0+(x1-x0)*t);
+      const y=Math.round(y0+(y1-y0)*t);
+      applyToolAt(x,y, State.pointer.button);
+    }
+    State.pointer.lastCellX=cell.x;
+    State.pointer.lastCellY=cell.y;
+
+    render();
+  }
+  function onPointerUp(e){
+    State.pointer.down=false;
+    State.view.isPanning=false;
+    State.pointer.lastCellX=null;
+    State.pointer.lastCellY=null;
+    State.pointer.id=null;
+    State.pointer.longPress=false;
+    render();
+  }
+
+  view.addEventListener("pointerdown", onPointerDown, {passive:true});
+  view.addEventListener("pointermove", onPointerMove, {passive:true});
+  view.addEventListener("pointerup", onPointerUp, {passive:true});
+  view.addEventListener("pointercancel", onPointerUp, {passive:true});
+
+  ///////////////////////
+  // Keyboard shortcuts
+  ///////////////////////
+  const Keys={space:false};
+  window.addEventListener("keydown",(e)=>{
+    const k=e.key.toLowerCase();
+    if(k===" "){
+      Keys.space=true;
+      // toggle play/stop only on keydown when not in input
+      if(e.target && (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")) return;
+      e.preventDefault();
+      if(State.playback.playing) stop(); else play();
+    }
+    if((e.ctrlKey||e.metaKey) && !e.shiftKey && k==="z"){ e.preventDefault(); undo(); }
+    if((e.ctrlKey||e.metaKey) && (k==="y" || (e.shiftKey && k==="z"))){ e.preventDefault(); redo(); }
+
+    if(e.target && (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")) return;
+
+    if(k==="b") setTool("pencil");
+    if(k==="e") setTool("eraser");
+    if(k==="g") setTool("fill");
+    if(k==="i") setTool("picker");
+
+    if(k===","){ e.preventDefault(); goToFrame(State.i-1); }
+    if(k==="."){ e.preventDefault(); goToFrame(State.i+1); }
+
+    if(k==="n" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); addFrame(true); }
+    if(k==="d" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); duplicateFrame(); }
+    if(k==="delete" || k==="backspace"){ if(!e.ctrlKey&&!e.metaKey) { /* allow */ } }
+  }, {passive:false});
+  window.addEventListener("keyup",(e)=>{
+    if(e.key===" ") Keys.space=false;
+  }, {passive:true});
+
+  ///////////////////////
+  // Export
+  ///////////////////////
+  async function exportFramePNG(){
+    const scale=clamp(Number($("inpScale").value)||1, 1, 32);
+    const bg=$("selBG").value;
+
+    const out=document.createElement("canvas");
+    out.width=State.w*scale;
+    out.height=State.h*scale;
+    const c=out.getContext("2d");
+    c.imageSmoothingEnabled=false;
+
+    if(bg!=="transparent"){
+      c.fillStyle=bg;
+      c.fillRect(0,0,out.width,out.height);
+    }
+    c.drawImage(currentFrame().canvas, 0,0,State.w,State.h, 0,0,out.width,out.height);
+
+    const blob=await canvasToBlob(out);
+    downloadBlob(blob, `frame_${String(State.i+1).padStart(3,"0")}_${State.w}x${State.h}.png`);
+  }
+
+  async function exportSheetPNG(){
+    const cols=clamp(Number($("inpCols").value)||8, 1, 128);
+    const pad=clamp(Number($("inpPad").value)||0, 0, 64);
+    const scale=clamp(Number($("inpScale").value)||1, 1, 32);
+    const bg=$("selBG").value;
+
+    const n=State.frames.length;
+    const rows=Math.ceil(n/cols);
+
+    const cellW = State.w + pad*2;
+    const cellH = State.h + pad*2;
+
+    const out=document.createElement("canvas");
+    out.width = (cellW*cols)*scale;
+    out.height= (cellH*rows)*scale;
+    const c=out.getContext("2d");
+    c.imageSmoothingEnabled=false;
+
+    if(bg!=="transparent"){
+      c.fillStyle=bg;
+      c.fillRect(0,0,out.width,out.height);
+    }
+
+    for(let i=0;i<n;i++){
+      const col=i%cols;
+      const row=Math.floor(i/cols);
+      const x=(col*cellW + pad)*scale;
+      const y=(row*cellH + pad)*scale;
+      c.drawImage(State.frames[i].canvas, 0,0,State.w,State.h, x,y, State.w*scale, State.h*scale);
+    }
+
+    const blob=await canvasToBlob(out);
+    downloadBlob(blob, `spritesheet_${n}f_${State.w}x${State.h}_cols${cols}.png`);
+  }
+
+  function exportSheetJSON(){
+    const cols=clamp(Number($("inpCols").value)||8, 1, 128);
+    const pad=clamp(Number($("inpPad").value)||0, 0, 64);
+    const n=State.frames.length;
+    const rows=Math.ceil(n/cols);
+
+    const cellW = State.w + pad*2;
+    const cellH = State.h + pad*2;
+
+    const frames=[];
+    for(let i=0;i<n;i++){
+      const col=i%cols;
+      const row=Math.floor(i/cols);
+      const x=col*cellW + pad;
+      const y=row*cellH + pad;
+      frames.push({index:i, x,y, w:State.w, h:State.h});
+    }
+
+    const meta={
+      type:"pixel-animation-studio",
+      version:1,
+      width:State.w,
+      height:State.h,
+      frames:n,
+      fps:State.fps,
+      sheet:{columns:cols, rows, padding:pad, cellW, cellH},
+      framesRect:frames
+    };
+
+    const blob=new Blob([JSON.stringify(meta,null,2)], {type:"application/json"});
+    downloadBlob(blob, `spritesheet_${n}f_${State.w}x${State.h}.json`);
+  }
+
+  $("btnExportFrame").onclick=exportFramePNG;
+  $("btnExportSheet").onclick=exportSheetPNG;
+  $("btnExportJSON").onclick=exportSheetJSON;
+
+  ///////////////////////
+  // Import (single or sheet)
+  ///////////////////////
+  $("fileImport").addEventListener("change", async (e)=>{
+    const file=e.target.files && e.target.files[0];
+    if(!file) return;
+    const mode=$("selImportMode").value;
+
+    const img=await fileToImage(file);
+    if(mode==="single"){
+      await importSingleFrame(img);
+    } else {
+      const cols=clamp(Number($("inpImportCols").value)||8, 1, 128);
+      await importSpriteSheet(img, cols);
+    }
+    e.target.value="";
+  });
+
+  function fileToImage(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+      img.onload=()=>{URL.revokeObjectURL(url); resolve(img);};
+      img.onerror=(err)=>{URL.revokeObjectURL(url); reject(err);};
+      img.src=url;
+    });
+  }
+
+  async function importSingleFrame(img){
+    // draw into current frame, nearest scaled
+    pushUndo();
+    const f=currentFrame();
+    f.ctx.clearRect(0,0,State.w,State.h);
+    f.ctx.imageSmoothingEnabled=false;
+    f.ctx.drawImage(img, 0,0,img.width,img.height, 0,0,State.w,State.h);
+    updateThumb(State.i); rebuildTimeline(); render();
+    toast("Imported into current frame.", 1200);
+  }
+
+  async function importSpriteSheet(img, cols){
+    // treat image as grid of State.w x State.h tiles
+    const tileW=State.w, tileH=State.h;
+    const rows=Math.floor(img.height / tileH);
+    const maxCols=Math.floor(img.width / tileW);
+    const useCols=Math.min(cols, maxCols);
+    const n = useCols*rows;
+
+    if(n<=0){ toast("Sheet too small for current tile size.", 1800); return; }
+    if(!confirm(`Import sheet as ${n} frames (${useCols} cols × ${rows} rows) with tile ${tileW}×${tileH}? This will REPLACE current frames.`)) return;
+
+    State.frames.length=0;
+    for(let i=0;i<n;i++){
+      const col=i%useCols;
+      const row=Math.floor(i/useCols);
+      const f=makeFrame(State.w,State.h);
+      f.ctx.imageSmoothingEnabled=false;
+      f.ctx.clearRect(0,0,State.w,State.h);
+      f.ctx.drawImage(img, col*tileW, row*tileH, tileW, tileH, 0,0,tileW,tileH);
+      State.frames.push(f);
+    }
+    State.i=0;
+    rebuildTimeline();
+    updateUI();
+    render();
+    toast("Sprite sheet imported.", 1400);
+  }
+
+  ///////////////////////
+  // Project Save/Load (includes frames)
+  ///////////////////////
+  async function projectToJSON(){
+    const framesData=[];
+    for(const f of State.frames){
+      framesData.push(f.canvas.toDataURL("image/png"));
+    }
+    return {
+      type:"pixel-animation-studio",
+      version:1,
+      w:State.w,h:State.h,fps:State.fps,
+      toolState:{
+        primary:State.primary, secondary:State.secondary,
+        brush:State.brush, opacity:State.opacity,
+        onion:State.onion, onionLayers:State.onionLayers, onionOpacity:State.onionOpacity,
+        prevTint:State.prevTint, nextTint:State.nextTint,
+        grid:State.grid, checker:State.checker,
+      },
+      frames: framesData,
+      current: State.i,
+      savedAt: Date.now()
+    };
+  }
+
+  async function saveProject(){
+    const data=await projectToJSON();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    $("uiSaved").textContent=new Date().toLocaleTimeString();
+  }
+
+  async function loadProject(fromUser=false){
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw){
+      if(fromUser) toast("No saved project found.");
+      return false;
+    }
+    const data=safeJSONParse(raw);
+    if(!data || data.type!=="pixel-animation-studio"){
+      if(fromUser) toast("Save data invalid.");
+      return false;
+    }
+
+    // restore dims
+    State.w=clamp(data.w||64, 8, 256);
+    State.h=clamp(data.h||64, 8, 256);
+    $("inpW").value=State.w;
+    $("inpH").value=State.h;
+
+    State.fps=clamp(data.fps||12, 1, 60);
+
+    // tool state
+    const ts=data.toolState||{};
+    State.primary=ts.primary||State.primary;
+    State.secondary=ts.secondary||State.secondary;
+    State.brush=clamp(ts.brush||1,1,8);
+    State.opacity=clamp(ts.opacity||1,0.05,1);
+
+    State.onion=ts.onion!==undefined?!!ts.onion:true;
+    State.onionLayers=clamp(ts.onionLayers||2,1,6);
+    State.onionOpacity=clamp(ts.onionOpacity||0.25,0.05,0.60);
+    State.prevTint=ts.prevTint||State.prevTint;
+    State.nextTint=ts.nextTint||State.nextTint;
+    State.grid=ts.grid!==undefined?!!ts.grid:true;
+    State.checker=ts.checker!==undefined?!!ts.checker:true;
+
+    $("colPrimary").value=State.primary;
+    $("colSecondary").value=State.secondary;
+    $("rngBrush").value=State.brush;
+    $("rngOpacity").value=State.opacity;
+    $("rngOnionLayers").value=State.onionLayers;
+    $("rngOnionOpacity").value=State.onionOpacity;
+    $("colPrevTint").value=State.prevTint;
+    $("colNextTint").value=State.nextTint;
+
+    // load frames
+    const urls=data.frames||[];
+    State.frames.length=0;
+    for(const url of urls){
+      const f=makeFrame(State.w,State.h);
+      await loadDataUrlIntoFrame(url,f);
+      State.frames.push(f);
+    }
+    if(State.frames.length===0) State.frames.push(makeFrame(State.w,State.h));
+
+    State.i=clamp(data.current||0, 0, State.frames.length-1);
+
+    resizeViewCanvases();
+    rebuildTimeline();
+    updateUI();
+    render();
+    $("uiSaved").textContent=new Date(data.savedAt||Date.now()).toLocaleTimeString();
+    return true;
+  }
+
+  $("btnSave").onclick=()=>saveProject().then(()=>toast("Saved.",900));
+  $("btnLoad").onclick=()=>loadProject(true).then(ok=>{ if(ok) toast("Loaded.",900); });
+  $("btnWipe").onclick=()=>{
+    if(confirm("Wipe saved project?")){ localStorage.removeItem(SAVE_KEY); toast("Wiped."); $("uiSaved").textContent="—"; }
+  };
+
+  $("btnCopy").onclick=async ()=>{
+    const data=await projectToJSON();
+    await navigator.clipboard.writeText(JSON.stringify(data));
+    toast("Project JSON copied to clipboard.", 1200);
+  };
+
+  $("btnPaste").onclick=async ()=>{
+    const txt = await navigator.clipboard.readText().catch(()=>null);
+    if(!txt){ toast("Clipboard empty or blocked."); return; }
+    const data=safeJSONParse(txt);
+    if(!data || data.type!=="pixel-animation-studio"){ toast("Clipboard JSON not a Pixel Animation Studio project."); return; }
+    if(!confirm("Paste project from clipboard and replace current project?")) return;
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    await loadProject(true);
+    toast("Pasted & loaded project.", 1400);
+  };
+
+  ///////////////////////
+  // New project
+  ///////////////////////
+  $("btnNew").onclick=()=>{
+    if(!confirm("Create new project? This clears current unsaved changes.")) return;
+    State.w=64; State.h=64; State.fps=12;
+    State.frames=[makeFrame(State.w,State.h)];
+    State.i=0;
+    State.view.zoom=8;
+    State.view.panX=0; State.view.panY=0;
+    State.tool="pencil";
+    rebuildTimeline();
+    resizeViewCanvases();
+    updateUI();
+    render();
+    toast("New project created.", 1200);
+  };
+
+  ///////////////////////
+  // Animation loop
+  ///////////////////////
+  let last=now();
+  function loop(t){
+    const dt=(t-last)/1000;
+    last=t;
+    tickPlayback(dt);
+    requestAnimationFrame(loop);
+  }
+
+  ///////////////////////
+  // Init
+  ///////////////////////
+  function init(){
+    ensureFrames(1);
+    $("inpW").value=State.w;
+    $("inpH").value=State.h;
+    $("uiSaved").textContent="—";
+
+    // defaults
+    $("colPrimary").value=State.primary;
+    $("colSecondary").value=State.secondary;
+    $("rngBrush").value=State.brush;
+    $("rngOpacity").value=State.opacity;
+    $("rngOnionLayers").value=State.onionLayers;
+    $("rngOnionOpacity").value=State.onionOpacity;
+    $("colPrevTint").value=State.prevTint;
+    $("colNextTint").value=State.nextTint;
+
+    // Try autoload
+    loadProject(false).then((ok)=>{
+      if(!ok){
+        rebuildTimeline();
+        resizeViewCanvases();
+        updateUI();
+        render();
+        toast("Tip: Draw on the canvas. Use onion skin to animate smoothly. Export a sprite sheet when done.", 2600);
+      }
+    });
+
+    updateUI();
+    resizeViewCanvases();
+    requestAnimationFrame(loop);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

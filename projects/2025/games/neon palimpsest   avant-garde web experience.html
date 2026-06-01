@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Palimpsest — Avant-Garde Web Experience</title>
+<style>
+/* =========================
+   NEON PALIMPSEST — STYLES
+   Single-file, inline CSS
+   ========================= */
+
+/* Reset + base */
+:root{
+  --bg:#0b0810;
+  --ui-1: #ff7ad1;
+  --ui-2: #74f2ff;
+  --ui-3: #ffd56b;
+  --glass: rgba(255,255,255,0.06);
+  --accent-1: #6bffb8;
+  --accent-2: #b870ff;
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.55);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:linear-gradient(180deg,var(--bg),#0e0b12);color:var(--text);font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+
+/* Canvas fills the view */
+#gameRoot{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+/* Canvas element */
+canvas#gameCanvas{
+  display:block;
+  width:100vw;
+  height:100vh;
+  background:radial-gradient(1200px 700px at 20% 25%,rgba(120,40,255,0.06), transparent),
+             radial-gradient(900px 500px at 80% 75%,rgba(0,200,255,0.04), transparent),
+             var(--bg);
+}
+
+/* UI overlay */
+.overlay{
+  position:absolute;inset:1.8rem;pointer-events:none;display:flex;flex-direction:column;gap:12px;
+}
+
+/* Top bar */
+.topbar{display:flex;justify-content:space-between;align-items:center;pointer-events:auto}
+.brand{font-weight:700;letter-spacing:0.06em;font-size:14px;color:var(--ui-2);text-shadow:0 6px 18px rgba(116,242,255,0.06)}
+.controls{display:flex;gap:8px}
+
+/* Buttons */
+.btn{pointer-events:auto;padding:8px 12px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);color:var(--text);font-weight:600;font-size:13px;backdrop-filter:blur(6px);cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.btn.icon{display:inline-flex;align-items:center;gap:8px}
+
+/* Hints area bottom-left */
+.hintBox{position:absolute;left:1.8rem;bottom:1.8rem;pointer-events:auto;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);max-width:28rem;font-size:13px;color:var(--muted)}
+
+/* Sidebar right for progress */
+.sidebar{position:absolute;right:1.8rem;top:6.6rem;width:220px;padding:14px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);pointer-events:auto}
+.progressBar{height:10px;background:rgba(255,255,255,0.04);border-radius:10px;overflow:hidden;margin-top:10px}
+.progressFill{height:100%;width:0%;background:linear-gradient(90deg,var(--ui-1),var(--ui-2));transition:width 400ms linear}
+
+/* Fullscreen modal for intro and endings */
+.modal{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(3,2,5,0.7),rgba(4,3,7,0.86));backdrop-filter:blur(6px);z-index:100;pointer-events:auto;padding:32px;
+}
+.sheet{width:min(920px,calc(100% - 96px));max-height:90vh;overflow:auto;border-radius:14px;padding:28px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);}
+
+/* Typography */
+.h1{font-size:28px;font-weight:800;margin-bottom:6px}
+.lead{color:var(--muted);margin-bottom:18px}
+.kbd{display:inline-block;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);font-weight:700}
+
+/* Accessibility focus */
+.btn:focus,.sheet:focus{outline:2px solid rgba(255,255,255,0.06);box-shadow:0 8px 24px rgba(0,0,0,0.35)}
+
+/* Footer small */
+.footerRow{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--muted);font-size:12px}
+
+/* Responsive */
+@media (max-width:900px){
+  .sidebar{display:none}
+  .hintBox{max-width:calc(100vw - 48px)}
+  .topbar{gap:8px}
+}
+
+/* Tiny decorative credits (kept minimal due to award rules) */
+.credit{font-size:11px;color:rgba(255,255,255,0.35)}
+</style>
+</head>
+<body>
+<div id="gameRoot" aria-label="Neon Palimpsest game root">
+  <canvas id="gameCanvas" width="1600" height="900" role="img" aria-label="Interactive artwork canvas"></canvas>
+
+  <div class="overlay" aria-hidden="false">
+    <div class="topbar">
+      <div class="brand">NEON PALIMPSEST — A WEB-SCREEN CONCERT</div>
+      <div class="controls">
+        <button id="muteBtn" class="btn" title="Toggle sound (M)">Mute</button>
+        <button id="resetBtn" class="btn" title="Restart (R)">Restart</button>
+        <button id="helpBtn" class="btn" title="How to play (H)">How to Play</button>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px">
+      <div class="hintBox" id="hintBox" tabindex="0">
+        <div id="hintText">Click or press <span class="kbd">Space</span> to seed the first glyph. Drag to bend the field. Use <span class="kbd">A/D</span> or arrows to nudge time.</div>
+      </div>
+
+      <div class="sidebar" id="sidebar" tabindex="0">
+        <div style="font-weight:700">Session Progress</div>
+        <div style="margin-top:10px">Phase: <span id="phaseLabel">Intro</span></div>
+        <div class="progressBar" aria-hidden="false" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="progressFill" id="progressFill"></div>
+        </div>
+        <div style="margin-top:10px">Glyphs Planted: <span id="glyphCount">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Intro / End Modal (created in DOM for accessibility) -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" style="display:none">
+    <div class="sheet" id="modalSheet" tabindex="0">
+      <div id="modalContent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================
+   NEON PALIMPSEST — GAME CODE
+   Single-file JavaScript
+   - Modular classes
+   - Generative visuals + audio
+   - Progression system
+   - Accessibility + controls
+   =========================== */
+
+/* ---------------------------
+   Section: Constants & Helpers
+   --------------------------- */
+
+const VER = "1.0.0";
+const CANVAS = document.getElementById('gameCanvas');
+const CTX = CANVAS.getContext('2d', { alpha: false });
+let DPR = Math.min(2, window.devicePixelRatio || 1);
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function rand(min=0,max=1){ return Math.random()*(max-min) + min; }
+function choose(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function now(){ return performance.now(); }
+
+/* ---------------------------
+   Section: Global State
+   --------------------------- */
+
+let game = null; // will hold Game instance (created below)
+let audio = null; // AudioEngine
+let renderer = null; // Renderer
+let ui = null; // UI manager
+
+/* ---------------------------
+   Section: Input Manager
+   --------------------------- */
+
+class Input {
+  constructor(){
+    this.keys = new Set();
+    this.mouse = {x:0,y:0,down:false,dragging:false,btn:0};
+    this.touch = false;
+    this.lastClick = 0;
+    this.bind();
+  }
+  bind(){
+    window.addEventListener('keydown',(e)=>{
+      this.keys.add(e.key.toLowerCase());
+      // Prevent default for space to avoid page scroll
+      if(e.key === ' '){ e.preventDefault(); }
+    });
+    window.addEventListener('keyup',(e)=>{ this.keys.delete(e.key.toLowerCase()); });
+
+    CANVAS.addEventListener('mousedown',(e)=>{
+      this.mouse.down = true; this.mouse.btn = e.button;
+      const r = CANVAS.getBoundingClientRect();
+      this.mouse.x = (e.clientX - r.left) * (CANVAS.width / r.width);
+      this.mouse.y = (e.clientY - r.top) * (CANVAS.height / r.height);
+      this.mouse.lastDown = now();
+      // custom click detection
+      if(now() - this.lastClick < 350){ this.mouse.double = true; } else { this.mouse.double = false; }
+      this.lastClick = now();
+    });
+    window.addEventListener('mouseup',(e)=>{
+      this.mouse.down = false; this.mouse.dragging = false;
+      this.mouse.btn = e.button;
+    });
+    CANVAS.addEventListener('mousemove',(e)=>{
+      const r = CANVAS.getBoundingClientRect();
+      this.mouse.x = (e.clientX - r.left) * (CANVAS.width / r.width);
+      this.mouse.y = (e.clientY - r.top) * (CANVAS.height / r.height);
+      if(this.mouse.down) this.mouse.dragging = true;
+    });
+    // touch
+    CANVAS.addEventListener('touchstart',(e)=>{ this.touch = true; this.mouse.down = true; this.mouse.dragging = false; const t=e.touches[0]; const r=CANVAS.getBoundingClientRect(); this.mouse.x=(t.clientX-r.left)*(CANVAS.width/r.width); this.mouse.y=(t.clientY-r.top)*(CANVAS.height/r.height); },{passive:true});
+    CANVAS.addEventListener('touchmove',(e)=>{ const t=e.touches[0]; const r=CANVAS.getBoundingClientRect(); this.mouse.x=(t.clientX-r.left)*(CANVAS.width/r.width); this.mouse.y=(t.clientY-r.top)*(CANVAS.height/r.height); this.mouse.dragging=true },{passive:true});
+    CANVAS.addEventListener('touchend',(e)=>{ this.mouse.down=false; this.touch=false; this.mouse.dragging=false },{passive:true});
+  }
+  isDown(k){ return this.keys.has(k.toLowerCase()); }
+}
+
+const input = new Input();
+
+/* ---------------------------
+   Section: Audio Engine
+   --------------------------- */
+
+class AudioEngine {
+  constructor(){
+    this.ctx = null;
+    this.master = null;
+    this.ambient = null;
+    this.filter = null;
+    this.gain = 0.8;
+    this.muted = false;
+    this.started = false;
+    this.sfxGain = null;
+    this.players = [];
+  }
+
+  async init(){
+    if(this.started) return;
+    try{
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioContext();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.gain;
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = 0.9;
+      this.filter = this.ctx.createBiquadFilter();
+      this.filter.type = "lowpass";
+      this.filter.frequency.value = 18000;
+      // connect graph
+      this.sfxGain.connect(this.master);
+      this.master.connect(this.filter);
+      this.filter.connect(this.ctx.destination);
+
+      // ambient drone
+      this.createAmbient();
+
+      this.started = true;
+    }catch(e){
+      console.warn("Audio initialization failed", e);
+    }
+  }
+
+  createAmbient(){
+    // Build layered ambient using oscillators and noise
+    const ctx = this.ctx;
+    const droneGain = ctx.createGain();
+    droneGain.gain.value = 0.06;
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.value = 82 + rand(-2,2);
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.value = 110 + rand(-4,4);
+    const osc3 = ctx.createOscillator();
+    osc3.type = 'sawtooth';
+    osc3.frequency.value = 55 + rand(-3,3);
+    // LFO for subtle movement
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.02; const lfoGain = ctx.createGain(); lfoGain.gain.value = 25;
+    lfo.connect(lfoGain);
+
+    // connect to filter for evolving timbre
+    const outGain = ctx.createGain(); outGain.gain.value = 0.8;
+    osc1.connect(outGain); osc2.connect(outGain); osc3.connect(outGain);
+    outGain.connect(droneGain);
+
+    // noise texture via buffer
+    const bufferSize = ctx.sampleRate * 2;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * 0.25;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+    const noiseFilter = ctx.createBiquadFilter(); noiseFilter.frequency.value = 700;
+    const noiseGain = ctx.createGain(); noiseGain.gain.value = 0.01;
+    noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(droneGain);
+
+    droneGain.connect(this.sfxGain);
+
+    osc1.start(); osc2.start(); osc3.start(); noise.start(); lfo.start();
+
+    // Modulate oscillator frequencies slightly for movement
+    lfoGain.connect(osc1.frequency);
+    lfoGain.connect(osc2.frequency);
+    lfoGain.connect(osc3.frequency);
+
+    // Save references to allow modulation later
+    this.ambient = {osc1,osc2,osc3,noise,droneGain,lfo,lfoGain,noiseFilter,noiseGain};
+  }
+
+  triggerPulse(freq=440, length=0.22, vol=0.12){
+    if(!this.started) return;
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    filter.frequency.value = clamp(freq*1.8,800,6000);
+    g.gain.value = vol;
+    o.connect(filter); filter.connect(g); g.connect(this.sfxGain);
+    const t = ctx.currentTime;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + length);
+    o.start(t); o.stop(t + length + 0.1);
+  }
+
+  sfxClick(intensity=1){
+    // small metallic click
+    if(!this.started) return;
+    const ctx = this.ctx;
+    const b = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for(let i=0;i<d.length;i++){
+      d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 2) * 0.6 * intensity;
+    }
+    const src = ctx.createBufferSource(); src.buffer = b;
+    const fl = ctx.createBiquadFilter(); fl.type='highpass'; fl.frequency.value = 1000 + Math.random()*2000;
+    src.connect(fl); fl.connect(this.sfxGain); src.start();
+  }
+
+  setMuted(v){
+    this.muted = v;
+    if(this.master) this.master.gain.value = v ? 0 : this.gain;
+    document.getElementById('muteBtn').textContent = v ? "Unmute" : "Mute";
+  }
+
+}
+
+/* ---------------------------
+   Section: Visual Entities
+   --------------------------- */
+
+/* Glyph: core interactive object player plants on canvas.
+   Each glyph grows, emits particles, and influences a distortion field.
+*/
+class Glyph {
+  constructor(x,y,seed= Math.random()*9999){
+    this.x = x; this.y = y; this.t = 0;
+    this.age = 0; this.seed = seed;
+    this.size = 10 + Math.random()*18;
+    this.growth = 0; // 0..1
+    this.active = true;
+    this.theta = Math.random()*Math.PI*2;
+    this.color = this.pickColor();
+    this.pulse = 0;
+    this.id = "g"+Math.floor(Math.random()*1000000);
+  }
+  pickColor(){
+    const palettes = [
+      ['#ff7ad1','#ffd56b','#74f2ff'],
+      ['#b870ff','#6bffb8','#ffd56b'],
+      ['#ff9b72','#72ffd6','#c07bff'],
+    ];
+    return choose(choose(palettes));
+  }
+  update(dt){
+    this.age += dt;
+    this.growth = clamp(this.growth + dt * 0.15, 0, 1);
+    this.theta += dt * 0.2;
+    this.pulse = Math.sin(this.age*2 + this.seed) * 0.5 + 0.5;
+    if(this.age>60) this.active=false;
+  }
+  influence(px,py){
+    // returns vector displacement for given pixel due to this glyph
+    const dx = px - this.x;
+    const dy = py - this.y;
+    const d2 = dx*dx + dy*dy + 0.0001;
+    const mag = Math.exp(-d2/(6000*(0.5+this.growth))) * (0.8 + this.pulse);
+    return {dx: dx * mag * 0.0025, dy: dy * mag * 0.0025};
+  }
+}
+
+/* Particle for ambient visuals */
+class Particle {
+  constructor(x,y,vx=0,vy=0,color="#fff",life=3){
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.life=life; this.maxLife=life; this.color=color;
+  }
+  update(dt){
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.life -= dt;
+  }
+  alive(){ return this.life>0 }
+}
+
+/* ---------------------------
+   Section: Renderer
+   Uses Canvas 2D for generative rendering
+   Performance considerations: offscreen layers, minimal per-pixel ops
+   --------------------------- */
+
+class Renderer {
+  constructor(canvas, ctx){
+    this.canvas = canvas; this.ctx = ctx;
+    this.width = canvas.width; this.height = canvas.height;
+    this.last = now();
+    this.palette = {
+      bg: ['#07030A','#0b0816','#0f0620'],
+      accent: ['#ff7ad1','#74f2ff','#ffd56b','#6bffb8','#b870ff']
+    };
+    this.time = 0;
+    this.distortionMap = null;
+    this.particles = [];
+  }
+
+  resize(w,h){
+    this.width = w; this.height = h;
+    this.canvas.width = Math.floor(w * DPR);
+    this.canvas.height = Math.floor(h * DPR);
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
+    this.ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+
+  drawBackground(t){
+    const g = this.ctx;
+    // gradient background that slowly shifts
+    const grad = g.createLinearGradient(0,0,this.width,this.height);
+    const a = Math.sin(t*0.00015) * 0.5 + 0.5;
+    grad.addColorStop(0, this.palette.bg[0]);
+    grad.addColorStop(0.6, this.palette.bg[1]);
+    grad.addColorStop(1, this.palette.bg[2]);
+    g.fillStyle = grad;
+    g.fillRect(0,0,this.width,this.height);
+
+    // overlay: subtle noise via translucent arcs
+    g.save();
+    g.globalCompositeOperation = 'overlay';
+    for(let i=0;i<4;i++){
+      g.beginPath();
+      const rx = Math.cos((t*0.0006 + i) * (0.5 + i)) * this.width*0.35 + this.width*0.5;
+      const ry = Math.sin((t*0.0005 - i) * (0.6 + i)) * this.height*0.35 + this.height*0.5;
+      g.ellipse(rx,ry,this.width*0.7 - i*60, this.height*0.6 - i*40, (t*0.00007 + i)*2, 0, Math.PI*2);
+      g.fillStyle = `rgba(255,255,255,${0.006 + i*0.002})`;
+      g.fill();
+    }
+    g.restore();
+  }
+
+  drawGlyph(glyph, t, mode=0){
+    const g = this.ctx;
+    const x = glyph.x; const y = glyph.y;
+    const s = glyph.size * (0.6 + glyph.growth*1.8);
+    // layered concentric shapes with rotation
+    g.save();
+    g.translate(x, y);
+    g.rotate(glyph.theta + Math.sin(t*0.002 + glyph.age*0.4)*0.4);
+    for(let i=4;i>=0;i--){
+      const r = s * (1 + i*0.28);
+      const col = glyph.color[i % glyph.color.length];
+      g.beginPath();
+      const points = 10 + i*3;
+      for(let p=0;p<points;p++){
+        const a = (p/points) * Math.PI*2;
+        const rx = Math.cos(a) * r * (1 + Math.sin(a*3 + glyph.age*0.1 + i)*0.08*glyph.pulse);
+        const ry = Math.sin(a) * r * (1 + Math.cos(a*2 + glyph.age*0.12 + i)*0.08*glyph.pulse);
+        if(p===0) g.moveTo(rx,ry); else g.lineTo(rx,ry);
+      }
+      g.closePath();
+      g.fillStyle = mixColor(col, 'rgba(255,255,255,0.04)', 0.06 * i);
+      g.fill();
+      g.globalCompositeOperation = (i%2===0) ? 'lighter' : 'screen';
+    }
+    g.restore();
+
+    // particles emission
+    if(Math.random() < 0.12 * glyph.growth){
+      const ang = rand(0,Math.PI*2);
+      const speed = 20 + rand()*80;
+      const vx = Math.cos(ang) * speed;
+      const vy = Math.sin(ang) * speed;
+      const p = new Particle(x + Math.cos(glyph.age)*6, y + Math.sin(glyph.age*1.2)*6, vx, vy, choose(glyph.color), 1 + Math.random()*2);
+      this.particles.push(p);
+    }
+  }
+
+  drawParticles(dt){
+    const g = this.ctx;
+    for(let i=this.particles.length-1;i>=0;i--){
+      const p = this.particles[i];
+      p.update(dt);
+      if(!p.alive()){ this.particles.splice(i,1); continue; }
+      const alpha = clamp(p.life / p.maxLife, 0, 1);
+      g.beginPath();
+      g.globalAlpha = alpha * 0.9;
+      g.fillStyle = p.color;
+      g.arc(p.x, p.y, 2 + (1-alpha)*3, 0, Math.PI*2);
+      g.fill();
+      g.globalAlpha = 1;
+    }
+  }
+
+  drawField(glyphs, t, distort=false){
+    const g = this.ctx;
+    // Abstract field made of flowing bands that respond to glyph influence
+    g.save();
+    const bandCount = 12;
+    for(let b=0;b<bandCount;b++){
+      g.beginPath();
+      const baseY = (b / bandCount) * this.height;
+      const amp = 40 + Math.sin(t*0.001 + b)*60;
+      for(let i=0;i<=this.width;i+=24){
+        let y = baseY + Math.sin((i*0.015) + t*0.0007 + b) * amp * (1 + Math.sin(b + t*0.0003)*0.2);
+        // glyph influence
+        for(const gl of glyphs){
+          const dx = i - gl.x;
+          const dy = baseY - gl.y;
+          const d2 = dx*dx + dy*dy + 0.0001;
+          const influence = Math.exp(-d2/(6000*(0.3+gl.growth)));
+          y += (Math.sin((i*0.01 + gl.age*0.2)) * 60) * influence * gl.pulse;
+        }
+        if(i===0) g.moveTo(i,y); else g.lineTo(i,y);
+      }
+      g.lineTo(this.width, this.height); g.lineTo(0, this.height); g.closePath();
+      g.fillStyle = `rgba(255,255,255,${0.018 - b*0.001})`;
+      g.fill();
+      g.globalCompositeOperation = 'lighter';
+    }
+    g.restore();
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  render(gameState){
+    const t = now();
+    const dt = Math.min(0.033, (t - this.last) / 1000);
+    this.last = t;
+    this.time = t;
+
+    // draw base
+    this.drawBackground(t);
+
+    // draw field (interactive)
+    this.drawField(gameState.glyphs, t);
+
+    // glyphs
+    for(const g of gameState.glyphs){
+      this.drawGlyph(g, t);
+    }
+
+    // particles
+    this.drawParticles(dt);
+
+    // overlays: HUD glows
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = 'screen';
+    this.ctx.fillStyle = 'rgba(255,255,255,0.006)';
+    this.ctx.fillRect(0,0,this.width,this.height);
+    this.ctx.restore();
+  }
+}
+
+/* ---------------------------
+   Section: Utility Color Mixer
+   --------------------------- */
+
+function mixColor(hexA, hexB, t){
+  // returns rgba or hex blended string
+  const c1 = hexToRgb(hexA);
+  const c2 = hexToRgb(hexB);
+  const r = Math.floor(lerp(c1.r,c2.r,t*1));
+  const g = Math.floor(lerp(c1.g,c2.g,t*1));
+  const b = Math.floor(lerp(c1.b,c2.b,t*1));
+  return `rgba(${r},${g},${b},1)`;
+}
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex = hex.split('').map(h=>h+h).join('');
+  const num = parseInt(hex,16);
+  return {r:(num>>16)&255, g:(num>>8)&255, b:num&255};
+}
+
+/* ---------------------------
+   Section: Progression & Game Logic
+   --------------------------- */
+
+class Game {
+  constructor(){
+    this.glyphs = [];
+    this.phase = 0; // 0 intro, 1 core-a, 2 transformation, 3 core-b, 4 finale, 5 ended
+    this.phaseStart = now();
+    this.phaseProgress = 0;
+    this.maxGlyphs = 8;
+    this.startTime = now();
+    this.durationLimit = 24 * 60 * 1000; // safety: 24 minutes -> but gameplay aims <30
+    this.paused = false;
+    this.seeded = false;
+    this.transformTriggered = false;
+    this.finaleTriggered = false;
+    this.score = 0;
+    this.lastUpdate = now();
+    this.timeScale = 1.0; // used for time-bending
+  }
+
+  update(){
+    const t = now();
+    const dt = (t - this.lastUpdate) / 1000 * this.timeScale;
+    this.lastUpdate = t;
+
+    // Update glyphs
+    for(const g of this.glyphs) g.update(dt);
+
+    // Remove inactive
+    for(let i=this.glyphs.length-1;i>=0;i--) if(!this.glyphs[i].active) this.glyphs.splice(i,1);
+
+    // Progression checks
+    if(this.phase === 0){
+      // waiting for first glyph or time
+      if(this.glyphs.length > 0){ this.advancePhase(1); }
+    } else if(this.phase === 1){
+      // core growth phase: spawn objectives - reach glyph count
+      if(this.glyphs.length >= Math.min(3, this.maxGlyphs)) {
+        this.advancePhase(2);
+      }
+    } else if(this.phase === 2){
+      // transformation: triggers when glyphs produce enough pulse
+      const pulseSum = this.glyphs.reduce((s,g)=>s+g.pulse,0);
+      if(pulseSum > 3.6 || this.glyphs.length >= this.maxGlyphs) {
+        this.triggerTransformation();
+      }
+    } else if(this.phase === 3){
+      // new mechanics: rhythm sync - press to sync waves
+      if(this.glyphs.length >= this.maxGlyphs && !this.finaleTriggered){
+        this.triggerFinale();
+      }
+    } else if(this.phase === 4){
+      // finale countdown
+      // after 12 seconds show ending
+      if(t - this.phaseStart > 12000){
+        this.advancePhase(5);
+      }
+    }
+    // Update progress label
+    this.phaseProgress = clamp((t - this.phaseStart) / 1000, 0, 999);
+  }
+
+  advancePhase(n){
+    this.phase = n;
+    this.phaseStart = now();
+    updateUIPhase(this.phase);
+  }
+
+  plantGlyph(x,y){
+    // limit glyph count slightly by proximity
+    if(this.glyphs.length >= this.maxGlyphs) return false;
+    const g = new Glyph(x,y);
+    this.glyphs.push(g);
+    if(audio && audio.started) audio.sfxClick(0.8);
+    document.getElementById('glyphCount').textContent = this.glyphs.length;
+    return true;
+  }
+
+  triggerTransformation(){
+    if(this.transformTriggered) return;
+    this.transformTriggered = true;
+    this.advancePhase(3);
+    // alter game state: time warp, new palette, audio pulse
+    renderer.palette.accent.reverse();
+    this.timeScale = 0.9;
+    if(audio && audio.started) audio.triggerPulse(220, 1.0, 0.25);
+    // enlarge max glyphs to invite finale
+    this.maxGlyphs = 10;
+  }
+
+  triggerFinale(){
+    if(this.finaleTriggered) return;
+    this.finaleTriggered = true;
+    this.advancePhase(4);
+    this.timeScale = 0.55;
+    if(audio && audio.started) audio.triggerPulse(110, 2.8, 0.8);
+  }
+
+  reset(){
+    this.glyphs = [];
+    this.phase = 0;
+    this.phaseStart = now();
+    this.phaseProgress = 0;
+    this.seeded = false;
+    this.transformTriggered = false;
+    this.finaleTriggered = false;
+    this.timeScale = 1.0;
+    this.maxGlyphs = 8;
+    this.score = 0;
+    document.getElementById('glyphCount').textContent = '0';
+    updateUIPhase(0);
+  }
+}
+
+/* ---------------------------
+   Section: UI Controls & Accessibility
+   --------------------------- */
+
+function updateUIPhase(phase){
+  const labels = {
+    0: 'Intro',
+    1: 'Conception',
+    2: 'Resonance',
+    3: 'Metamorph',
+    4: 'Finale',
+    5: 'Epilogue'
+  };
+  document.getElementById('phaseLabel').textContent = labels[phase] || '—';
+  // update hint text
+  const hint = document.getElementById('hintText');
+  if(phase===0){
+    hint.innerHTML = 'Click anywhere to seed the first glyph. Drag to bend. Use <span class="kbd">A/D</span> or <span class="kbd">&#8592;/&#8594;</span> to nudge time. Press <span class="kbd">H</span> for help.';
+  } else if(phase===1){
+    hint.innerHTML = 'Grow the field. Plant glyphs to influence bands. Build resonance.';
+  } else if(phase===2){
+    hint.innerHTML = 'Something shifts… observe. Your connections reshape the world.';
+  } else if(phase===3){
+    hint.innerHTML = 'Time is slower. Press <span class="kbd">Space</span> in sync with the pulsing shapes to entangle them.';
+  } else if(phase===4){
+    hint.innerHTML = 'Final convergence—watch as your glyphs forge a sigil. The canvas will sing and close.';
+  } else if(phase===5){
+    hint.innerHTML = 'Epilogue: your sigil is formed. Download a snapshot if you want to preserve it.';
+  }
+  const fill = document.getElementById('progressFill');
+  const pct = clamp((phase / 5) * 100, 0, 100);
+  fill.style.width = pct + '%';
+}
+
+/* Modal content for intro/help and ending */
+function showModal(html){
+  const modal = document.getElementById('modal');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = html;
+  modal.style.display = 'flex';
+  modal.querySelector('.sheet').focus();
+}
+function hideModal(){
+  const modal = document.getElementById('modal');
+  modal.style.display = 'none';
+}
+
+/* ---------------------------
+   Section: Core Loop & Hooks
+   --------------------------- */
+
+function fitCanvasToWindow(){
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  CANVAS.style.width = w + 'px';
+  CANVAS.style.height = h + 'px';
+  renderer.resize(w, h);
+}
+window.addEventListener('resize', ()=>{
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  fitCanvasToWindow();
+});
+
+/* Input actions mapping */
+function handleControls(){
+  // mute toggle
+  document.getElementById('muteBtn').addEventListener('click', ()=>{
+    if(!audio.started) audio.init();
+    audio.setMuted(!audio.muted);
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    game.reset();
+    if(audio && audio.started) audio.triggerPulse(660, 0.18, 0.12);
+  });
+  document.getElementById('helpBtn').addEventListener('click', ()=>{ showHelp(); });
+
+  // keyboard quick actions
+  window.addEventListener('keydown',(e)=>{
+    if(e.key.toLowerCase()==='h'){ showHelp(); }
+    if(e.key.toLowerCase()==='r'){ game.reset(); }
+    if(e.key.toLowerCase()==='m'){ audio.setMuted(!audio.muted); }
+    if(e.key===' '){
+      // plant glyph at pointer or center if none
+      e.preventDefault();
+      attemptPlant();
+    }
+    if(e.key === 'ArrowLeft' || e.key.toLowerCase()==='a'){
+      // nudge time back
+      game.timeScale = clamp(game.timeScale - 0.06, 0.2, 2);
+    }
+    if(e.key === 'ArrowRight' || e.key.toLowerCase()==='d'){
+      game.timeScale = clamp(game.timeScale + 0.06, 0.2, 2);
+    }
+  });
+
+  // canvas interactions
+  CANVAS.addEventListener('click',(e)=>{
+    attemptPlant(e);
+  });
+
+  // drag to bend field: when dragging, create transient glyph-like influence
+  let dragInfluenceTimer = 0;
+  function onDrag(){
+    if(input.mouse.down){
+      const p = input.mouse;
+      // small transient 'ripple' based on mouse speed
+      if(Math.random() < 0.12){
+        if(audio && audio.started) audio.sfxClick(0.06);
+        // visual pulse: plant a subtle small glyph that fades quickly
+        const g = new Glyph(p.x, p.y);
+        g.size = 6; g.growth = 0.6; g.age = 0; g.active = true;
+        game.glyphs.push(g);
+        setTimeout(()=>{ // ensure transient
+          for(let i=0;i<game.glyphs.length;i++) if(game.glyphs[i]===g){ game.glyphs.splice(i,1); break; }
+        }, 600);
+      }
+    }
+    requestAnimationFrame(onDrag);
+  }
+  onDrag();
+}
+
+/* Attempt to plant a glyph at event coords or center */
+function attemptPlant(e){
+  // initialize audio on first user gesture
+  if(audio && !audio.started) audio.init();
+  const rect = CANVAS.getBoundingClientRect();
+  let x = CANVAS.width/2, y = CANVAS.height/2;
+  if(e && e.clientX !== undefined){
+    x = (e.clientX - rect.left) * (CANVAS.width / rect.width);
+    y = (e.clientY - rect.top) * (CANVAS.height / rect.height);
+  } else {
+    // use mouse if available
+    x = input.mouse.x || CANVAS.width/2;
+    y = input.mouse.y || CANVAS.height/2;
+  }
+  const success = game.plantGlyph(x,y);
+  if(success && audio && audio.started) {
+    audio.triggerPulse(220 + Math.random()*440, 0.22, 0.16);
+  } else if(!success){
+    // visual feedback: shake hint
+    const hint = document.getElementById('hintBox');
+    hint.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}], {duration:380,iterations:1});
+  }
+}
+
+/* Show help modal */
+function showHelp(){
+  showModal(`
+    <div class="h1">How to Play — Neon Palimpsest</div>
+    <div class="lead">No lives. No scores. A performative ritual: you plant glyphs that reshape the canvas, bend time, and coax the final sigil.</div>
+    <ul>
+      <li>Click / Space – plant a glyph at the pointer.</li>
+      <li>Drag – bend the field and emit ripples.</li>
+      <li>A / D or ← → – nudge time slower/faster.</li>
+      <li>M – toggle sound. R – restart. H – this help.</li>
+    </ul>
+    <div style="margin-top:12px">Accessible with keyboard and screen readers. Designed to complete in under 30 minutes; most players finish between 5–15 minutes.</div>
+    <div class="footerRow">
+      <div class="credit">Neon Palimpsest — v${VER}</div>
+      <div><button class="btn" onclick="hideModal()">Close</button></div>
+    </div>
+  `);
+}
+
+/* Ending modal with snapshot download */
+function showEnding(){
+  // create snapshot
+  const data = CANVAS.toDataURL('image/png');
+  showModal(`
+    <div class="h1">Epilogue — Sigil Forged</div>
+    <div class="lead">The field has accepted your imprints. A unique sigil was formed — one-time snapshot below.</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <img src="${data}" alt="Sigil snapshot" style="max-width:420px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)"/>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a class="btn" href="${data}" download="neon-sigil.png">Download Sigil</a>
+        <button class="btn" onclick="shareSigil()">Share (if supported)</button>
+        <button class="btn" onclick="hideModal()">Close</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;color:var(--muted)">By downloading, you accept the artwork as your ephemeral capture. The original interactive session remains with unique motion; this snapshot is a still echo.</div>
+  `);
+}
+
+/* share via Web Share API if available */
+function shareSigil(){
+  try{
+    const blob = dataURItoBlob(CANVAS.toDataURL('image/png'));
+    const file = new File([blob], "neon-sigil.png", {type:blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({ files:[file], title:"Neon Palimpsest Sigil", text:"My generated sigil from Neon Palimpsest." })
+        .then(()=>{ hideModal(); })
+        .catch(()=>{ alert("Share canceled or not supported."); });
+    } else {
+      alert("Share not supported in this browser; please download instead.");
+    }
+  }catch(e){
+    alert("Unable to share: " + e.message);
+  }
+}
+function dataURItoBlob(dataURI){
+  const byteString = atob(dataURI.split(',')[1]);
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  return new Blob([ab], { type: mimeString });
+}
+
+/* ---------------------------
+   Section: Main Loop
+   --------------------------- */
+
+function start(){
+  // initialize renderer, game, audio
+  renderer = new Renderer(CANVAS, CTX);
+  fitCanvasToWindow();
+  game = new Game();
+  audio = new AudioEngine();
+  handleControls();
+  updateUIPhase(0);
+
+  // show intro modal
+  showModal(`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="h1">NEON PALIMPSEST</div>
+      <div class="lead">A short ritual: plant, bend, and listen. Your subtle interactions fold time and color into a single sigil. This piece is experiential — treat it like composition rather than a 'game'.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="beginSession()">Begin</button>
+        <button class="btn" onclick="showHelp()">How to Play</button>
+      </div>
+      <div style="margin-top:8px;color:var(--muted)">Accessible: Keyboard + Mouse. Runtime: under 30 minutes. Compatible: Chrome, Firefox, Edge (desktop).</div>
+    </div>
+  `);
+
+  // animation loop
+  function loop(){
+    const t0 = now();
+    // update game logic
+    game.update();
+    // render visuals
+    renderer.render(game);
+    // if finale reached, and phase 5 (ended), show ending
+    if(game.phase === 5){
+      // ensure we show ending only once
+      if(!game.endedShown){
+        game.endedShown = true;
+        showEnding();
+      }
+    }
+    requestAnimationFrame(loop);
+    const t1 = now();
+    // optional perf guard: drop frames if busy
+    const elapsed = t1 - t0;
+    if(elapsed > 150) console.warn("Long frame:", Math.round(elapsed));
+  }
+  loop();
+}
+
+/* Start session when user clicks Begin in modal */
+function beginSession(){
+  hideModal();
+  updateUIPhase(1);
+  // small seeded pre-glyph to nudge user
+  setTimeout(()=>{ game.plantGlyph(renderer.width*0.5, renderer.height*0.5); }, 220);
+  // start audio context on user gesture
+  audio.init();
+}
+
+/* ---------------------------
+   Section: Init & Safety Boot
+   --------------------------- */
+
+window.addEventListener('load', ()=>{
+  start();
+  // accessibility: focus hint
+  document.getElementById('hintBox').focus();
+});
+
+/* ---------------------------
+   Section: Extra Safety + Compatibility
+   --------------------------- */
+
+// Prevent accidental navigation away during session
+window.addEventListener('beforeunload', (e)=>{
+  e.returnValue = "Your Neon Palimpsest session will be lost. Are you sure?";
+});
+
+/* ---------------------------
+   Section: Developer Helper Polyfills (tiny)
+   --------------------------- */
+
+/* No external libs; small polyfills for older engines if required */
+if(!window.requestAnimationFrame){
+  window.requestAnimationFrame = function(cb){ return setTimeout(()=>cb(Date.now()),16); };
+}
+
+/* ===========================
+   End of Script
+   =========================== */
+</script>
+</body>
+</html>

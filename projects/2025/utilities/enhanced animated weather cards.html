@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enhanced Animated Weather Cards</title>
+  <style>
+    /* CSS Variables for Themes */
+    :root {
+      --night-bg: #121212;
+      --day-bg: #e0e0e0;
+      --night-text: #ffffff;
+      --day-text: #333333;
+    }
+    
+    /* Global Styles */
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--night-bg);
+      color: var(--night-text);
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    
+    /* Control Panel */
+    .controls {
+      margin-bottom: 20px;
+    }
+    .controls button {
+      background-color: #444;
+      color: var(--night-text);
+      border: none;
+      padding: 10px 15px;
+      margin: 0 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .controls button:hover {
+      background-color: #666;
+    }
+    
+    /* Container for Weather Cards */
+    .card-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      max-width: 1200px;
+    }
+    
+    .weather-card {
+      position: relative;
+      width: 250px;
+      height: 350px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease, background 0.3s;
+      background: linear-gradient(to bottom, #1a1a2e, #16213e);
+    }
+    .weather-card:hover {
+      transform: translateY(-10px);
+    }
+    
+    /* Card Content */
+    .card-body {
+      position: relative;
+      padding: 20px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 2;
+    }
+    .card-title {
+      font-size: 24px;
+      text-align: center;
+      margin: 0;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    .temperature {
+      font-size: 48px;
+      text-align: center;
+      margin: 10px 0;
+      font-weight: bold;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    .details {
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    /* Specialized Card Backgrounds (Night) */
+    .wind   { background: linear-gradient(to bottom, #1a1a2e, #16213e); }
+    .rain   { background: linear-gradient(to bottom, #0f3460, #162447); }
+    .sun    { background: linear-gradient(to bottom, #4a3f35, #2c3036); }
+    .snow   { background: linear-gradient(to bottom, #243B55, #141E30); }
+    
+    /* Day Mode Overrides */
+    body.day-theme {
+      background: var(--day-bg);
+      color: var(--day-text);
+    }
+    body.day-theme .controls button {
+      background-color: #aaa;
+      color: var(--day-text);
+    }
+    body.day-theme .weather-card.wind {
+      background: linear-gradient(to bottom, #87CEEB, #4682B4);
+    }
+    body.day-theme .weather-card.rain {
+      background: linear-gradient(to bottom, #87CEFA, #4682B4);
+    }
+    body.day-theme .weather-card.sun {
+      background: linear-gradient(to bottom, #FFD700, #FFA500);
+    }
+    body.day-theme .weather-card.snow {
+      background: linear-gradient(to bottom, #F0F8FF, #ADD8E6);
+    }
+    
+    /* Animation Elements (Common) */
+    .cloud, .wind-line, .raindrop, .sun-ray, .snowflake, .ground {
+      position: absolute;
+      z-index: 1;
+    }
+    .cloud {
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+    }
+    .wind-line {
+      background: rgba(255, 255, 255, 0.3);
+      height: 2px;
+    }
+    .raindrop {
+      background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+      width: 2px;
+      border-radius: 50%;
+    }
+    .sun-core {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: #ffd700;
+      border-radius: 50%;
+      box-shadow: 0 0 40px #ff9500;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+    .sun-ray {
+      background: linear-gradient(to bottom, rgba(255,215,0,0.8), rgba(255,215,0,0));
+    }
+    .snowflake {
+      background: #fff;
+      border-radius: 50%;
+      opacity: 0.8;
+    }
+    .ground {
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 40px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 0 0 15px 15px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Control Panel -->
+  <div class="controls">
+    <button id="randomizeBtn">Randomize Weather</button>
+    <button id="toggleAnimBtn">Pause Animations</button>
+    <button id="toggleThemeBtn">Switch to Day Mode</button>
+  </div>
+  
+  <!-- Weather Cards Container -->
+  <div class="card-container">
+    <!-- Wind Card -->
+    <div class="weather-card wind" id="windCard">
+      <div class="card-body">
+        <h2 class="card-title">Wind</h2>
+        <div class="temperature" id="windTemp">18°C</div>
+        <div class="details" id="windDetails">
+          <p>Wind Speed: 25 km/h</p>
+          <p>Humidity: 65%</p>
+        </div>
+      </div>
+    </div>
+    <!-- Rain Card -->
+    <div class="weather-card rain" id="rainCard">
+      <div class="card-body">
+        <h2 class="card-title">Rain</h2>
+        <div class="temperature" id="rainTemp">14°C</div>
+        <div class="details" id="rainDetails">
+          <p>Precipitation: 8mm</p>
+          <p>Humidity: 90%</p>
+        </div>
+      </div>
+    </div>
+    <!-- Sunny Card -->
+    <div class="weather-card sun" id="sunCard">
+      <div class="card-body">
+        <h2 class="card-title">Sunny</h2>
+        <div class="temperature" id="sunTemp">28°C</div>
+        <div class="details" id="sunDetails">
+          <p>UV Index: High</p>
+          <p>Humidity: 40%</p>
+        </div>
+      </div>
+      <div class="sun-core"></div>
+    </div>
+    <!-- Snow Card -->
+    <div class="weather-card snow" id="snowCard">
+      <div class="card-body">
+        <h2 class="card-title">Snow</h2>
+        <div class="temperature" id="snowTemp">-3°C</div>
+        <div class="details" id="snowDetails">
+          <p>Snowfall: 5cm</p>
+          <p>Humidity: 80%</p>
+        </div>
+      </div>
+      <div class="ground"></div>
+    </div>
+  </div>
+
+  <script>
+    // Global Variables for Animation Control and Theme
+    let animationsPaused = false;
+    let isDayMode = false;
+    
+    // Initialize Animations on DOM Load
+    document.addEventListener('DOMContentLoaded', () => {
+      startWindAnimation();
+      startRainAnimation();
+      startSunAnimation();
+      startSnowAnimation();
+      
+      // Button Event Listeners
+      document.getElementById('randomizeBtn').addEventListener('click', randomizeWeather);
+      document.getElementById('toggleAnimBtn').addEventListener('click', toggleAnimations);
+      document.getElementById('toggleThemeBtn').addEventListener('click', toggleTheme);
+    });
+    
+    /* ================== Weather Randomizer ================== */
+    function randomizeWeather() {
+      // Random values for Wind Card
+      const windTemp = Math.floor(Math.random() * 16) + 10; // 10 - 25°C
+      const windSpeed = Math.floor(Math.random() * 21) + 15;  // 15 - 35 km/h
+      const windHumidity = Math.floor(Math.random() * 31) + 50; // 50 - 80%
+      document.getElementById('windTemp').innerText = `${windTemp}°C`;
+      document.getElementById('windDetails').innerHTML = `
+        <p>Wind Speed: ${windSpeed} km/h</p>
+        <p>Humidity: ${windHumidity}%</p>
+      `;
+      
+      // Random values for Rain Card
+      const rainTemp = Math.floor(Math.random() * 11) + 10;  // 10 - 20°C
+      const precipitation = Math.floor(Math.random() * 16);    // 0 - 15 mm
+      const rainHumidity = Math.floor(Math.random() * 31) + 70;  // 70 - 100%
+      document.getElementById('rainTemp').innerText = `${rainTemp}°C`;
+      document.getElementById('rainDetails').innerHTML = `
+        <p>Precipitation: ${precipitation}mm</p>
+        <p>Humidity: ${rainHumidity}%</p>
+      `;
+      
+      // Random values for Sunny Card
+      const sunTemp = Math.floor(Math.random() * 11) + 25;   // 25 - 35°C
+      const uvOptions = ['Low', 'Medium', 'High'];
+      const uvIndex = uvOptions[Math.floor(Math.random() * uvOptions.length)];
+      const sunHumidity = Math.floor(Math.random() * 21) + 30;  // 30 - 50%
+      document.getElementById('sunTemp').innerText = `${sunTemp}°C`;
+      document.getElementById('sunDetails').innerHTML = `
+        <p>UV Index: ${uvIndex}</p>
+        <p>Humidity: ${sunHumidity}%</p>
+      `;
+      
+      // Random values for Snow Card
+      const snowTemp = Math.floor(Math.random() * 13) - 10;  // -10 - 2°C
+      const snowfall = Math.floor(Math.random() * 11);         // 0 - 10 cm
+      const snowHumidity = Math.floor(Math.random() * 31) + 60;  // 60 - 90%
+      document.getElementById('snowTemp').innerText = `${snowTemp}°C`;
+      document.getElementById('snowDetails').innerHTML = `
+        <p>Snowfall: ${snowfall}cm</p>
+        <p>Humidity: ${snowHumidity}%</p>
+      `;
+    }
+    
+    /* ================== Animation Pause/Resume ================== */
+    function toggleAnimations() {
+      animationsPaused = !animationsPaused;
+      const btn = document.getElementById('toggleAnimBtn');
+      btn.innerText = animationsPaused ? 'Resume Animations' : 'Pause Animations';
+    }
+    
+    /* ================== Theme Toggle (Night/Day) ================== */
+    function toggleTheme() {
+      isDayMode = !isDayMode;
+      const btn = document.getElementById('toggleThemeBtn');
+      if (isDayMode) {
+        document.body.classList.add('day-theme');
+        btn.innerText = 'Switch to Night Mode';
+      } else {
+        document.body.classList.remove('day-theme');
+        btn.innerText = 'Switch to Day Mode';
+      }
+    }
+    
+    /* ================== Wind Animation (Clouds & Lines) ================== */
+    function startWindAnimation() {
+      const windCard = document.getElementById('windCard');
+      for (let i = 0; i < 5; i++) addCloud(windCard, i);
+      for (let i = 0; i < 15; i++) addWindLine(windCard, i);
+    }
+    
+    function addCloud(card, idx) {
+      const cloud = document.createElement('div');
+      cloud.classList.add('cloud');
+      const size = 20 + Math.random() * 30;
+      const topPos = 50 + Math.random() * 150;
+      let leftPos = -50 + (idx * 30);
+      cloud.style.width = size + "px";
+      cloud.style.height = (size / 2) + "px";
+      cloud.style.top = topPos + "px";
+      cloud.style.left = leftPos + "px";
+      card.appendChild(cloud);
+      animateCloud(cloud);
+    }
+    
+    function animateCloud(cloud) {
+      const speed = 0.5 + Math.random();
+      let pos = parseFloat(cloud.style.left);
+      function move() {
+        if (!animationsPaused) pos += speed;
+        if (pos > 300) pos = -50;
+        cloud.style.left = pos + "px";
+        requestAnimationFrame(move);
+      }
+      move();
+    }
+    
+    function addWindLine(card, idx) {
+      const line = document.createElement('div');
+      line.classList.add('wind-line');
+      const width = 20 + Math.random() * 40;
+      const topPos = 30 + Math.random() * 250;
+      let leftPos = -100 + (idx * 20);
+      line.style.width = width + "px";
+      line.style.top = topPos + "px";
+      line.style.left = leftPos + "px";
+      card.appendChild(line);
+      animateWindLine(line);
+    }
+    
+    function animateWindLine(line) {
+      const speed = 2 + Math.random() * 3;
+      let pos = parseFloat(line.style.left);
+      function move() {
+        if (!animationsPaused) pos += speed;
+        if (pos > 300) pos = -50;
+        line.style.left = pos + "px";
+        requestAnimationFrame(move);
+      }
+      move();
+    }
+    
+    /* ================== Rain Animation (Raindrops) ================== */
+    function startRainAnimation() {
+      const rainCard = document.getElementById('rainCard');
+      for (let i = 0; i < 50; i++) addRaindrop(rainCard);
+    }
+    
+    function addRaindrop(card) {
+      const drop = document.createElement('div');
+      drop.classList.add('raindrop');
+      const height = 10 + Math.random() * 15;
+      const leftPos = Math.random() * 250;
+      let topPos = -20 - Math.random() * 100;
+      drop.style.height = height + "px";
+      drop.style.left = leftPos + "px";
+      drop.style.top = topPos + "px";
+      card.appendChild(drop);
+      animateRaindrop(drop);
+    }
+    
+    function animateRaindrop(drop) {
+      const speed = 3 + Math.random() * 7;
+      let pos = parseFloat(drop.style.top);
+      function fall() {
+        if (!animationsPaused) pos += speed;
+        if (pos > 350) {
+          pos = -20 - Math.random() * 50;
+          drop.style.left = Math.random() * 250 + "px";
+        }
+        drop.style.top = pos + "px";
+        requestAnimationFrame(fall);
+      }
+      fall();
+    }
+    
+    /* ================== Sun Animation (Core & Rays) ================== */
+    function startSunAnimation() {
+      const sunCard = document.getElementById('sunCard');
+      const sunCore = sunCard.querySelector('.sun-core');
+      for (let i = 0; i < 8; i++) addSunRay(sunCard, i);
+      pulseSunCore(sunCore);
+    }
+    
+    function addSunRay(card, idx) {
+      const ray = document.createElement('div');
+      ray.classList.add('sun-ray');
+      const angle = (idx * 45) * (Math.PI / 180);
+      const length = 70 + Math.random() * 30;
+      const width = 4 + Math.random() * 3;
+      const centerX = 125, centerY = 100, offset = 50;
+      const startX = centerX + Math.cos(angle) * offset;
+      const startY = centerY + Math.sin(angle) * offset;
+      ray.style.width = width + "px";
+      ray.style.height = length + "px";
+      ray.style.left = startX + "px";
+      ray.style.top = startY + "px";
+      ray.style.transform = `rotate(${angle + Math.PI / 2}rad)`;
+      card.appendChild(ray);
+      animateSunRay(ray);
+    }
+    
+    function animateSunRay(ray) {
+      let opacity = 0.3 + Math.random() * 0.4;
+      let increasing = Math.random() > 0.5;
+      function pulse() {
+        if (!animationsPaused) {
+          opacity = increasing ? opacity + 0.01 : opacity - 0.01;
+          if (opacity >= 0.7) increasing = false;
+          if (opacity <= 0.3) increasing = true;
+          ray.style.opacity = opacity;
+        }
+        requestAnimationFrame(pulse);
+      }
+      pulse();
+    }
+    
+    function pulseSunCore(core) {
+      let size = 80, growing = true;
+      function pulse() {
+        if (!animationsPaused) {
+          size = growing ? size + 0.1 : size - 0.1;
+          if (size >= 85) growing = false;
+          if (size <= 80) growing = true;
+          core.style.width = size + "px";
+          core.style.height = size + "px";
+          core.style.boxShadow = `0 0 ${size / 2}px #ff9500`;
+        }
+        requestAnimationFrame(pulse);
+      }
+      pulse();
+    }
+    
+    /* ================== Snow Animation (Snowflakes) ================== */
+    function startSnowAnimation() {
+      const snowCard = document.getElementById('snowCard');
+      for (let i = 0; i < 40; i++) addSnowflake(snowCard);
+    }
+    
+    function addSnowflake(card) {
+      const flake = document.createElement('div');
+      flake.classList.add('snowflake');
+      const size = 2 + Math.random() * 4;
+      const leftPos = Math.random() * 250;
+      let topPos = -20 - Math.random() * 100;
+      flake.style.width = size + "px";
+      flake.style.height = size + "px";
+      flake.style.left = leftPos + "px";
+      flake.style.top = topPos + "px";
+      card.appendChild(flake);
+      animateSnowflake(flake);
+    }
+    
+    function animateSnowflake(flake) {
+      const speed = 0.5 + Math.random() * 1.5;
+      let posY = parseFloat(flake.style.top);
+      let posX = parseFloat(flake.style.left);
+      let wobble = 0;
+      const wobbleSpeed = 0.02 + Math.random() * 0.05;
+      const wobbleAmt = 0.5 + Math.random() * 1.5;
+      function fall() {
+        if (!animationsPaused) {
+          posY += speed;
+          wobble += wobbleSpeed;
+          posX += Math.sin(wobble) * wobbleAmt;
+        }
+        if (posY > 310) {
+          posY = -20 - Math.random() * 50;
+          posX = Math.random() * 250;
+        }
+        flake.style.top = posY + "px";
+        flake.style.left = posX + "px";
+        requestAnimationFrame(fall);
+      }
+      fall();
+    }
+  </script>
+</body>
+</html>

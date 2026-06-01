@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolaroidSnap — Vintage Screenshot Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Poppins:wght@300;400;500;600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+:root {
+    --cream: #f5f0e1;
+    --polaroid-white: #fafafa;
+    --polaroid-border: #e8e4d9;
+    --camera-body: #2c2c2c;
+    --camera-accent: #c41e3a;
+    --leather: #8b4513;
+    --cork: #d4a574;
+    --gold: #d4af37;
+    --shadow: rgba(0,0,0,0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Camera Container */
+.camera-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* Main Camera Body */
+.camera {
+    width: 500px;
+    background: linear-gradient(180deg, #3d3d3d 0%, var(--camera-body) 50%, #1a1a1a 100%);
+    border-radius: 30px;
+    padding: 25px;
+    box-shadow: 
+        0 20px 60px rgba(0,0,0,0.5),
+        inset 0 2px 0 rgba(255,255,255,0.1),
+        inset 0 -2px 0 rgba(0,0,0,0.3);
+    position: relative;
+}
+
+/* Camera Top Strip */
+.camera-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 0 10px;
+}
+
+.camera-brand {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 24px;
+    color: var(--cream);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.film-counter {
+    background: #1a1a1a;
+    border: 3px solid #444;
+    border-radius: 8px;
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.film-counter-display {
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    color: #ff6b6b;
+    font-weight: bold;
+    text-shadow: 0 0 10px #ff6b6b;
+}
+
+.film-counter-label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+}
+
+/* Viewfinder */
+.viewfinder {
+    background: #000;
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 4/3;
+    border: 4px solid #444;
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+}
+
+.viewfinder-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+}
+
+.viewfinder-corners {
+    position: absolute;
+    inset: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 5px;
+}
+
+.viewfinder-crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+}
+
+.viewfinder-crosshair::before,
+.viewfinder-crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.5);
+}
+
+.viewfinder-crosshair::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.viewfinder-crosshair::after {
+    width: 100%;
+    height: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.preview-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+}
+
+.viewfinder-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    gap: 15px;
+}
+
+.viewfinder-placeholder svg {
+    width: 80px;
+    height: 80px;
+    opacity: 0.5;
+}
+
+.viewfinder-placeholder span {
+    font-size: 14px;
+}
+
+/* Camera Controls */
+.camera-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin-top: 20px;
+    padding: 15px;
+}
+
+.capture-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #e63946 0%, var(--camera-accent) 50%, #9d1c2e 100%);
+    border: 5px solid #444;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 
+        0 5px 20px rgba(196, 30, 58, 0.5),
+        inset 0 3px 0 rgba(255,255,255,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.capture-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 
+        0 8px 30px rgba(196, 30, 58, 0.7),
+        inset 0 3px 0 rgba(255,255,255,0.3);
+}
+
+.capture-btn:active {
+    transform: scale(0.95);
+}
+
+.capture-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #fff 0%, #ddd 100%);
+    border: 2px solid #999;
+}
+
+.mode-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #555 0%, #333 100%);
+    border: 3px solid #444;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.mode-btn:hover {
+    background: linear-gradient(180deg, #666 0%, #444 100%);
+    transform: scale(1.1);
+}
+
+.mode-btn.active {
+    background: linear-gradient(180deg, var(--camera-accent) 0%, #9d1c2e 100%);
+    box-shadow: 0 0 15px rgba(196, 30, 58, 0.5);
+}
+
+/* Photo Tray */
+.photo-tray {
+    width: 500px;
+    min-height: 150px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    border-radius: 0 0 20px 20px;
+    margin-top: -10px;
+    padding: 20px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    border: 3px solid #333;
+    border-top: none;
+}
+
+.photo-tray::-webkit-scrollbar {
+    height: 8px;
+}
+
+.photo-tray::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 4px;
+}
+
+.photo-tray::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
+
+/* Polaroid Card */
+.polaroid {
+    flex-shrink: 0;
+    width: 150px;
+    background: var(--polaroid-white);
+    padding: 10px 10px 40px 10px;
+    box-shadow: 
+        0 4px 15px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+}
+
+.polaroid:hover {
+    transform: translateY(-10px) rotate(-2deg);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+}
+
+.polaroid-image {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #222;
+    overflow: hidden;
+    position: relative;
+}
+
+.polaroid-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.polaroid-developing {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #d4c5a9 0%, #c9b896 50%, #bfae85 100%);
+    transition: opacity 3s ease-out;
+}
+
+.polaroid-caption {
+    position: absolute;
+    bottom: 5px;
+    left: 10px;
+    right: 10px;
+    font-family: 'Permanent Marker', cursive;
+    font-size: 11px;
+    color: #333;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sliding Animation */
+.polaroid.sliding {
+    animation: slideOut 0.8s ease-out forwards;
+}
+
+@keyframes slideOut {
+    0% {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Shake Animation */
+.polaroid.shaking {
+    animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
+
+/* Mode Panel */
+.mode-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(30, 30, 30, 0.95);
+    border-radius: 15px;
+    padding: 20px;
+    border: 2px solid #444;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    max-width: 300px;
+    z-index: 100;
+}
+
+.mode-panel h3 {
+    color: var(--cream);
+    font-size: 16px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.filter-btn {
+    padding: 10px;
+    background: #333;
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #444;
+}
+
+.filter-btn.active {
+    background: var(--camera-accent);
+    border-color: #ff6b6b;
+}
+
+/* Cork Board Gallery */
+.cork-board {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: 
+        url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect fill='%23d4a574' width='100' height='100'/%3E%3Ccircle cx='20' cy='20' r='2' fill='%23c49a6c'/%3E%3Ccircle cx='60' cy='40' r='1.5' fill='%23c49a6c'/%3E%3Ccircle cx='80' cy='70' r='2' fill='%23c49a6c'/%3E%3C/svg%3E"),
+        linear-gradient(135deg, #d4a574 0%, #c49a6c 50%, #b38b5d 100%);
+    z-index: 200;
+    padding: 40px;
+    overflow: auto;
+}
+
+.cork-board.show {
+    display: block;
+}
+
+.cork-board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.cork-board-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 36px;
+    color: #5d4037;
+    text-shadow: 2px 2px 0 rgba(255,255,255,0.3);
+}
+
+.cork-close-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.cork-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: center;
+}
+
+.cork-polaroid {
+    background: var(--polaroid-white);
+    padding: 15px 15px 60px 15px;
+    box-shadow: 
+        5px 5px 20px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(0,0,0,0.1);
+    transform: rotate(var(--rotation, 0deg));
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s, z-index 0s;
+}
+
+.cork-polaroid:hover {
+    transform: rotate(0deg) scale(1.1);
+    z-index: 10;
+}
+
+.cork-polaroid::before {
+    content: '📌';
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 30px;
+    filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.3));
+}
+
+.cork-polaroid-image {
+    width: 200px;
+    height: 200px;
+    background: #222;
+    overflow: hidden;
+}
+
+.cork-polaroid-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cork-polaroid-caption {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    right: 15px;
+    font-family: 'Permanent Marker', cursive;
+    font-size: 14px;
+    color: #333;
+    text-align: center;
+}
+
+.cork-polaroid-date {
+    font-family: 'Caveat', cursive;
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* Darkroom Modal */
+.darkroom {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 0, 0, 0.98);
+    z-index: 300;
+    padding: 30px;
+}
+
+.darkroom.show {
+    display: flex;
+}
+
+.darkroom-content {
+    display: flex;
+    gap: 30px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.darkroom-preview {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.darkroom-image-container {
+    background: #000;
+    padding: 20px;
+    border: 3px solid #4a0000;
+    border-radius: 10px;
+    max-width: 100%;
+}
+
+.darkroom-image {
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+}
+
+.darkroom-polaroid-frame {
+    background: var(--polaroid-white);
+    padding: 20px 20px 80px 20px;
+    display: inline-block;
+}
+
+.darkroom-caption-input {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px dashed #ccc;
+    text-align: center;
+    width: 100%;
+    margin-top: 10px;
+    padding: 5px;
+    color: #333;
+}
+
+.darkroom-controls {
+    width: 350px;
+    background: linear-gradient(180deg, #2a0000 0%, #1a0000 100%);
+    border-radius: 15px;
+    padding: 25px;
+    border: 3px solid #4a0000;
+}
+
+.darkroom-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 24px;
+    color: #ff4444;
+    text-align: center;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+}
+
+.dial-group {
+    margin-bottom: 25px;
+}
+
+.dial-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ff9999;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.dial-value {
+    font-family: 'Courier New', monospace;
+    color: #ff4444;
+}
+
+.dial-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 10px;
+    background: linear-gradient(90deg, #1a0000 0%, #4a0000 100%);
+    border-radius: 5px;
+    outline: none;
+    border: 2px solid #600;
+}
+
+.dial-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #aaa 0%, #666 100%);
+    border: 3px solid #444;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.darkroom-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.darkroom-btn {
+    padding: 12px 20px;
+    border: 2px solid #600;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #4a0000 0%, #2a0000 100%);
+    color: #ff9999;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.darkroom-btn:hover {
+    background: linear-gradient(180deg, #600000 0%, #400000 100%);
+    color: #fff;
+}
+
+.darkroom-btn.primary {
+    background: linear-gradient(180deg, var(--camera-accent) 0%, #9d1c2e 100%);
+    color: #fff;
+    border-color: #ff6b6b;
+}
+
+/* Photo Strip Mode */
+.photo-strip-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 250;
+    justify-content: center;
+    align-items: center;
+}
+
+.photo-strip-overlay.show {
+    display: flex;
+}
+
+.photo-strip {
+    background: var(--polaroid-white);
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.photo-strip-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 20px;
+    text-align: center;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.photo-strip-frames {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.strip-frame {
+    width: 200px;
+    height: 150px;
+    background: #222;
+    border: 3px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.strip-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.strip-counter {
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+    margin-top: 10px;
+}
+
+.strip-close-btn {
+    margin-top: 15px;
+    padding: 10px 30px;
+    background: var(--camera-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* Double Exposure Mode */
+.double-exposure-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 260;
+    padding: 30px;
+}
+
+.double-exposure-overlay.show {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.double-exposure-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 28px;
+    color: var(--cream);
+    margin-bottom: 20px;
+}
+
+.double-exposure-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.exposure-slot {
+    background: #222;
+    border: 3px dashed #444;
+    border-radius: 10px;
+    width: 300px;
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+}
+
+.exposure-slot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.exposure-slot-label {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    padding: 5px 15px;
+    border-radius: 15px;
+    color: #fff;
+    font-size: 12px;
+}
+
+.exposure-result {
+    width: 300px;
+    height: 250px;
+    background: #111;
+    border: 3px solid #444;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.exposure-result img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.exposure-result img:nth-child(2) {
+    mix-blend-mode: screen;
+    opacity: 0.5;
+}
+
+.blend-mode-select {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.blend-btn {
+    padding: 8px 16px;
+    background: #333;
+    border: 2px solid #444;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.blend-btn.active {
+    background: var(--camera-accent);
+    border-color: #ff6b6b;
+}
+
+.de-close-btn {
+    margin-top: 20px;
+    padding: 12px 40px;
+    background: var(--camera-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* Flash Effect */
+.flash {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.flash.active {
+    animation: flashAnim 0.3s ease-out;
+}
+
+@keyframes flashAnim {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Toast Notification */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 9998;
+    transition: transform 0.3s ease;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Toolbar */
+.toolbar {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 50;
+}
+
+.tool-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: rgba(30, 30, 30, 0.9);
+    border: 2px solid #444;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.tool-btn:hover {
+    background: rgba(50, 50, 50, 0.9);
+    transform: scale(1.1);
+}
+
+.tool-btn.active {
+    background: var(--camera-accent);
+    border-color: #ff6b6b;
+}
+
+/* Empty State */
+.empty-tray {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    color: #666;
+    font-style: italic;
+}
+
+/* File Input Hidden */
+#fileInput {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .camera, .photo-tray {
+        width: 95vw;
+    }
+    
+    .toolbar {
+        position: fixed;
+        left: 50%;
+        top: auto;
+        bottom: 20px;
+        transform: translateX(-50%);
+        flex-direction: row;
+    }
+    
+    .mode-panel {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .darkroom-content {
+        flex-direction: column;
+    }
+    
+    .darkroom-controls {
+        width: 100%;
+    }
+}
+
+/* Image Selection Grid */
+.image-select-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 400;
+    padding: 30px;
+    overflow: auto;
+}
+
+.image-select-overlay.show {
+    display: block;
+}
+
+.image-select-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 24px;
+    color: var(--cream);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.image-select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.image-select-item {
+    aspect-ratio: 1;
+    background: #222;
+    border: 3px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.image-select-item:hover {
+    border-color: var(--camera-accent);
+    transform: scale(1.05);
+}
+
+.image-select-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-select-close {
+    display: block;
+    margin: 20px auto 0;
+    padding: 12px 40px;
+    background: #444;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* Album Export Preview */
+.album-preview {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--cream);
+    z-index: 350;
+    overflow: auto;
+    padding: 40px;
+}
+
+.album-preview.show {
+    display: block;
+}
+
+.album-cover {
+    max-width: 600px;
+    margin: 0 auto 40px;
+    background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+    padding: 60px 40px;
+    border-radius: 5px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.album-cover-title {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 36px;
+    color: var(--gold);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.album-cover-date {
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    color: var(--cream);
+    margin-top: 10px;
+}
+
+.album-pages {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.album-page {
+    background: var(--polaroid-white);
+    padding: 30px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.album-page-photo {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    margin-bottom: 15px;
+}
+
+.album-page-caption {
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    color: #333;
+    text-align: center;
+}
+
+.album-close-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--camera-accent);
+    color: #fff;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.album-export-btn {
+    display: block;
+    margin: 40px auto;
+    padding: 15px 50px;
+    background: var(--camera-accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 5px 20px rgba(196, 30, 58, 0.3);
+}
+</style>
+</head>
+<body>
+
+<div class="flash" id="flash"></div>
+
+<!-- Main Camera Interface -->
+<div class="camera-container">
+    <div class="camera">
+        <div class="camera-top">
+            <div class="camera-brand">PolaroidSnap</div>
+            <div class="film-counter">
+                <div>
+                    <div class="film-counter-display" id="filmCount">10</div>
+                    <div class="film-counter-label">FILM</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="viewfinder" id="viewfinder">
+            <div class="viewfinder-overlay"></div>
+            <div class="viewfinder-corners"></div>
+            <div class="viewfinder-crosshair"></div>
+            <img class="preview-image" id="previewImage">
+            <div class="viewfinder-placeholder" id="viewfinderPlaceholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <circle cx="12" cy="12" r="4"/>
+                    <circle cx="18" cy="7" r="1"/>
+                </svg>
+                <span>Click to load image or paste from clipboard</span>
+            </div>
+        </div>
+        
+        <div class="camera-controls">
+            <button class="mode-btn" id="stripModeBtn" title="Photo Strip Mode">📷</button>
+            <button class="capture-btn" id="captureBtn" title="Capture"></button>
+            <button class="mode-btn" id="filterBtn" title="Filters">🎨</button>
+        </div>
+    </div>
+    
+    <div class="photo-tray" id="photoTray">
+        <div class="empty-tray" id="emptyTray">Your Polaroids will appear here...</div>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <button class="tool-btn" id="loadBtn" title="Load Image">📁</button>
+    <button class="tool-btn" id="galleryBtn" title="Cork Board Gallery">📌</button>
+    <button class="tool-btn" id="albumBtn" title="Photo Album">📚</button>
+    <button class="tool-btn" id="doubleExpBtn" title="Double Exposure">🔀</button>
+    <button class="tool-btn" id="clearBtn" title="Clear All">🗑️</button>
+</div>
+
+<!-- Filter Panel -->
+<div class="mode-panel" id="filterPanel" style="display: none;">
+    <h3>🎨 Vintage Filters</h3>
+    <div class="filter-grid">
+        <button class="filter-btn active" data-filter="none">Original</button>
+        <button class="filter-btn" data-filter="sepia">Sepia</button>
+        <button class="filter-btn" data-filter="cross-process">Cross Process</button>
+        <button class="filter-btn" data-filter="sun-bleached">Sun Bleached</button>
+        <button class="filter-btn" data-filter="kodachrome">Kodachrome</button>
+        <button class="filter-btn" data-filter="bw">B&W</button>
+    </div>
+</div>
+
+<!-- Cork Board Gallery -->
+<div class="cork-board" id="corkBoard">
+    <div class="cork-board-header">
+        <div class="cork-board-title">📌 Cork Board Gallery</div>
+        <button class="cork-close-btn" id="corkCloseBtn">✕</button>
+    </div>
+    <div class="cork-photos" id="corkPhotos"></div>
+</div>
+
+<!-- Darkroom Modal -->
+<div class="darkroom" id="darkroom">
+    <div class="darkroom-content">
+        <div class="darkroom-preview">
+            <div class="darkroom-image-container">
+                <div class="darkroom-polaroid-frame">
+                    <canvas id="darkroomCanvas" width="400" height="300"></canvas>
+                    <input type="text" class="darkroom-caption-input" id="darkroomCaption" placeholder="Write your caption...">
+                </div>
+            </div>
+        </div>
+        <div class="darkroom-controls">
+            <div class="darkroom-title">🔴 DARKROOM</div>
+            
+            <div class="dial-group">
+                <div class="dial-label">
+                    <span>Brightness</span>
+                    <span class="dial-value" id="brightnessValue">100%</span>
+                </div>
+                <input type="range" class="dial-slider" id="brightness" min="0" max="200" value="100">
+            </div>
+            
+            <div class="dial-group">
+                <div class="dial-label">
+                    <span>Contrast</span>
+                    <span class="dial-value" id="contrastValue">100%</span>
+                </div>
+                <input type="range" class="dial-slider" id="contrast" min="0" max="200" value="100">
+            </div>
+            
+            <div class="dial-group">
+                <div class="dial-label">
+                    <span>Saturation</span>
+                    <span class="dial-value" id="saturationValue">100%</span>
+                </div>
+                <input type="range" class="dial-slider" id="saturation" min="0" max="200" value="100">
+            </div>
+            
+            <div class="dial-group">
+                <div class="dial-label">
+                    <span>Warmth</span>
+                    <span class="dial-value" id="warmthValue">0</span>
+                </div>
+                <input type="range" class="dial-slider" id="warmth" min="-50" max="50" value="0">
+            </div>
+            
+            <div class="dial-group">
+                <div class="dial-label">
+                    <span>Vignette</span>
+                    <span class="dial-value" id="vignetteValue">0%</span>
+                </div>
+                <input type="range" class="dial-slider" id="vignette" min="0" max="100" value="0">
+            </div>
+            
+            <div class="darkroom-buttons">
+                <button class="darkroom-btn primary" id="saveEditBtn">💾 Save to Tray</button>
+                <button class="darkroom-btn" id="downloadBtn">⬇️ Download</button>
+                <button class="darkroom-btn" id="resetEditBtn">↺ Reset</button>
+                <button class="darkroom-btn" id="closeDarkroomBtn">✕ Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Photo Strip Mode -->
+<div class="photo-strip-overlay" id="photoStripOverlay">
+    <div class="photo-strip">
+        <div class="photo-strip-title">📷 Photo Strip Mode</div>
+        <div class="photo-strip-frames" id="stripFrames">
+            <div class="strip-frame" data-index="0">1</div>
+            <div class="strip-frame" data-index="1">2</div>
+            <div class="strip-frame" data-index="2">3</div>
+            <div class="strip-frame" data-index="3">4</div>
+        </div>
+        <div class="strip-counter"><span id="stripCount">0</span> / 4 captured</div>
+        <button class="strip-close-btn" id="stripCloseBtn">Done</button>
+    </div>
+</div>
+
+<!-- Double Exposure Mode -->
+<div class="double-exposure-overlay" id="doubleExposureOverlay">
+    <div class="double-exposure-title">🔀 Double Exposure</div>
+    <div class="double-exposure-container">
+        <div class="exposure-slot" id="exposure1" data-slot="1">
+            <span>Click to select photo 1</span>
+            <div class="exposure-slot-label">Layer 1</div>
+        </div>
+        <div style="font-size: 40px; color: #fff; align-self: center;">+</div>
+        <div class="exposure-slot" id="exposure2" data-slot="2">
+            <span>Click to select photo 2</span>
+            <div class="exposure-slot-label">Layer 2</div>
+        </div>
+        <div style="font-size: 40px; color: #fff; align-self: center;">=</div>
+        <div class="exposure-result" id="exposureResult">
+            <span style="color: #666; font-size: 14px;">Result</span>
+        </div>
+    </div>
+    <div class="blend-mode-select">
+        <button class="blend-btn active" data-blend="screen">Screen</button>
+        <button class="blend-btn" data-blend="multiply">Multiply</button>
+        <button class="blend-btn" data-blend="overlay">Overlay</button>
+        <button class="blend-btn" data-blend="soft-light">Soft Light</button>
+        <button class="blend-btn" data-blend="difference">Difference</button>
+    </div>
+    <button class="de-close-btn" id="deCloseBtn">Close</button>
+</div>
+
+<!-- Image Selection Overlay -->
+<div class="image-select-overlay" id="imageSelectOverlay">
+    <div class="image-select-title">Select a Photo</div>
+    <div class="image-select-grid" id="imageSelectGrid"></div>
+    <button class="image-select-close" id="imageSelectClose">Cancel</button>
+</div>
+
+<!-- Album Preview -->
+<div class="album-preview" id="albumPreview">
+    <button class="album-close-btn" id="albumCloseBtn">✕</button>
+    <div class="album-cover">
+        <div class="album-cover-title">📸 My Photo Album</div>
+        <div class="album-cover-date" id="albumDate"></div>
+    </div>
+    <div class="album-pages" id="albumPages"></div>
+    <button class="album-export-btn" id="albumExportBtn">📥 Export as PDF</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Hidden File Input -->
+<input type="file" id="fileInput" accept="image/*">
+
+<!-- Audio for motor sound -->
+<audio id="motorSound" preload="auto">
+    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleVMzXKzl7NJuOyg1barq7t99NiY0Wa3n7+B/MiQyVKvn8uB+MiIyUqrm8t6AMiAwT6nm8t5/MR8vTajl8tyAMR4tS6fk8dqBMBwsSabk8dmBLxoqR6Xk8deBLhgnRKTj8NWCLRYlQaPi8NODLBQjPqLh79GEKxEgO6Hg7s+FKg8eOKDf7c2GKQ0bNZ7e7MuHJwsYMp3c68mIJgkWL5vb6seJJAcULJnZ6cWKIwURKZfY6MOLIQMPJpXW58GMHwENI5PU5b6NHv8LIJHTnBstGECY4+TGmh0JFSOHxdCpdh8HEi2W2OfGmBsIFCaLydaxdR4GETyd5fLToREFFyOMxdSwdBwFDjii4+/QnQ4EGCeLxdOuchsFDTag4e3OnAsEGSmLw9GtcBkECzSe3+vMmQkDGiuJwc+rbxgDCjKc3enKlgcDHC2HwM2qbhYCCTCa2+fHlAUCHi+FvsuobBUBBy6Y2eXFlAMCIDCDvMmnaxMBBiyW1+PDkgEBIjKBuselahIA" type="audio/wav">
+</audio>
+
+<script>
+// ==================== State Management ====================
+const state = {
+    photos: [],
+    currentFilter: 'none',
+    currentImage: null,
+    filmCount: 10,
+    stripMode: false,
+    stripPhotos: [],
+    darkroomPhoto: null,
+    doubleExposure: {
+        photo1: null,
+        photo2: null,
+        blendMode: 'screen'
+    },
+    selectingFor: null // 'exposure1', 'exposure2', 'strip'
+};
+
+// ==================== DOM Elements ====================
+const elements = {
+    viewfinder: document.getElementById('viewfinder'),
+    previewImage: document.getElementById('previewImage'),
+    viewfinderPlaceholder: document.getElementById('viewfinderPlaceholder'),
+    photoTray: document.getElementById('photoTray'),
+    emptyTray: document.getElementById('emptyTray'),
+    filmCount: document.getElementById('filmCount'),
+    captureBtn: document.getElementById('captureBtn'),
+    filterPanel: document.getElementById('filterPanel'),
+    filterBtn: document.getElementById('filterBtn'),
+    corkBoard: document.getElementById('corkBoard'),
+    corkPhotos: document.getElementById('corkPhotos'),
+    darkroom: document.getElementById('darkroom'),
+    darkroomCanvas: document.getElementById('darkroomCanvas'),
+    photoStripOverlay: document.getElementById('photoStripOverlay'),
+    stripFrames: document.getElementById('stripFrames'),
+    doubleExposureOverlay: document.getElementById('doubleExposureOverlay'),
+    imageSelectOverlay: document.getElementById('imageSelectOverlay'),
+    imageSelectGrid: document.getElementById('imageSelectGrid'),
+    albumPreview: document.getElementById('albumPreview'),
+    albumPages: document.getElementById('albumPages'),
+    flash: document.getElementById('flash'),
+    toast: document.getElementById('toast'),
+    fileInput: document.getElementById('fileInput')
+};
+
+// ==================== Initialization ====================
+function init() {
+    loadFromStorage();
+    setupEventListeners();
+    updateFilmCounter();
+    renderPhotoTray();
+}
+
+function loadFromStorage() {
+    const saved = localStorage.getItem('polaroidsnap_photos');
+    if (saved) {
+        try {
+            state.photos = JSON.parse(saved);
+        } catch (e) {
+            console.error('Failed to load photos:', e);
+        }
+    }
+}
+
+function saveToStorage() {
+    localStorage.setItem('polaroidsnap_photos', JSON.stringify(state.photos));
+}
+
+// ==================== Event Listeners ====================
+function setupEventListeners() {
+    // File input
+    elements.fileInput.addEventListener('change', handleFileSelect);
+    
+    // Viewfinder click
+    elements.viewfinder.addEventListener('click', () => elements.fileInput.click());
+    
+    // Capture button
+    elements.captureBtn.addEventListener('click', capturePhoto);
+    
+    // Filter button
+    elements.filterBtn.addEventListener('click', toggleFilterPanel);
+    
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectFilter(btn.dataset.filter));
+    });
+    
+    // Toolbar buttons
+    document.getElementById('loadBtn').addEventListener('click', () => elements.fileInput.click());
+    document.getElementById('galleryBtn').addEventListener('click', openCorkBoard);
+    document.getElementById('albumBtn').addEventListener('click', openAlbumPreview);
+    document.getElementById('doubleExpBtn').addEventListener('click', openDoubleExposure);
+    document.getElementById('clearBtn').addEventListener('click', clearAllPhotos);
+    
+    // Cork board close
+    document.getElementById('corkCloseBtn').addEventListener('click', closeCorkBoard);
+    
+    // Darkroom controls
+    document.getElementById('brightness').addEventListener('input', updateDarkroom);
+    document.getElementById('contrast').addEventListener('input', updateDarkroom);
+    document.getElementById('saturation').addEventListener('input', updateDarkroom);
+    document.getElementById('warmth').addEventListener('input', updateDarkroom);
+    document.getElementById('vignette').addEventListener('input', updateDarkroom);
+    document.getElementById('saveEditBtn').addEventListener('click', saveDarkroomEdit);
+    document.getElementById('downloadBtn').addEventListener('click', downloadFromDarkroom);
+    document.getElementById('resetEditBtn').addEventListener('click', resetDarkroom);
+    document.getElementById('closeDarkroomBtn').addEventListener('click', closeDarkroom);
+    
+    // Photo strip
+    document.getElementById('stripModeBtn').addEventListener('click', toggleStripMode);
+    document.getElementById('stripCloseBtn').addEventListener('click', closeStripMode);
+    
+    // Double exposure
+    document.getElementById('exposure1').addEventListener('click', () => selectExposurePhoto(1));
+    document.getElementById('exposure2').addEventListener('click', () => selectExposurePhoto(2));
+    document.querySelectorAll('.blend-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectBlendMode(btn.dataset.blend));
+    });
+    document.getElementById('deCloseBtn').addEventListener('click', closeDoubleExposure);
+    
+    // Image select
+    document.getElementById('imageSelectClose').addEventListener('click', closeImageSelect);
+    
+    // Album
+    document.getElementById('albumCloseBtn').addEventListener('click', closeAlbumPreview);
+    document.getElementById('albumExportBtn').addEventListener('click', exportAlbum);
+    
+    // Paste from clipboard
+    document.addEventListener('paste', handlePaste);
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', handleKeydown);
+}
+
+// ==================== File Handling ====================
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        loadImage(file);
+    }
+    e.target.value = '';
+}
+
+function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            loadImage(file);
+            break;
+        }
+    }
+}
+
+function loadImage(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        state.currentImage = e.target.result;
+        elements.previewImage.src = state.currentImage;
+        elements.previewImage.style.display = 'block';
+        elements.viewfinderPlaceholder.style.display = 'none';
+        applyFilterToPreview();
+        showToast('Image loaded! Click capture to create a Polaroid.');
+    };
+    reader.readAsDataURL(file);
+}
+
+// ==================== Capture ====================
+function capturePhoto() {
+    if (!state.currentImage) {
+        showToast('Please load an image first!');
+        return;
+    }
+    
+    if (state.filmCount <= 0) {
+        showToast('Out of film! Clear some photos to reload.');
+        return;
+    }
+    
+    // Flash effect
+    elements.flash.classList.add('active');
+    setTimeout(() => elements.flash.classList.remove('active'), 300);
+    
+    // Play motor sound
+    playMotorSound();
+    
+    // Create photo object
+    const photo = {
+        id: Date.now(),
+        image: state.currentImage,
+        filter: state.currentFilter,
+        caption: '',
+        timestamp: new Date().toISOString()
+    };
+    
+    if (state.stripMode) {
+        // Add to strip
+        addToStrip(photo);
+    } else {
+        // Add to regular tray
+        state.photos.unshift(photo);
+        state.filmCount--;
+        updateFilmCounter();
+        saveToStorage();
+        renderPhotoTray();
+        animateNewPolaroid(photo.id);
+    }
+}
+
+function playMotorSound() {
+    // Create a simple beep sound using Web Audio API
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.frequency.value = 150;
+        oscillator.type = 'sawtooth';
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+        console.log('Audio not supported');
+    }
+}
+
+// ==================== Photo Tray ====================
+function renderPhotoTray() {
+    if (state.photos.length === 0) {
+        elements.emptyTray.style.display = 'flex';
+        elements.photoTray.innerHTML = '';
+        elements.photoTray.appendChild(elements.emptyTray);
+        return;
+    }
+    
+    elements.emptyTray.style.display = 'none';
+    elements.photoTray.innerHTML = '';
+    
+    state.photos.forEach(photo => {
+        const polaroid = createPolaroidElement(photo);
+        elements.photoTray.appendChild(polaroid);
+    });
+}
+
+function createPolaroidElement(photo) {
+    const polaroid = document.createElement('div');
+    polaroid.className = 'polaroid';
+    polaroid.dataset.id = photo.id;
+    
+    const filterStyle = getFilterStyle(photo.filter);
+    
+    polaroid.innerHTML = `
+        <div class="polaroid-image">
+            <img src="${photo.image}" alt="Polaroid" style="${filterStyle}">
+            <div class="polaroid-developing"></div>
+        </div>
+        <div class="polaroid-caption">${photo.caption || formatDate(photo.timestamp)}</div>
+    `;
+    
+    // Shake to develop
+    let shakeCount = 0;
+    let lastX = 0;
+    polaroid.addEventListener('mousemove', (e) => {
+        const developing = polaroid.querySelector('.polaroid-developing');
+        if (developing.style.opacity === '0') return;
+        
+        const deltaX = Math.abs(e.clientX - lastX);
+        lastX = e.clientX;
+        
+        if (deltaX > 20) {
+            shakeCount++;
+            if (shakeCount > 5) {
+                developing.style.opacity = '0';
+                polaroid.classList.add('shaking');
+                setTimeout(() => polaroid.classList.remove('shaking'), 300);
+                shakeCount = 0;
+            }
+        }
+    });
+    
+    // Click to edit in darkroom
+    polaroid.addEventListener('click', () => openDarkroom(photo));
+    
+    return polaroid;
+}
+
+function animateNewPolaroid(photoId) {
+    setTimeout(() => {
+        const polaroid = document.querySelector(`.polaroid[data-id="${photoId}"]`);
+        if (polaroid) {
+            polaroid.classList.add('sliding');
+            
+            // Auto-develop after 3 seconds
+            setTimeout(() => {
+                const developing = polaroid.querySelector('.polaroid-developing');
+                if (developing) {
+                    developing.style.opacity = '0';
+                }
+            }, 3000);
+        }
+    }, 50);
+}
+
+// ==================== Filters ====================
+function toggleFilterPanel() {
+    const panel = elements.filterPanel;
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectFilter(filter) {
+    state.currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    applyFilterToPreview();
+}
+
+function applyFilterToPreview() {
+    if (elements.previewImage.style.display !== 'none') {
+        elements.previewImage.style.filter = getCSSFilter(state.currentFilter);
+    }
+}
+
+function getCSSFilter(filter) {
+    switch (filter) {
+        case 'sepia': return 'sepia(80%) contrast(90%) brightness(95%)';
+        case 'cross-process': return 'saturate(150%) contrast(120%) hue-rotate(10deg)';
+        case 'sun-bleached': return 'brightness(110%) contrast(85%) saturate(70%)';
+        case 'kodachrome': return 'saturate(120%) contrast(110%) brightness(105%) sepia(10%)';
+        case 'bw': return 'grayscale(100%) contrast(110%)';
+        default: return 'none';
+    }
+}
+
+function getFilterStyle(filter) {
+    return `filter: ${getCSSFilter(filter)}`;
+}
+
+// ==================== Cork Board Gallery ====================
+function openCorkBoard() {
+    if (state.photos.length === 0) {
+        showToast('No photos to display!');
+        return;
+    }
+    
+    renderCorkBoard();
+    elements.corkBoard.classList.add('show');
+}
+
+function closeCorkBoard() {
+    elements.corkBoard.classList.remove('show');
+}
+
+function renderCorkBoard() {
+    elements.corkPhotos.innerHTML = '';
+    
+    state.photos.forEach((photo, index) => {
+        const rotation = (Math.random() * 20 - 10).toFixed(1);
+        const polaroid = document.createElement('div');
+        polaroid.className = 'cork-polaroid';
+        polaroid.style.setProperty('--rotation', `${rotation}deg`);
+        
+        const filterStyle = getFilterStyle(photo.filter);
+        
+        polaroid.innerHTML = `
+            <div class="cork-polaroid-image">
+                <img src="${photo.image}" alt="Photo" style="${filterStyle}">
+            </div>
+            <div class="cork-polaroid-caption">${photo.caption || 'Untitled'}</div>
+            <div class="cork-polaroid-date">${formatDate(photo.timestamp)}</div>
+        `;
+        
+        polaroid.addEventListener('click', () => {
+            closeCorkBoard();
+            openDarkroom(photo);
+        });
+        
+        elements.corkPhotos.appendChild(polaroid);
+    });
+}
+
+// ==================== Darkroom ====================
+function openDarkroom(photo) {
+    state.darkroomPhoto = photo;
+    resetDarkroomControls();
+    
+    const img = new Image();
+    img.onload = () => {
+        const canvas = elements.darkroomCanvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        const maxWidth = 400;
+        const maxHeight = 300;
+        const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        applyDarkroomFilter(ctx, photo.filter);
+    };
+    img.src = photo.image;
+    
+    document.getElementById('darkroomCaption').value = photo.caption || '';
+    elements.darkroom.classList.add('show');
+}
+
+function closeDarkroom() {
+    elements.darkroom.classList.remove('show');
+    state.darkroomPhoto = null;
+}
+
+function resetDarkroomControls() {
+    document.getElementById('brightness').value = 100;
+    document.getElementById('contrast').value = 100;
+    document.getElementById('saturation').value = 100;
+    document.getElementById('warmth').value = 0;
+    document.getElementById('vignette').value = 0;
+    updateDarkroomLabels();
+}
+
+function updateDarkroomLabels() {
+    document.getElementById('brightnessValue').textContent = document.getElementById('brightness').value + '%';
+    document.getElementById('contrastValue').textContent = document.getElementById('contrast').value + '%';
+    document.getElementById('saturationValue').textContent = document.getElementById('saturation').value + '%';
+    document.getElementById('warmthValue').textContent = document.getElementById('warmth').value;
+    document.getElementById('vignetteValue').textContent = document.getElementById('vignette').value + '%';
+}
+
+function updateDarkroom() {
+    updateDarkroomLabels();
+    
+    if (!state.darkroomPhoto) return;
+    
+    const img = new Image();
+    img.onload = () => {
+        const canvas = elements.darkroomCanvas;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Apply base filter
+        applyDarkroomFilter(ctx, state.darkroomPhoto.filter);
+        
+        // Apply adjustments
+        applyAdjustments(ctx, canvas);
+    };
+    img.src = state.darkroomPhoto.image;
+}
+
+function applyDarkroomFilter(ctx, filter) {
+    const canvas = ctx.canvas;
+    ctx.filter = getCSSFilter(filter);
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.filter = 'none';
+}
+
+function applyAdjustments(ctx, canvas) {
+    const brightness = document.getElementById('brightness').value / 100;
+    const contrast = document.getElementById('contrast').value / 100;
+    const saturation = document.getElementById('saturation').value / 100;
+    const warmth = document.getElementById('warmth').value;
+    const vignette = document.getElementById('vignette').value / 100;
+    
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+    
+    for (let i = 0; i < data.length; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+        
+        // Brightness
+        r *= brightness;
+        g *= brightness;
+        b *= brightness;
+        
+        // Contrast
+        r = ((r / 255 - 0.5) * contrast + 0.5) * 255;
+        g = ((g / 255 - 0.5) * contrast + 0.5) * 255;
+        b = ((b / 255 - 0.5) * contrast + 0.5) * 255;
+        
+        // Saturation
+        const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+        r = gray + saturation * (r - gray);
+        g = gray + saturation * (g - gray);
+        b = gray + saturation * (b - gray);
+        
+        // Warmth
+        r += warmth;
+        b -= warmth;
+        
+        // Vignette
+        if (vignette > 0) {
+            const pixelIndex = i / 4;
+            const x = pixelIndex % canvas.width;
+            const y = Math.floor(pixelIndex / canvas.width);
+            const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+            const vignetteFactor = 1 - (dist / maxDist) * vignette;
+            r *= vignetteFactor;
+            g *= vignetteFactor;
+            b *= vignetteFactor;
+        }
+        
+        data[i] = Math.max(0, Math.min(255, r));
+        data[i + 1] = Math.max(0, Math.min(255, g));
+        data[i + 2] = Math.max(0, Math.min(255, b));
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+}
+
+function resetDarkroom() {
+    resetDarkroomControls();
+    updateDarkroom();
+}
+
+function saveDarkroomEdit() {
+    if (!state.darkroomPhoto) return;
+    
+    const canvas = elements.darkroomCanvas;
+    const newImage = canvas.toDataURL('image/png');
+    const caption = document.getElementById('darkroomCaption').value;
+    
+    const photoIndex = state.photos.findIndex(p => p.id === state.darkroomPhoto.id);
+    if (photoIndex !== -1) {
+        state.photos[photoIndex].image = newImage;
+        state.photos[photoIndex].caption = caption;
+        state.photos[photoIndex].filter = 'none'; // Filter is baked in
+        saveToStorage();
+        renderPhotoTray();
+        showToast('Photo saved!');
+    }
+    
+    closeDarkroom();
+}
+
+function downloadFromDarkroom() {
+    const canvas = elements.darkroomCanvas;
+    const link = document.createElement('a');
+    link.download = `polaroid_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('Photo downloaded!');
+}
+
+// ==================== Photo Strip Mode ====================
+function toggleStripMode() {
+    state.stripMode = !state.stripMode;
+    document.getElementById('stripModeBtn').classList.toggle('active', state.stripMode);
+    
+    if (state.stripMode) {
+        state.stripPhotos = [];
+        updateStripDisplay();
+        elements.photoStripOverlay.classList.add('show');
+        showToast('Photo Strip Mode: Capture 4 photos!');
+    } else {
+        closeStripMode();
+    }
+}
+
+function closeStripMode() {
+    state.stripMode = false;
+    document.getElementById('stripModeBtn').classList.remove('active');
+    elements.photoStripOverlay.classList.remove('show');
+    
+    if (state.stripPhotos.length > 0) {
+        // Combine strip photos into one
+        combineStripPhotos();
+    }
+    
+    state.stripPhotos = [];
+    updateStripDisplay();
+}
+
+function addToStrip(photo) {
+    if (state.stripPhotos.length >= 4) return;
+    
+    state.stripPhotos.push(photo);
+    updateStripDisplay();
+    
+    if (state.stripPhotos.length >= 4) {
+        showToast('Strip complete! Click Done to save.');
+    }
+}
+
+function updateStripDisplay() {
+    const frames = elements.stripFrames.querySelectorAll('.strip-frame');
+    frames.forEach((frame, index) => {
+        if (state.stripPhotos[index]) {
+            frame.innerHTML = `<img src="${state.stripPhotos[index].image}" style="${getFilterStyle(state.stripPhotos[index].filter)}">`;
+        } else {
+            frame.innerHTML = index + 1;
+        }
+    });
+    
+    document.getElementById('stripCount').textContent = state.stripPhotos.length;
+}
+
+function combineStripPhotos() {
+    if (state.stripPhotos.length === 0) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    let loaded = 0;
+    state.stripPhotos.forEach((photo, index) => {
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, index * 150, 200, 150);
+            loaded++;
+            
+            if (loaded === state.stripPhotos.length) {
+                const stripPhoto = {
+                    id: Date.now(),
+                    image: canvas.toDataURL('image/png'),
+                    filter: 'none',
+                    caption: 'Photo Strip',
+                    timestamp: new Date().toISOString()
+                };
+                
+                state.photos.unshift(stripPhoto);
+                state.filmCount -= state.stripPhotos.length;
+                updateFilmCounter();
+                saveToStorage();
+                renderPhotoTray();
+                showToast('Photo strip saved!');
+            }
+        };
+        img.src = photo.image;
+    });
+}
+
+// ==================== Double Exposure ====================
+function openDoubleExposure() {
+    if (state.photos.length < 2) {
+        showToast('Need at least 2 photos for double exposure!');
+        return;
+    }
+    
+    state.doubleExposure = { photo1: null, photo2: null, blendMode: 'screen' };
+    document.getElementById('exposure1').innerHTML = '<span>Click to select photo 1</span><div class="exposure-slot-label">Layer 1</div>';
+    document.getElementById('exposure2').innerHTML = '<span>Click to select photo 2</span><div class="exposure-slot-label">Layer 2</div>';
+    document.getElementById('exposureResult').innerHTML = '<span style="color: #666; font-size: 14px;">Result</span>';
+    
+    elements.doubleExposureOverlay.classList.add('show');
+}
+
+function closeDoubleExposure() {
+    elements.doubleExposureOverlay.classList.remove('show');
+}
+
+function selectExposurePhoto(slot) {
+    state.selectingFor = `exposure${slot}`;
+    showImageSelect();
+}
+
+function showImageSelect() {
+    elements.imageSelectGrid.innerHTML = '';
+    
+    state.photos.forEach(photo => {
+        const item = document.createElement('div');
+        item.className = 'image-select-item';
+        item.innerHTML = `<img src="${photo.image}" style="${getFilterStyle(photo.filter)}">`;
+        item.addEventListener('click', () => {
+            if (state.selectingFor === 'exposure1') {
+                state.doubleExposure.photo1 = photo;
+                document.getElementById('exposure1').innerHTML = `<img src="${photo.image}" style="${getFilterStyle(photo.filter)}"><div class="exposure-slot-label">Layer 1</div>`;
+            } else if (state.selectingFor === 'exposure2') {
+                state.doubleExposure.photo2 = photo;
+                document.getElementById('exposure2').innerHTML = `<img src="${photo.image}" style="${getFilterStyle(photo.filter)}"><div class="exposure-slot-label">Layer 2</div>`;
+            }
+            closeImageSelect();
+            updateDoubleExposureResult();
+        });
+        elements.imageSelectGrid.appendChild(item);
+    });
+    
+    elements.imageSelectOverlay.classList.add('show');
+}
+
+function closeImageSelect() {
+    elements.imageSelectOverlay.classList.remove('show');
+    state.selectingFor = null;
+}
+
+function selectBlendMode(mode) {
+    state.doubleExposure.blendMode = mode;
+    document.querySelectorAll('.blend-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.blend === mode);
+    });
+    updateDoubleExposureResult();
+}
+
+function updateDoubleExposureResult() {
+    const { photo1, photo2, blendMode } = state.doubleExposure;
+    if (!photo1 || !photo2) return;
+    
+    const resultContainer = document.getElementById('exposureResult');
+    resultContainer.innerHTML = `
+        <img src="${photo1.image}" style="${getFilterStyle(photo1.filter)}">
+        <img src="${photo2.image}" style="${getFilterStyle(photo2.filter)}; mix-blend-mode: ${blendMode}; opacity: 0.6;">
+    `;
+}
+
+// ==================== Album Preview ====================
+function openAlbumPreview() {
+    if (state.photos.length === 0) {
+        showToast('No photos to create an album!');
+        return;
+    }
+    
+    document.getElementById('albumDate').textContent = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    renderAlbumPages();
+    elements.albumPreview.classList.add('show');
+}
+
+function closeAlbumPreview() {
+    elements.albumPreview.classList.remove('show');
+}
+
+function renderAlbumPages() {
+    elements.albumPages.innerHTML = '';
+    
+    state.photos.forEach(photo => {
+        const page = document.createElement('div');
+        page.className = 'album-page';
+        page.innerHTML = `
+            <img class="album-page-photo" src="${photo.image}" style="${getFilterStyle(photo.filter)}">
+            <div class="album-page-caption">${photo.caption || formatDate(photo.timestamp)}</div>
+        `;
+        elements.albumPages.appendChild(page);
+    });
+}
+
+function exportAlbum() {
+    showToast('Album export feature - In a full implementation, this would generate a PDF.');
+    // In a real implementation, you would use a library like jsPDF to create a printable PDF
+}
+
+// ==================== Utilities ====================
+function updateFilmCounter() {
+    elements.filmCount.textContent = state.filmCount;
+}
+
+function formatDate(timestamp) {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: '2-digit'
+    });
+}
+
+function showToast(message) {
+    elements.toast.textContent = message;
+    elements.toast.classList.add('show');
+    setTimeout(() => elements.toast.classList.remove('show'), 3000);
+}
+
+function clearAllPhotos() {
+    if (state.photos.length === 0) {
+        showToast('No photos to clear!');
+        return;
+    }
+    
+    if (confirm('Clear all photos? This cannot be undone.')) {
+        state.photos = [];
+        state.filmCount = 10;
+        updateFilmCounter();
+        saveToStorage();
+        renderPhotoTray();
+        showToast('All photos cleared!');
+    }
+}
+
+function handleKeydown(e) {
+    // Escape to close modals
+    if (e.key === 'Escape') {
+        if (elements.darkroom.classList.contains('show')) closeDarkroom();
+        else if (elements.corkBoard.classList.contains('show')) closeCorkBoard();
+        else if (elements.doubleExposureOverlay.classList.contains('show')) closeDoubleExposure();
+        else if (elements.albumPreview.classList.contains('show')) closeAlbumPreview();
+        else if (elements.photoStripOverlay.classList.contains('show')) closeStripMode();
+        else if (elements.imageSelectOverlay.classList.contains('show')) closeImageSelect();
+    }
+    
+    // Ctrl/Cmd + V is handled by paste event
+    // Space to capture
+    if (e.key === ' ' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        capturePhoto();
+    }
+}
+
+// ==================== Start App ====================
+init();
+</script>
+
+</body>
+</html>

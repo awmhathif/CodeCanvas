@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Hole Accretion Disk Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000000;
+            color: white;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+        }
+
+        .control-panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            width: 280px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+        }
+
+        .info-panel h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 13px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        /* Description */
+        .description {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            width: 400px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+        }
+
+        .description h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .description p {
+            font-size: 12px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Toggle button */
+        .toggle-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .toggle-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .tooltip.show {
+            opacity: 1;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #667eea;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 2s infinite;
+        }
+
+        /* Checkbox styling */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="blackHoleCanvas"></canvas>
+
+    <div class="ui-overlay">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>🌌 Black Hole Controls</h2>
+            
+            <div class="control-group">
+                <label>
+                    Particle Count
+                    <span class="value-display" id="particleCountValue">5000</span>
+                </label>
+                <input type="range" id="particleCount" min="1000" max="10000" value="5000" step="500">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Accretion Rate
+                    <span class="value-display" id="accretionRateValue">1.0x</span>
+                </label>
+                <input type="range" id="accretionRate" min="0.1" max="3" value="1" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Rotation Speed
+                    <span class="value-display" id="rotationSpeedValue">1.0x</span>
+                </label>
+                <input type="range" id="rotationSpeed" min="0.1" max="3" value="1" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Temperature
+                    <span class="value-display" id="temperatureValue">1.0x</span>
+                </label>
+                <input type="range" id="temperature" min="0.5" max="2" value="1" step="0.1">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Gravitational Lensing
+                    <span class="value-display" id="lensingValue">0.5x</span>
+                </label>
+                <input type="range" id="lensing" min="0" max="1" value="0.5" step="0.1">
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="showJets" checked>
+                <label for="showJets">Show Relativistic Jets</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="showEventHorizon" checked>
+                <label for="showEventHorizon">Show Event Horizon</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="showGravWaves" checked>
+                <label for="showGravWaves">Gravitational Waves</label>
+            </div>
+
+            <div class="button-group">
+                <button class="btn" id="resetBtn">🔄 Reset</button>
+                <button class="btn btn-secondary" id="pauseBtn">⏸ Pause</button>
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="info-panel">
+            <h3>📊 Statistics</h3>
+            <div class="stat-item">
+                <span class="stat-label">Active Particles:</span>
+                <span class="stat-value" id="statParticles">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Schwarzschild Radius:</span>
+                <span class="stat-value" id="statRadius">50px</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Accretion Luminosity:</span>
+                <span class="stat-value" id="statLuminosity">High</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Disk Temperature:</span>
+                <span class="stat-value" id="statTemp">~10⁶ K</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Rotation:</span>
+                <span class="stat-value" id="statRotation">Kerr</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">FPS:</span>
+                <span class="stat-value" id="statFPS">60</span>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="description">
+            <h3>🔬 About This Simulation</h3>
+            <p>
+                This is a real-time simulation of a black hole accretion disk, showing matter spiraling 
+                into the event horizon. The visualization includes gravitational lensing effects, 
+                temperature-based coloring (blue = hottest, red = coolest), relativistic jets, 
+                and Doppler beaming effects. Matter heats up as it approaches the event horizon, 
+                emitting intense radiation before crossing the point of no return.
+            </p>
+        </div>
+
+        <!-- Toggle Description -->
+        <button class="toggle-btn" id="toggleDesc">ℹ️ Hide Info</button>
+
+        <!-- Tooltip -->
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('blackHoleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+        });
+
+        let centerX = width / 2;
+        let centerY = height / 2;
+
+        // ==================== Configuration ====================
+        let config = {
+            particleCount: 5000,
+            accretionRate: 1.0,
+            rotationSpeed: 1.0,
+            temperature: 1.0,
+            lensing: 0.5,
+            showJets: true,
+            showEventHorizon: true,
+            showGravWaves: true,
+            isPaused: false
+        };
+
+        const schwarzschildRadius = 50;
+        const innerStableOrbit = schwarzschildRadius * 3;
+        const outerDiskRadius = 400;
+
+        // ==================== Particle System ====================
+        class AccretionParticle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                // Start particles at outer disk radius
+                const angle = Math.random() * Math.PI * 2;
+                const radius = outerDiskRadius + Math.random() * 100;
+                
+                this.x = Math.cos(angle) * radius;
+                this.y = Math.sin(angle) * radius;
+                this.z = (Math.random() - 0.5) * 100; // Disk thickness
+                
+                this.angle = angle;
+                this.radius = radius;
+                this.velocity = 0;
+                this.angularVelocity = this.getOrbitalVelocity(radius);
+                
+                this.mass = 0.5 + Math.random() * 0.5;
+                this.temperature = 0;
+                this.brightness = 0;
+                this.lifetime = 0;
+                
+                // For spiral trajectory
+                this.spiralProgress = 0;
+            }
+
+            getOrbitalVelocity(r) {
+                // Simplified Keplerian velocity (v ∝ 1/√r)
+                return Math.sqrt(1 / r) * 0.02 * config.rotationSpeed;
+            }
+
+            update(deltaTime) {
+                this.lifetime += deltaTime;
+                
+                // Orbital motion
+                this.angularVelocity = this.getOrbitalVelocity(this.radius);
+                this.angle += this.angularVelocity * deltaTime * config.rotationSpeed;
+                
+                // Spiral inward (accretion)
+                const accretionSpeed = 0.3 * config.accretionRate;
+                this.radius -= accretionSpeed * deltaTime * (1 / Math.sqrt(this.radius));
+                
+                // Flatten disk as particles move inward
+                const diskFlatten = Math.min(1, this.radius / 200);
+                this.z *= 0.99 * diskFlatten;
+                
+                // Update position
+                this.x = Math.cos(this.angle) * this.radius;
+                this.y = Math.sin(this.angle) * this.radius;
+                
+                // Temperature increases as particle approaches event horizon
+                // T ∝ 1/r (simplified, real physics is more complex)
+                this.temperature = Math.min(2, (300 / this.radius) * config.temperature);
+                
+                // Brightness based on temperature (Wien's law approximation)
+                this.brightness = Math.pow(this.temperature, 4) * this.mass;
+                
+                // Gravitational time dilation effect (subtle)
+                const timeDilation = 1 - (schwarzschildRadius / this.radius);
+                
+                // Reset if particle crosses event horizon or drifts too far
+                if (this.radius < schwarzschildRadius || this.radius > outerDiskRadius + 200) {
+                    this.reset();
+                }
+                
+                return true;
+            }
+
+            getColor() {
+                // Temperature-based color (blackbody radiation)
+                // Blue (hot) -> White -> Yellow -> Red (cool)
+                const temp = this.temperature;
+                
+                if (temp > 1.5) {
+                    // Very hot - blue/white
+                    const factor = (temp - 1.5) * 2;
+                    return {
+                        r: Math.min(255, 200 + factor * 55),
+                        g: Math.min(255, 220 + factor * 35),
+                        b: 255,
+                        a: Math.min(1, this.brightness)
+                    };
+                } else if (temp > 1.0) {
+                    // Hot - white/yellow
+                    const factor = (temp - 1.0) * 2;
+                    return {
+                        r: 255,
+                        g: Math.min(255, 200 + factor * 55),
+                        b: Math.max(100, 255 - factor * 155),
+                        a: Math.min(1, this.brightness)
+                    };
+                } else if (temp > 0.5) {
+                    // Warm - yellow/orange
+                    const factor = (temp - 0.5) * 2;
+                    return {
+                        r: 255,
+                        g: Math.max(100, 255 - (1 - factor) * 100),
+                        b: Math.max(0, 100 - (1 - factor) * 100),
+                        a: Math.min(1, this.brightness)
+                    };
+                } else {
+                    // Cool - red
+                    return {
+                        r: Math.min(255, 150 + temp * 210),
+                        g: Math.max(0, temp * 100),
+                        b: 0,
+                        a: Math.min(1, this.brightness * 0.5)
+                    };
+                }
+            }
+
+            draw(ctx) {
+                // 3D to 2D projection with perspective
+                const perspective = 500 / (500 + this.z);
+                const screenX = centerX + this.x * perspective;
+                const screenY = centerY + this.y * perspective;
+                const size = Math.max(1, this.mass * 2 * perspective * (1 + this.brightness * 0.5));
+                
+                const color = this.getColor();
+                
+                // Glow effect for bright particles
+                if (this.brightness > 0.5) {
+                    const glowSize = size * 3;
+                    const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, glowSize);
+                    gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a * 0.6})`);
+                    gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a * 0.3})`);
+                    gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Core particle
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // ==================== Relativistic Jets ====================
+        class RelativisticJet {
+            constructor(direction) {
+                this.direction = direction; // 1 for up, -1 for down
+                this.particles = [];
+                this.spawnTimer = 0;
+            }
+
+            update(deltaTime) {
+                this.spawnTimer += deltaTime;
+                
+                // Spawn new jet particles
+                if (this.spawnTimer > 20) {
+                    this.spawnTimer = 0;
+                    
+                    for (let i = 0; i < 5; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const spread = 15;
+                        this.particles.push({
+                            x: Math.cos(angle) * spread,
+                            y: schwarzschildRadius * 2 * this.direction,
+                            z: Math.sin(angle) * spread,
+                            vx: Math.cos(angle) * 0.2,
+                            vy: this.direction * 3,
+                            vz: Math.sin(angle) * 0.2,
+                            life: 1.0,
+                            size: 1 + Math.random() * 2
+                        });
+                    }
+                }
+                
+                // Update jet particles
+                this.particles = this.particles.filter(p => {
+                    p.x += p.vx * deltaTime;
+                    p.y += p.vy * deltaTime;
+                    p.z += p.vz * deltaTime;
+                    p.life -= 0.005 * deltaTime;
+                    
+                    return p.life > 0 && Math.abs(p.y) < 500;
+                });
+            }
+
+            draw(ctx) {
+                this.particles.forEach(p => {
+                    const perspective = 500 / (500 + p.z);
+                    const screenX = centerX + p.x * perspective;
+                    const screenY = centerY + p.y * perspective;
+                    const size = p.size * perspective;
+                    
+                    // Blue-white color for jets
+                    const alpha = p.life * 0.8;
+                    ctx.fillStyle = `rgba(100, 150, 255, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Glow
+                    const glowSize = size * 3;
+                    const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, glowSize);
+                    gradient.addColorStop(0, `rgba(100, 150, 255, ${alpha * 0.5})`);
+                    gradient.addColorStop(1, `rgba(100, 150, 255, 0)`);
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        }
+
+        // ==================== Gravitational Waves ====================
+        class GravitationalWave {
+            constructor() {
+                this.waves = [];
+                this.spawnTimer = 0;
+            }
+
+            update(deltaTime) {
+                this.spawnTimer += deltaTime;
+                
+                if (this.spawnTimer > 100) {
+                    this.spawnTimer = 0;
+                    this.waves.push({
+                        radius: schwarzschildRadius,
+                        alpha: 1.0
+                    });
+                }
+                
+                this.waves = this.waves.filter(w => {
+                    w.radius += 2 * deltaTime;
+                    w.alpha -= 0.01 * deltaTime;
+                    return w.alpha > 0 && w.radius < 600;
+                });
+            }
+
+            draw(ctx) {
+                this.waves.forEach(w => {
+                    ctx.strokeStyle = `rgba(102, 126, 234, ${w.alpha * 0.3})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, w.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+            }
+        }
+
+        // ==================== Main Simulation ====================
+        let particles = [];
+        let jets = [new RelativisticJet(1), new RelativisticJet(-1)];
+        let gravWaves = new GravitationalWave();
+        let lastTime = performance.now();
+        let fps = 60;
+        let frameCount = 0;
+        let fpsTime = 0;
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new AccretionParticle());
+            }
+        }
+
+        function drawBackground() {
+            // Deep space background with gradient
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
+            gradient.addColorStop(0, '#0a0a1a');
+            gradient.addColorStop(0.5, '#050510');
+            gradient.addColorStop(1, '#000000');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Background stars
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            for (let i = 0; i < 200; i++) {
+                const x = (i * 137.508) % width; // Golden angle distribution
+                const y = (i * 1.618) % height;
+                const size = Math.random() * 1.5;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawEventHorizon() {
+            // Photon sphere (outer)
+            const photonRadius = schwarzschildRadius * 1.5;
+            const gradient1 = ctx.createRadialGradient(centerX, centerY, schwarzschildRadius, centerX, centerY, photonRadius);
+            gradient1.addColorStop(0, 'rgba(0, 0, 0, 1)');
+            gradient1.addColorStop(1, 'rgba(50, 30, 0, 0.5)');
+            ctx.fillStyle = gradient1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, photonRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Event horizon (pure black)
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, schwarzschildRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Gravitational lensing effect
+            if (config.lensing > 0) {
+                const lensingRadius = schwarzschildRadius * (2 + config.lensing);
+                const gradient2 = ctx.createRadialGradient(centerX, centerY, schwarzschildRadius, centerX, centerY, lensingRadius);
+                gradient2.addColorStop(0, 'rgba(100, 100, 150, 0)');
+                gradient2.addColorStop(0.5, `rgba(80, 80, 120, ${0.1 * config.lensing})`);
+                gradient2.addColorStop(1, 'rgba(60, 60, 100, 0)');
+                ctx.fillStyle = gradient2;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, lensingRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Event horizon border
+            ctx.strokeStyle = 'rgba(100, 50, 200, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, schwarzschildRadius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function drawInnerStableOrbit() {
+            ctx.strokeStyle = 'rgba(100, 100, 150, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, innerStableOrbit, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function updateStats() {
+            document.getElementById('statParticles').textContent = particles.length;
+            document.getElementById('statRadius').textContent = schwarzschildRadius + 'px';
+            
+            const avgTemp = particles.reduce((sum, p) => sum + p.temperature, 0) / particles.length;
+            const luminosity = avgTemp > 1.2 ? 'Very High' : avgTemp > 0.8 ? 'High' : 'Medium';
+            document.getElementById('statLuminosity').textContent = luminosity;
+            
+            const tempKelvin = Math.round(avgTemp * 10) + '⁶';
+            document.getElementById('statTemp').textContent = `~${tempKelvin} K`;
+            
+            document.getElementById('statRotation').textContent = config.rotationSpeed > 1.5 ? 'Kerr (Fast)' : 'Kerr';
+            document.getElementById('statFPS').textContent = Math.round(fps);
+        }
+
+        function animate(currentTime) {
+            const deltaTime = Math.min((currentTime - lastTime) / 16.67, 3); // Cap at 3x speed
+            lastTime = currentTime;
+            
+            if (!config.isPaused) {
+                // Calculate FPS
+                frameCount++;
+                fpsTime += deltaTime;
+                if (fpsTime >= 60) {
+                    fps = frameCount / (fpsTime / 60);
+                    frameCount = 0;
+                    fpsTime = 0;
+                }
+                
+                // Draw background
+                drawBackground();
+                
+                // Draw gravitational waves
+                if (config.showGravWaves) {
+                    gravWaves.update(deltaTime);
+                    gravWaves.draw(ctx);
+                }
+                
+                // Draw accretion disk glow
+                const diskGradient = ctx.createRadialGradient(centerX, centerY, innerStableOrbit, centerX, centerY, outerDiskRadius);
+                diskGradient.addColorStop(0, 'rgba(255, 200, 100, 0.1)');
+                diskGradient.addColorStop(0.5, 'rgba(255, 100, 50, 0.05)');
+                diskGradient.addColorStop(1, 'rgba(100, 50, 150, 0)');
+                ctx.fillStyle = diskGradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, outerDiskRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw particles (back to front for depth)
+                particles.sort((a, b) => a.z - b.z);
+                particles.forEach(particle => {
+                    particle.update(deltaTime);
+                    particle.draw(ctx);
+                });
+                
+                // Draw event horizon
+                if (config.showEventHorizon) {
+                    drawEventHorizon();
+                }
+                
+                // Draw ISCO (Innermost Stable Circular Orbit)
+                drawInnerStableOrbit();
+                
+                // Draw relativistic jets
+                if (config.showJets) {
+                    jets.forEach(jet => {
+                        jet.update(deltaTime);
+                        jet.draw(ctx);
+                    });
+                }
+                
+                // Update stats periodically
+                if (frameCount % 30 === 0) {
+                    updateStats();
+                }
+            } else {
+                // When paused, still draw the last frame
+                drawBackground();
+                if (config.showGravWaves) {
+                    gravWaves.draw(ctx);
+                }
+                particles.forEach(particle => particle.draw(ctx));
+                if (config.showEventHorizon) {
+                    drawEventHorizon();
+                }
+                drawInnerStableOrbit();
+                if (config.showJets) {
+                    jets.forEach(jet => jet.draw(ctx));
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        // ==================== UI Controls ====================
+        document.getElementById('particleCount').addEventListener('input', (e) => {
+            config.particleCount = parseInt(e.target.value);
+            document.getElementById('particleCountValue').textContent = config.particleCount;
+            initParticles();
+        });
+
+        document.getElementById('accretionRate').addEventListener('input', (e) => {
+            config.accretionRate = parseFloat(e.target.value);
+            document.getElementById('accretionRateValue').textContent = config.accretionRate.toFixed(1) + 'x';
+        });
+
+        document.getElementById('rotationSpeed').addEventListener('input', (e) => {
+            config.rotationSpeed = parseFloat(e.target.value);
+            document.getElementById('rotationSpeedValue').textContent = config.rotationSpeed.toFixed(1) + 'x';
+        });
+
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            config.temperature = parseFloat(e.target.value);
+            document.getElementById('temperatureValue').textContent = config.temperature.toFixed(1) + 'x';
+        });
+
+        document.getElementById('lensing').addEventListener('input', (e) => {
+            config.lensing = parseFloat(e.target.value);
+            document.getElementById('lensingValue').textContent = config.lensing.toFixed(1) + 'x';
+        });
+
+        document.getElementById('showJets').addEventListener('change', (e) => {
+            config.showJets = e.target.checked;
+        });
+
+        document.getElementById('showEventHorizon').addEventListener('change', (e) => {
+            config.showEventHorizon = e.target.checked;
+        });
+
+        document.getElementById('showGravWaves').addEventListener('change', (e) => {
+            config.showGravWaves = e.target.checked;
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            initParticles();
+            jets = [new RelativisticJet(1), new RelativisticJet(-1)];
+            gravWaves = new GravitationalWave();
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', (e) => {
+            config.isPaused = !config.isPaused;
+            e.target.textContent = config.isPaused ? '▶ Play' : '⏸ Pause';
+        });
+
+        document.getElementById('toggleDesc').addEventListener('click', (e) => {
+            const desc = document.querySelector('.description');
+            const isHidden = desc.style.display === 'none';
+            desc.style.display = isHidden ? 'block' : 'none';
+            e.target.textContent = isHidden ? 'ℹ️ Hide Info' : 'ℹ️ Show Info';
+        });
+
+        // Tooltips
+        const tooltips = {
+            'particleCount': 'Number of matter particles in the accretion disk',
+            'accretionRate': 'Speed at which matter spirals into the black hole',
+            'rotationSpeed': 'Angular velocity of the accretion disk (Kerr parameter)',
+            'temperature': 'Disk temperature intensity (affects color and brightness)',
+            'lensing': 'Gravitational lensing effect strength around the photon sphere'
+        };
+
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            input.addEventListener('mouseenter', (e) => {
+                const tooltip = document.getElementById('tooltip');
+                const rect = e.target.getBoundingClientRect();
+                tooltip.textContent = tooltips[e.target.id] || '';
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.top - 50) + 'px';
+                tooltip.classList.add('show');
+            });
+            
+            input.addEventListener('mouseleave', () => {
+                document.getElementById('tooltip').classList.remove('show');
+            });
+        });
+
+        // ==================== Initialization ====================
+        initParticles();
+        updateStats();
+        animate(performance.now());
+    </script>
+</body>
+</html>

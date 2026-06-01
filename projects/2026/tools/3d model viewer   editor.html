@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer & Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            overflow: hidden;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        .section {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .section-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-label {
+            display: block;
+            font-size: 0.9em;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .file-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            font-size: 0.9em;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: none;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        /* Viewport */
+        .viewport {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+        }
+
+        #canvas:active {
+            cursor: grabbing;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        .toolbar button {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 1.5em;
+        }
+
+        /* Stats */
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85em;
+            min-width: 200px;
+        }
+
+        .stats-item {
+            margin-bottom: 5px;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px 50px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        .notification.active {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateX(-50%) translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .color-picker-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .preset-colors {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .preset-color {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .preset-color:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .info-label {
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 50vh;
+            }
+
+            .toolbar {
+                flex-direction: row;
+                top: auto;
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .toolbar button {
+                width: 40px;
+                height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>🎨 3D Model Editor</h1>
+                <p>Load, edit, and export 3D models</p>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📁 File Operations</div>
+                <div class="control-group">
+                    <label class="file-upload-btn" for="fileInput">
+                        📂 Load Model (OBJ/STL)
+                    </label>
+                    <input type="file" id="fileInput" accept=".obj,.stl">
+                </div>
+                <div class="control-group">
+                    <div class="button-group">
+                        <button onclick="loadSampleCube()">Load Cube</button>
+                        <button onclick="loadSampleSphere()">Load Sphere</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <button onclick="exportModel('obj')">💾 Export OBJ</button>
+                </div>
+                <div class="control-group">
+                    <button onclick="exportModel('stl')">💾 Export STL</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🎨 Material Properties</div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Material Color
+                    </label>
+                    <input type="color" id="materialColor" value="#3498db" onchange="updateMaterialColor()">
+                    <div class="preset-colors">
+                        <div class="preset-color" style="background: #e74c3c;" onclick="setColor('#e74c3c')"></div>
+                        <div class="preset-color" style="background: #3498db;" onclick="setColor('#3498db')"></div>
+                        <div class="preset-color" style="background: #2ecc71;" onclick="setColor('#2ecc71')"></div>
+                        <div class="preset-color" style="background: #f39c12;" onclick="setColor('#f39c12')"></div>
+                        <div class="preset-color" style="background: #9b59b6;" onclick="setColor('#9b59b6')"></div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Metalness <span class="value-display" id="metalnessValue">0.5</span>
+                    </label>
+                    <input type="range" id="metalness" min="0" max="1" step="0.01" value="0.5" oninput="updateMaterialMetalness()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Roughness <span class="value-display" id="roughnessValue">0.5</span>
+                    </label>
+                    <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.5" oninput="updateMaterialRoughness()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Opacity <span class="value-display" id="opacityValue">1.0</span>
+                    </label>
+                    <input type="range" id="opacity" min="0" max="1" step="0.01" value="1" oninput="updateMaterialOpacity()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Emissive Intensity <span class="value-display" id="emissiveValue">0.0</span>
+                    </label>
+                    <input type="range" id="emissive" min="0" max="2" step="0.1" value="0" oninput="updateEmissive()">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="wireframe" onchange="toggleWireframe()">
+                    <label for="wireframe">Wireframe Mode</label>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">💡 Lighting</div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Ambient Light <span class="value-display" id="ambientValue">0.5</span>
+                    </label>
+                    <input type="range" id="ambientLight" min="0" max="2" step="0.1" value="0.5" oninput="updateAmbientLight()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Directional Light <span class="value-display" id="directionalValue">1.0</span>
+                    </label>
+                    <input type="range" id="directionalLight" min="0" max="3" step="0.1" value="1" oninput="updateDirectionalLight()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Light Color</label>
+                    <input type="color" id="lightColor" value="#ffffff" onchange="updateLightColor()">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="shadows" checked onchange="toggleShadows()">
+                    <label for="shadows">Enable Shadows</label>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🎬 Transform</div>
+                <div class="control-group">
+                    <label class="control-label">
+                        Scale <span class="value-display" id="scaleValue">1.0</span>
+                    </label>
+                    <input type="range" id="scale" min="0.1" max="3" step="0.1" value="1" oninput="updateScale()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Rotation X <span class="value-display" id="rotXValue">0°</span></label>
+                    <input type="range" id="rotationX" min="0" max="360" value="0" oninput="updateRotation()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Rotation Y <span class="value-display" id="rotYValue">0°</span></label>
+                    <input type="range" id="rotationY" min="0" max="360" value="0" oninput="updateRotation()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Rotation Z <span class="value-display" id="rotZValue">0°</span></label>
+                    <input type="range" id="rotationZ" min="0" max="360" value="0" oninput="updateRotation()">
+                </div>
+                <div class="control-group">
+                    <div class="button-group">
+                        <button onclick="resetTransform()">Reset Transform</button>
+                        <button onclick="centerModel()">Center Model</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">ℹ️ Model Info</div>
+                <div class="info-panel" id="modelInfo">
+                    <div class="info-item">
+                        <span class="info-label">Vertices:</span>
+                        <span class="info-value" id="vertexCount">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Faces:</span>
+                        <span class="info-value" id="faceCount">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">File Size:</span>
+                        <span class="info-value" id="fileSize">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">⚙️ View Settings</div>
+                <div class="control-group">
+                    <label class="control-label">Background Color</label>
+                    <input type="color" id="bgColor" value="#1a1a2e" onchange="updateBackground()">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Camera FOV <span class="value-display" id="fovValue">75°</span></label>
+                    <input type="range" id="fov" min="30" max="120" value="75" oninput="updateFOV()">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="grid" checked onchange="toggleGrid()">
+                    <label for="grid">Show Grid</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="axes" checked onchange="toggleAxes()">
+                    <label for="axes">Show Axes</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="viewport">
+            <canvas id="canvas"></canvas>
+            <div class="toolbar">
+                <button onclick="resetCamera()" title="Reset Camera">🎥</button>
+                <button onclick="toggleAutoRotate()" title="Auto Rotate">🔄</button>
+                <button onclick="takeScreenshot()" title="Screenshot">📸</button>
+            </div>
+            <div class="stats">
+                <div class="stats-item">FPS: <span id="fps">60</span></div>
+                <div class="stats-item">Draw Calls: <span id="drawCalls">0</span></div>
+                <div class="stats-item">Triangles: <span id="triangles">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading model...</div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js Setup
+        let scene, camera, renderer, controls;
+        let currentModel, gridHelper, axesHelper;
+        let ambientLight, directionalLight;
+        let autoRotate = false;
+        let lastTime = Date.now();
+        let frameCount = 0;
+        let currentMaterial;
+        let modelBoundingBox;
+
+        function init() {
+            const canvas = document.getElementById('canvas');
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                canvas.clientWidth / canvas.clientHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(5, 5, 5);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas, 
+                antialias: true,
+                preserveDrawingBuffer: true 
+            });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Controls (Simple orbit controls implementation)
+            setupControls();
+
+            // Lights
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Grid
+            gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+            scene.add(gridHelper);
+
+            // Axes
+            axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+
+            // File input
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+            // Load default model
+            loadSampleCube();
+
+            // Start animation loop
+            animate();
+        }
+
+        function setupControls() {
+            const canvas = document.getElementById('canvas');
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let previousTouchDistance = 0;
+
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+
+                    if (e.shiftKey) {
+                        // Pan
+                        camera.position.x -= deltaX * 0.01;
+                        camera.position.y += deltaY * 0.01;
+                    } else {
+                        // Rotate camera around target
+                        const rotationSpeed = 0.005;
+                        const spherical = new THREE.Spherical();
+                        spherical.setFromVector3(camera.position);
+                        spherical.theta -= deltaX * rotationSpeed;
+                        spherical.phi -= deltaY * rotationSpeed;
+                        spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                        camera.position.setFromSpherical(spherical);
+                        camera.lookAt(0, 0, 0);
+                    }
+
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomSpeed = 0.1;
+                const direction = camera.position.clone().normalize();
+                camera.position.addScaledVector(direction, e.deltaY * zoomSpeed * 0.01);
+                camera.position.clampLength(2, 50);
+            }, { passive: false });
+
+            // Touch controls
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = { 
+                        x: e.touches[0].clientX, 
+                        y: e.touches[0].clientY 
+                    };
+                } else if (e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    previousTouchDistance = Math.sqrt(dx * dx + dy * dy);
+                }
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isDragging) {
+                    const deltaX = e.touches[0].clientX - previousMousePosition.x;
+                    const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+                    const rotationSpeed = 0.005;
+                    const spherical = new THREE.Spherical();
+                    spherical.setFromVector3(camera.position);
+                    spherical.theta -= deltaX * rotationSpeed;
+                    spherical.phi -= deltaY * rotationSpeed;
+                    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                    camera.position.setFromSpherical(spherical);
+                    camera.lookAt(0, 0, 0);
+
+                    previousMousePosition = { 
+                        x: e.touches[0].clientX, 
+                        y: e.touches[0].clientY 
+                    };
+                } else if (e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const delta = distance - previousTouchDistance;
+                    
+                    const direction = camera.position.clone().normalize();
+                    camera.position.addScaledVector(direction, -delta * 0.01);
+                    camera.position.clampLength(2, 50);
+                    
+                    previousTouchDistance = distance;
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Auto rotate
+            if (autoRotate && currentModel) {
+                currentModel.rotation.y += 0.01;
+            }
+
+            // FPS counter
+            frameCount++;
+            const currentTime = Date.now();
+            if (currentTime - lastTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            // Update stats
+            if (renderer.info) {
+                document.getElementById('drawCalls').textContent = renderer.info.render.calls;
+                document.getElementById('triangles').textContent = renderer.info.render.triangles;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const canvas = document.getElementById('canvas');
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
+
+        // File Loading
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading(true);
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const extension = file.name.split('.').pop().toLowerCase();
+
+                try {
+                    if (extension === 'obj') {
+                        loadOBJ(content);
+                    } else if (extension === 'stl') {
+                        loadSTL(content);
+                    } else {
+                        showNotification('Unsupported file format');
+                    }
+
+                    // Update file info
+                    document.getElementById('fileSize').textContent = formatBytes(file.size);
+                } catch (error) {
+                    console.error('Error loading file:', error);
+                    showNotification('Error loading file: ' + error.message);
+                }
+
+                showLoading(false);
+            };
+
+            if (file.name.endsWith('.stl')) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file);
+            }
+        }
+
+        function loadOBJ(content) {
+            const vertices = [];
+            const faces = [];
+            const lines = content.split('\n');
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('v ')) {
+                    const parts = line.split(/\s+/);
+                    vertices.push(
+                        parseFloat(parts[1]),
+                        parseFloat(parts[2]),
+                        parseFloat(parts[3])
+                    );
+                } else if (line.startsWith('f ')) {
+                    const parts = line.split(/\s+/).slice(1);
+                    const indices = parts.map(p => {
+                        const idx = parseInt(p.split('/')[0]) - 1;
+                        return idx;
+                    });
+                    
+                    // Triangulate face
+                    for (let i = 1; i < indices.length - 1; i++) {
+                        faces.push(indices[0], indices[i], indices[i + 1]);
+                    }
+                }
+            }
+
+            createModelFromData(vertices, faces);
+            showNotification('OBJ file loaded successfully!');
+        }
+
+        function loadSTL(arrayBuffer) {
+            const view = new DataView(arrayBuffer);
+            
+            // Check if binary or ASCII
+            const isBinary = view.byteLength > 84;
+            
+            if (isBinary) {
+                loadBinarySTL(view);
+            } else {
+                loadASCIISTL(new TextDecoder().decode(arrayBuffer));
+            }
+        }
+
+        function loadBinarySTL(view) {
+            const triangles = view.getUint32(80, true);
+            const vertices = [];
+            const faces = [];
+            
+            let offset = 84;
+            for (let i = 0; i < triangles; i++) {
+                // Skip normal (12 bytes)
+                offset += 12;
+                
+                // Read 3 vertices
+                const startIdx = vertices.length / 3;
+                for (let j = 0; j < 3; j++) {
+                    vertices.push(
+                        view.getFloat32(offset, true),
+                        view.getFloat32(offset + 4, true),
+                        view.getFloat32(offset + 8, true)
+                    );
+                    offset += 12;
+                }
+                
+                faces.push(startIdx, startIdx + 1, startIdx + 2);
+                
+                // Skip attribute byte count
+                offset += 2;
+            }
+
+            createModelFromData(vertices, faces);
+            showNotification('STL file loaded successfully!');
+        }
+
+        function loadASCIISTL(content) {
+            const vertices = [];
+            const faces = [];
+            const lines = content.split('\n');
+            let vertexCount = 0;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('vertex')) {
+                    const parts = line.split(/\s+/);
+                    vertices.push(
+                        parseFloat(parts[1]),
+                        parseFloat(parts[2]),
+                        parseFloat(parts[3])
+                    );
+                    
+                    if (vertexCount % 3 === 2) {
+                        const startIdx = vertexCount - 2;
+                        faces.push(startIdx, startIdx + 1, startIdx + 2);
+                    }
+                    vertexCount++;
+                }
+            }
+
+            createModelFromData(vertices, faces);
+            showNotification('STL file loaded successfully!');
+        }
+
+        function createModelFromData(vertices, faces) {
+            if (currentModel) {
+                scene.remove(currentModel);
+                currentModel.geometry.dispose();
+                currentModel.material.dispose();
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(faces);
+            geometry.computeVertexNormals();
+
+            currentMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(document.getElementById('materialColor').value),
+                metalness: parseFloat(document.getElementById('metalness').value),
+                roughness: parseFloat(document.getElementById('roughness').value),
+                side: THREE.DoubleSide
+            });
+
+            currentModel = new THREE.Mesh(geometry, currentMaterial);
+            currentModel.castShadow = true;
+            currentModel.receiveShadow = true;
+
+            scene.add(currentModel);
+
+            // Center and scale model
+            centerModel();
+            updateModelInfo();
+        }
+
+        // Sample Models
+        function loadSampleCube() {
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            currentMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(document.getElementById('materialColor').value),
+                metalness: parseFloat(document.getElementById('metalness').value),
+                roughness: parseFloat(document.getElementById('roughness').value),
+            });
+
+            currentModel = new THREE.Mesh(geometry, currentMaterial);
+            currentModel.castShadow = true;
+            currentModel.receiveShadow = true;
+            scene.add(currentModel);
+
+            updateModelInfo();
+            showNotification('Cube loaded!');
+        }
+
+        function loadSampleSphere() {
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+
+            const geometry = new THREE.SphereGeometry(1.5, 32, 32);
+            currentMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(document.getElementById('materialColor').value),
+                metalness: parseFloat(document.getElementById('metalness').value),
+                roughness: parseFloat(document.getElementById('roughness').value),
+            });
+
+            currentModel = new THREE.Mesh(geometry, currentMaterial);
+            currentModel.castShadow = true;
+            currentModel.receiveShadow = true;
+            scene.add(currentModel);
+
+            updateModelInfo();
+            showNotification('Sphere loaded!');
+        }
+
+        // Material Updates
+        function updateMaterialColor() {
+            if (currentMaterial) {
+                const color = document.getElementById('materialColor').value;
+                currentMaterial.color.set(color);
+            }
+        }
+
+        function setColor(color) {
+            document.getElementById('materialColor').value = color;
+            updateMaterialColor();
+        }
+
+        function updateMaterialMetalness() {
+            const value = document.getElementById('metalness').value;
+            document.getElementById('metalnessValue').textContent = parseFloat(value).toFixed(2);
+            if (currentMaterial) {
+                currentMaterial.metalness = parseFloat(value);
+            }
+        }
+
+        function updateMaterialRoughness() {
+            const value = document.getElementById('roughness').value;
+            document.getElementById('roughnessValue').textContent = parseFloat(value).toFixed(2);
+            if (currentMaterial) {
+                currentMaterial.roughness = parseFloat(value);
+            }
+        }
+
+        function updateMaterialOpacity() {
+            const value = document.getElementById('opacity').value;
+            document.getElementById('opacityValue').textContent = parseFloat(value).toFixed(2);
+            if (currentMaterial) {
+                currentMaterial.opacity = parseFloat(value);
+                currentMaterial.transparent = value < 1;
+            }
+        }
+
+        function updateEmissive() {
+            const value = document.getElementById('emissive').value;
+            document.getElementById('emissiveValue').textContent = parseFloat(value).toFixed(1);
+            if (currentMaterial) {
+                currentMaterial.emissiveIntensity = parseFloat(value);
+                currentMaterial.emissive.set(currentMaterial.color);
+            }
+        }
+
+        function toggleWireframe() {
+            if (currentMaterial) {
+                currentMaterial.wireframe = document.getElementById('wireframe').checked;
+            }
+        }
+
+        // Lighting
+        function updateAmbientLight() {
+            const value = document.getElementById('ambientLight').value;
+            document.getElementById('ambientValue').textContent = parseFloat(value).toFixed(1);
+            ambientLight.intensity = parseFloat(value);
+        }
+
+        function updateDirectionalLight() {
+            const value = document.getElementById('directionalLight').value;
+            document.getElementById('directionalValue').textContent = parseFloat(value).toFixed(1);
+            directionalLight.intensity = parseFloat(value);
+        }
+
+        function updateLightColor() {
+            const color = document.getElementById('lightColor').value;
+            directionalLight.color.set(color);
+        }
+
+        function toggleShadows() {
+            const enabled = document.getElementById('shadows').checked;
+            renderer.shadowMap.enabled = enabled;
+            if (currentModel) {
+                currentModel.castShadow = enabled;
+                currentModel.receiveShadow = enabled;
+            }
+        }
+
+        // Transform
+        function updateScale() {
+            const value = document.getElementById('scale').value;
+            document.getElementById('scaleValue').textContent = parseFloat(value).toFixed(1);
+            if (currentModel) {
+                currentModel.scale.set(value, value, value);
+            }
+        }
+
+        function updateRotation() {
+            if (!currentModel) return;
+            
+            const x = parseFloat(document.getElementById('rotationX').value);
+            const y = parseFloat(document.getElementById('rotationY').value);
+            const z = parseFloat(document.getElementById('rotationZ').value);
+            
+            document.getElementById('rotXValue').textContent = x + '°';
+            document.getElementById('rotYValue').textContent = y + '°';
+            document.getElementById('rotZValue').textContent = z + '°';
+            
+            currentModel.rotation.set(
+                THREE.MathUtils.degToRad(x),
+                THREE.MathUtils.degToRad(y),
+                THREE.MathUtils.degToRad(z)
+            );
+        }
+
+        function resetTransform() {
+            document.getElementById('scale').value = 1;
+            document.getElementById('rotationX').value = 0;
+            document.getElementById('rotationY').value = 0;
+            document.getElementById('rotationZ').value = 0;
+            
+            updateScale();
+            updateRotation();
+            
+            showNotification('Transform reset!');
+        }
+
+        function centerModel() {
+            if (!currentModel) return;
+
+            const box = new THREE.Box3().setFromObject(currentModel);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+
+            currentModel.position.sub(center);
+
+            // Auto-scale to fit view
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const targetSize = 4;
+            const scale = targetSize / maxDim;
+            currentModel.scale.multiplyScalar(scale);
+
+            document.getElementById('scale').value = scale;
+            updateScale();
+        }
+
+        // View Settings
+        function updateBackground() {
+            const color = document.getElementById('bgColor').value;
+            scene.background = new THREE.Color(color);
+        }
+
+        function updateFOV() {
+            const value = document.getElementById('fov').value;
+            document.getElementById('fovValue').textContent = value + '°';
+            camera.fov = parseFloat(value);
+            camera.updateProjectionMatrix();
+        }
+
+        function toggleGrid() {
+            gridHelper.visible = document.getElementById('grid').checked;
+        }
+
+        function toggleAxes() {
+            axesHelper.visible = document.getElementById('axes').checked;
+        }
+
+        // Camera
+        function resetCamera() {
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            showNotification('Camera reset!');
+        }
+
+        function toggleAutoRotate() {
+            autoRotate = !autoRotate;
+            showNotification(autoRotate ? 'Auto-rotate enabled' : 'Auto-rotate disabled');
+        }
+
+        // Export
+        function exportModel(format) {
+            if (!currentModel) {
+                showNotification('No model to export!');
+                return;
+            }
+
+            let content;
+            let filename;
+            let mimeType;
+
+            if (format === 'obj') {
+                content = exportToOBJ();
+                filename = 'model.obj';
+                mimeType = 'text/plain';
+            } else if (format === 'stl') {
+                content = exportToSTL();
+                filename = 'model.stl';
+                mimeType = 'application/octet-stream';
+            }
+
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showNotification(`Model exported as ${format.toUpperCase()}!`);
+        }
+
+        function exportToOBJ() {
+            const geometry = currentModel.geometry;
+            const position = geometry.attributes.position;
+            const index = geometry.index;
+
+            let obj = '# Exported from 3D Model Editor\n\n';
+
+            // Write vertices
+            for (let i = 0; i < position.count; i++) {
+                obj += `v ${position.getX(i)} ${position.getY(i)} ${position.getZ(i)}\n`;
+            }
+
+            obj += '\n';
+
+            // Write faces
+            if (index) {
+                for (let i = 0; i < index.count; i += 3) {
+                    obj += `f ${index.getX(i) + 1} ${index.getX(i + 1) + 1} ${index.getX(i + 2) + 1}\n`;
+                }
+            } else {
+                for (let i = 0; i < position.count; i += 3) {
+                    obj += `f ${i + 1} ${i + 2} ${i + 3}\n`;
+                }
+            }
+
+            return obj;
+        }
+
+        function exportToSTL() {
+            const geometry = currentModel.geometry;
+            const position = geometry.attributes.position;
+            const normal = geometry.attributes.normal;
+            const index = geometry.index;
+
+            let triangles = index ? index.count / 3 : position.count / 3;
+            
+            // Binary STL
+            const buffer = new ArrayBuffer(84 + triangles * 50);
+            const view = new DataView(buffer);
+
+            // Header (80 bytes)
+            const header = 'Binary STL exported from 3D Model Editor';
+            for (let i = 0; i < header.length && i < 80; i++) {
+                view.setUint8(i, header.charCodeAt(i));
+            }
+
+            // Triangle count
+            view.setUint32(80, triangles, true);
+
+            let offset = 84;
+            
+            for (let i = 0; i < triangles; i++) {
+                const i0 = index ? index.getX(i * 3) : i * 3;
+                const i1 = index ? index.getX(i * 3 + 1) : i * 3 + 1;
+                const i2 = index ? index.getX(i * 3 + 2) : i * 3 + 2;
+
+                // Normal
+                const nx = (normal.getX(i0) + normal.getX(i1) + normal.getX(i2)) / 3;
+                const ny = (normal.getY(i0) + normal.getY(i1) + normal.getY(i2)) / 3;
+                const nz = (normal.getZ(i0) + normal.getZ(i1) + normal.getZ(i2)) / 3;
+
+                view.setFloat32(offset, nx, true); offset += 4;
+                view.setFloat32(offset, ny, true); offset += 4;
+                view.setFloat32(offset, nz, true); offset += 4;
+
+                // Vertices
+                for (let j of [i0, i1, i2]) {
+                    view.setFloat32(offset, position.getX(j), true); offset += 4;
+                    view.setFloat32(offset, position.getY(j), true); offset += 4;
+                    view.setFloat32(offset, position.getZ(j), true); offset += 4;
+                }
+
+                // Attribute byte count
+                view.setUint16(offset, 0, true); offset += 2;
+            }
+
+            return buffer;
+        }
+
+        // Screenshot
+        function takeScreenshot() {
+            renderer.render(scene, camera);
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'screenshot.png';
+                link.click();
+                URL.revokeObjectURL(url);
+                showNotification('Screenshot saved!');
+            });
+        }
+
+        // Utilities
+        function updateModelInfo() {
+            if (!currentModel) return;
+
+            const geometry = currentModel.geometry;
+            const vertices = geometry.attributes.position.count;
+            const faces = geometry.index ? geometry.index.count / 3 : vertices / 3;
+
+            document.getElementById('vertexCount').textContent = vertices.toLocaleString();
+            document.getElementById('faceCount').textContent = Math.floor(faces).toLocaleString();
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('active', show);
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('active');
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 3000);
+        }
+
+        // Initialize
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

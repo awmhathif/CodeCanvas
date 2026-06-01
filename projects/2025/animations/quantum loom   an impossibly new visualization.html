@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quantum Loom — An Impossibly New Visualization</title>
+  <meta name="description" content="A genuinely new, generative, living visualization: The Quantum Loom. Threads of time weave through a Klein-bottle phyllotaxis field with field-driven filaments, responsive glyphs, and luminous bloom." />
+  <style>
+    :root{
+      --bg-0:#0b0f14;
+      --bg-1:#06080c;
+      --fg:#e8f1ff;
+      --muted:#9fb2c8;
+      --accent:#6bf7ff;
+      --accent-2:#ff81e3;
+      --glass: rgba(255,255,255,0.06);
+      --glass-strong: rgba(255,255,255,0.09);
+      --glow: 0 0 40px rgba(60, 200, 255, 0.4);
+      --ring: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: radial-gradient(1200px 800px at 65% 35%, #0c1122 4%, var(--bg-0) 55%, var(--bg-1) 100%);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      overflow: hidden;
+    }
+
+    /* Layout */
+    .app {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 30;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    header .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    header .brand h1{
+      font-size: 18px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 0;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--glass);
+      box-shadow: var(--ring);
+    }
+    header .brand .subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.95;
+    }
+    header .spacer{
+      flex: 1;
+    }
+
+    .panel {
+      display: inline-flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--glass);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--glow), 0 8px 30px rgba(0,0,0,0.35) inset;
+    }
+
+    button, .select, .field {
+      appearance: none;
+      background: rgba(255,255,255,0.05);
+      color: var(--fg);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.10);
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: 140ms ease;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset;
+    }
+    button:hover { background: rgba(255,255,255,0.07); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button.primary{
+      background: linear-gradient(180deg, rgba(78, 255, 236, 0.15), rgba(78, 199, 255, 0.12));
+      border-color: rgba(78, 199, 255, 0.35);
+      box-shadow: 0 0 20px rgba(57,145,255,0.25);
+    }
+    .divider {
+      width: 1px;
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.25), rgba(255,255,255,0));
+      margin: 0 6px;
+    }
+
+    .control {
+      display: grid;
+      grid-template-columns: 110px 160px 60px;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .control label { font-size: 12px; color: var(--muted); }
+    .control input[type="range"] {
+      width: 100%;
+      accent-color: #7FE3FF;
+      background: transparent;
+    }
+    .control .value {
+      font-size: 12px;
+      color: var(--fg);
+      opacity: 0.85;
+      text-align: right;
+      padding-right: 2px;
+    }
+
+    .hud {
+      position: fixed;
+      right: 16px;
+      top: 76px;
+      z-index: 30;
+      display: grid;
+      gap: 10px;
+      width: min(360px, calc(100vw - 32px));
+    }
+    .hud .group {
+      padding: 12px;
+      border-radius: 16px;
+      background: var(--glass);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--ring), 0 12px 50px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .hud h3 {
+      margin: 0 0 10px 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #cfe7ff;
+      opacity: 0.9;
+    }
+
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 16px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0));
+      border-top: 1px solid rgba(255,255,255,0.06);
+      z-index: 30;
+    }
+    footer .tips {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    footer .coords {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      color: #a9d9ff;
+      background: rgba(255,255,255,0.06);
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      min-width: 160px;
+      text-align: center;
+    }
+
+    /* Canvas stack */
+    .stage {
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      contain: strict;
+    }
+    canvas.layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+    canvas.layer.interactive {
+      pointer-events: auto;
+    }
+
+    /* Help modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .modal.open { display:flex; }
+    .modal .backdrop{
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .modal .content{
+      position: relative;
+      width: min(860px, calc(100vw - 32px));
+      max-height: calc(100vh - 120px);
+      overflow: auto;
+      padding: 20px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(22,28,44,0.95), rgba(9,12,18,0.95));
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+      color: #e8f1ff;
+    }
+    .modal .content h2{
+      margin: 0 0 10px 0;
+      letter-spacing: 0.06em;
+    }
+    .modal .content p{
+      color: #d2def0;
+      line-height: 1.5;
+    }
+    .modal .content code{
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color: #bce7ff;
+    }
+
+    /* Floating watermark/credit unobtrusive */
+    .watermark {
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      z-index: 20;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(200,240,255,0.35);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 6px 8px;
+      border-radius: 6px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Decorative: faint vignette */
+    .vignette {
+      position: fixed;
+      inset: -20px;
+      pointer-events: none;
+      background:
+        radial-gradient(1300px 650px at 10% 80%, rgba(255, 156, 235, 0.10), transparent 60%),
+        radial-gradient(1100px 700px at 85% 20%, rgba(99, 200, 255, 0.10), transparent 55%),
+        radial-gradient(1400px 800px at 50% 50%, rgba(255,255,255,0.06), transparent 60%),
+        radial-gradient(100% 100% at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.35));
+      z-index: 2;
+    }
+
+    /* Hide scrollbars in modal content on some platforms */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+
+    /* Responsive tweaks */
+    @media (max-width: 900px) {
+      .control { grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; }
+      .control .value { grid-column: span 2; text-align: left; }
+      header .brand h1 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <h1>Quantum Loom</h1>
+        <div class="subtitle">A living Klein-bottle phyllo-weave with luminous temporal threads</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="panel">
+        <button id="btnRandom" title="Randomize seed (R)" class="primary">Randomize</button>
+        <button id="btnPause" title="Pause / Resume (Space)">Pause</button>
+        <button id="btnSave" title="Save snapshot (S)">Save PNG</button>
+        <button id="btnHelp" title="Open Help (H)">Help</button>
+      </div>
+    </header>
+
+    <div class="stage" id="stage">
+      <!-- Canvas layers. Ordering matters (first is back-most) -->
+      <canvas id="c-bg" class="layer"></canvas>
+      <canvas id="c-threads" class="layer"></canvas>
+      <canvas id="c-field" class="layer"></canvas>
+      <canvas id="c-glyphs" class="layer interactive"></canvas>
+      <!-- The vignette overlays the entire scene softly -->
+      <div class="vignette"></div>
+    </div>
+
+    <div class="hud" id="hud">
+      <div class="group">
+        <h3>Weave Parameters</h3>
+        <div class="control">
+          <label for="threads">Thread Count</label>
+          <input id="threads" type="range" min="32" max="480" step="1" value="220" />
+          <div class="value" id="threadsValue">220</div>
+        </div>
+        <div class="control">
+          <label for="warp">Warp Intensity</label>
+          <input id="warp" type="range" min="0" max="1" step="0.001" value="0.42" />
+          <div class="value" id="warpValue">0.42</div>
+        </div>
+        <div class="control">
+          <label for="speed">Time Speed</label>
+          <input id="speed" type="range" min="0" max="2" step="0.001" value="0.85" />
+          <div class="value" id="speedValue">0.85</div>
+        </div>
+        <div class="control">
+          <label for="bloom">Bloom</label>
+          <input id="bloom" type="range" min="0" max="1" step="0.001" value="0.55" />
+          <div class="value" id="bloomValue">0.55</div>
+        </div>
+        <div class="control">
+          <label for="trail">Persistence</label>
+          <input id="trail" type="range" min="0" max="1" step="0.001" value="0.08" />
+          <div class="value" id="trailValue">0.08</div>
+        </div>
+      </div>
+      <div class="group">
+        <h3>Color & Modes</h3>
+        <div class="control">
+          <label for="palette">Palette</label>
+          <input id="palette" type="range" min="0" max="5" step="1" value="2" />
+          <div class="value" id="paletteValue">2 — Aurora Glass</div>
+        </div>
+        <div class="control">
+          <label for="phyllo">Phyllo Density</label>
+          <input id="phyllo" type="range" min="128" max="4096" step="1" value="1800" />
+          <div class="value" id="phylloValue">1800</div>
+        </div>
+        <div class="control">
+          <label for="glyphs">Glyph Flux</label>
+          <input id="glyphs" type="range" min="0" max="1" step="0.001" value="0.35" />
+          <div class="value" id="glyphsValue">0.35</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="tips">
+        Keys: [R]andomize • [Space] Pause/Resume • [S] Save • [H] Help • [1..6] Palettes • Drag to bend spacetime • Scroll to zoom garden
+      </div>
+      <div class="coords" id="coords">x: 0.00, y: 0.00</div>
+    </footer>
+  </div>
+
+  <div class="modal" id="helpModal" aria-hidden="true" role="dialog">
+    <div class="backdrop" id="helpBackdrop"></div>
+    <div class="content">
+      <h2>Quantum Loom — What am I seeing?</h2>
+      <p>
+        An entirely new kind of living visualization: a Klein-bottle phyllotaxis garden woven with temporal threads.
+        Seeds grow on a phyllotactic spiral but are mapped over a rotating Klein bottle in 3D, then collapsed back into 2D. Threads traverse a responsive vector field that you bend with your pointer, and everything is gently diffused into light using a software bloom pass.
+      </p>
+      <p>
+        Gestures:
+        <br>- Move your pointer to warp spacetime and attract filaments.
+        <br>- Click to stamp ephemeral runic glyphs that dissolve into the weave.
+        <br>- Scroll over the stage to zoom the garden density.
+      </p>
+      <p>Controls:</p>
+      <ul>
+        <li><code>R</code> — Randomize the seed and regenerate the entire universe.</li>
+        <li><code>Space</code> — Pause/Resume the simulation.</li>
+        <li><code>S</code> — Save a high-resolution PNG snapshot.</li>
+        <li><code>H</code> — Toggle this help.</li>
+        <li><code>1..6</code> — Switch color palettes.</li>
+      </ul>
+      <p>
+        Sliders let you sculpt the number of threads, field warp intensity, temporal speed, bloom diffusion, persistence, and density of the phyllo garden, as well as glyph flux.
+      </p>
+      <p>
+        The result is a dynamic, never-before-seen field of living ornamentation. It is not a kaleidoscope, not a typical flow field, not a simple particle system—it's a quantum loom weaving color, space, and time.
+      </p>
+    </div>
+  </div>
+
+  <div class="watermark">Quantum Loom — Novel Generative Visualization</div>
+
+  <script>
+    /* ============================================================
+       Quantum Loom
+       A uniquely new visualization:
+       - Threads move in a dynamic vector field shaped by time and user input.
+       - A phyllotaxis garden is mapped to a Klein bottle in 3D then projected to 2D,
+         rotating in time to create impossible courtyards in the warp.
+       - Ephemeral glyphs (runic superellipse stars) stamp and dissolve into the threads.
+       - A software bloom pass diffuses light from bright values.
+       ============================================================ */
+
+    // Utility: clamp and lerp
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const fract = x => x - Math.floor(x);
+
+    // Seeded RNG (Mulberry32)
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // Hash and noise
+    function hash(n) {
+      return fract(Math.sin(n) * 43758.5453123);
+    }
+    function hash2D(x, y) {
+      return fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453123);
+    }
+    function valueNoise2D(x, y) {
+      // Simple grid-based value noise with bilinear interpolation
+      const xi = Math.floor(x);
+      const yi = Math.floor(y);
+      const xf = x - xi;
+      const yf = y - yi;
+      const tl = hash2D(xi, yi);
+      const tr = hash2D(xi + 1, yi);
+      const bl = hash2D(xi, yi + 1);
+      const br = hash2D(xi + 1, yi + 1);
+      const u = xf * xf * (3.0 - 2.0 * xf);
+      const v = yf * yf * (3.0 - 2.0 * yf);
+      return lerp(lerp(tl, tr, u), lerp(bl, br, u), v);
+    }
+    function fbm2D(x, y, o = 4, p = 2.0, g = 0.5) {
+      let total = 0;
+      let amp = 0.5;
+      let freq = 1.0;
+      for (let i = 0; i < o; i++) {
+        total += amp * valueNoise2D(x * freq, y * freq);
+        freq *= p;
+        amp *= g;
+      }
+      return total;
+    }
+
+    // Color tools
+    function hsla(h, s, l, a=1) {
+      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+    }
+    function hslToRgb(h, s, l) {
+      s /= 100; l /= 100;
+      const c = (1 - Math.abs(2*l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c/2;
+      let r=0,g=0,b=0;
+      if (0 <= h && h < 60) { r=c; g=x; b=0; }
+      else if (60 <= h && h < 120) { r=x; g=c; b=0; }
+      else if (120 <= h && h < 180) { r=0; g=c; b=x; }
+      else if (180 <= h && h < 240) { r=0; g=x; b=c; }
+      else if (240 <= h && h < 300) { r=x; g=0; b=c; }
+      else { r=c; g=0; b=x; }
+      return [(r+m)*255, (g+m)*255, (b+m)*255];
+    }
+
+    function sinePalette(t, a=[0.5,0.5,0.5], b=[0.5,0.5,0.5], c=[1,1,1], d=[0,0.33,0.67]) {
+      // t in [0,1]
+      return [
+        a[0] + b[0]*Math.sin(2*Math.PI*(c[0]*t + d[0])),
+        a[1] + b[1]*Math.sin(2*Math.PI*(c[1]*t + d[1])),
+        a[2] + b[2]*Math.sin(2*Math.PI*(c[2]*t + d[2])),
+      ];
+    }
+
+    // Palettes — distinctive sets
+    const Palettes = [
+      {
+        name: "Glacial Neon",
+        map: t => {
+          const p = sinePalette(t, [0.55,0.55,0.65],[0.45,0.35,0.35],[1,1,1],[0.0,0.33,0.67]);
+          return `rgb(${Math.floor(255*p[0])}, ${Math.floor(255*p[1])}, ${Math.floor(255*p[2])})`;
+        }
+      },
+      {
+        name: "Solaris Ink",
+        map: t => {
+          const h = (300 + 180 * t) % 360;
+          const s = 60 + 36*Math.sin(6.2831*t);
+          const l = 40 + 20*Math.sin(6.2831*(t+0.33));
+          return hsla(h, s, l, 1);
+        }
+      },
+      {
+        name: "Aurora Glass",
+        map: t => {
+          const h = (190 + 200*Math.pow(t, 1.2)) % 360;
+          return hsla(h, 70 + 25*(0.5 - Math.abs(0.5-t)), 60 + 10*Math.sin(6.2831*t), 1);
+        }
+      },
+      {
+        name: "Velvet Plasma",
+        map: t => {
+          const h = (260 + 260*(t*t)) % 360;
+          return hsla(h, 72, 55 + 15*Math.sin(12.566*t), 1);
+        }
+      },
+      {
+        name: "Circuit Coral",
+        map: t => {
+          const h = (20 + 120*t) % 360;
+          return hsla(h, 75, 58 + 18*Math.sin(31.415*t), 1);
+        }
+      },
+      {
+        name: "Prismatic Ash",
+        map: t => {
+          const h = (330 + 360*t) % 360;
+          return hsla(h, 50 + 25*Math.sin(12.566*t), 50 + 15*Math.cos(6.283*t), 1);
+        }
+      }
+    ];
+
+    // DOM
+    const stage = document.getElementById('stage');
+    const cBG = document.getElementById('c-bg');
+    const cThreads = document.getElementById('c-threads');
+    const cField = document.getElementById('c-field');
+    const cGlyphs = document.getElementById('c-glyphs');
+
+    const btnRandom = document.getElementById('btnRandom');
+    const btnPause = document.getElementById('btnPause');
+    const btnSave = document.getElementById('btnSave');
+    const btnHelp = document.getElementById('btnHelp');
+
+    const threadsSlider = document.getElementById('threads');
+    const warpSlider = document.getElementById('warp');
+    const speedSlider = document.getElementById('speed');
+    const bloomSlider = document.getElementById('bloom');
+    const trailSlider = document.getElementById('trail');
+    const paletteSlider = document.getElementById('palette');
+    const phylloSlider = document.getElementById('phyllo');
+    const glyphsSlider = document.getElementById('glyphs');
+
+    const threadsValue = document.getElementById('threadsValue');
+    const warpValue = document.getElementById('warpValue');
+    const speedValue = document.getElementById('speedValue');
+    const bloomValue = document.getElementById('bloomValue');
+    const trailValue = document.getElementById('trailValue');
+    const paletteValue = document.getElementById('paletteValue');
+    const phylloValue = document.getElementById('phylloValue');
+    const glyphsValue = document.getElementById('glyphsValue');
+
+    const coords = document.getElementById('coords');
+
+    const helpModal = document.getElementById('helpModal');
+    const helpBackdrop = document.getElementById('helpBackdrop');
+
+    // Canvas contexts
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const ctxBG = cBG.getContext('2d', { alpha: true, desynchronized: true });
+    const ctxThreads = cThreads.getContext('2d', { alpha: true, desynchronized: true });
+    const ctxField = cField.getContext('2d', { alpha: true, desynchronized: true });
+    const ctxGlyphs = cGlyphs.getContext('2d', { alpha: true, desynchronized: true });
+
+    // Offscreen canvases for bloom and export
+    const offA = document.createElement('canvas');
+    const offB = document.createElement('canvas');
+    const ctxOffA = offA.getContext('2d', { alpha: true });
+    const ctxOffB = offB.getContext('2d', { alpha: true });
+
+    // State
+    let W = 0, H = 0;
+    let timeStart = performance.now();
+    let now = 0;
+    let dt = 0;
+    let running = true;
+    let seed = Math.floor(Math.random() * 1e9);
+    let rng = mulberry32(seed);
+
+    let pointer = { x: 0, y: 0, nX: 0, nY: 0, down: false };
+    let settings = {
+      threads: parseInt(threadsSlider.value),
+      warp: parseFloat(warpSlider.value),
+      speed: parseFloat(speedSlider.value),
+      bloom: parseFloat(bloomSlider.value),
+      trail: parseFloat(trailSlider.value),
+      paletteIndex: parseInt(paletteSlider.value),
+      phylloCount: parseInt(phylloSlider.value),
+      glyphFlux: parseFloat(glyphsSlider.value)
+    };
+
+    // Update labels immediately
+    function refreshLabels() {
+      threadsValue.textContent = settings.threads;
+      warpValue.textContent = settings.warp.toFixed(2);
+      speedValue.textContent = settings.speed.toFixed(2);
+      bloomValue.textContent = settings.bloom.toFixed(2);
+      trailValue.textContent = settings.trail.toFixed(2);
+      paletteValue.textContent = `${settings.paletteIndex} — ${Palettes[settings.paletteIndex].name}`;
+      phylloValue.textContent = settings.phylloCount;
+      glyphsValue.textContent = settings.glyphFlux.toFixed(2);
+    }
+    refreshLabels();
+
+    // Resize logic
+    function resize() {
+      const rect = stage.getBoundingClientRect();
+      W = Math.floor(rect.width);
+      H = Math.floor(rect.height);
+      for (const c of [cBG, cThreads, cField, cGlyphs]) {
+        c.width = Math.floor(W * DPR);
+        c.height = Math.floor(H * DPR);
+        c.style.width = W + 'px';
+        c.style.height = H + 'px';
+        const cctx = c.getContext('2d');
+        cctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      offA.width = Math.floor(W * 0.5);
+      offA.height = Math.floor(H * 0.5);
+      offB.width = offA.width;
+      offB.height = offA.height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Palette accessor
+    function getColor(t) {
+      const p = Palettes[settings.paletteIndex];
+      return p.map(t - Math.floor(t)); // wrap
+    }
+
+    // Background quasi-crystal field
+    function renderBackground(t) {
+      const ctx = ctxBG;
+      const fade = 0.06 + 0.1 * (1 - settings.trail);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(8,12,20,${fade})`;
+      ctx.fillRect(0, 0, W, H);
+
+      const cx = W/2, cy = H/2;
+      const scale = 0.0035;
+      const rot = t * 0.03 * settings.speed;
+      const sin = Math.sin(rot), cos = Math.cos(rot);
+
+      // Draw faint interference bands with additive small strokes
+      ctx.globalCompositeOperation = 'lighter';
+      const lines = 24;
+      for (let i = 0; i < lines; i++) {
+        const theta = (i/lines) * Math.PI * 2;
+        const n = 1.5 + 0.8 * Math.sin(t * 0.21 + i);
+        ctx.strokeStyle = getColor(fract(i/lines + 0.25));
+        ctx.globalAlpha = 0.05;
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 4) {
+          const X = (x - cx);
+          const Y = Math.sin((X*scale)*n + theta + t*0.1) * (80 + 40*Math.sin(i + t*0.15));
+          const xr = X*cos - Y*sin;
+          const yr = X*sin + Y*cos;
+          const y = cy + yr;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Klein bottle mapping: parametric, then projected with rotating camera
+    // Klein param (u,v) in [0, 2π] x [0, 2π]
+    function klein(u, v) {
+      // classic "figure-8" Klein bottle embed
+      const r = 2 + Math.cos(u/2) * Math.sin(v) - Math.sin(u/2) * Math.sin(2*v);
+      const x = (3 + r * Math.cos(u)) * Math.cos(v);
+      const y = (3 + r * Math.cos(u)) * Math.sin(v);
+      const z = r * Math.sin(u);
+      return [x, y, z];
+    }
+    function project3D(x, y, z, t) {
+      // camera rotation
+      const a = 0.7 + 0.25*Math.sin(t*0.2);
+      const b = 0.9 + 0.35*Math.cos(t*0.16);
+      const sa = Math.sin(a), ca = Math.cos(a);
+      const sb = Math.sin(b), cb = Math.cos(b);
+
+      // Rotate around Y then X
+      // Y: (x,z) -> (x*cb + z*sb, -x*sb + z*cb)
+      let x1 = x*cb + z*sb;
+      let z1 = -x*sb + z*cb;
+
+      // X: (y,z1) -> (y*ca - z1*sa, y*sa + z1*ca)
+      let y1 = y*ca - z1*sa;
+      let z2 = y*sa + z1*ca;
+
+      // Perspective projection
+      const dist = 14.0 + 4.0*Math.sin(t*0.1);
+      const f = 600 / (dist + z2);
+      const px = x1 * f;
+      const py = y1 * f;
+      return [px, py, f];
+    }
+
+    // Phyllotaxis -> map to Klein bottle -> project
+    function renderPhylloKlein(t) {
+      const ctx = ctxField;
+      const N = settings.phylloCount;
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      const baseRadius = Math.min(W,H) * 0.3;
+      const cx = W/2, cy = H/2;
+      const rot = t * 0.22 * settings.speed;
+
+      // fade slightly to create trails
+      const fade = 0.08 + 0.2*(1 - settings.trail);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(8, 12, 20, ${fade})`;
+      ctx.fillRect(0,0,W,H);
+
+      ctx.globalCompositeOperation = 'lighter'; // luminous add
+      ctx.lineWidth = 1.0;
+
+      for (let i = 0; i < N; i++) {
+        const a = i * goldenAngle + rot;
+        const r = Math.sqrt(i / N) * baseRadius;
+
+        // Base 2D phyllo
+        const px = r * Math.cos(a);
+        const py = r * Math.sin(a);
+
+        // Convert base phyllo to Klein UV in a novel way:
+        // Let u = atan2(py, px) mod 2π, v = normalized radius mapping through a sin warp
+        const u = (Math.atan2(py, px) + Math.PI) * 2.0 + 0.5*Math.sin(i*0.01 + t*0.5);
+        const v = (r / baseRadius) * 2*Math.PI * (1 + 0.25*Math.sin(i*0.03 + t*0.2));
+
+        const [kx, ky, kz] = klein(u, v);
+        const [sx, sy, f] = project3D(kx, ky, kz, t);
+
+        const size = 1.0 + 1.5 * Math.pow(f, 0.35);
+        const hueT = fract(0.2 + 0.0005*i + 0.13*Math.sin(t*0.1 + i*0.01));
+        ctx.strokeStyle = getColor(hueT);
+        ctx.globalAlpha = 0.22;
+        ctx.beginPath();
+        ctx.arc(cx + sx, cy + sy, size, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Vector field for threads; mixture of swirls and pointer gravity
+    function field(x, y, t) {
+      const nx = x / W - 0.5;
+      const ny = y / H - 0.5;
+      const scale = 1.75 + 0.6*Math.sin(t*0.12);
+      const f = fbm2D((nx + 0.25*Math.sin(t*0.07)) * scale, (ny + 0.25*Math.cos(t*0.09)) * scale, 4, 2.1, 0.55);
+      const angle = 6.28318 * f + 0.3*Math.sin(t*0.45 + (nx-ny)*6.283) + settings.warp * 4.0 * (hash2D(Math.floor(nx*20), Math.floor(ny*20)) - 0.5);
+
+      // pointer warp
+      const dx = (x - pointer.x);
+      const dy = (y - pointer.y);
+      const r2 = dx*dx + dy*dy + 25.0;
+      const attract = settings.warp * 18000 / r2;
+      const a2 = Math.atan2(dy, dx);
+
+      const vx = Math.cos(angle) + attract * -Math.cos(a2);
+      const vy = Math.sin(angle) + attract * -Math.sin(a2);
+      return [vx, vy];
+    }
+
+    // Thread agent
+    class Thread {
+      constructor(i) {
+        this.i = i;
+        this.reset(true);
+      }
+      reset(initial=false) {
+        const a = rng() * Math.PI * 2;
+        const r = Math.sqrt(rng()) * Math.min(W, H) * 0.48;
+        this.x = W/2 + r * Math.cos(a);
+        this.y = H/2 + r * Math.sin(a);
+        this.life = 0;
+        this.ld = 200 + Math.floor(rng() * 600);
+        this.speed = 1.0 + rng() * 2.0;
+        this.hueT = rng();
+        this.width = 0.6 + rng() * 1.8;
+        this.history = initial ? [] : this.history || [];
+        this.history.length = 0;
+      }
+      step(t) {
+        const [vx, vy] = field(this.x, this.y, t);
+        // Integrate with small time step
+        const s = this.speed * (0.5 + 0.5*Math.sin(t*0.2 + this.i*0.01));
+        this.x += vx * s;
+        this.y += vy * s;
+
+        // Wrap around edges softly
+        if (this.x < -50) this.x = W + 50;
+        if (this.x > W + 50) this.x = -50;
+        if (this.y < -50) this.y = H + 50;
+        if (this.y > H + 50) this.y = -50;
+
+        this.history.push({x:this.x, y:this.y});
+        if (this.history.length > 32) this.history.shift();
+
+        this.life++;
+        if (this.life > this.ld) this.reset();
+      }
+      draw(ctx, t) {
+        if (this.history.length < 2) return;
+        ctx.beginPath();
+        for (let i = 0; i < this.history.length; i++) {
+          const p = this.history[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        const tt = fract(this.hueT + 0.2*Math.sin(0.2*t + this.i*0.013));
+        ctx.strokeStyle = getColor(tt);
+        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = this.width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // luminous core
+        ctx.globalAlpha = 0.2;
+        ctx.lineWidth = this.width * 4.0;
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // Threads system
+    let threads = [];
+    function rebuildThreads() {
+      threads = [];
+      for (let i = 0; i < settings.threads; i++) {
+        threads.push(new Thread(i));
+      }
+    }
+    rebuildThreads();
+
+    // Ephemeral glyphs
+    class Glyph {
+      constructor(x, y, t) {
+        this.x = x; this.y = y;
+        this.birth = t;
+        this.tlife = 4.0 + 1.5 * rng();
+        this.r = 8 + 40 * rng();
+        this.rot = rng() * Math.PI * 2;
+        this.twist = -0.4 + 0.8 * rng();
+        this.spikes = 5 + Math.floor(rng() * 5);
+        this.seed = rng();
+      }
+      alive(t) {
+        return (t - this.birth) < this.tlife;
+      }
+      draw(ctx, t) {
+        const k = clamp((t - this.birth)/this.tlife, 0, 1);
+        const e = 1 - Math.pow(k, 1.6);
+        const rr = this.r * (0.5 + 0.5*e);
+        const rot = this.rot + this.twist*(1-k)*2.8;
+        const angle = (Math.PI*2)/this.spikes;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(rot);
+        ctx.beginPath();
+        const n = this.spikes * 2;
+        for (let i = 0; i < n; i++) {
+          const a = i * (Math.PI*2)/n;
+          const rad = (i%2 === 0) ? rr : rr*0.45;
+          const px = rad * Math.cos(a);
+          const py = rad * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        const tt = fract(0.8*this.seed + 0.25*Math.sin(t + this.seed*6.28));
+        ctx.strokeStyle = getColor(tt);
+        ctx.globalAlpha = 0.55 * e * settings.glyphFlux;
+        ctx.lineWidth = 2.0 + 2.5*e;
+        ctx.stroke();
+
+        // glow
+        ctx.globalAlpha = 0.15 * e * settings.glyphFlux;
+        ctx.lineWidth = 12.0 + 12.0*e;
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+      }
+    }
+    const glyphs = [];
+
+    // Input
+    function updatePointer(e) {
+      const rect = stage.getBoundingClientRect();
+      pointer.x = (e.clientX - rect.left);
+      pointer.y = (e.clientY - rect.top);
+      pointer.nX = pointer.x / W;
+      pointer.nY = pointer.y / H;
+      coords.textContent = `x: ${pointer.x.toFixed(2)}, y: ${pointer.y.toFixed(2)}`;
+    }
+    stage.addEventListener('pointermove', e => {
+      updatePointer(e);
+      if (pointer.down && rng() < settings.glyphFlux * 0.6) {
+        glyphs.push(new Glyph(pointer.x + (rng()-0.5)*40, pointer.y + (rng()-0.5)*40, now));
+      }
+    }, { passive: true });
+    stage.addEventListener('pointerdown', e => {
+      pointer.down = true;
+      updatePointer(e);
+      for (let i = 0; i < 3 + Math.floor(rng()*3); i++) {
+        glyphs.push(new Glyph(pointer.x + (rng()-0.5)*20, pointer.y + (rng()-0.5)*20, now));
+      }
+    });
+    window.addEventListener('pointerup', () => pointer.down = false);
+
+    // Scroll to adjust density
+    stage.addEventListener('wheel', e => {
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      const step = Math.max(1, Math.floor(settings.phylloCount * 0.03));
+      settings.phylloCount = clamp(settings.phylloCount - delta * step, 128, 4096);
+      phylloSlider.value = settings.phylloCount;
+      refreshLabels();
+    }, { passive: false });
+
+    // Controls wiring
+    threadsSlider.addEventListener('input', () => { settings.threads = parseInt(threadsSlider.value); threadsValue.textContent = settings.threads; rebuildThreads(); });
+    warpSlider.addEventListener('input', () => { settings.warp = parseFloat(warpSlider.value); warpValue.textContent = settings.warp.toFixed(2); });
+    speedSlider.addEventListener('input', () => { settings.speed = parseFloat(speedSlider.value); speedValue.textContent = settings.speed.toFixed(2); });
+    bloomSlider.addEventListener('input', () => { settings.bloom = parseFloat(bloomSlider.value); bloomValue.textContent = settings.bloom.toFixed(2); });
+    trailSlider.addEventListener('input', () => { settings.trail = parseFloat(trailSlider.value); trailValue.textContent = settings.trail.toFixed(2); });
+    paletteSlider.addEventListener('input', () => { settings.paletteIndex = parseInt(paletteSlider.value); paletteValue.textContent = `${settings.paletteIndex} — ${Palettes[settings.paletteIndex].name}`; });
+    phylloSlider.addEventListener('input', () => { settings.phylloCount = parseInt(phylloSlider.value); phylloValue.textContent = settings.phylloCount; });
+    glyphsSlider.addEventListener('input', () => { settings.glyphFlux = parseFloat(glyphsSlider.value); glyphsValue.textContent = settings.glyphFlux.toFixed(2); });
+
+    btnRandom.addEventListener('click', randomize);
+    btnPause.addEventListener('click', togglePause);
+    btnSave.addEventListener('click', saveImage);
+    btnHelp.addEventListener('click', toggleHelp);
+    helpBackdrop.addEventListener('click', toggleHelp);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' '){ togglePause(); e.preventDefault(); }
+      else if (e.key.toLowerCase() === 'r'){ randomize(); }
+      else if (e.key.toLowerCase() === 's'){ saveImage(); }
+      else if (e.key.toLowerCase() === 'h'){ toggleHelp(); }
+      else if (['1','2','3','4','5','6'].includes(e.key)) {
+        const idx = parseInt(e.key) - 1;
+        settings.paletteIndex = idx;
+        paletteSlider.value = idx;
+        paletteValue.textContent = `${settings.paletteIndex} — ${Palettes[settings.paletteIndex].name}`;
+      }
+    });
+
+    function toggleHelp(){
+      const open = !helpModal.classList.contains('open');
+      helpModal.classList.toggle('open', open);
+      helpModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    function togglePause() {
+      running = !running;
+      btnPause.textContent = running ? 'Pause' : 'Resume';
+      if (running) {
+        timeStart = performance.now() - now*1000;
+        loop();
+      }
+    }
+
+    function randomize() {
+      seed = Math.floor(Math.random() * 1e9);
+      rng = mulberry32(seed);
+      // Soft clear canvases
+      for (const ctx of [ctxBG, ctxThreads, ctxField, ctxGlyphs]) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(8,12,20,0.85)';
+        ctx.fillRect(0,0,W,H);
+        ctx.restore();
+      }
+      // Rebuild systems
+      rebuildThreads();
+      // Add a burst of glyphs near center
+      const cx = W/2, cy = H/2;
+      for (let i = 0; i < 8; i++) glyphs.push(new Glyph(cx + (rng()-0.5)*120, cy + (rng()-0.5)*120, now));
+    }
+
+    // Threads render
+    function renderThreads(t) {
+      const ctx = ctxThreads;
+      // Temporal persistence
+      const clearAlpha = clamp(0.02 + 0.25*(1-settings.trail), 0.02, 0.28);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(7,10,14,${clearAlpha})`;
+      ctx.fillRect(0,0,W,H);
+
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < threads.length; i++) {
+        const th = threads[i];
+        th.step(t);
+        th.draw(ctx, t);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Glyphs render
+    function renderGlyphs(t) {
+      const ctx = ctxGlyphs;
+      // Let glyph layer clear faster
+      const clearAlpha = 0.12 + 0.3*(1-settings.trail);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(8,12,20, ${clearAlpha})`;
+      ctx.fillRect(0,0,W,H);
+
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = glyphs.length - 1; i >= 0; i--) {
+        const g = glyphs[i];
+        if (!g.alive(t)) {
+          glyphs.splice(i, 1);
+          continue;
+        }
+        g.draw(ctx, t);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Bloom: gather bright from threads + glyphs + field -> downscale -> blur -> add
+    function applyBloom() {
+      // Compose sources into offA at half res
+      ctxOffA.save();
+      ctxOffA.globalCompositeOperation = 'copy';
+      ctxOffA.drawImage(cThreads, 0, 0, offA.width, offA.height);
+      ctxOffA.globalCompositeOperation = 'lighter';
+      ctxOffA.globalAlpha = 0.8;
+      ctxOffA.drawImage(cGlyphs, 0, 0, offA.width, offA.height);
+      ctxOffA.globalAlpha = 0.5;
+      ctxOffA.drawImage(cField, 0, 0, offA.width, offA.height);
+      ctxOffA.restore();
+
+      // Two-pass separable blur on offA into offB, back and forth
+      const passes = 2 + Math.floor(settings.bloom * 4);
+      for (let p = 0; p < passes; p++) {
+        blurPass(offA, offB, 8 + p*6, true);
+        blurPass(offB, offA, 8 + p*6, false);
+      }
+
+      // Composite bloom additively into threads canvas
+      ctxThreads.save();
+      ctxThreads.globalCompositeOperation = 'lighter';
+      ctxThreads.globalAlpha = clamp(0.35 + settings.bloom * 0.65, 0, 1);
+      ctxThreads.drawImage(offA, 0, 0, W, H);
+      ctxThreads.restore();
+    }
+
+    function blurPass(srcCanvas, dstCanvas, radius, horizontal) {
+      const sctx = srcCanvas.getContext('2d');
+      const dctx = dstCanvas.getContext('2d');
+      dctx.save();
+      dctx.globalCompositeOperation = 'copy';
+      dctx.filter = `blur(${radius}px)`;
+      // blur in one direction by drawing scaled stripes trick
+      if (horizontal) {
+        dctx.drawImage(srcCanvas, 0, 0);
+      } else {
+        dctx.drawImage(srcCanvas, 0, 0);
+      }
+      dctx.filter = 'none';
+      dctx.restore();
+    }
+
+    // Main loop
+    function loop(ts) {
+      if (!running) return;
+      const prev = now;
+      now = (ts - timeStart) / 1000;
+      dt = Math.min(0.033, Math.max(0.001, now - prev));
+
+      // Background interference
+      renderBackground(now);
+
+      // Phyllo-Klein projection layer
+      renderPhylloKlein(now);
+
+      // Threads
+      renderThreads(now);
+
+      // Glyphs
+      renderGlyphs(now);
+
+      // Bloom onto threads
+      applyBloom();
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // Save composite image
+    function saveImage() {
+      const out = document.createElement('canvas');
+      const scale = 1.5; // export higher res
+      out.width = Math.floor(W * scale);
+      out.height = Math.floor(H * scale);
+      const octx = out.getContext('2d');
+
+      octx.fillStyle = '#0b0f14';
+      octx.fillRect(0,0,out.width,out.height);
+      octx.drawImage(cBG, 0, 0, out.width, out.height);
+      octx.drawImage(cField, 0, 0, out.width, out.height);
+      octx.drawImage(cThreads, 0, 0, out.width, out.height);
+      octx.drawImage(cGlyphs, 0, 0, out.width, out.height);
+
+      const url = out.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      const ts = new Date().toISOString().replace(/[:.]/g,'-');
+      a.download = `quantum-loom_${ts}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    // Initialize pointer position in center
+    (function initPointer() {
+      const rect = stage.getBoundingClientRect();
+      pointer.x = rect.width/2;
+      pointer.y = rect.height/2;
+      pointer.nX = 0.5;
+      pointer.nY = 0.5;
+      coords.textContent = `x: ${pointer.x.toFixed(2)}, y: ${pointer.y.toFixed(2)}`;
+    })();
+
+    // Initial soft clear
+    for (const ctx of [ctxBG, ctxThreads, ctxField, ctxGlyphs]) {
+      ctx.fillStyle = 'rgba(8,12,20,1)';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // Give the user a first-time flourish
+    setTimeout(() => {
+      const cx = W/2, cy = H/2;
+      for (let i = 0; i < 10; i++) glyphs.push(new Glyph(cx + (rng()-0.5)*160, cy + (rng()-0.5)*160, now));
+    }, 400);
+
+    // Minor: animate header subtitle tint
+    (function animateSubtitle() {
+      const el = document.querySelector('.brand .subtitle');
+      let t0 = performance.now();
+      function tick(t){
+        const tt = (t - t0)/1000;
+        const hue = (200 + 60*Math.sin(tt*0.7)) % 360;
+        el.style.color = `hsla(${hue}, 70%, 85%, 0.85)`;
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

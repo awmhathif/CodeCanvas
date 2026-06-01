@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Nexus Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #0ff;
+            font-size: 24px;
+            z-index: 1000;
+            transition: opacity 1s ease-in-out;
+        }
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #0ff;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">Initializing Quantum Nexus...</div>
+    <div class="info">Move mouse to interact | Scroll to zoom</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+
+    <script>
+        (function() {
+            // Scene setup variables
+            let scene, camera, renderer, composer, controls;
+            let coreSphere, particleSystem, energyField;
+            let clock = new THREE.Clock();
+            let mouse = new THREE.Vector2(0, 0);
+            let raycaster = new THREE.Raycaster();
+            
+            // Configuration parameters
+            const params = {
+                bloomStrength: 2.5,
+                bloomRadius: 0.85,
+                bloomThreshold: 0.2,
+                coreColor: 0x00ffff,
+                particleCount: 5000,
+                fieldSize: 100
+            };
+
+            init();
+            animate();
+
+            function init() {
+                // Create scene
+                scene = new THREE.Scene();
+                scene.fog = new THREE.FogExp2(0x000000, 0.008);
+                
+                // Create camera
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 0, 30);
+                
+                // Create renderer
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setClearColor(0x000000);
+                renderer.toneMapping = THREE.ReinhardToneMapping;
+                document.body.appendChild(renderer.domElement);
+                
+                // Set up post-processing for glow effects
+                setupPostProcessing();
+                
+                // Create controls
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.1;
+                
+                // Create core quantum sphere
+                createCoreSphere();
+                
+                // Create particle field
+                createParticleField();
+                
+                // Create energy beams
+                createEnergyBeams();
+                
+                // Add ambient and point lights
+                const ambientLight = new THREE.AmbientLight(0x111111);
+                scene.add(ambientLight);
+                
+                const pointLight = new THREE.PointLight(params.coreColor, 1, 100);
+                scene.add(pointLight);
+                
+                // Event listeners
+                window.addEventListener('resize', onWindowResize);
+                window.addEventListener('mousemove', onMouseMove);
+                
+                // Remove loading screen after initialization
+                setTimeout(() => {
+                    document.querySelector('.loading').style.opacity = 0;
+                    setTimeout(() => {
+                        document.querySelector('.loading').style.display = 'none';
+                    }, 1000);
+                }, 1500);
+            }
+            
+            function setupPostProcessing() {
+                composer = new THREE.EffectComposer(renderer);
+                
+                const renderPass = new THREE.RenderPass(scene, camera);
+                composer.addPass(renderPass);
+                
+                const bloomPass = new THREE.UnrealBloomPass(
+                    new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    params.bloomStrength,
+                    params.bloomRadius,
+                    params.bloomThreshold
+                );
+                composer.addPass(bloomPass);
+            }
+            
+            function createCoreSphere() {
+                // Create core geometry
+                const coreGeometry = new THREE.IcosahedronGeometry(4, 5);
+                
+                // Create core material with custom shader
+                const coreMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        color: { value: new THREE.Color(params.coreColor) }
+                    },
+                    vertexShader: `
+                        varying vec3 vNormal;
+                        varying vec3 vPosition;
+                        uniform float time;
+                        
+                        void main() {
+                            vNormal = normalize(normalMatrix * normal);
+                            vPosition = position;
+                            
+                            // Add pulsating effect
+                            float pulse = sin(time * 2.0) * 0.05;
+                            vec3 pos = position;
+                            pos += normal * pulse;
+                            
+                            // Add noise distortion
+                            float noise = sin(time + position.x * 10.0) * 0.1 +
+                                         cos(time * 0.5 + position.y * 8.0) * 0.1;
+                            pos += normal * noise * 0.2;
+                            
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vNormal;
+                        varying vec3 vPosition;
+                        uniform float time;
+                        uniform vec3 color;
+                        
+                        void main() {
+                            // Create pulsating grid pattern
+                            float grid = abs(sin(vPosition.x * 10.0 + time) * sin(vPosition.y * 10.0 + time) * sin(vPosition.z * 10.0 + time));
+                            grid = pow(grid, 2.0) * 0.5;
+                            
+                            // Edge highlighting
+                            float edge = 1.0 - dot(vNormal, vec3(0.0, 0.0, 1.0));
+                            edge = pow(edge, 3.0);
+                            
+                            // Pulsating rim
+                            float rim = pow(edge, 1.5) * (0.5 + 0.5 * sin(time * 3.0));
+                            
+                            // Final color 
+                            vec3 finalColor = mix(color, vec3(1.0), grid);
+                            finalColor = mix(finalColor, vec3(1.0), rim);
+                            
+                            gl_FragColor = vec4(finalColor, 0.95);
+                        }
+                    `,
+                    transparent: true,
+                    wireframe: false
+                });
+                
+                // Create core sphere
+                coreSphere = new THREE.Mesh(coreGeometry, coreMaterial);
+                scene.add(coreSphere);
+                
+                // Add outer wireframe sphere
+                const wireGeometry = new THREE.IcosahedronGeometry(4.5, 3);
+                const wireMaterial = new THREE.MeshBasicMaterial({
+                    color: params.coreColor,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                
+                const wireSphere = new THREE.Mesh(wireGeometry, wireMaterial);
+                coreSphere.add(wireSphere);
+            }
+            
+            function createParticleField() {
+                // Create particle geometry
+                const particlesGeometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(params.particleCount * 3);
+                const sizes = new Float32Array(params.particleCount);
+                const colors = new Float32Array(params.particleCount * 3);
+                
+                // Generate random particles
+                for (let i = 0; i < params.particleCount; i++) {
+                    // Spherical distribution
+                    const radius = 10 + Math.random() * params.fieldSize;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    
+                    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                    positions[i * 3 + 2] = radius * Math.cos(phi);
+                    
+                    // Random size
+                    sizes[i] = Math.random() * 0.5 + 0.1;
+                    
+                    // Color gradient based on distance
+                    const distanceNorm = (radius - 10) / params.fieldSize;
+                    colors[i * 3] = 0.5 * (1.0 - distanceNorm); // Red
+                    colors[i * 3 + 1] = 0.8 * (1.0 - distanceNorm) + 0.2 * distanceNorm; // Green
+                    colors[i * 3 + 2] = 0.5 + 0.5 * distanceNorm; // Blue
+                }
+                
+                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                particlesGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                
+                // Create particle shader material
+                const particleMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        pointTexture: { 
+                            value: new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAMAAADDpiTIAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAMAUExURQAAAEdwTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKwon4AAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAHaklEQVR4Xu3aXbLbIBRGUQ/Ns2fqmfJoHowT10ks6+Mgv4W9RjBJsNFH4T4eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY3mFV3hTfvAMu7DLm/KDZ9iGbd6UHzzDW3jLm/KDZ/gJ+3xTfvAMe9jzTfnBM7yH97wpP3iGn/CTN+UHz/AePvKm/OAZPsJH3pQfPMMu7PKm/OAZtmGbN+UHz/Az7PaN+cEz/IT9vjE/eIa38JY35Qdrr+F1/Y9bv1T7CwrrK7zjTdvw5pQfDOsVXtfPH0/yDO/hPW/ahhPf7X/wDLuwK7ZN+P4Qr/Ce940pfzkGJM/wFt52eSNFgOQddmFXbJvw9iHe4aPYN+DjQ/w6b97a13Rr+Ws+D8Uw1MuHO8Pr+pfw+KXKGzU/Z27bMD9s05+g42eYI/C63jfh3nAHv+FXuV5a+tvmP37XD3bh12g/yeaUu3vfha+FGZbXf7/iZ9mE9yOEeBfJ57/hcHhvW0J4e93HLnvhFY6Hq5dW4JdyLJ2O2rR9fODR5RU/3yqchW3dhOdjAJ6+CrW3UH/Q4/EkA5Z4/VvCLhwXP3w0XkJ/Buh1+jdrFl6KH3lc/Py6jP8iMJZlaLbgvQEP4/OgOHtxPsvwlwDGsgyvxX+jKr3+m0WYZXicB8axDOfF/5nFqDX1XP5VBXbhvHb5JTOmdpXt5wE4HE/7+HYAjOXvALXLP5pn2hTtZZgv3IaL9kPvQW0ZZgkU7dsvGrZuX5e/fIvmEOvHsQWL9rdG24/7ZVu/FtaTlOGsP1ybJz59/zrb53Hu+8m0qX8N6zl2l5eBfg3M8zz89KnS9R+6EQ/XYZZh8dLDnYfPHRdhluH+tWCIu3/tQcowyzD/G13ff2uzCLMMt9cgbu3C9sU0yzDLcPMSxN1deBVmGc6vXN/Zgu19mGW4cQPi9lV4GWYZzq9e3diA7UOYZTj/D3HzAsQt7R+a1eXfhsvmQxD3bsLbs/Ba/n1t+b/n9/bLcBOGvPvXfmr/S3fh+TRMJ/rJuUO0YetpuG4/DrGHYyF+7Rnq7l87Lf6fxRE04ZGQlX9MX79o/nUV1nO06jjMw0dvvxBXo/YWytPQhH0Y9vFX1YO0ngIYVXW6NWEXRn76Z/fTLMNRHv/FtvLPo2/m2R7ULvztNIz8669tiwrswrjP/8ViFY7++CvH5RI8bw9h9M9/VVuGx8Vv+gPcgn/sZ21ZgadN2IYpH/9r236+9s/9JMzw2P9mFKP+vfOrLYevz/oUbTo8/OqbcRbXfz9vwBCOh8OX+L7dSHOtXkL+7TdN+PbR81v1Dn0zU/kGlmlThZnPw9o8zHUYZt8+fIRd+W3T/Ic5CMs2nGf/3jLswyaMsP3+oMoPvr8a/H+rwRO8MczysQtf67AJm66foPs13ITNOhx/Pl6Fr+9p1sH2O5P+M2AvyzDLMJ//Fod4Dvu42cR/ydXhMGvn6Tqa7eUVlkGYg2DtT7AMu+/7sAxPXwewPGbTrQJY/ue3qeYA1v809jUDUP05dkdDOQKrD7E/HMoxsJqiWwOwOkH3GUDzFD0GAKsv6bYIrP5BlyWA1R91WAVWt2heB1a3ab0QrG7UeClY3arparC6WcP1YHWH6gvC6i6V14TVnequCqu71VwXVverti6sWqiUD9b2aZcP1jbqlQ/WtuqUD9Y26pQP1rbqlA/WtuqTD1Y3apMP1rfqkg/W92qSD9b36ZMP1vdpkg/WN2qRD9Z36pAP1nfqkA/W92qfD9Z36p4P1vdqng/W9+qdD9b36pwP1jdrnA/W92qbD9Y36psPVvdpnA9W9+mbD1Z36psPVvdpmg9W92maD1b3aJkPVvdomQ9Wd+mYD1Z36ZgPVvfpmA9Wd2mXD1b3aZcPVvdplw9Wd2mXD1Z3aZYPVvdplg9W92mVD1b3aZUPVndplQ9Wd2mVD1Z3aZQPVvdplA9Wd2mUD1b3aZMPVndpkw9Wd2mTD1b3aJMPVvdokg9W92iSD1b3aJIPVvdokg9W92iRD1Z3aJEPVndokQ9Wd2iRD1Z3aJAPVjfUzwerGyqnAawaqmYDqxqqZgOrGqpmA6saKucDqxqqZgOrGqpmA6saKucDqxqqZgOrGqpmA6saKucDqxqqZgOrGqpmA6saKucDqxoqJwSrminnBKuZck6wminlBKt5Uk6wmuelrGA1T84KVvPkrGA1T8oKVvOkrGA1T8YKVvNkrGA1T8YKVvMkrGA1S8IKVrMkrGA1S8IKVrMkrGA1S8IKVrMkrGA1S8AKVnMErGA1R8AKVnMErGA1R8AKVnMErGA1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMr2A1x/QKVnNMrwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf+AAYn15R4XQ9QAAAAAElFTkSuQmCC') 
+                        }
+                    },
+                    vertexShader: `
+                        uniform float time;
+                        attribute float size;
+                        attribute vec3 color;
+                        varying vec3 vColor;
+                        
+                        void main() {
+                            vColor = color;
+                            
+                            // Calculate animated position
+                            vec3 pos = position;
+                            
+                            // Create wave motion
+                            float dist = length(pos);
+                            float wave = sin(dist * 0.05 - time * 0.5) * 0.5;
+                            
+                            // Apply different motions based on distance
+                            if (dist > 50.0) {
+                                // Outer particles spiral
+                                float angle = time * 0.1 + dist * 0.01;
+                                pos.x += sin(angle) * 2.0;
+                                pos.y += cos(angle) * 2.0;
+                                pos.z += sin(time * 0.2) * 1.0;
+                            } else if (dist > 20.0) {
+                                // Middle particles wave
+                                pos += normalize(pos) * wave * 2.0;
+                            } else {
+                                // Inner particles orbit
+                                float orbit = time * (1.0 - dist/20.0) * 2.0;
+                                float radius = dist;
+                                pos.x = radius * sin(orbit);
+                                pos.y = radius * cos(orbit);
+                                pos.z += sin(time * 0.5 + dist * 0.1) * 1.0;
+                            }
+                            
+                            // Calculate size based on camera distance
+                            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                            gl_PointSize = size * (25.0 / -mvPosition.z);
+                            gl_Position = projectionMatrix * mvPosition;
+                        }
+                    `,
+                    fragmentShader: `
+                        uniform sampler2D pointTexture;
+                        varying vec3 vColor;
+                        
+                        void main() {
+                            gl_FragColor = vec4(vColor, 1.0) * texture2D(pointTexture, gl_PointCoord);
+                            
+                            // Discard nearly transparent pixels
+                            if (gl_FragColor.a < 0.1) discard;
+                        }
+                    `,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    transparent: true,
+                    vertexColors: true
+                });
+                
+                // Create particle system
+                particleSystem = new THREE.Points(particlesGeometry, particleMaterial);
+                scene.add(particleSystem);
+            }
+            
+            function createEnergyBeams() {
+                // Create energy field container
+                energyField = new THREE.Group();
+                scene.add(energyField);
+                
+                // Create energy beams
+                for (let i = 0; i < 12; i++) {
+                    // Create curved path for the beam
+                    const curve = new THREE.CubicBezierCurve3(
+                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(
+                            (Math.random() - 0.5) * 20,
+                            (Math.random() - 0.5) * 20,
+                            (Math.random() - 0.5) * 20
+                        ),
+                        new THREE.Vector3(
+                            (Math.random() - 0.5) * 40,
+                            (Math.random() - 0.5) * 40,
+                            (Math.random() - 0.5) * 40
+                        ),
+                        new THREE.Vector3(
+                            (Math.random() - 0.5) * 60,
+                            (Math.random() - 0.5) * 60,
+                            (Math.random() - 0.5) * 60
+                        )
+                    );
+                    
+                    const points = curve.getPoints(100);
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    
+                    // Random color for each beam
+                    const hue = Math.random();
+                    const color = new THREE.Color().setHSL(hue, 1, 0.5);
+                    
+                    const material = new THREE.LineBasicMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: 0.6,
+                        blending: THREE.AdditiveBlending
+                    });
+                    
+                    const beam = new THREE.Line(geometry, material);
+                    energyField.add(beam);
+                    
+                    // Add pulse effect along the beam
+                    for (let j = 0; j < 5; j++) {
+                        const pulseSphere = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.3, 8, 8),
+                            new THREE.MeshBasicMaterial({
+                                color: 0xffffff,
+                                transparent: true,
+                                opacity: 0.8,
+                                blending: THREE.AdditiveBlending
+                            })
+                        );
+                        
+                        // Store animation properties
+                        pulseSphere.userData = {
+                            speed: 0.2 + Math.random() * 0.3,
+                            position: Math.random(),
+                            path: curve
+                        };
+                        
+                        energyField.add(pulseSphere);
+                    }
+                }
+                
+                // Create data nodes at beam endpoints
+                for (let i = 0; i < 24; i++) {
+                    const nodeGeometry = new THREE.OctahedronGeometry(0.5 + Math.random(), 0);
+                    const nodeMaterial = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color().setHSL(Math.random(), 0.8, 0.5),
+                        wireframe: true
+                    });
+                    
+                    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+                    node.position.set(
+                        (Math.random() - 0.5) * 80,
+                        (Math.random() - 0.5) * 80,
+                        (Math.random() - 0.5) * 80
+                    );
+                    
+                    node.userData = {
+                        rotationSpeed: {
+                            x: (Math.random() - 0.5) * 0.02,
+                            y: (Math.random() - 0.5) * 0.02,
+                            z: (Math.random() - 0.5) * 0.02
+                        },
+                        pulseSpeed: 0.5 + Math.random()
+                    };
+                    
+                    energyField.add(node);
+                }
+            }
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                const time = clock.getElapsedTime();
+                const delta = clock.getDelta();
+                
+                // Update sphere shader time
+                if (coreSphere && coreSphere.material.uniforms) {
+                    coreSphere.material.uniforms.time.value = time;
+                }
+                
+                // Rotate core sphere
+                coreSphere.rotation.y += 0.005;
+                coreSphere.rotation.z += 0.002;
+                
+                // Update particle system
+                if (particleSystem && particleSystem.material.uniforms) {
+                    particleSystem.material.uniforms.time.value = time;
+                    particleSystem.rotation.y += 0.0005;
+                }
+                
+                // Update energy field elements
+                if (energyField) {
+                    energyField.children.forEach(child => {
+                        // Rotate energy field
+                        energyField.rotation.y += 0.0001;
+                        
+                        // Animate pulse spheres along beams
+                        if (child.userData && child.userData.path) {
+                            child.userData.position += child.userData.speed * delta;
+                            
+                            if (child.userData.position > 1) {
+                                child.userData.position = 0;
+                            }
+                            
+                            const point = child.userData.path.getPointAt(child.userData.position);
+                            child.position.copy(point);
+                        }
+                        
+                        // Animate data nodes
+                        if (child.userData && child.userData.rotationSpeed) {
+                            child.rotation.x += child.userData.rotationSpeed.x;
+                            child.rotation.y += child.userData.rotationSpeed.y;
+                            child.rotation.z += child.userData.rotationSpeed.z;
+                            
+                            // Pulsating scale
+                            const scale = 1 + 0.2 * Math.sin(time * child.userData.pulseSpeed);
+                            child.scale.set(scale, scale, scale);
+                        }
+                    });
+                }
+                
+                // React to mouse movement
+                let targetX = (mouse.x * 0.1);
+                let targetY = (mouse.y * 0.1);
+                
+                // Smoothly rotate scene based on mouse position
+                scene.rotation.y += (targetX - scene.rotation.y) * 0.02;
+                scene.rotation.x += (targetY - scene.rotation.x) * 0.02;
+                
+                // Update controls
+                controls.update();
+                
+                // Render with post-processing for glow effects
+                composer.render();
+            }
+            
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+            }
+            
+            function onMouseMove(event) {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            }
+        })();
+    </script>
+</body>
+</html>

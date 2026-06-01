@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Existential Dread Simulator — Vastness of Space/Time (Single File)</title>
+  <style>
+    :root{
+      --bg:#070809;
+      --text:#eaece9;
+      --muted:#a8b0ab;
+      --line:rgba(255,255,255,.10);
+      --accent:#d4a24f;
+      --accent2:#b85f49;
+      --good:#6fbf73;
+      --bad:#d06b6b;
+      --shadow: 0 18px 44px rgba(0,0,0,.55);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1100px 800px at 18% 10%, rgba(212,162,79,.10), transparent 55%),
+        radial-gradient(900px 650px at 90% 22%, rgba(120,170,210,.08), transparent 60%),
+        radial-gradient(1000px 900px at 50% 110%, rgba(184,95,73,.08), transparent 62%),
+        var(--bg);
+      overflow:hidden;
+    }
+    header{
+      position:fixed; left:0; right:0; top:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .title{display:flex; flex-direction:column; gap:2px}
+    .title h1{margin:0; font-size:14px; font-weight:950; letter-spacing:.2px}
+    .title .sub{margin:0; font-size:12px; color:var(--muted); line-height:1.25}
+    .hdrRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:12px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+    .pill b{color:var(--text); font-family:var(--mono); font-weight:900}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:12.5px;
+      color:var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{background: linear-gradient(180deg, rgba(212,162,79,.18), rgba(212,162,79,.06));}
+    .btn.danger{background: linear-gradient(180deg, rgba(208,107,107,.18), rgba(208,107,107,.07));}
+
+    #wrap{position:fixed; inset:0; padding-top:52px;}
+    canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+    #hud{
+      position:fixed;
+      left:14px;
+      bottom:14px;
+      max-width:min(760px, calc(100vw - 28px));
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 14px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      z-index:12;
+    }
+    #hud .t{font-weight:950; letter-spacing:.2px}
+    #hud .s{color:var(--muted); font-size:12px; margin-top:3px; line-height:1.35}
+    #hud .mono{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:6px}
+
+    #panel{
+      position:fixed;
+      right:14px;
+      top:66px;
+      width:min(440px, calc(100vw - 28px));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      z-index:12;
+    }
+    #panel .ph{
+      padding:10px 10px 8px;
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+    }
+    #panel .ph .h{font-weight:950; font-size:12.5px; letter-spacing:.2px}
+    #panel .ph .x{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:10px;
+      padding:6px 8px;
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      cursor:pointer;
+      font-weight:900;
+      font-size:12px;
+    }
+    #panel .pb{padding:10px}
+    label{
+      display:flex; justify-content:space-between; gap:10px;
+      font-size:12px; color:var(--muted);
+      margin:8px 0 6px; align-items:baseline;
+    }
+    label span:last-child{font-family:var(--mono); color:var(--text); font-size:11.5px}
+    input[type="range"]{width:100%}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .small{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.35}
+    .k{
+      display:inline-block; padding:1px 6px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:8px; background: rgba(255,255,255,.03);
+      font-family:var(--mono); color:var(--text); font-size:11.5px;
+      margin:0 2px;
+    }
+    .bar{
+      height:10px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .bar i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(111,191,115,.85), rgba(212,162,79,.85), rgba(208,107,107,.85));
+    }
+    .warn{
+      margin-top:10px;
+      border:1px solid rgba(212,162,79,.30);
+      background: rgba(212,162,79,.08);
+      padding:10px;
+      border-radius:12px;
+      font-size:12.5px;
+      color:var(--text);
+      line-height:1.35;
+    }
+    .warn b{color:var(--accent)}
+    .sr{
+      position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="title">
+    <h1>Existential Dread Simulator</h1>
+    <div class="sub">A visceral, interactive visualization of scale: space, time, entropy. (Stylized; not exact cosmology.)</div>
+  </div>
+  <div class="hdrRight">
+    <div class="pill">scale: <b id="pillScale">—</b></div>
+    <div class="pill">dread: <b id="pillDread">—</b></div>
+    <div class="pill">fps: <b id="pillFps">—</b></div>
+    <button class="btn" id="btnPanel">Controls</button>
+    <button class="btn primary" id="btnPlay">Pause</button>
+    <button class="btn danger" id="btnReset">Reset</button>
+  </div>
+</header>
+
+<div id="wrap">
+  <canvas id="cv"></canvas>
+</div>
+
+<div id="panel" hidden>
+  <div class="ph">
+    <div class="h">Controls</div>
+    <button class="x" id="btnClose">Close</button>
+  </div>
+  <div class="pb">
+    <div class="row">
+      <div>
+        <label>Intensity <span id="v_int"></span></label>
+        <input id="int" type="range" min="0" max="1" step="0.001" value="0.72"/>
+      </div>
+      <div>
+        <label>Speed <span id="v_speed"></span></label>
+        <input id="speed" type="range" min="0.15" max="3.0" step="0.01" value="1.00"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Zoom curve <span id="v_curve"></span></label>
+        <input id="curve" type="range" min="0.6" max="2.4" step="0.01" value="1.35"/>
+      </div>
+      <div>
+        <label>Noise / turbulence <span id="v_noise"></span></label>
+        <input id="noise" type="range" min="0" max="1" step="0.001" value="0.58"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Breath (calm) <span id="v_breath"></span></label>
+        <input id="breath" type="range" min="0" max="1" step="0.001" value="0.22"/>
+      </div>
+      <div>
+        <label>Audio drone <span id="v_audio"></span></label>
+        <select id="audio">
+          <option value="0" selected>Off</option>
+          <option value="1">On (requires click)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Stars density <span id="v_stars"></span></label>
+        <input id="stars" type="range" min="0" max="1" step="0.001" value="0.62"/>
+      </div>
+      <div>
+        <label>Text pressure <span id="v_text"></span></label>
+        <input id="textPressure" type="range" min="0" max="1" step="0.001" value="0.55"/>
+      </div>
+    </div>
+
+    <label>Manual dread pulse</label>
+    <div class="row">
+      <button class="btn" id="btnPulse">Pulse</button>
+      <button class="btn" id="btnGround">Grounding mode</button>
+    </div>
+
+    <label>Dread meter</label>
+    <div class="bar" aria-label="dread bar"><i id="dreadFill"></i></div>
+
+    <div class="warn">
+      <b>Heads up:</b> This can feel intense. If you feel overwhelmed, click <b>Grounding mode</b> or pause.
+      This is art, not mental health advice.
+    </div>
+
+    <div class="small">
+      Drag to steer. Scroll to accelerate/slow time. Keys: <span class="k">Space</span> pause, <span class="k">C</span> controls, <span class="k">G</span> grounding, <span class="k">R</span> reset.
+    </div>
+  </div>
+</div>
+
+<div id="hud" role="status" aria-live="polite">
+  <div class="t" id="hudT">Hold still. Let scale arrive.</div>
+  <div class="s" id="hudS">Drag to steer; scroll to change pace. The “dread” meter rises with speed + scale + sensory pressure.</div>
+  <div class="mono" id="hudM">—</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d", { alpha:false });
+
+  const UI = {
+    pillScale: document.getElementById("pillScale"),
+    pillDread: document.getElementById("pillDread"),
+    pillFps: document.getElementById("pillFps"),
+    btnPanel: document.getElementById("btnPanel"),
+    btnPlay: document.getElementById("btnPlay"),
+    btnReset: document.getElementById("btnReset"),
+    panel: document.getElementById("panel"),
+    btnClose: document.getElementById("btnClose"),
+
+    int: document.getElementById("int"),
+    speed: document.getElementById("speed"),
+    curve: document.getElementById("curve"),
+    noise: document.getElementById("noise"),
+    breath: document.getElementById("breath"),
+    audio: document.getElementById("audio"),
+    stars: document.getElementById("stars"),
+    textPressure: document.getElementById("textPressure"),
+
+    v_int: document.getElementById("v_int"),
+    v_speed: document.getElementById("v_speed"),
+    v_curve: document.getElementById("v_curve"),
+    v_noise: document.getElementById("v_noise"),
+    v_breath: document.getElementById("v_breath"),
+    v_audio: document.getElementById("v_audio"),
+    v_stars: document.getElementById("v_stars"),
+    v_text: document.getElementById("v_text"),
+
+    dreadFill: document.getElementById("dreadFill"),
+    btnPulse: document.getElementById("btnPulse"),
+    btnGround: document.getElementById("btnGround"),
+
+    hudT: document.getElementById("hudT"),
+    hudS: document.getElementById("hudS"),
+    hudM: document.getElementById("hudM"),
+  };
+
+  const SAVE_KEY = "existential_dread_sim_v1";
+
+  const S = {
+    running: true,
+    w:0, h:0, dpr:1,
+    tSec: 0,    // time accumulator
+    p: 0,       // progress 0..1 (increases over run)
+    last: performance.now(),
+
+    // camera steer
+    steerX: 0, steerY: 0,
+    tSteerX: 0, tSteerY: 0,
+    down:false, lx:0, ly:0,
+
+    // fps
+    fps:0, _fpsN:0, _fpsT:0,
+
+    // procedural assets
+    starsNear: [],
+    starsFar: [],
+    webPts: [],
+    noiseSeed: Math.random()*999,
+
+    // dread dynamics
+    dread: 0,
+    pulse: 0,
+    grounding: false,
+
+    // audio
+    ac: null,
+    osc: null,
+    osc2: null,
+    gain: null,
+    filt: null,
+    lfo: null,
+    lfoGain: null,
+  };
+
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function smoothstep(a,b,x){
+    const t=clamp((x-a)/(b-a),0,1);
+    return t*t*(3-2*t);
+  }
+  function fract(x){ return x - Math.floor(x); }
+  function hash(n){ return fract(Math.sin(n)*43758.5453123); }
+  function h2(x,y){ return fract(Math.sin(x*127.1 + y*311.7)*43758.5453123); }
+
+  function fmtPct(x){ return (x*100).toFixed(0)+"%"; }
+
+  // "scale" mapping (stylized): meters-per-pixel from 1m/px to 1e27m/px
+  const LOG_MIN = 0;   // 1
+  const LOG_MAX = 27;  // 1e27
+  function metersPerPixel(progress){
+    const curve = Number(UI.curve.value);
+    const p = Math.pow(clamp(progress,0,1), curve);
+    const log = lerp(LOG_MIN, LOG_MAX, p);
+    return Math.pow(10, log);
+  }
+  function fmtScale(mpp){
+    const units = [
+      {u:"m",  f:1},
+      {u:"km", f:1e3},
+      {u:"AU", f:1.495978707e11},
+      {u:"ly", f:9.460730472e15},
+      {u:"Mly", f:9.460730472e21},
+      {u:"Gly", f:9.460730472e24},
+    ];
+    let best = units[0];
+    for (const x of units){
+      if (mpp/x.f >= 1) best = x;
+    }
+    const v = mpp / best.f;
+    const digits = v < 10 ? 2 : (v < 100 ? 1 : 0);
+    return `${v.toFixed(digits)} ${best.u}/px`;
+  }
+
+  const BEATS = [
+    {t:0.00, title:"A room-sized universe", sub:"Your attention is a small lantern. Outside it: everything else."},
+    {t:0.12, title:"Planet-scale indifference", sub:"Cities become glitter. A life becomes a statistic in a weather system."},
+    {t:0.26, title:"Stellar timescales", sub:"Civilizations are sparks on a fuel gauge."},
+    {t:0.40, title:"Galactic drift", sub:"Stars are dust. Dust forms spirals. Spirals forget."},
+    {t:0.55, title:"Cosmic web", sub:"Filaments of matter: structure without intent."},
+    {t:0.70, title:"Time without witnesses", sub:"Most of time has no eyes. No language. No record."},
+    {t:0.82, title:"The horizon of knowability", sub:"Not a wall—just a limit. Beyond it: unshareable darkness."},
+    {t:0.92, title:"Entropy’s patience", sub:"Everything that can happen, does—slowly. Then less. Then less."},
+    {t:0.98, title:"And still: you", sub:"A brief arrangement of matter that can notice itself."},
+  ];
+
+  function currentBeat(p){
+    let b = BEATS[0];
+    for (const x of BEATS){
+      if (p >= x.t) b = x;
+    }
+    return b;
+  }
+
+  function persist(){
+    const d = {
+      int:UI.int.value,
+      speed:UI.speed.value,
+      curve:UI.curve.value,
+      noise:UI.noise.value,
+      breath:UI.breath.value,
+      audio:UI.audio.value,
+      stars:UI.stars.value,
+      textPressure:UI.textPressure.value,
+      grounding:S.grounding ? 1 : 0,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
+  }
+  function restore(){
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    try{
+      const d = JSON.parse(raw);
+      for (const k in d){
+        if (UI[k]) UI[k].value = d[k];
+      }
+      if ("grounding" in d) S.grounding = !!d.grounding;
+    } catch {}
+  }
+  function readUI(){
+    UI.v_int.textContent = Number(UI.int.value).toFixed(2);
+    UI.v_speed.textContent = Number(UI.speed.value).toFixed(2)+"x";
+    UI.v_curve.textContent = Number(UI.curve.value).toFixed(2);
+    UI.v_noise.textContent = Number(UI.noise.value).toFixed(2);
+    UI.v_breath.textContent = Number(UI.breath.value).toFixed(2);
+    UI.v_audio.textContent = UI.audio.value === "1" ? "On" : "Off";
+    UI.v_stars.textContent = Number(UI.stars.value).toFixed(2);
+    UI.v_text.textContent = Number(UI.textPressure.value).toFixed(2);
+    UI.btnGround.textContent = S.grounding ? "Grounding: ON" : "Grounding mode";
+  }
+
+  function resize(){
+    const dpr = Math.max(1, Math.min(2, devicePixelRatio || 1));
+    S.dpr = dpr;
+    S.w = innerWidth;
+    S.h = innerHeight - 52;
+    cv.width = Math.floor(S.w*dpr);
+    cv.height = Math.floor(S.h*dpr);
+    cv.style.width = S.w+"px";
+    cv.style.height = S.h+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    genAssets();
+  }
+
+  function genAssets(){
+    const w=S.w, h=S.h;
+    const starK = Number(UI.stars.value);
+    const density = (0.35 + starK*1.25);
+
+    S.starsNear = [];
+    S.starsFar = [];
+
+    const nFar = Math.floor((w*h)/5200 * density);
+    const nNear = Math.floor((w*h)/8200 * density);
+
+    for (let i=0;i<nFar;i++){
+      const a = hash(i*12.1 + 1.3);
+      const b = hash(i*93.7 + 9.7);
+      const z = hash(i*7.77 + 4.1);
+      S.starsFar.push({x:a*w, y:b*h, r:0.2+z*1.0, tw:0.2+hash(i*3.3)*0.8, ph:hash(i*19.9)*Math.PI*2});
+    }
+    for (let i=0;i<nNear;i++){
+      const a = hash(i*42.1 + 7.3);
+      const b = hash(i*11.7 + 3.1);
+      const z = hash(i*17.2 + 5.4);
+      S.starsNear.push({x:a*w, y:b*h, r:0.3+z*1.4, tw:0.2+hash(i*8.8)*0.8, ph:hash(i*2.2)*Math.PI*2});
+    }
+
+    // cosmic web points (filaments)
+    S.webPts = [];
+    const nWeb = Math.floor(2400 * (0.45 + Number(UI.noise.value)*0.9));
+    for (let i=0;i<nWeb;i++){
+      const u = (hash(i*4.1)-0.5)*2;
+      const v = (hash(i*8.3)-0.5)*2;
+      const wv = (hash(i*1.7)-0.5)*2;
+      const f = Math.sin(u*3.1) + Math.sin(v*3.3) + Math.sin(wv*3.0);
+      const g = Math.sin(u*5.7 + v*2.3) + Math.sin(v*4.7 + wv*2.2);
+      const dens = clamp((f*f + g*g)*0.08, 0, 1);
+      if (hash(i*13.3) > dens) continue;
+      S.webPts.push({x:u, y:v, z:wv, dens});
+    }
+  }
+
+  function togglePanel(show){
+    UI.panel.hidden = (show===undefined) ? !UI.panel.hidden : !show;
+  }
+  function togglePlay(){
+    S.running = !S.running;
+    UI.btnPlay.textContent = S.running ? "Pause" : "Resume";
+  }
+  function reset(){
+    S.tSec = 0;
+    S.p = 0;
+    S.dread = 0;
+    S.pulse = 0;
+    S.tSteerX = S.tSteerY = 0;
+    S.steerX = S.steerY = 0;
+  }
+
+  // Audio (drone + slow beating) — optional
+  function ensureAudio(){
+    if (S.ac) return;
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    S.ac = ac;
+
+    const osc = ac.createOscillator();
+    const osc2 = ac.createOscillator();
+    const gain = ac.createGain();
+    const filt = ac.createBiquadFilter();
+    filt.type = "lowpass";
+    filt.frequency.value = 280;
+    filt.Q.value = 0.8;
+
+    const lfo = ac.createOscillator();
+    const lfoGain = ac.createGain();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.12;
+    lfoGain.gain.value = 18;
+
+    osc.type = "sine";
+    osc2.type = "triangle";
+    osc.frequency.value = 55;
+    osc2.frequency.value = 55 * 1.005;
+
+    gain.gain.value = 0.0;
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(filt.frequency);
+
+    osc.connect(filt);
+    osc2.connect(filt);
+    filt.connect(gain);
+    gain.connect(ac.destination);
+
+    osc.start();
+    osc2.start();
+    lfo.start();
+
+    S.osc = osc; S.osc2 = osc2; S.gain = gain; S.filt = filt; S.lfo = lfo; S.lfoGain = lfoGain;
+  }
+
+  function setAudioLevel(level){
+    if (!S.ac) return;
+    const t = S.ac.currentTime;
+    const target = clamp(level, 0, 1);
+    S.gain.gain.cancelScheduledValues(t);
+    S.gain.gain.setTargetAtTime(target * 0.12, t, 0.12);
+  }
+
+  // Pointer steer
+  cv.addEventListener("pointerdown", (e)=>{
+    S.down=true;
+    cv.setPointerCapture?.(e.pointerId);
+    S.lx=e.clientX; S.ly=e.clientY;
+  });
+  cv.addEventListener("pointermove", (e)=>{
+    if(!S.down) return;
+    const dx=e.clientX-S.lx, dy=e.clientY-S.ly;
+    S.lx=e.clientX; S.ly=e.clientY;
+    S.tSteerX = clamp(S.tSteerX + dx*0.003, -1, 1);
+    S.tSteerY = clamp(S.tSteerY + dy*0.003, -1, 1);
+  });
+  cv.addEventListener("pointerup", ()=>S.down=false);
+  cv.addEventListener("pointercancel", ()=>S.down=false);
+
+  // Wheel changes speed gently
+  window.addEventListener("wheel", (e)=>{
+    // only if not over input elements
+    const ae = document.activeElement;
+    const typing = ae && (ae.tagName==="INPUT" || ae.tagName==="TEXTAREA" || ae.tagName==="SELECT");
+    if (typing) return;
+    const s = Number(UI.speed.value);
+    const next = clamp(s * (e.deltaY > 0 ? 0.94 : 1.06), 0.15, 3.0);
+    UI.speed.value = next.toFixed(2);
+    readUI(); persist();
+  }, { passive:true });
+
+  // UI events
+  UI.btnPanel.addEventListener("click", ()=>togglePanel());
+  UI.btnClose.addEventListener("click", ()=>togglePanel(false));
+  UI.btnPlay.addEventListener("click", togglePlay);
+  UI.btnReset.addEventListener("click", reset);
+
+  UI.btnPulse.addEventListener("click", ()=>{
+    S.pulse = clamp(S.pulse + 0.8, 0, 1.5);
+  });
+
+  UI.btnGround.addEventListener("click", ()=>{
+    S.grounding = !S.grounding;
+    readUI();
+    persist();
+  });
+
+  for (const el of [UI.int, UI.speed, UI.curve, UI.noise, UI.breath, UI.audio, UI.stars, UI.textPressure]){
+    el.addEventListener("input", ()=>{ readUI(); persist(); genAssets(); });
+    el.addEventListener("change", ()=>{ readUI(); persist(); genAssets(); });
+  }
+
+  window.addEventListener("keydown", (e)=>{
+    const k=e.key.toLowerCase();
+    if(k===" "){ e.preventDefault(); togglePlay(); }
+    if(k==="c"){ togglePanel(); }
+    if(k==="r"){ reset(); }
+    if(k==="g"){ S.grounding = !S.grounding; readUI(); persist(); }
+    if(k==="escape"){ UI.panel.hidden=true; }
+  });
+
+  // Drawing helpers
+  function glow(x,y,r, c0, c1){
+    const g = ctx.createRadialGradient(x,y, 0, x,y, r);
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawStars(t, strength){
+    const w=S.w, h=S.h;
+    ctx.globalCompositeOperation="source-over";
+    for (const s of S.starsFar){
+      const tw = 0.55 + 0.45*Math.sin(t*0.6 + s.ph);
+      const a = (0.04 + tw*0.12*s.tw) * strength;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation="source-over";
+    for (const s of S.starsNear){
+      const tw = 0.55 + 0.45*Math.sin(t*0.9 + s.ph);
+      const a = (0.05 + tw*0.15*s.tw) * strength;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.beginPath();
+      ctx.arc(s.x + S.steerX*30, s.y + S.steerY*20, s.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawCosmicWeb(t, amount, noiseK){
+    if (amount <= 0.001) return;
+    const w=S.w, h=S.h;
+    const cx = w*0.5 + S.steerX*180;
+    const cy = h*0.52 + S.steerY*150;
+
+    ctx.globalCompositeOperation="lighter";
+
+    const baseA = amount * (0.015 + noiseK*0.065);
+    for (const p of S.webPts){
+      const swirl = Math.sin((p.x+p.y+p.z)*2.2 + t*0.12) * 0.06 * noiseK;
+      const x = cx + (p.x + swirl)*520;
+      const y = cy + (p.y - swirl)*360;
+      const a = baseA * (0.3 + p.dens*1.7);
+      if (a < 0.004) continue;
+      const r = 1.4 + p.dens*6.5;
+      glow(x,y,r*5.5, `rgba(210,230,255,${a})`, "rgba(210,230,255,0)");
+    }
+
+    // void shadows
+    const voidA = amount * 0.08;
+    ctx.globalAlpha = voidA;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    for (let i=0;i<6;i++){
+      const x = (hash(i*12.3 + t*0.07))*w;
+      const y = (hash(i*77.7 + t*0.05))*h;
+      glow(x,y, 240, "rgba(0,0,0,0.35)", "rgba(0,0,0,0)");
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.globalCompositeOperation="source-over";
+  }
+
+  function drawTextPressure(t, dread, pressure){
+    if (pressure <= 0.001) return;
+    const w=S.w, h=S.h;
+
+    const phrases = [
+      "you are here",
+      "and then not",
+      "time keeps going",
+      "most of it is empty",
+      "no one is watching",
+      "everything forgets",
+      "scale is a weapon",
+      "you can't hold it all",
+      "the horizon is not a wall",
+      "entropy is patient",
+      "meaning is something you do",
+      "you are a brief noticing"
+    ];
+
+    ctx.globalCompositeOperation="lighter";
+    ctx.font = "900 14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+    const n = Math.floor(8 + pressure*26);
+    for (let i=0;i<n;i++){
+      const u = hash(i*12.1 + t*0.13);
+      const v = hash(i*93.7 + t*0.11);
+      const x = u*w;
+      const y = v*h;
+      const p = phrases[(i + Math.floor(t*0.2)) % phrases.length];
+      const a = (0.03 + pressure*0.10) * (0.4 + dread*0.9);
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.fillText(p, x - (p.length*4), y);
+    }
+
+    // central statement sometimes
+    const centerA = smoothstep(0.55, 0.9, dread) * pressure;
+    if (centerA > 0.01){
+      const msg = "your mind is finite; the universe is not";
+      ctx.font = "950 20px ui-sans-serif, system-ui";
+      ctx.fillStyle = `rgba(255,220,180,${0.08 + centerA*0.12})`;
+      ctx.fillText(msg, w*0.5 - ctx.measureText(msg).width*0.5, h*0.56);
+    }
+
+    ctx.globalCompositeOperation="source-over";
+  }
+
+  function drawBreathOverlay(t, breathK){
+    if (breathK <= 0.001) return;
+    const w=S.w, h=S.h;
+    // gentle breathing vignette + slow pulsing light
+    const b = 0.5 + 0.5*Math.sin(t*0.35);
+    const a = (0.05 + b*0.07) * breathK;
+    const vg = ctx.createRadialGradient(w*0.5,h*0.52, Math.min(w,h)*0.18, w*0.5,h*0.52, Math.min(w,h)*0.95);
+    vg.addColorStop(0, `rgba(111,191,115,${a*0.65})`);
+    vg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalCompositeOperation="lighter";
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation="source-over";
+  }
+
+  function drawVignette(dread){
+    const w=S.w, h=S.h;
+    const base = 0.42 + dread*0.22;
+    const vg = ctx.createRadialGradient(w*0.5,h*0.52, Math.min(w,h)*0.14, w*0.5,h*0.52, Math.min(w,h)*0.92);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, `rgba(0,0,0,${base})`);
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,w,h);
+  }
+
+  function drawGrain(t, dread, noiseK){
+    const w=S.w, h=S.h;
+    const a = (0.04 + dread*0.10) * (0.2 + noiseK*0.8);
+    if (a < 0.01) return;
+    const n = Math.floor((w*h)/6500 * (0.25 + dread*0.75) * (0.35 + noiseK*0.9));
+    ctx.globalAlpha = a;
+    for (let i=0;i<n;i++){
+      const x = hash(i*12.3 + t*0.002)*w;
+      const y = hash(i*91.7 + t*0.003)*h;
+      const c = hash(i*7.7 + t*0.004);
+      ctx.fillStyle = c > 0.5 ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
+      ctx.fillRect(x,y,1,1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render(now){
+    const w=S.w, h=S.h;
+
+    // base background
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, "rgb(3,4,5)");
+    g.addColorStop(1, "rgb(1,2,2)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+
+    const intensity = Number(UI.int.value);
+    const noiseK = Number(UI.noise.value);
+    const breathK = Number(UI.breath.value);
+    const textK = Number(UI.textPressure.value);
+
+    // scale progression + "dread"
+    const mpp = metersPerPixel(S.p);
+    UI.pillScale.textContent = fmtScale(mpp);
+
+    // Stars become more "dense" and more visually aggressive with dread
+    const starStrength = clamp(0.4 + S.p*0.8, 0, 1.2);
+    drawStars(S.tSec, starStrength);
+
+    // cosmic web emerges as scale increases
+    const webAmt = smoothstep(0.45, 0.9, S.p) * (0.4 + intensity*0.8);
+    drawCosmicWeb(S.tSec, webAmt, noiseK);
+
+    // "horizon wash" near end: warm/cool gradient tension
+    const end = smoothstep(0.75, 1.0, S.p);
+    if (end > 0.001){
+      const a = end * (0.06 + intensity*0.16);
+      const gg = ctx.createLinearGradient(0,0,w,h);
+      gg.addColorStop(0, `rgba(255,180,110,${a})`);
+      gg.addColorStop(0.5, `rgba(120,170,255,${a*0.85})`);
+      gg.addColorStop(1, `rgba(255,220,170,${a})`);
+      ctx.fillStyle = gg;
+      ctx.fillRect(0,0,w,h);
+    }
+
+    // Dread overlays (text pressure + grain) unless grounding
+    const ground = S.grounding ? 1 : 0;
+    const dreadVis = S.dread * (1 - ground*0.75);
+
+    drawTextPressure(S.tSec, dreadVis, textK*(0.3 + intensity*0.7));
+    drawBreathOverlay(S.tSec, breathK*(0.35 + ground*0.9));
+
+    drawVignette(dreadVis);
+    drawGrain(S.tSec, dreadVis, noiseK);
+
+    // subtle camera drift when dread is high
+    const shake = dreadVis * (0.6 + intensity*0.8);
+    if (shake > 0.01){
+      const dx = (Math.sin(S.tSec*17.2) + Math.sin(S.tSec*7.1))*2.0*shake;
+      const dy = (Math.cos(S.tSec*16.1) + Math.cos(S.tSec*6.6))*1.6*shake;
+      ctx.globalAlpha = 0.12*shake;
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillRect(dx,dy,w,h);
+      ctx.globalAlpha = 1;
+    }
+
+    // HUD copy
+    const b = currentBeat(S.p);
+    UI.hudT.textContent = b.title;
+    UI.hudS.textContent = b.sub;
+
+    UI.hudM.textContent =
+      `progress=${S.p.toFixed(3)} · m/px≈${fmtScale(mpp)} · speed=${Number(UI.speed.value).toFixed(2)}x · dread=${S.dread.toFixed(2)}${S.grounding ? " · grounding=on" : ""}`;
+
+    // Dread bar
+    UI.dreadFill.style.width = `${(S.dread*100).toFixed(1)}%`;
+    UI.pillDread.textContent = fmtPct(S.dread);
+
+    // audio level linked to dread (if enabled)
+    if (UI.audio.value === "1" && S.ac){
+      setAudioLevel(S.dread * (S.grounding ? 0.35 : 1));
+    }
+  }
+
+  function step(now){
+    requestAnimationFrame(step);
+    const dt = Math.min(0.033, Math.max(0.001, (now - S.last)/1000));
+    S.last = now;
+
+    // fps
+    S._fpsN++; S._fpsT += dt;
+    if (S._fpsT >= 0.5){
+      S.fps = S._fpsN / S._fpsT;
+      S._fpsN = 0; S._fpsT = 0;
+      UI.pillFps.textContent = S.fps.toFixed(0);
+    }
+
+    // steer easing + recenter
+    S.steerX = lerp(S.steerX, S.tSteerX, 0.10);
+    S.steerY = lerp(S.steerY, S.tSteerY, 0.10);
+    S.tSteerX *= 0.995;
+    S.tSteerY *= 0.995;
+
+    // time/progress update
+    if (S.running){
+      const speed = Number(UI.speed.value);
+      S.tSec += dt * speed;
+
+      // progress ramp: slow early, faster later, and speed contributes
+      const accel = 0.010 + S.p*0.020;
+      const noiseK = Number(UI.noise.value);
+      const jitter = (h2(S.tSec*0.7, S.noiseSeed) - 0.5) * 0.0015 * noiseK;
+
+      S.p = clamp(S.p + (accel + jitter) * dt * speed, 0, 1);
+    }
+
+    // dread model:
+    // rises with progress (scale), speed (loss of control), noise (sensory chaos), plus manual pulse
+    const intensity = Number(UI.int.value);
+    const speed = Number(UI.speed.value);
+    const noiseK = Number(UI.noise.value);
+    const breathK = Number(UI.breath.value);
+
+    const scaleTerm = Math.pow(S.p, 0.65);                // scale creep
+    const speedTerm = clamp((speed - 0.6) / 2.4, 0, 1);   // panic when fast
+    const chaosTerm = noiseK;
+
+    let target = (scaleTerm*0.55 + speedTerm*0.30 + chaosTerm*0.18) * (0.55 + intensity*0.75);
+
+    // pulse adds spike, decays
+    S.pulse = Math.max(0, S.pulse - dt*0.65);
+    target = clamp(target + S.pulse*0.55, 0, 1.2);
+
+    // grounding reduces target and increases damping
+    if (S.grounding){
+      target *= 0.55;
+    }
+
+    // breath reduces dread slowly (if not too high)
+    target -= breathK * 0.10 * (1 - scaleTerm);
+
+    target = clamp(target, 0, 1);
+
+    const damp = S.grounding ? 0.10 : 0.06;
+    S.dread = lerp(S.dread, target, damp);
+
+    // audio init if selected (requires user gesture; we create on first time user turns on via interaction)
+    render(now);
+  }
+
+  // If user turns audio on, ensure audio context on next click
+  document.addEventListener("pointerdown", () => {
+    if (UI.audio.value === "1"){
+      try{
+        ensureAudio();
+        S.ac.resume?.();
+      } catch {}
+    }
+  }, { once:false });
+
+  // Panel toggle
+  UI.btnPanel.addEventListener("click", () => togglePanel());
+  UI.btnClose.addEventListener("click", () => togglePanel(false));
+
+  // init
+  restore();
+  readUI();
+  resize();
+  window.addEventListener("resize", resize);
+  reset();
+  requestAnimationFrame(step);
+
+})();
+</script>
+</body>
+</html>

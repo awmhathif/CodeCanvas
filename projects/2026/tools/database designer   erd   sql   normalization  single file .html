@@ -1,0 +1,1961 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Database Designer — ERD • SQL • Normalization (Single File)</title>
+  <style>
+    :root{
+      --bg:#070b12;
+      --panel: rgba(16,22,36,.72);
+      --panel2: rgba(24,32,52,.72);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf1ff;
+      --muted:#a4b4d6;
+      --good:#5dffb0;
+      --warn:#ffd65a;
+      --bad:#ff5a7b;
+      --accent:#6aa8ff;
+      --accent2:#b86cff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --shadow: rgba(0,0,0,.35);
+    }
+    html,body{
+      height:100%; margin:0;
+      background: radial-gradient(1200px 800px at 40% 0%, #13204b 0%, #070b12 55%, #04060b 100%);
+      color:var(--text);
+      font-family: var(--sans);
+      overflow:hidden;
+    }
+    *{box-sizing:border-box}
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 360px 1fr 420px;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+      padding:12px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow:hidden;
+      min-height:0;
+    }
+    #topbar{
+      grid-column:1/4; grid-row:1;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:10px 12px;
+    }
+    #brand{display:flex; flex-direction:column; gap:2px; min-width: 320px}
+    #brand b{letter-spacing:.4px}
+    #brand small{color:var(--muted)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:8px}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:13px;
+      user-select:none;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      white-space:nowrap;
+    }
+    .btn:hover{background: rgba(106,168,255,.18); border-color: rgba(106,168,255,.40)}
+    .btn:active{transform: scale(.98)}
+    .btn.primary{background: rgba(106,168,255,.22); border-color: rgba(106,168,255,.55)}
+    .btn.danger{background: rgba(255,90,123,.16); border-color: rgba(255,90,123,.45)}
+    .btn.good{background: rgba(93,255,176,.12); border-color: rgba(93,255,176,.35)}
+    .chip{
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-family: var(--mono);
+      white-space:nowrap;
+    }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      font-family:var(--mono);
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      padding:3px 8px;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .scroll{overflow:auto; padding:12px; min-height:0}
+    .sectionTitle{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:12px; border-bottom:1px solid var(--line)
+    }
+    .sectionTitle b{letter-spacing:.3px}
+    .tiny{font-size:11px; color:var(--muted); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:10px 0}
+    .card{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .card h4{margin:0; font-size:13px; letter-spacing:.2px}
+    .card p{margin:0; font-size:12px; color:var(--muted); line-height:1.35}
+    label{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:10px}
+    select,input[type="text"],input[type="number"],textarea{
+      width:100%;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    textarea{min-height:160px; resize:vertical}
+    #left{grid-column:1; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #mid{grid-column:2; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #right{grid-column:3; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #footer{
+      grid-column:1/4; grid-row:3;
+      padding:10px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+
+    /* Canvas + nodes */
+    #canvasWrap{
+      position:relative;
+      flex:1;
+      min-height:0;
+      overflow:hidden;
+      border-top:1px solid var(--line);
+      background:
+        radial-gradient(900px 520px at 50% 40%, rgba(106,168,255,.08), rgba(0,0,0,0));
+    }
+    #erd{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      touch-action:none;
+    }
+    #nodes{
+      position:absolute; inset:0;
+      pointer-events:none;
+    }
+    .tableNode{
+      position:absolute;
+      min-width: 220px;
+      max-width: 340px;
+      pointer-events:auto;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.40);
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+      user-select:none;
+    }
+    .tableHead{
+      padding:10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      cursor:grab;
+    }
+    .tableHead:active{cursor:grabbing}
+    .tableHead b{font-size:13px; letter-spacing:.2px}
+    .tableBody{
+      padding:8px 10px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .colRow{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(234,241,255,.92);
+    }
+    .colRow.selected{border-color: rgba(106,168,255,.55); box-shadow: 0 0 0 2px rgba(106,168,255,.12) inset}
+    .colRow .meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+    .badge{
+      padding:2px 7px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      font-size:11px;
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      white-space:nowrap;
+    }
+    .badge.pk{border-color: rgba(93,255,176,.35); color: rgba(170,255,220,.95); background: rgba(93,255,176,.08)}
+    .badge.fk{border-color: rgba(255,214,90,.35); color: rgba(255,230,170,.95); background: rgba(255,214,90,.08)}
+    .badge.nn{border-color: rgba(106,168,255,.35); color: rgba(190,220,255,.95); background: rgba(106,168,255,.08)}
+    .badge.uq{border-color: rgba(184,108,255,.35); color: rgba(220,190,255,.95); background: rgba(184,108,255,.08)}
+    .badge.idx{border-color: rgba(255,255,255,.14); color: rgba(234,241,255,.88); background: rgba(255,255,255,.04)}
+    .nodeBtns{display:flex; gap:8px; align-items:center}
+    .btnMini{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(234,241,255,.92);
+      padding:6px 8px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:900;
+      font-size:12px;
+      user-select:none;
+      font-family: var(--mono);
+    }
+    .btnMini:hover{border-color: rgba(106,168,255,.45); background: rgba(106,168,255,.12)}
+    .btnMini.danger:hover{border-color: rgba(255,90,123,.45); background: rgba(255,90,123,.10)}
+    .btnMini.good:hover{border-color: rgba(93,255,176,.45); background: rgba(93,255,176,.08)}
+
+    /* Tabs in right panel */
+    .tabs{
+      display:flex; gap:8px; padding:10px 12px;
+      border-bottom:1px solid var(--line); flex-wrap:wrap
+    }
+    .tab{
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      cursor:pointer;
+      font-weight:900;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+    }
+    .tab.active{
+      background: rgba(106,168,255,.20);
+      border-color: rgba(106,168,255,.55);
+      color: var(--text);
+    }
+    .hidden{display:none !important}
+
+    /* Modal */
+    #modalBg{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:30;
+    }
+    #modal{
+      width:min(980px, 100%);
+      max-height: min(90vh, 880px);
+      overflow:auto;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(10,14,24,.92);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #modal header{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px; border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    #modal .body{padding:12px}
+    #toast{
+      position:fixed; left:50%; top:70px; transform:translateX(-50%);
+      padding:10px 12px; border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.40);
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      font-family:var(--mono);
+      font-size:12px;
+      max-width:min(80vw, 980px);
+      white-space:pre-wrap;
+      z-index:40;
+    }
+    #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+    kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.25);
+      color: rgba(234,241,255,.9);
+    }
+
+    @media (max-width: 1200px){
+      html,body{overflow:auto}
+      #app{
+        position:static; inset:auto;
+        grid-template-columns:1fr;
+        grid-template-rows:auto auto auto auto auto;
+        overflow:auto;
+      }
+      #left{grid-column:1; grid-row:2}
+      #mid{grid-column:1; grid-row:3; min-height:560px}
+      #right{grid-column:1; grid-row:4}
+      #footer{grid-column:1; grid-row:5}
+      #canvasWrap{min-height:560px}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar" class="panel">
+    <div id="brand">
+      <b>Database Designer</b>
+      <small>ERD diagrams • Relationships • SQL generation • Basic normalization checks • Single-file offline</small>
+    </div>
+
+    <div class="row" style="margin-left:auto">
+      <button class="btn primary" id="btnAddTable">Add Table</button>
+      <button class="btn" id="btnAutoLayout">Auto Layout</button>
+      <button class="btn" id="btnSQL">Generate SQL</button>
+      <button class="btn" id="btnAnalyze">Normalize / Analyze</button>
+      <button class="btn" id="btnSave">Save</button>
+      <button class="btn" id="btnLoad">Load</button>
+      <button class="btn danger" id="btnWipe">Wipe</button>
+    </div>
+
+    <div class="row">
+      <span class="chip">Tables <b id="uiTables">0</b></span>
+      <span class="chip">FKs <b id="uiFKs">0</b></span>
+      <span class="chip">Dialect <b id="uiDialect">PostgreSQL</b></span>
+    </div>
+  </div>
+
+  <div id="left" class="panel">
+    <div class="sectionTitle">
+      <b>Schema</b>
+      <span class="pill">Select + Edit</span>
+    </div>
+    <div class="scroll">
+      <div class="card">
+        <h4>Quick actions</h4>
+        <div class="row">
+          <button class="btn" id="btnSeed">Seed Example</button>
+          <button class="btn" id="btnFit">Fit View</button>
+          <button class="btn" id="btnHelp">Help</button>
+        </div>
+        <div class="sep"></div>
+        <div class="row">
+          <div class="col" style="flex:1">
+            <label>SQL Dialect</label>
+            <select id="selDialect">
+              <option value="postgres" selected>PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="sqlite">SQLite</option>
+            </select>
+          </div>
+          <div class="col" style="width:170px">
+            <label>Case style</label>
+            <select id="selCase">
+              <option value="snake" selected>snake_case</option>
+              <option value="camel">camelCase</option>
+            </select>
+          </div>
+        </div>
+        <div class="tiny">
+          Tips:
+          <ul style="margin:6px 0 0 18px; padding:0; color:var(--muted); line-height:1.45">
+            <li>Drag table headers to move. Scroll to zoom. Drag empty space to pan.</li>
+            <li>Select a column then click another table column to create an FK.</li>
+            <li><kbd>Delete</kbd> removes selected table/column (with confirmation).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="card">
+        <h4>Selected</h4>
+        <div id="selInfo" class="tiny">Nothing selected.</div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="card">
+        <h4>Tables</h4>
+        <div id="tableList" style="display:flex; flex-direction:column; gap:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mid" class="panel" style="display:flex; flex-direction:column; min-height:0">
+    <div class="sectionTitle">
+      <b>ERD Canvas</b>
+      <span class="pill">Relationships</span>
+    </div>
+    <div id="canvasWrap">
+      <canvas id="erd"></canvas>
+      <div id="nodes"></div>
+    </div>
+  </div>
+
+  <div id="right" class="panel" style="display:flex; flex-direction:column; min-height:0">
+    <div class="tabs">
+      <div class="tab active" data-tab="edit">Edit</div>
+      <div class="tab" data-tab="sql">SQL</div>
+      <div class="tab" data-tab="analyze">Analyze</div>
+      <div class="tab" data-tab="import">Import/Export</div>
+    </div>
+
+    <div id="tab_edit" class="scroll">
+      <div class="card">
+        <h4>Table editor</h4>
+        <div class="tiny">Edit selected table and its columns. Add PK, FK, indexes, and constraints.</div>
+        <div class="sep"></div>
+        <div id="editor"></div>
+      </div>
+    </div>
+
+    <div id="tab_sql" class="scroll hidden">
+      <div class="card">
+        <h4>Generated SQL</h4>
+        <div class="row">
+          <button class="btn" id="btnCopySQL">Copy</button>
+          <button class="btn" id="btnDownloadSQL">Download</button>
+        </div>
+        <div class="sep"></div>
+        <textarea id="sqlOut" spellcheck="false" style="min-height:520px"></textarea>
+      </div>
+    </div>
+
+    <div id="tab_analyze" class="scroll hidden">
+      <div class="card">
+        <h4>Normalization / Design Checks</h4>
+        <div class="tiny">These are heuristic checks (client-side). For real normalization, you’d analyze functional dependencies formally.</div>
+        <div class="sep"></div>
+        <div id="analysis"></div>
+      </div>
+    </div>
+
+    <div id="tab_import" class="scroll hidden">
+      <div class="card">
+        <h4>Project JSON</h4>
+        <div class="row">
+          <button class="btn" id="btnExportJSON">Export</button>
+          <button class="btn" id="btnImportJSON">Import</button>
+        </div>
+        <div class="sep"></div>
+        <textarea id="jsonBox" placeholder="Export appears here. Paste JSON here to import (replaces current schema)."></textarea>
+        <div class="sep"></div>
+        <div class="tiny">
+          SQL Import is not included in this single-file version (parsing SQL DDL robustly is a project on its own).
+          You can extend by adding a limited DDL parser for your dialect.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer" class="panel">
+    <div class="row">
+      <span class="chip">Selection <b id="uiSel">—</b></span>
+      <span class="chip">Zoom <b id="uiZoom">1.00×</b></span>
+      <span class="chip">Pan <b id="uiPan">0,0</b></span>
+      <span class="chip">Saved <b id="uiSaved">—</b></span>
+    </div>
+    <div class="row">
+      <span class="tiny">Offline ERD with FK lines + SQL generator for Postgres/MySQL/SQLite. Normalization checks include 1NF/2NF/3NF hints.</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalBg">
+  <div id="modal">
+    <header>
+      <div class="row">
+        <b id="modalTitle">Modal</b>
+        <span class="pill" id="modalMeta">—</span>
+      </div>
+      <button class="btn danger" id="btnCloseModal">Close</button>
+    </header>
+    <div class="body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(()=>{"use strict";
+
+  ///////////////////////////////
+  // Helpers
+  ///////////////////////////////
+  const $=id=>document.getElementById(id);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const fmt=(n,d=0)=>Number.isFinite(n)?(Math.round(n*10**d)/10**d).toFixed(d):"0";
+  const now=()=>performance.now();
+  function toast(msg, ms=1800){
+    const t=$("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h=setTimeout(()=>t.classList.remove("show"), ms);
+  }
+  function safeJSONParse(s){ try{return JSON.parse(s);}catch{return null;} }
+  function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+  function uid(prefix="id"){ return prefix+"_"+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2); }
+  function esc(s){
+    return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  }
+  function snakeCase(s){
+    s=String(s||"");
+    s=s.replace(/([a-z0-9])([A-Z])/g,"$1_$2");
+    s=s.replace(/[^a-zA-Z0-9_]+/g,"_");
+    s=s.replace(/_{2,}/g,"_");
+    s=s.replace(/^_+|_+$/g,"");
+    return s.toLowerCase() || "name";
+  }
+  function camelCase(s){
+    s=snakeCase(s);
+    const parts=s.split("_").filter(Boolean);
+    if(!parts.length) return "name";
+    return parts[0] + parts.slice(1).map(p=>p[0].toUpperCase()+p.slice(1)).join("");
+  }
+  function applyCase(s, mode){
+    return mode==="camel" ? camelCase(s) : snakeCase(s);
+  }
+
+  ///////////////////////////////
+  // Modal
+  ///////////////////////////////
+  function openModal(title, meta, html){
+    $("modalTitle").textContent=title;
+    $("modalMeta").textContent=meta||"";
+    $("modalBody").innerHTML=html||"";
+    $("modalBg").style.display="flex";
+  }
+  function closeModal(){ $("modalBg").style.display="none"; }
+  $("btnCloseModal").onclick=closeModal;
+  $("modalBg").addEventListener("click",(e)=>{ if(e.target.id==="modalBg") closeModal(); });
+
+  ///////////////////////////////
+  // Project storage
+  ///////////////////////////////
+  const SAVE_KEY="db_designer_v1";
+
+  ///////////////////////////////
+  // Data model
+  ///////////////////////////////
+  // Table: {id,name,x,y, cols:[{id,name,type,pk,nn,uq,idx,def,ref:{tableId,colId,onDelete,onUpdate}}], notes}
+  // We also allow composite PK by multiple cols pk=true.
+  const S = {
+    dialect:"postgres",   // postgres|mysql|sqlite
+    caseMode:"snake",     // snake|camel
+    zoom:1,
+    panX:0,
+    panY:0,
+    tables:[],
+    selection:{
+      tableId:null,
+      colId:null,
+      // for FK creation: selecting a source column then click a target column to set ref
+      fkSource:{tableId:null, colId:null},
+    }
+  };
+
+  ///////////////////////////////
+  // Default type sets by dialect
+  ///////////////////////////////
+  const TypeSets = {
+    postgres:["uuid","bigint","integer","smallint","boolean","text","varchar(255)","timestamp","timestamptz","date","numeric(10,2)","jsonb"],
+    mysql:["bigint","int","smallint","tinyint","boolean","text","varchar(255)","datetime","timestamp","date","decimal(10,2)","json"],
+    sqlite:["integer","real","text","blob","numeric","datetime","date","json"],
+  };
+
+  function normalizeType(type){
+    type=String(type||"text").trim();
+    if(!type) type="text";
+    return type;
+  }
+
+  ///////////////////////////////
+  // Create / mutate
+  ///////////////////////////////
+  function addTable(name="new_table"){
+    const id=uid("t");
+    const nn=applyCase(name, S.caseMode);
+    const t={
+      id,
+      name: nn,
+      x: (S.tables.length%3)*280 + 120,
+      y: Math.floor(S.tables.length/3)*220 + 120,
+      notes:"",
+      cols:[
+        {id:uid("c"), name:"id", type: defaultIdType(), pk:true, nn:true, uq:true, idx:true, def: defaultIdDefault(), ref:null},
+        {id:uid("c"), name:"created_at", type: defaultCreatedAtType(), pk:false, nn:true, uq:false, idx:false, def: defaultCreatedAtDefault(), ref:null},
+      ]
+    };
+    S.tables.push(t);
+    selectTable(id);
+    layoutDirty=true;
+    renderAll();
+  }
+
+  function defaultIdType(){
+    if(S.dialect==="postgres") return "uuid";
+    if(S.dialect==="mysql") return "bigint";
+    return "integer";
+  }
+  function defaultIdDefault(){
+    if(S.dialect==="postgres") return "gen_random_uuid()";
+    if(S.dialect==="mysql") return ""; // use AUTO_INCREMENT instead
+    return ""; // sqlite uses INTEGER PRIMARY KEY auto rowid if desired
+  }
+  function defaultCreatedAtType(){
+    if(S.dialect==="postgres") return "timestamptz";
+    if(S.dialect==="mysql") return "timestamp";
+    return "datetime";
+  }
+  function defaultCreatedAtDefault(){
+    if(S.dialect==="postgres") return "now()";
+    if(S.dialect==="mysql") return "CURRENT_TIMESTAMP";
+    return "CURRENT_TIMESTAMP";
+  }
+
+  function deleteTable(tableId){
+    const t=S.tables.find(x=>x.id===tableId);
+    if(!t) return;
+
+    // remove incoming refs
+    for(const ot of S.tables){
+      for(const c of ot.cols){
+        if(c.ref && c.ref.tableId===tableId){
+          c.ref=null;
+        }
+      }
+    }
+    S.tables = S.tables.filter(x=>x.id!==tableId);
+    if(S.selection.tableId===tableId){
+      S.selection.tableId=null; S.selection.colId=null;
+    }
+    renderAll();
+  }
+
+  function addColumn(tableId){
+    const t=S.tables.find(x=>x.id===tableId);
+    if(!t) return;
+    const base="new_col";
+    let name=base;
+    let i=1;
+    while(t.cols.some(c=>c.name===name)){ name=base+"_"+(i++); }
+    t.cols.push({id:uid("c"), name, type:"text", pk:false, nn:false, uq:false, idx:false, def:"", ref:null});
+    S.selection.colId=t.cols[t.cols.length-1].id;
+    renderAll();
+  }
+
+  function deleteColumn(tableId, colId){
+    const t=S.tables.find(x=>x.id===tableId);
+    if(!t) return;
+    // remove refs from other tables that point here
+    for(const ot of S.tables){
+      for(const c of ot.cols){
+        if(c.ref && c.ref.tableId===tableId && c.ref.colId===colId) c.ref=null;
+      }
+    }
+    t.cols = t.cols.filter(c=>c.id!==colId);
+    if(S.selection.colId===colId) S.selection.colId=null;
+    renderAll();
+  }
+
+  function selectTable(tableId){
+    S.selection.tableId=tableId;
+    S.selection.colId=null;
+    S.selection.fkSource={tableId:null,colId:null};
+    updateSelInfo();
+    renderAll();
+  }
+  function selectColumn(tableId, colId){
+    S.selection.tableId=tableId;
+    S.selection.colId=colId;
+    updateSelInfo();
+    renderAll();
+  }
+
+  ///////////////////////////////
+  // Selection info + editor
+  ///////////////////////////////
+  function updateSelInfo(){
+    const t = S.tables.find(x=>x.id===S.selection.tableId);
+    if(!t){
+      $("selInfo").innerHTML="Nothing selected.";
+      $("uiSel").textContent="—";
+      return;
+    }
+    const c = t.cols.find(x=>x.id===S.selection.colId);
+    $("uiSel").textContent = c ? `${t.name}.${c.name}` : t.name;
+
+    const fk = S.selection.fkSource.tableId ? `FK source: ${shortId(S.selection.fkSource.tableId)}.${shortId(S.selection.fkSource.colId)}` : "FK source: —";
+    $("selInfo").innerHTML = `
+      <div class="tiny">
+        <b>Table:</b> ${esc(t.name)} <span class="pill">id:${esc(shortId(t.id))}</span><br>
+        <b>Column:</b> ${c?esc(c.name):"—"}<br>
+        <span class="pill">${esc(fk)}</span>
+      </div>
+    `;
+  }
+
+  function shortId(id){ return String(id).slice(-6); }
+
+  function renderEditor(){
+    const wrap=$("editor");
+    const t=S.tables.find(x=>x.id===S.selection.tableId);
+    if(!t){
+      wrap.innerHTML = `<div class="tiny">Select a table to edit it.</div>`;
+      return;
+    }
+    const col = t.cols.find(x=>x.id===S.selection.colId);
+
+    const typeOptions = TypeSets[S.dialect].map(tp=>`<option value="${esc(tp)}">${esc(tp)}</option>`).join("");
+    const colsList = t.cols.map(c=>{
+      const badges = [
+        c.pk?`<span class="badge pk">PK</span>`:"",
+        c.ref?`<span class="badge fk">FK</span>`:"",
+        c.nn?`<span class="badge nn">NN</span>`:"",
+        c.uq?`<span class="badge uq">UQ</span>`:"",
+        c.idx?`<span class="badge idx">IDX</span>`:"",
+      ].filter(Boolean).join(" ");
+      return `
+        <div class="row" style="justify-content:space-between; align-items:center">
+          <span class="pill">${esc(c.name)} : ${esc(c.type)}</span>
+          <span>${badges}</span>
+        </div>
+      `;
+    }).join("");
+
+    wrap.innerHTML = `
+      <div class="card" style="background:rgba(0,0,0,.12)">
+        <h4>Table</h4>
+        <label>Name</label>
+        <input id="edTableName" type="text" value="${esc(t.name)}"/>
+        <label>Notes</label>
+        <textarea id="edNotes" style="min-height:90px">${esc(t.notes||"")}</textarea>
+        <div class="row">
+          <button class="btn primary" id="edAddCol">Add column</button>
+          <button class="btn danger" id="edDelTable">Delete table</button>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="card" style="background:rgba(0,0,0,.12)">
+        <h4>Columns</h4>
+        <div class="tiny">Select columns in the ERD canvas to edit properties. Click two columns to create an FK (source → target).</div>
+        <div class="sep"></div>
+        ${colsList}
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="card" style="background:rgba(0,0,0,.12)">
+        <h4>Selected Column</h4>
+        ${col ? `
+          <label>Name</label>
+          <input id="edColName" type="text" value="${esc(col.name)}"/>
+
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label>Type</label>
+              <input id="edColType" type="text" list="typeList" value="${esc(col.type)}"/>
+              <datalist id="typeList">${typeOptions}</datalist>
+            </div>
+            <div class="col" style="flex:1">
+              <label>Default</label>
+              <input id="edColDef" type="text" value="${esc(col.def||"")}"/>
+            </div>
+          </div>
+
+          <div class="row">
+            <label class="tiny" style="flex:1">Primary key</label>
+            <select id="edPK" style="max-width:150px">
+              <option value="no" ${col.pk?"":"selected"}>No</option>
+              <option value="yes" ${col.pk?"selected":""}>Yes</option>
+            </select>
+
+            <label class="tiny" style="flex:1">Not null</label>
+            <select id="edNN" style="max-width:150px">
+              <option value="no" ${col.nn?"":"selected"}>No</option>
+              <option value="yes" ${col.nn?"selected":""}>Yes</option>
+            </select>
+
+            <label class="tiny" style="flex:1">Unique</label>
+            <select id="edUQ" style="max-width:150px">
+              <option value="no" ${col.uq?"":"selected"}>No</option>
+              <option value="yes" ${col.uq?"selected":""}>Yes</option>
+            </select>
+
+            <label class="tiny" style="flex:1">Index</label>
+            <select id="edIDX" style="max-width:150px">
+              <option value="no" ${col.idx?"":"selected"}>No</option>
+              <option value="yes" ${col.idx?"selected":""}>Yes</option>
+            </select>
+          </div>
+
+          <div class="sep"></div>
+
+          <h4>Foreign key</h4>
+          <div class="tiny">${col.ref ? `References <b>${esc(tableName(col.ref.tableId))}.${esc(colName(col.ref.tableId, col.ref.colId))}</b>` : `No reference set.`}</div>
+
+          <div class="row">
+            <button class="btn" id="edClearFK">Clear FK</button>
+            <button class="btn primary" id="edStartFK">Set FK Source</button>
+          </div>
+
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label>ON DELETE</label>
+              <select id="edOnDel">
+                ${["NO ACTION","RESTRICT","CASCADE","SET NULL","SET DEFAULT"].map(x=>`<option value="${x}" ${(col.ref?.onDelete||"NO ACTION")===x?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col" style="flex:1">
+              <label>ON UPDATE</label>
+              <select id="edOnUpd">
+                ${["NO ACTION","RESTRICT","CASCADE","SET NULL","SET DEFAULT"].map(x=>`<option value="${x}" ${(col.ref?.onUpdate||"NO ACTION")===x?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn danger" id="edDelCol">Delete column</button>
+          </div>
+        ` : `<div class="tiny">Select a column to edit it.</div>`}
+      </div>
+    `;
+
+    // bindings
+    $("edTableName").oninput=(e)=>{
+      t.name = applyCase(e.target.value, S.caseMode);
+      renderAll(false);
+    };
+    $("edNotes").oninput=(e)=>{ t.notes=e.target.value; };
+
+    $("edAddCol").onclick=()=>addColumn(t.id);
+    $("edDelTable").onclick=()=>{
+      if(confirm("Delete table? Incoming foreign keys will be cleared.")) deleteTable(t.id);
+    };
+
+    if(col){
+      $("edColName").oninput=(e)=>{
+        col.name = applyCase(e.target.value, S.caseMode);
+        renderAll(false);
+      };
+      $("edColType").oninput=(e)=>{ col.type = normalizeType(e.target.value); renderAll(false); };
+      $("edColDef").oninput=(e)=>{ col.def = e.target.value; };
+
+      $("edPK").onchange=(e)=>{ col.pk = e.target.value==="yes"; renderAll(false); };
+      $("edNN").onchange=(e)=>{ col.nn = e.target.value==="yes"; renderAll(false); };
+      $("edUQ").onchange=(e)=>{ col.uq = e.target.value==="yes"; renderAll(false); };
+      $("edIDX").onchange=(e)=>{ col.idx = e.target.value==="yes"; renderAll(false); };
+
+      $("edClearFK").onclick=()=>{ col.ref=null; renderAll(false); };
+      $("edStartFK").onclick=()=>{
+        S.selection.fkSource = {tableId:t.id, colId:col.id};
+        updateSelInfo();
+        toast("FK source set. Now click a target column in another table.", 1600);
+      };
+
+      $("edOnDel").onchange=(e)=>{ if(!col.ref) col.ref={tableId:null,colId:null,onDelete:"NO ACTION",onUpdate:"NO ACTION"}; col.ref.onDelete=e.target.value; };
+      $("edOnUpd").onchange=(e)=>{ if(!col.ref) col.ref={tableId:null,colId:null,onDelete:"NO ACTION",onUpdate:"NO ACTION"}; col.ref.onUpdate=e.target.value; };
+
+      $("edDelCol").onclick=()=>{
+        if(confirm("Delete column? Foreign keys pointing to it will be cleared.")) deleteColumn(t.id, col.id);
+      };
+    }
+  }
+
+  function tableName(tableId){
+    return S.tables.find(t=>t.id===tableId)?.name || "unknown_table";
+  }
+  function colName(tableId,colId){
+    return S.tables.find(t=>t.id===tableId)?.cols.find(c=>c.id===colId)?.name || "unknown_col";
+  }
+
+  ///////////////////////////////
+  // Canvas rendering (ERD lines)
+  ///////////////////////////////
+  const canvas=$("erd");
+  const ctx=canvas.getContext("2d");
+  let W=0,H=0,DPR=1;
+
+  function resizeCanvas(){
+    const rect=canvas.getBoundingClientRect();
+    DPR=Math.min(2, window.devicePixelRatio||1);
+    W=Math.max(1, Math.floor(rect.width*DPR));
+    H=Math.max(1, Math.floor(rect.height*DPR));
+    canvas.width=W; canvas.height=H;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    renderCanvas();
+  }
+  window.addEventListener("resize", ()=>resizeCanvas(), {passive:true});
+
+  function worldToScreen(x,y){
+    return {
+      x: (x + S.panX) * S.zoom,
+      y: (y + S.panY) * S.zoom
+    };
+  }
+  function screenToWorld(x,y){
+    return {
+      x: x / S.zoom - S.panX,
+      y: y / S.zoom - S.panY
+    };
+  }
+
+  function renderCanvas(){
+    const w=W/DPR, h=H/DPR;
+    ctx.clearRect(0,0,w,h);
+
+    // background grid
+    drawGrid(w,h);
+
+    // FK lines
+    const fks = collectFKs();
+    for(const fk of fks){
+      drawFK(fk);
+    }
+
+    // selection hint
+    if(S.selection.fkSource.tableId){
+      ctx.save();
+      ctx.fillStyle="rgba(255,214,90,0.85)";
+      ctx.font="12px "+getComputedStyle(document.documentElement).getPropertyValue("--mono");
+      ctx.fillText("FK mode: click target column…", 14, 18);
+      ctx.restore();
+    }
+  }
+
+  function drawGrid(w,h){
+    const step=48*S.zoom;
+    ctx.save();
+    ctx.strokeStyle="rgba(255,255,255,0.05)";
+    ctx.lineWidth=1;
+    const ox=(S.panX*S.zoom)%step;
+    const oy=(S.panY*S.zoom)%step;
+    for(let x=ox; x<w; x+=step){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+    for(let y=oy; y<h; y+=step){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function collectFKs(){
+    const out=[];
+    for(const t of S.tables){
+      for(const c of t.cols){
+        if(c.ref && c.ref.tableId && c.ref.colId){
+          out.push({from:{tableId:t.id,colId:c.id}, to:{tableId:c.ref.tableId,colId:c.ref.colId}, onDelete:c.ref.onDelete||"NO ACTION", onUpdate:c.ref.onUpdate||"NO ACTION"});
+        }
+      }
+    }
+    return out;
+  }
+
+  function getNodeRect(tableId){
+    const el=document.querySelector(`.tableNode[data-table="${tableId}"]`);
+    if(!el) return null;
+    const rect=el.getBoundingClientRect();
+    const cRect=canvas.getBoundingClientRect();
+    return {
+      x: rect.left - cRect.left,
+      y: rect.top - cRect.top,
+      w: rect.width,
+      h: rect.height
+    };
+  }
+
+  function getColAnchor(tableId,colId){
+    const el=document.querySelector(`.tableNode[data-table="${tableId}"] .colRow[data-col="${colId}"]`);
+    if(!el) return null;
+    const r=el.getBoundingClientRect();
+    const c=canvas.getBoundingClientRect();
+    const x = (r.left + r.right)/2 - c.left;
+    const y = (r.top + r.bottom)/2 - c.top;
+    return {x,y};
+  }
+
+  function drawFK(fk){
+    const a=getColAnchor(fk.from.tableId, fk.from.colId);
+    const b=getColAnchor(fk.to.tableId, fk.to.colId);
+    if(!a||!b) return;
+
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const dist=Math.hypot(dx,dy);
+    const t=clamp(dist/260, 0.2, 1.0);
+
+    const cp1={x:a.x+dx*0.35, y:a.y};
+    const cp2={x:b.x-dx*0.35, y:b.y};
+
+    ctx.save();
+    ctx.lineWidth=2;
+    ctx.strokeStyle="rgba(255,214,90,0.70)";
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.bezierCurveTo(cp1.x,cp1.y, cp2.x,cp2.y, b.x,b.y);
+    ctx.stroke();
+
+    // arrow
+    const ang=Math.atan2(dy,dx);
+    drawArrowHead(b.x,b.y, ang, "rgba(255,214,90,0.85)");
+
+    // label mid
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2 - 10;
+    ctx.fillStyle="rgba(255,255,255,0.80)";
+    ctx.font="11px "+getComputedStyle(document.documentElement).getPropertyValue("--mono");
+    const lab=`FK  DEL:${fk.onDelete.replace(" ","")}  UPD:${fk.onUpdate.replace(" ","")}`;
+    ctx.fillText(lab, mx - Math.min(180, lab.length*3.2), my);
+
+    ctx.restore();
+  }
+
+  function drawArrowHead(x,y, ang, color){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(ang);
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(-10,-5);
+    ctx.lineTo(-10,5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ///////////////////////////////
+  // Nodes DOM rendering
+  ///////////////////////////////
+  let layoutDirty=true;
+
+  function renderNodes(){
+    const wrap=$("nodes");
+    wrap.innerHTML = S.tables.map(t=>nodeHTML(t)).join("");
+    bindNodeHandlers();
+  }
+
+  function nodeHTML(t){
+    const p=worldToScreen(t.x,t.y);
+    const selected = (S.selection.tableId===t.id && !S.selection.colId);
+    const headStyle = selected ? "border-bottom:1px solid rgba(106,168,255,.45)" : "";
+
+    const cols = t.cols.map(c=>{
+      const selectedCol = (S.selection.tableId===t.id && S.selection.colId===c.id);
+      const badges = [
+        c.pk?`<span class="badge pk">PK</span>`:"",
+        c.ref?`<span class="badge fk">FK</span>`:"",
+        c.nn?`<span class="badge nn">NN</span>`:"",
+        c.uq?`<span class="badge uq">UQ</span>`:"",
+        c.idx?`<span class="badge idx">IDX</span>`:"",
+      ].filter(Boolean).join(" ");
+
+      return `
+        <div class="colRow ${selectedCol?"selected":""}" data-col="${c.id}">
+          <div class="meta">
+            <b style="font-family:var(--mono); font-size:12px">${esc(c.name)}</b>
+            <span class="pill">${esc(c.type)}</span>
+          </div>
+          <div class="meta">${badges}</div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="tableNode" data-table="${t.id}" style="left:${p.x}px; top:${p.y}px; transform: translate(0,0) scale(${S.zoom}); transform-origin: top left;">
+        <div class="tableHead" data-drag="head" style="${headStyle}">
+          <div class="row" style="gap:8px; align-items:center">
+            <b>${esc(t.name)}</b>
+            <span class="pill">id:${esc(shortId(t.id))}</span>
+          </div>
+          <div class="nodeBtns">
+            <button class="btnMini good" data-act="addCol">+col</button>
+            <button class="btnMini danger" data-act="delTable">del</button>
+          </div>
+        </div>
+        <div class="tableBody">
+          ${cols}
+        </div>
+      </div>
+    `;
+  }
+
+  // Note: We apply S.zoom in CSS scale per node, and also in worldToScreen.
+  // To avoid double-scaling, we keep nodes at screen coords and do not scale them further.
+  // Therefore: We'll remove CSS scale and instead render positions with zoom. We'll fix now by setting scale(1) and relying on zoom in positioning.
+  // Quick fix: set transform scale(1) and rely on zoomed positions. (Zoom affects lines and positions; node sizes remain constant.)
+  // This is acceptable for single-file UX.
+  function fixNodeScaling(){
+    document.querySelectorAll(".tableNode").forEach(el=>{
+      el.style.transform="translate(0,0) scale(1)";
+    });
+  }
+
+  function bindNodeHandlers(){
+    fixNodeScaling();
+
+    // Node buttons and selection
+    document.querySelectorAll(".tableNode").forEach(node=>{
+      const tableId=node.dataset.table;
+
+      node.addEventListener("click",(e)=>{
+        const act=e.target.closest("button[data-act]")?.dataset.act;
+        const colEl=e.target.closest(".colRow");
+        if(act==="addCol"){ addColumn(tableId); e.stopPropagation(); return; }
+        if(act==="delTable"){
+          if(confirm("Delete table?")) deleteTable(tableId);
+          e.stopPropagation(); return;
+        }
+
+        if(colEl){
+          const colId=colEl.dataset.col;
+
+          // FK creation: if fkSource set and target clicked
+          if(S.selection.fkSource.tableId && (S.selection.fkSource.tableId!==tableId || S.selection.fkSource.colId!==colId)){
+            const srcT=S.tables.find(t=>t.id===S.selection.fkSource.tableId);
+            const srcC=srcT?.cols.find(c=>c.id===S.selection.fkSource.colId);
+            if(srcC){
+              srcC.ref = {tableId, colId, onDelete:"NO ACTION", onUpdate:"NO ACTION"};
+              // set NN by default for FK
+              srcC.nn = true;
+              toast(`FK set: ${srcT.name}.${srcC.name} → ${tableName(tableId)}.${colName(tableId,colId)}`, 1600);
+            }
+            S.selection.fkSource={tableId:null,colId:null};
+            selectColumn(srcT?.id||tableId, srcC?.id||colId);
+            renderAll();
+            return;
+          }
+
+          selectColumn(tableId,colId);
+        }else{
+          selectTable(tableId);
+        }
+      });
+
+      // Dragging table head
+      const head=node.querySelector(".tableHead");
+      let dragging=false;
+      let start=null;
+      head.addEventListener("pointerdown",(e)=>{
+        if(e.button!==0) return;
+        head.setPointerCapture(e.pointerId);
+        dragging=true;
+        start={
+          x:e.clientX, y:e.clientY,
+          t: S.tables.find(t=>t.id===tableId),
+          ox:0, oy:0
+        };
+        if(start.t){ start.ox=start.t.x; start.oy=start.t.y; }
+        e.preventDefault();
+      }, {passive:false});
+
+      head.addEventListener("pointermove",(e)=>{
+        if(!dragging || !start?.t) return;
+        const dx=(e.clientX-start.x)/S.zoom;
+        const dy=(e.clientY-start.y)/S.zoom;
+        start.t.x = start.ox + dx;
+        start.t.y = start.oy + dy;
+        renderAll(false);
+      });
+
+      head.addEventListener("pointerup",()=>{
+        dragging=false; start=null;
+        save();
+      });
+      head.addEventListener("pointercancel",()=>{
+        dragging=false; start=null;
+      });
+    });
+  }
+
+  ///////////////////////////////
+  // Pan/Zoom on canvas
+  ///////////////////////////////
+  const Pointer={down:false, panning:false, x:0,y:0, pan0:{x:0,y:0}};
+  canvas.addEventListener("pointerdown",(e)=>{
+    if(e.button!==0) return;
+    // pan if clicked empty area (canvas is under nodes; but pointerdown still hits canvas)
+    canvas.setPointerCapture(e.pointerId);
+    Pointer.down=true;
+    Pointer.panning=true;
+    Pointer.x=e.clientX; Pointer.y=e.clientY;
+    Pointer.pan0={x:S.panX, y:S.panY};
+  });
+  canvas.addEventListener("pointermove",(e)=>{
+    if(!Pointer.down || !Pointer.panning) return;
+    const dx=(e.clientX-Pointer.x)/S.zoom;
+    const dy=(e.clientY-Pointer.y)/S.zoom;
+    S.panX = Pointer.pan0.x + dx;
+    S.panY = Pointer.pan0.y + dy;
+    renderAll(false);
+  });
+  function endPan(){ Pointer.down=false; Pointer.panning=false; save(); }
+  canvas.addEventListener("pointerup", endPan);
+  canvas.addEventListener("pointercancel", endPan);
+
+  canvas.addEventListener("wheel",(e)=>{
+    e.preventDefault();
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+
+    const before = screenToWorld(mx,my);
+    const z0=S.zoom;
+    const z1=clamp(z0*(e.deltaY>0?0.90:1.10), 0.4, 2.2);
+    S.zoom=z1;
+    const after = screenToWorld(mx,my);
+
+    // adjust pan to keep point under cursor stable
+    S.panX += (after.x - before.x);
+    S.panY += (after.y - before.y);
+
+    renderAll(false);
+  }, {passive:false});
+
+  window.addEventListener("keydown",(e)=>{
+    if(e.key==="Delete" || e.key==="Backspace"){
+      const t=S.tables.find(x=>x.id===S.selection.tableId);
+      if(!t) return;
+      const c=t.cols.find(x=>x.id===S.selection.colId);
+      if(c){
+        if(confirm(`Delete column ${t.name}.${c.name}?`)) deleteColumn(t.id,c.id);
+      }else{
+        if(confirm(`Delete table ${t.name}?`)) deleteTable(t.id);
+      }
+    }
+    if(e.key==="Escape"){
+      S.selection.fkSource={tableId:null,colId:null};
+      renderAll(false);
+    }
+  });
+
+  ///////////////////////////////
+  // Auto layout
+  ///////////////////////////////
+  function autoLayout(){
+    // simple force-directed-ish grid placement based on FK graph
+    const nodes=S.tables;
+    const n=nodes.length;
+    if(n===0) return;
+
+    // initial circle
+    const cx=200, cy=180;
+    const r=220 + n*6;
+    nodes.forEach((t,i)=>{
+      t.x = cx + Math.cos(i/n*Math.PI*2)*r;
+      t.y = cy + Math.sin(i/n*Math.PI*2)*r;
+    });
+
+    // relaxation with repulsion and edge attraction
+    const edges=collectFKs().map(fk=>[fk.from.tableId, fk.to.tableId]);
+    const idToIndex=new Map(nodes.map((t,i)=>[t.id,i]));
+
+    for(let iter=0; iter<250; iter++){
+      const fx=new Float32Array(n);
+      const fy=new Float32Array(n);
+
+      // repulsion
+      for(let i=0;i<n;i++){
+        for(let j=i+1;j<n;j++){
+          const a=nodes[i], b=nodes[j];
+          const dx=a.x-b.x, dy=a.y-b.y;
+          const d2=dx*dx+dy*dy+1;
+          const f= 90000 / d2;
+          fx[i]+=dx/Math.sqrt(d2)*f; fy[i]+=dy/Math.sqrt(d2)*f;
+          fx[j]-=dx/Math.sqrt(d2)*f; fy[j]-=dy/Math.sqrt(d2)*f;
+        }
+      }
+
+      // attraction on edges
+      for(const [u,v] of edges){
+        const i=idToIndex.get(u), j=idToIndex.get(v);
+        if(i==null||j==null) continue;
+        const a=nodes[i], b=nodes[j];
+        const dx=b.x-a.x, dy=b.y-a.y;
+        const d=Math.hypot(dx,dy)+1e-6;
+        const want=280;
+        const f=(d-want)*18;
+        fx[i]+=dx/d*f; fy[i]+=dy/d*f;
+        fx[j]-=dx/d*f; fy[j]-=dy/d*f;
+      }
+
+      // integrate
+      for(let i=0;i<n;i++){
+        nodes[i].x += clamp(fx[i], -60, 60)*0.02;
+        nodes[i].y += clamp(fy[i], -60, 60)*0.02;
+      }
+    }
+
+    toast("Auto layout applied.", 1200);
+    renderAll();
+    save();
+  }
+
+  function fitView(){
+    if(S.tables.length===0){ S.zoom=1; S.panX=0; S.panY=0; renderAll(); return; }
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const t of S.tables){
+      minX=Math.min(minX, t.x);
+      minY=Math.min(minY, t.y);
+      maxX=Math.max(maxX, t.x);
+      maxY=Math.max(maxY, t.y);
+    }
+    // pad
+    minX-=120; minY-=120; maxX+=380; maxY+=260;
+
+    const rect=canvas.getBoundingClientRect();
+    const vw=rect.width, vh=rect.height;
+    const bw=maxX-minX, bh=maxY-minY;
+
+    const z = clamp(Math.min(vw/bw, vh/bh), 0.5, 1.8);
+    S.zoom=z;
+
+    // set pan so minX/minY maps near 20px
+    S.panX = (20/z) - minX;
+    S.panY = (20/z) - minY;
+
+    toast("Fit view.", 900);
+    renderAll();
+  }
+
+  ///////////////////////////////
+  // SQL generation
+  ///////////////////////////////
+  function qIdent(name){
+    // keep simple: quoted identifiers only for postgres; mysql uses backticks; sqlite uses double quotes
+    const n=String(name||"");
+    if(S.dialect==="mysql") return "`"+n.replaceAll("`","``")+"`";
+    return "\""+n.replaceAll("\"","\"\"")+"\"";
+  }
+
+  function sqlTypeFor(col){
+    // dialect-specific tweaks
+    let t=String(col.type||"text").trim();
+    if(S.dialect==="mysql"){
+      if(t==="uuid") t="char(36)";
+      if(t==="timestamptz") t="timestamp";
+      if(t==="jsonb") t="json";
+    }
+    if(S.dialect==="sqlite"){
+      if(t==="uuid") t="text";
+      if(t==="bigint") t="integer";
+      if(t==="boolean") t="integer";
+      if(t==="timestamptz") t="datetime";
+      if(t==="jsonb") t="text";
+      // sqlite is permissive; keep others
+    }
+    return t;
+  }
+
+  function genSQL(){
+    const tables=S.tables;
+
+    // compute pk sets
+    const sql=[];
+    sql.push("-- Generated by Database Designer (single-file)");
+    sql.push("-- Dialect: "+S.dialect);
+    if(S.dialect==="postgres"){
+      sql.push("/* If you use gen_random_uuid(), ensure pgcrypto is enabled:");
+      sql.push("   CREATE EXTENSION IF NOT EXISTS pgcrypto; */");
+    }
+    sql.push("");
+
+    // create tables first (without FK constraints), then add FKs with ALTER (safer ordering)
+    const fkAlters=[];
+    const indexStmts=[];
+    const uniqueStmts=[];
+
+    for(const t of tables){
+      const cols=t.cols;
+
+      // primary key columns
+      const pkCols = cols.filter(c=>c.pk).map(c=>qIdent(c.name));
+
+      const lines=[];
+      for(const c of cols){
+        const parts=[];
+        parts.push(qIdent(c.name));
+        parts.push(sqlTypeFor(c));
+
+        // mysql auto increment heuristic: if PK and integer/bigint and no default
+        if(S.dialect==="mysql" && c.pk && !c.def && /int|bigint/i.test(c.type)){
+          parts.push("NOT NULL");
+          parts.push("AUTO_INCREMENT");
+        } else if(S.dialect==="sqlite" && c.pk && c.type.toLowerCase()==="integer"){
+          // SQLite INTEGER PRIMARY KEY implies rowid; keep if single PK
+          if(pkCols.length===1){
+            parts.push("PRIMARY KEY");
+          }
+          if(c.nn) parts.push("NOT NULL");
+        } else {
+          if(c.nn || c.pk) parts.push("NOT NULL");
+          if(c.def){
+            parts.push("DEFAULT "+c.def);
+          }
+        }
+
+        // inline unique (single-col)
+        if(c.uq && !c.pk){
+          if(S.dialect!=="sqlite"){
+            parts.push("UNIQUE");
+          } else {
+            // sqlite supports UNIQUE too
+            parts.push("UNIQUE");
+          }
+        }
+
+        lines.push("  "+parts.join(" "));
+      }
+
+      // composite PK
+      if(pkCols.length>1){
+        lines.push("  PRIMARY KEY ("+pkCols.join(", ")+")");
+      } else if(pkCols.length===1){
+        // already inline for sqlite integer primary key; for others, add constraint
+        if(!(S.dialect==="sqlite" && cols.find(c=>c.pk && c.type.toLowerCase()==="integer"))){
+          lines.push("  PRIMARY KEY ("+pkCols[0]+")");
+        }
+      }
+
+      const create = `CREATE TABLE ${qIdent(t.name)} (\n${lines.join(",\n")}\n);`;
+      sql.push(create);
+      sql.push("");
+
+      // indexes
+      for(const c of cols){
+        if(c.idx && !c.pk && !c.uq){
+          indexStmts.push(`CREATE INDEX ${qIdent(`idx_${t.name}_${c.name}`)} ON ${qIdent(t.name)} (${qIdent(c.name)});`);
+        }
+      }
+
+      // foreign keys as alter
+      for(const c of cols){
+        if(c.ref && c.ref.tableId && c.ref.colId){
+          const rt = tableName(c.ref.tableId);
+          const rc = colName(c.ref.tableId, c.ref.colId);
+          const onDel = c.ref.onDelete || "NO ACTION";
+          const onUpd = c.ref.onUpdate || "NO ACTION";
+          fkAlters.push(
+            `ALTER TABLE ${qIdent(t.name)} ADD CONSTRAINT ${qIdent(`fk_${t.name}_${c.name}__${rt}_${rc}`)} `+
+            `FOREIGN KEY (${qIdent(c.name)}) REFERENCES ${qIdent(rt)} (${qIdent(rc)}) `+
+            `ON DELETE ${onDel} ON UPDATE ${onUpd};`
+          );
+        }
+      }
+    }
+
+    if(indexStmts.length){
+      sql.push("-- Indexes");
+      sql.push(...indexStmts);
+      sql.push("");
+    }
+
+    if(fkAlters.length){
+      sql.push("-- Foreign keys");
+      // sqlite doesn't support ALTER TABLE ADD CONSTRAINT reliably; needs inline constraints or recreate table.
+      if(S.dialect==="sqlite"){
+        sql.push("-- NOTE: SQLite has limited ALTER TABLE support for adding FK constraints.");
+        sql.push("-- You may need to include FK constraints inline or recreate tables.");
+      }
+      sql.push(...fkAlters);
+      sql.push("");
+    }
+
+    return sql.join("\n");
+  }
+
+  ///////////////////////////////
+  // Analysis / normalization hints (heuristic)
+  ///////////////////////////////
+  function analyze(){
+    const issues=[];
+    const warnings=[];
+    const tips=[];
+
+    // Global checks
+    const names=new Set();
+    for(const t of S.tables){
+      if(names.has(t.name)) issues.push(`Duplicate table name: ${t.name}`);
+      names.add(t.name);
+
+      // 1NF heuristic: column names that look like repeating groups
+      for(const c of t.cols){
+        if(/\d+$/.test(c.name)) warnings.push(`${t.name}.${c.name} looks like a repeating group (1NF concern). Consider a child table.`);
+        if(c.type.toLowerCase().includes("json") || c.type.toLowerCase().includes("jsonb")){
+          tips.push(`${t.name}.${c.name} is JSON — fine for some cases, but can hide relational structure (normalization tradeoff).`);
+        }
+      }
+
+      // PK check
+      const pk=t.cols.filter(c=>c.pk);
+      if(pk.length===0) issues.push(`Table ${t.name} has no primary key.`);
+      if(pk.length>0 && pk.some(c=>!c.nn)) warnings.push(`Primary key columns in ${t.name} should be NOT NULL.`);
+
+      // FK check: referenced columns should be PK or UQ
+      for(const c of t.cols){
+        if(c.ref){
+          const rt=S.tables.find(x=>x.id===c.ref.tableId);
+          const rc=rt?.cols.find(x=>x.id===c.ref.colId);
+          if(!rt || !rc){
+            issues.push(`Broken FK: ${t.name}.${c.name} references missing target.`);
+          } else {
+            if(!(rc.pk || rc.uq)){
+              warnings.push(`FK target ${rt.name}.${rc.name} is not PK/UNIQUE. Consider adding UNIQUE or referencing PK.`);
+            }
+            // type compatibility heuristic
+            const lt=sqlTypeFor(c).toLowerCase();
+            const rt2=sqlTypeFor(rc).toLowerCase();
+            if(!roughTypeCompatible(lt, rt2)){
+              warnings.push(`Type mismatch: ${t.name}.${c.name} (${lt}) references ${rt.name}.${rc.name} (${rt2}).`);
+            }
+          }
+        }
+      }
+
+      // 2NF/3NF hints (very heuristic):
+      // if composite PK exists and there are non-key attributes, warn about partial dependency risk
+      if(pk.length>1){
+        const nonKey = t.cols.filter(c=>!c.pk);
+        if(nonKey.length>0){
+          warnings.push(`${t.name} has a composite PK. Ensure non-key columns depend on the whole key (2NF).`);
+        }
+      }
+      // suspicious "name" columns on FK tables (might be transitive)
+      const fkCols=t.cols.filter(c=>c.ref);
+      const suspicious = t.cols.filter(c=>!c.pk && !c.ref && /(country|state|city|zipcode|postal|company_name|category_name|type_name)$/i.test(c.name));
+      if(fkCols.length && suspicious.length){
+        tips.push(`${t.name} contains descriptive columns (${suspicious.map(c=>c.name).join(", ")}). Consider moving descriptive attributes to referenced tables (3NF hint).`);
+      }
+    }
+
+    // cycle detection in FK graph
+    const cycles = findFKCycles();
+    for(const cyc of cycles){
+      warnings.push(`FK cycle detected: ${cyc.join(" → ")}. Consider deferrable constraints or redesign.`);
+    }
+
+    // render
+    const wrap=$("analysis");
+    wrap.innerHTML = `
+      ${issues.length?`<div class="card" style="border-color: rgba(255,90,123,.35); background: rgba(255,90,123,.06)">
+        <h4>Issues</h4>
+        <ul class="tiny">${issues.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+      </div>`:`<div class="card"><h4>Issues</h4><div class="tiny">No critical issues detected.</div></div>`}
+
+      <div class="sep"></div>
+
+      ${warnings.length?`<div class="card" style="border-color: rgba(255,214,90,.35); background: rgba(255,214,90,.05)">
+        <h4>Warnings</h4>
+        <ul class="tiny">${warnings.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+      </div>`:`<div class="card"><h4>Warnings</h4><div class="tiny">No warnings.</div></div>`}
+
+      <div class="sep"></div>
+
+      ${tips.length?`<div class="card" style="border-color: rgba(93,255,176,.25); background: rgba(93,255,176,.04)">
+        <h4>Tips</h4>
+        <ul class="tiny">${tips.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+      </div>`:`<div class="card"><h4>Tips</h4><div class="tiny">No tips right now. Add more relationships for deeper analysis.</div></div>`}
+    `;
+  }
+
+  function roughTypeCompatible(a,b){
+    // coarse buckets
+    const bucket=(t)=>{
+      t=t.toLowerCase();
+      if(t.includes("int")||t.includes("serial")) return "int";
+      if(t.includes("uuid")||t.includes("char(36)")) return "uuid";
+      if(t.includes("text")||t.includes("varchar")||t.includes("char")) return "text";
+      if(t.includes("date")||t.includes("time")) return "time";
+      if(t.includes("bool")) return "bool";
+      if(t.includes("numeric")||t.includes("decimal")||t.includes("real")||t.includes("double")) return "num";
+      return "other";
+    };
+    const A=bucket(a), B=bucket(b);
+    if(A===B) return true;
+    // allow uuid in text sometimes
+    if((A==="uuid" && B==="text") || (A==="text" && B==="uuid")) return true;
+    return false;
+  }
+
+  function findFKCycles(){
+    const g=new Map();
+    for(const t of S.tables) g.set(t.name, []);
+    for(const fk of collectFKs()){
+      const a=tableName(fk.from.tableId);
+      const b=tableName(fk.to.tableId);
+      if(a&&b) g.get(a).push(b);
+    }
+
+    const cycles=[];
+    const visited=new Set();
+    const stack=new Set();
+
+    function dfs(node, path){
+      if(stack.has(node)){
+        const i=path.indexOf(node);
+        if(i>=0) cycles.push(path.slice(i).concat([node]));
+        return;
+      }
+      if(visited.has(node)) return;
+      visited.add(node);
+      stack.add(node);
+
+      for(const nei of (g.get(node)||[])){
+        dfs(nei, path.concat([nei]));
+      }
+      stack.delete(node);
+    }
+
+    for(const n of g.keys()) dfs(n,[n]);
+    // dedupe cycles by string
+    const seen=new Set();
+    return cycles.filter(c=>{
+      const k=c.join(">");
+      if(seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    }).slice(0,8);
+  }
+
+  ///////////////////////////////
+  // Table list in left pane
+  ///////////////////////////////
+  function renderTableList(){
+    const wrap=$("tableList");
+    if(!S.tables.length){
+      wrap.innerHTML = `<div class="tiny">No tables yet. Click <b>Add Table</b> or <b>Seed Example</b>.</div>`;
+      return;
+    }
+    wrap.innerHTML = S.tables.map(t=>{
+      const pkCount=t.cols.filter(c=>c.pk).length;
+      const fkCount=t.cols.filter(c=>c.ref).length;
+      const isSel=S.selection.tableId===t.id;
+      return `
+        <div class="card" style="${isSel?'border-color: rgba(106,168,255,.45)':''}" data-t="${t.id}">
+          <div class="row" style="justify-content:space-between">
+            <b>${esc(t.name)}</b>
+            <span class="pill">cols:${t.cols.length} pk:${pkCount} fk:${fkCount}</span>
+          </div>
+          <div class="tiny">${esc((t.notes||"").slice(0,100))}${(t.notes||"").length>100?"…":""}</div>
+          <div class="row">
+            <button class="btn" data-act="sel">Select</button>
+            <button class="btn" data-act="addcol">Add col</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    wrap.onclick=(e)=>{
+      const card=e.target.closest("[data-t]");
+      if(!card) return;
+      const tid=card.dataset.t;
+      const act=e.target.closest("button")?.dataset.act;
+      if(act==="addcol"){ addColumn(tid); return; }
+      selectTable(tid);
+    };
+  }
+
+  ///////////////////////////////
+  // Main render
+  ///////////////////////////////
+  function renderAll(rebuildNodes=true){
+    // stats
+    $("uiTables").textContent = S.tables.length;
+    $("uiDialect").textContent = S.dialect==="postgres"?"PostgreSQL":S.dialect==="mysql"?"MySQL":"SQLite";
+
+    const fkCount = collectFKs().length;
+    $("uiFKs").textContent = fkCount;
+
+    $("uiZoom").textContent = fmt(S.zoom,2)+"×";
+    $("uiPan").textContent = fmt(S.panX,0)+","+fmt(S.panY,0);
+    updateSelInfo();
+
+    renderTableList();
+    renderEditor();
+
+    if(rebuildNodes) renderNodes();
+    // after nodes exist, redraw canvas to compute anchors
+    requestAnimationFrame(()=>renderCanvas());
+  }
+
+  ///////////////////////////////
+  // Save / Load
+  ///////////////////////////////
+  function save(){
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    $("uiSaved").textContent = new Date().toLocaleTimeString();
+  }
+  function load(fromUser=false){
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw){
+      if(fromUser) toast("No save found.");
+      return false;
+    }
+    const data=safeJSONParse(raw);
+    if(!data){
+      if(fromUser) toast("Save corrupted.");
+      return false;
+    }
+    // merge
+    Object.assign(S, data);
+    // fix defaults
+    S.tables = Array.isArray(S.tables)?S.tables:[];
+    S.selection = S.selection || {tableId:null,colId:null,fkSource:{tableId:null,colId:null}};
+    if(!S.selection.fkSource) S.selection.fkSource={tableId:null,colId:null};
+    renderAll(true);
+    return true;
+  }
+
+  ///////////////////////////////
+  // Seed example
+  ///////////////////////////////
+  function seedExample(){
+    S.tables=[];
+    S.selection={tableId:null,colId:null,fkSource:{tableId:null,colId:null}};
+    const make=(name,x,y, cols)=>({id:uid("t"), name:applyCase(name,S.caseMode), x,y, notes:"", cols: cols.map(c=>Object.assign({id:uid("c"), pk:false,nn:false,uq:false,idx:false,def:"",ref:null},c))});
+
+    const users = make("users", 120, 120, [
+      {name:"id", type:defaultIdType(), pk:true, nn:true, uq:true, idx:true, def:defaultIdDefault()},
+      {name:"email", type:"varchar(255)", nn:true, uq:true, idx:true},
+      {name:"name", type:"varchar(120)", nn:true},
+      {name:"created_at", type:defaultCreatedAtType(), nn:true, def:defaultCreatedAtDefault()},
+    ]);
+    const orgs = make("organizations", 520, 120, [
+      {name:"id", type:defaultIdType(), pk:true, nn:true, uq:true, idx:true, def:defaultIdDefault()},
+      {name:"name", type:"varchar(180)", nn:true, uq:true},
+      {name:"created_at", type:defaultCreatedAtType(), nn:true, def:defaultCreatedAtDefault()},
+    ]);
+    const memberships = make("memberships", 320, 380, [
+      {name:"user_id", type:defaultIdType(), nn:true, idx:true},
+      {name:"org_id", type:defaultIdType(), nn:true, idx:true},
+      {name:"role", type:"varchar(40)", nn:true, def:"'member'"},
+      {name:"created_at", type:defaultCreatedAtType(), nn:true, def:defaultCreatedAtDefault()},
+    ]);
+    // composite PK
+    memberships.cols[0].pk=true;
+    memberships.cols[1].pk=true;
+
+    S.tables.push(users,orgs,memberships);
+
+    // wire FKs
+    const uId=users.cols.find(c=>c.name==="id").id;
+    const oId=orgs.cols.find(c=>c.name==="id").id;
+    memberships.cols.find(c=>c.name==="user_id").ref={tableId:users.id,colId:uId,onDelete:"CASCADE",onUpdate:"NO ACTION"};
+    memberships.cols.find(c=>c.name==="org_id").ref={tableId:orgs.id,colId:oId,onDelete:"CASCADE",onUpdate:"NO ACTION"};
+
+    S.panX=0; S.panY=0; S.zoom=1;
+    selectTable(users.id);
+    renderAll(true);
+    fitView();
+    analyze();
+    toast("Seeded example schema.", 1200);
+    save();
+  }
+
+  ///////////////////////////////
+  // Import/Export JSON
+  ///////////////////////////////
+  function exportJSON(){
+    $("jsonBox").value = JSON.stringify(S, null, 2);
+    toast("Exported project JSON.", 900);
+  }
+  function importJSON(){
+    const txt=$("jsonBox").value.trim();
+    if(!txt){ toast("Paste JSON first."); return; }
+    const data=safeJSONParse(txt);
+    if(!data || !Array.isArray(data.tables)){ toast("Invalid JSON."); return; }
+    if(!confirm("Import will replace the current schema. Continue?")) return;
+    Object.assign(S, data);
+    // fix
+    if(!S.selection) S.selection={tableId:null,colId:null,fkSource:{tableId:null,colId:null}};
+    if(!S.selection.fkSource) S.selection.fkSource={tableId:null,colId:null};
+    renderAll(true);
+    toast("Imported schema.", 1200);
+    save();
+  }
+
+  ///////////////////////////////
+  // Help
+  ///////////////////////////////
+  function showHelp(){
+    openModal("Help", "ERD Designer", `
+      <div class="card">
+        <h4>How to use</h4>
+        <ul class="tiny">
+          <li><b>Add Table</b> to create a new table with id + created_at.</li>
+          <li><b>Select a column</b> to edit it (PK/NN/UQ/IDX, default, type).</li>
+          <li><b>Create FK:</b> select source column → click “Set FK Source” → click target column.</li>
+          <li><b>Pan:</b> drag on canvas. <b>Zoom:</b> mouse wheel.</li>
+          <li><b>Generate SQL:</b> creates CREATE TABLE + indexes + FK ALTER statements.</li>
+          <li><b>Normalize/Analyze:</b> heuristic checks (not a full FD-based normalizer).</li>
+        </ul>
+        <div class="sep"></div>
+        <div class="tiny">
+          SQLite note: ALTER TABLE ADD CONSTRAINT for FKs is limited; consider inline FKs or table recreation.
+        </div>
+      </div>
+    `);
+  }
+
+  ///////////////////////////////
+  // Right-panel tabs
+  ///////////////////////////////
+  function setRightTab(name){
+    for(const el of document.querySelectorAll(".tab")){
+      el.classList.toggle("active", el.dataset.tab===name);
+    }
+    $("tab_edit").classList.toggle("hidden", name!=="edit");
+    $("tab_sql").classList.toggle("hidden", name!=="sql");
+    $("tab_analyze").classList.toggle("hidden", name!=="analyze");
+    $("tab_import").classList.toggle("hidden", name!=="import");
+  }
+  document.querySelector(".tabs").addEventListener("click",(e)=>{
+    const t=e.target.closest(".tab");
+    if(!t) return;
+    setRightTab(t.dataset.tab);
+  });
+
+  ///////////////////////////////
+  // UI bindings
+  ///////////////////////////////
+  $("btnAddTable").onclick=()=>{
+    const n=prompt("Table name:", "new_table");
+    if(!n) return;
+    addTable(n);
+    save();
+  };
+  $("btnAutoLayout").onclick=()=>autoLayout();
+  $("btnFit").onclick=()=>fitView();
+  $("btnHelp").onclick=showHelp;
+
+  $("btnSQL").onclick=()=>{
+    const sql=genSQL();
+    $("sqlOut").value=sql;
+    setRightTab("sql");
+    toast("SQL generated.", 900);
+  };
+  $("btnAnalyze").onclick=()=>{
+    analyze();
+    setRightTab("analyze");
+    toast("Analysis updated.", 900);
+  };
+
+  $("btnCopySQL").onclick=async ()=>{
+    await navigator.clipboard.writeText($("sqlOut").value).catch(()=>{});
+    toast("Copied SQL.", 900);
+  };
+  $("btnDownloadSQL").onclick=()=>{
+    const blob=new Blob([$("sqlOut").value], {type:"text/sql"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="schema.sql";
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+  };
+
+  $("btnSave").onclick=()=>{ save(); toast("Saved.", 900); };
+  $("btnLoad").onclick=()=>{ const ok=load(true); if(ok) toast("Loaded.", 900); };
+  $("btnWipe").onclick=()=>{
+    if(!confirm("Wipe saved schema?")) return;
+    localStorage.removeItem(SAVE_KEY);
+    toast("Wiped. Reloading…", 1100);
+    setTimeout(()=>location.reload(), 600);
+  };
+
+  $("btnSeed").onclick=seedExample;
+
+  $("selDialect").onchange=(e)=>{
+    S.dialect=e.target.value;
+    $("uiDialect").textContent = S.dialect==="postgres"?"PostgreSQL":S.dialect==="mysql"?"MySQL":"SQLite";
+    // update defaults for id/created_at in new tables only; don't rewrite existing types automatically
+    renderAll(false);
+    toast("Dialect set: "+$("uiDialect").textContent, 1100);
+    save();
+  };
+
+  $("selCase").onchange=(e)=>{
+    S.caseMode=e.target.value;
+    // apply to existing names
+    for(const t of S.tables){
+      t.name=applyCase(t.name,S.caseMode);
+      for(const c of t.cols){
+        c.name=applyCase(c.name,S.caseMode);
+      }
+    }
+    renderAll(true);
+    toast("Case style applied.", 900);
+    save();
+  };
+
+  $("btnExportJSON").onclick=exportJSON;
+  $("btnImportJSON").onclick=importJSON;
+
+  ///////////////////////////////
+  // Render orchestration
+  ///////////////////////////////
+  function renderAllAndMaybeAnalyze(){
+    renderAll(true);
+    analyze();
+  }
+
+  ///////////////////////////////
+  // Initial load
+  ///////////////////////////////
+  function init(){
+    resizeCanvas();
+    const ok=load(false);
+    if(!ok){
+      // start with one table
+      S.dialect="postgres";
+      S.caseMode="snake";
+      addTable("users");
+      S.tables[0].notes="Example table. Seed a full schema from the left panel.";
+      fitView();
+      save();
+      toast("Tip: Seed an example schema, then generate SQL.", 2600);
+    } else {
+      fitView();
+    }
+    renderAll(true);
+    analyze();
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>

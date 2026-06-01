@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      font-family: 'Arial', sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      color: #fff;
+      user-select: none;
+    }
+    .control-group {
+      margin-bottom: 10px;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    .slider-label {
+      width: 120px;
+      font-size: 12px;
+    }
+    input[type="range"] {
+      flex-grow: 1;
+    }
+    .slider-value {
+      width: 40px;
+      text-align: right;
+      font-size: 12px;
+    }
+    button {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      margin: 2px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <div class="control-group">
+      <div class="slider-container">
+        <div class="slider-label">Fluid Density</div>
+        <input type="range" id="density" min="0.1" max="2" step="0.1" value="1.0">
+        <div class="slider-value" id="density-value">1.0</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Fluid Viscosity</div>
+        <input type="range" id="viscosity" min="0" max="0.2" step="0.001" value="0.02">
+        <div class="slider-value" id="viscosity-value">0.02</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Fluid Force</div>
+        <input type="range" id="force" min="1" max="50" step="1" value="20">
+        <div class="slider-value" id="force-value">20</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Particles</div>
+        <input type="range" id="particles" min="0" max="5000" step="100" value="2000">
+        <div class="slider-value" id="particles-value">2000</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Glow Intensity</div>
+        <input type="range" id="glow" min="0" max="30" step="1" value="10">
+        <div class="slider-value" id="glow-value">10</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Color Shift Speed</div>
+        <input type="range" id="colorShift" min="0" max="0.1" step="0.001" value="0.005">
+        <div class="slider-value" id="colorShift-value">0.005</div>
+      </div>
+      <div class="slider-container">
+        <div class="slider-label">Physics Mode</div>
+        <select id="physics-mode">
+          <option value="normal">Normal</option>
+          <option value="gravity">Gravity Wells</option>
+          <option value="magnetic">Magnetic</option>
+          <option value="vortex">Vortex</option>
+          <option value="quantum">Quantum</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <div>Presets:</div>
+      <div class="presets">
+        <button id="preset-water">Water</button>
+        <button id="preset-lava">Lava</button>
+        <button id="preset-nebula">Nebula</button>
+        <button id="preset-quantum">Quantum</button>
+        <button id="preset-plasma">Plasma</button>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <div>Dimensions:</div>
+      <div class="presets">
+        <button id="dimension-2d">2D</button>
+        <button id="dimension-25d">2.5D</button>
+        <button id="dimension-3d">3D</button>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <button id="reset">Reset Simulation</button>
+    </div>
+  </div>
+
+  <script>
+    // Main simulation variables
+    let canvas, ctx;
+    let width, height;
+    let frameCount = 0;
+    
+    // Fluid simulation grid
+    let N = 64; // grid size
+    let iter = 16; // solver iterations
+    
+    // Arrays for fluid simulation
+    let density;
+    let velocityX, velocityY;
+    let velocityX0, velocityY0;
+    let particles = [];
+    
+    // Settings that can be adjusted
+    let settings = {
+      density: 1.0,
+      viscosity: 0.02,
+      force: 20,
+      particleCount: 2000,
+      glow: 10,
+      colorShift: 0.005,
+      physicsMode: "normal",
+      dimension: "2d"
+    };
+    
+    // Mouse tracking
+    let mouseX = 0, mouseY = 0;
+    let mouseDown = false;
+    let lastX = 0, lastY = 0;
+    
+    // Touch support
+    let touches = [];
+    
+    // Color management
+    let baseHue = 0;
+    
+    // Initialize simulation
+    function init() {
+      // Setup canvas
+      canvas = document.getElementById('canvas');
+      ctx = canvas.getContext('2d');
+      
+      // Set canvas size
+      resize();
+      window.addEventListener('resize', resize);
+      
+      // Create fluid arrays
+      setup();
+      
+      // Initialize particles
+      initParticles();
+      
+      // Add event listeners
+      setupEventListeners();
+      
+      // Start animation loop
+      requestAnimationFrame(animate);
+      
+      // Setup UI controls
+      setupControls();
+    }
+    
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    
+    function setup() {
+      // Initialize arrays for the fluid simulation
+      const size = (N + 2) * (N + 2);
+      
+      density = new Array(size).fill(0);
+      velocityX = new Array(size).fill(0);
+      velocityY = new Array(size).fill(0);
+      velocityX0 = new Array(size).fill(0);
+      velocityY0 = new Array(size).fill(0);
+    }
+    
+    function initParticles() {
+      particles = [];
+      
+      // Create particles
+      for (let i = 0; i < settings.particleCount; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: 0,
+          vy: 0,
+          color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+          size: Math.random() * 3 + 1,
+          life: Math.random() * 0.5 + 0.5
+        });
+      }
+    }
+    
+    function setupEventListeners() {
+      // Mouse events
+      canvas.addEventListener('mousedown', (e) => {
+        mouseDown = true;
+        lastX = mouseX = e.clientX;
+        lastY = mouseY = e.clientY;
+      });
+      
+      canvas.addEventListener('mouseup', () => {
+        mouseDown = false;
+      });
+      
+      canvas.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      });
+      
+      // Touch events
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        touches = e.touches;
+        
+        if (touches.length > 0) {
+          lastX = mouseX = touches[0].clientX;
+          lastY = mouseY = touches[0].clientY;
+        }
+      });
+      
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        touches = e.touches;
+        
+        if (touches.length > 0) {
+          mouseX = touches[0].clientX;
+          mouseY = touches[0].clientY;
+        }
+      });
+      
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        touches = e.touches;
+      });
+    }
+    
+    function setupControls() {
+      // Setup sliders
+      function setupSlider(id, prop) {
+        const slider = document.getElementById(id);
+        const value = document.getElementById(`${id}-value`);
+        
+        slider.value = settings[prop];
+        value.textContent = settings[prop];
+        
+        slider.addEventListener('input', () => {
+          settings[prop] = parseFloat(slider.value);
+          value.textContent = slider.value;
+          
+          if (prop === 'particleCount') {
+            initParticles();
+          }
+        });
+      }
+      
+      setupSlider('density', 'density');
+      setupSlider('viscosity', 'viscosity');
+      setupSlider('force', 'force');
+      setupSlider('particles', 'particleCount');
+      setupSlider('glow', 'glow');
+      setupSlider('colorShift', 'colorShift');
+      
+      // Physics mode selector
+      const physicsMode = document.getElementById('physics-mode');
+      physicsMode.value = settings.physicsMode;
+      physicsMode.addEventListener('change', () => {
+        settings.physicsMode = physicsMode.value;
+      });
+      
+      // Presets
+      document.getElementById('preset-water').addEventListener('click', () => {
+        setPreset('water');
+      });
+      
+      document.getElementById('preset-lava').addEventListener('click', () => {
+        setPreset('lava');
+      });
+      
+      document.getElementById('preset-nebula').addEventListener('click', () => {
+        setPreset('nebula');
+      });
+      
+      document.getElementById('preset-quantum').addEventListener('click', () => {
+        setPreset('quantum');
+      });
+      
+      document.getElementById('preset-plasma').addEventListener('click', () => {
+        setPreset('plasma');
+      });
+      
+      // Dimensions
+      document.getElementById('dimension-2d').addEventListener('click', () => {
+        settings.dimension = "2d";
+      });
+      
+      document.getElementById('dimension-25d').addEventListener('click', () => {
+        settings.dimension = "25d";
+      });
+      
+      document.getElementById('dimension-3d').addEventListener('click', () => {
+        settings.dimension = "3d";
+      });
+      
+      // Reset button
+      document.getElementById('reset').addEventListener('click', () => {
+        // Clear fluid simulation
+        setup();
+        // Reset particles
+        initParticles();
+      });
+    }
+    
+    function setPreset(preset) {
+      switch(preset) {
+        case 'water':
+          settings.density = 1.0;
+          settings.viscosity = 0.015;
+          settings.force = 15;
+          settings.glow = 8;
+          settings.colorShift = 0.002;
+          settings.physicsMode = "normal";
+          baseHue = 220; // Blue
+          break;
+        case 'lava':
+          settings.density = 1.8;
+          settings.viscosity = 0.05;
+          settings.force = 10;
+          settings.glow = 15;
+          settings.colorShift = 0.001;
+          settings.physicsMode = "gravity";
+          baseHue = 0; // Red
+          break;
+        case 'nebula':
+          settings.density = 0.5;
+          settings.viscosity = 0.005;
+          settings.force = 25;
+          settings.glow = 20;
+          settings.colorShift = 0.008;
+          settings.physicsMode = "vortex";
+          baseHue = 280; // Purple
+          break;
+        case 'quantum':
+          settings.density = 0.3;
+          settings.viscosity = 0.001;
+          settings.force = 30;
+          settings.glow = 25;
+          settings.colorShift = 0.01;
+          settings.physicsMode = "quantum";
+          baseHue = 160; // Green-blue
+          break;
+        case 'plasma':
+          settings.density = 0.8;
+          settings.viscosity = 0.01;
+          settings.force = 22;
+          settings.glow = 18;
+          settings.colorShift = 0.007;
+          settings.physicsMode = "magnetic";
+          baseHue = 60; // Yellow
+          break;
+      }
+      
+      // Update UI
+      document.getElementById('density').value = settings.density;
+      document.getElementById('density-value').textContent = settings.density;
+      
+      document.getElementById('viscosity').value = settings.viscosity;
+      document.getElementById('viscosity-value').textContent = settings.viscosity;
+      
+      document.getElementById('force').value = settings.force;
+      document.getElementById('force-value').textContent = settings.force;
+      
+      document.getElementById('glow').value = settings.glow;
+      document.getElementById('glow-value').textContent = settings.glow;
+      
+      document.getElementById('colorShift').value = settings.colorShift;
+      document.getElementById('colorShift-value').textContent = settings.colorShift;
+      
+      document.getElementById('physics-mode').value = settings.physicsMode;
+    }
+    
+    // Main animation loop
+    function animate() {
+      frameCount++;
+      
+      // Shift base hue for color cycling
+      baseHue = (baseHue + settings.colorShift) % 360;
+      
+      // Clear canvas with fade effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Apply user input if mouse is down or touch is active
+      if (mouseDown || touches.length > 0) {
+        const dx = mouseX - lastX;
+        const dy = mouseY - lastY;
+        
+        // Add velocity to fluid at mouse/touch position
+        addVelocity(mouseX / width * N, mouseY / height * N, dx * settings.force, dy * settings.force);
+        
+        // Add density/color to fluid
+        addDensity(mouseX / width * N, mouseY / height * N, 200);
+      }
+      
+      // Process multiple touches
+      for (let i = 1; i < touches.length; i++) {
+        const touch = touches[i];
+        addVelocity(touch.clientX / width * N, touch.clientY / height * N, 
+                   (touch.clientX - lastX) * settings.force, 
+                   (touch.clientY - lastY) * settings.force);
+        addDensity(touch.clientX / width * N, touch.clientY / height * N, 200);
+      }
+      
+      // Store current mouse position for next frame
+      lastX = mouseX;
+      lastY = mouseY;
+      
+      // Step the fluid simulation
+      stepFluid();
+      
+      // Update and draw particles based on the fluid
+      updateParticles();
+      
+      // Special rendering effects based on dimension setting
+      renderSpecialEffects();
+      
+      requestAnimationFrame(animate);
+    }
+    
+    function stepFluid() {
+      // Velocity step
+      diffuse(1, velocityX0, velocityX, settings.viscosity);
+      diffuse(2, velocityY0, velocityY, settings.viscosity);
+      
+      project(velocityX0, velocityY0, velocityX, velocityY);
+      
+      advect(1, velocityX, velocityX0, velocityX0, velocityY0);
+      advect(2, velocityY, velocityY0, velocityX0, velocityY0);
+      
+      project(velocityX, velocityY, velocityX0, velocityY0);
+      
+      // Density step
+      diffuse(0, velocityX0, density, settings.viscosity);
+      advect(0, density, velocityX0, velocityX, velocityY);
+      
+      // Apply physics mode effects
+      applyPhysicsMode();
+    }
+    
+    function updateParticles() {
+      ctx.globalCompositeOperation = 'lighter';
+      
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        
+        // Get fluid velocity at particle position
+        const x = Math.floor(p.x / width * N);
+        const y = Math.floor(p.y / height * N);
+        const idx = IX(x, y);
+        
+        // Apply velocity from fluid simulation
+        p.vx = velocityX[idx] * 10;
+        p.vy = velocityY[idx] * 10;
+        
+        // Update position
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Wrap around edges
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+        
+        // Update particle color based on base hue and position
+        const hue = (baseHue + (p.x / width * 60)) % 360;
+        p.color = `hsl(${hue}, 100%, ${50 + Math.sin(frameCount * 0.01 + i) * 10}%)`;
+        
+        // Draw particle
+        const size = p.size * (1 + getDensity(x, y) * 0.01);
+        
+        // Apply glow effect
+        if (settings.glow > 0) {
+          const glow = settings.glow;
+          const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, size * 2);
+          gradient.addColorStop(0, p.color);
+          gradient.addColorStop(1, 'rgba(0,0,0,0)');
+          
+          ctx.beginPath();
+          ctx.fillStyle = gradient;
+          ctx.arc(p.x, p.y, size * glow * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Draw the core particle
+        ctx.beginPath();
+        ctx.fillStyle = p.color;
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    
+    function renderSpecialEffects() {
+      switch(settings.dimension) {
+        case "25d":
+          // Create a pseudo-3D effect with shadows and depth
+          ctx.globalCompositeOperation = 'overlay';
+          for (let i = 0; i < particles.length; i += 10) {
+            const p = particles[i];
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.arc(p.x + 5, p.y + 5, p.size * 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalCompositeOperation = 'source-over';
+          break;
+          
+        case "3d":
+          // Add more complex 3D-like rendering
+          // Simplified for this example
+          ctx.globalCompositeOperation = 'screen';
+          ctx.fillStyle = 'rgba(0,0,0,0.2)';
+          ctx.fillRect(0, 0, width, height);
+          
+          // Add highlights for 3D effect
+          for (let i = 0; i < particles.length; i += 5) {
+            const p = particles[i];
+            const depth = Math.sin(p.x / 100 + frameCount * 0.01) * Math.cos(p.y / 100);
+            
+            ctx.beginPath();
+            ctx.fillStyle = `rgba(255,255,255,${Math.abs(depth) * 0.3})`;
+            ctx.arc(p.x + depth * 10, p.y + depth * 10, p.size * (1 + depth), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalCompositeOperation = 'source-over';
+          break;
+      }
+    }
+    
+    function applyPhysicsMode() {
+      switch(settings.physicsMode) {
+        case "gravity":
+          // Create gravity wells
+          for (let i = 0; i < 3; i++) {
+            const cx = (0.25 + i * 0.25) * N;
+            const cy = (0.5 + Math.sin(frameCount * 0.01 + i) * 0.2) * N;
+            
+            for (let x = 1; x <= N; x++) {
+              for (let y = 1; y <= N; y++) {
+                const dx = x - cx;
+                const dy = y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < 15) {
+                  const idx = IX(x, y);
+                  velocityX[idx] += dx / dist * 2;
+                  velocityY[idx] += dy / dist * 2;
+                }
+              }
+            }
+          }
+          break;
+          
+        case "magnetic":
+          // Create magnetic field-like effects
+          for (let x = 1; x <= N; x++) {
+            for (let y = 1; y <= N; y++) {
+              const idx = IX(x, y);
+              const angle = Math.atan2(y - N/2, x - N/2) + frameCount * 0.001;
+              
+              velocityX[idx] += Math.cos(angle) * 0.2;
+              velocityY[idx] += Math.sin(angle) * 0.2;
+            }
+          }
+          break;
+          
+        case "vortex":
+          // Create spinning vortex effects
+          const cx = N/2;
+          const cy = N/2;
+          
+          for (let x = 1; x <= N; x++) {
+            for (let y = 1; y <= N; y++) {
+              const dx = x - cx;
+              const dy = y - cy;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              
+              if (dist > 0 && dist < N/2) {
+                const idx = IX(x, y);
+                velocityX[idx] += -dy / dist * 0.5;
+                velocityY[idx] += dx / dist * 0.5;
+              }
+            }
+          }
+          break;
+          
+        case "quantum":
+          // Create chaotic quantum-like effects
+          for (let x = 1; x <= N; x++) {
+            for (let y = 1; y <= N; y++) {
+              const idx = IX(x, y);
+              
+              // Add some unpredictable patterns
+              if (Math.random() < 0.01) {
+                velocityX[idx] = (Math.random() - 0.5) * 20;
+                velocityY[idx] = (Math.random() - 0.5) * 20;
+              }
+              
+              // Wave-like behavior
+              velocityX[idx] += Math.sin(y * 0.1 + frameCount * 0.01) * 0.2;
+              velocityY[idx] += Math.cos(x * 0.1 + frameCount * 0.01) * 0.2;
+            }
+          }
+          break;
+      }
+    }
+    
+    // Fluid simulation helper functions
+    function IX(x, y) {
+      x = clamp(x, 1, N);
+      y = clamp(y, 1, N);
+      return x + y * (N + 2);
+    }
+    
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+    
+    function addDensity(x, y, amount) {
+      const idx = IX(Math.floor(x), Math.floor(y));
+      density[idx] += amount;
+    }
+    
+    function getDensity(x, y) {
+      const idx = IX(Math.floor(x), Math.floor(y));
+      return density[idx];
+    }
+    
+    function addVelocity(x, y, amountX, amountY) {
+      const idx = IX(Math.floor(x), Math.floor(y));
+      velocityX[idx] += amountX;
+      velocityY[idx] += amountY;
+    }
+    
+    // Core fluid dynamics algorithms
+    function diffuse(b, x, x0, diff) {
+      const a = diff * N * N;
+      
+      for (let k = 0; k < iter; k++) {
+        for (let i = 1; i <= N; i++) {
+          for (let j = 1; j <= N; j++) {
+            x[IX(i, j)] = (x0[IX(i, j)] + a * (
+              x[IX(i-1, j)] + x[IX(i+1, j)] +
+              x[IX(i, j-1)] + x[IX(i, j+1)]
+            )) / (1 + 4 * a);
+          }
+        }
+        
+        setBoundary(b, x);
+      }
+    }
+    
+    function project(velocX, velocY, p, div) {
+      for (let i = 1; i <= N; i++) {
+        for (let j = 1; j <= N; j++) {
+          div[IX(i, j)] = -0.5 * (
+            velocX[IX(i+1, j)] - velocX[IX(i-1, j)] +
+            velocY[IX(i, j+1)] - velocY[IX(i, j-1)]
+          ) / N;
+          p[IX(i, j)] = 0;
+        }
+      }
+      
+      setBoundary(0, div);
+      setBoundary(0, p);
+      
+      for (let k = 0; k < iter; k++) {
+        for (let i = 1; i <= N; i++) {
+          for (let j = 1; j <= N; j++) {
+            p[IX(i, j)] = (div[IX(i, j)] + (
+              p[IX(i-1, j)] + p[IX(i+1, j)] +
+              p[IX(i, j-1)] + p[IX(i, j+1)]
+            )) / 4;
+          }
+        }
+        
+        setBoundary(0, p);
+      }
+      
+      for (let i = 1; i <= N; i++) {
+        for (let j = 1; j <= N; j++) {
+          velocX[IX(i, j)] -= 0.5 * (p[IX(i+1, j)] - p[IX(i-1, j)]) * N;
+          velocY[IX(i, j)] -= 0.5 * (p[IX(i, j+1)] - p[IX(i, j-1)]) * N;
+        }
+      }
+      
+      setBoundary(1, velocX);
+      setBoundary(2, velocY);
+    }
+    
+    function advect(b, d, d0, velocX, velocY) {
+      let i0, i1, j0, j1;
+      let s0, s1, t0, t1;
+      let x, y;
+      
+      const dt = settings.density;
+      
+      for (let i = 1; i <= N; i++) {
+        for (let j = 1; j <= N; j++) {
+          x = i - dt * velocX[IX(i, j)];
+          y = j - dt * velocY[IX(i, j)];
+          
+          if (x < 0.5) x = 0.5;
+          if (x > N + 0.5) x = N + 0.5;
+          i0 = Math.floor(x);
+          i1 = i0 + 1;
+          
+          if (y < 0.5) y = 0.5;
+          if (y > N + 0.5) y = N + 0.5;
+          j0 = Math.floor(y);
+          j1 = j0 + 1;
+          
+          s1 = x - i0;
+          s0 = 1 - s1;
+          t1 = y - j0;
+          t0 = 1 - t1;
+          
+          d[IX(i, j)] =
+            s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
+            s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+        }
+      }
+      
+      setBoundary(b, d);
+    }
+    
+    function setBoundary(b, x) {
+      for (let i = 1; i <= N; i++) {
+        x[IX(0, i)] = b === 1 ? -x[IX(1, i)] : x[IX(1, i)];
+        x[IX(N+1, i)] = b === 1 ? -x[IX(N, i)] : x[IX(N, i)];
+        x[IX(i, 0)] = b === 2 ? -x[IX(i, 1)] : x[IX(i, 1)];
+        x[IX(i, N+1)] = b === 2 ? -x[IX(i, N)] : x[IX(i, N)];
+      }
+      
+      x[IX(0, 0)] = 0.5 * (x[IX(1, 0)] + x[IX(0, 1)]);
+      x[IX(0, N+1)] = 0.5 * (x[IX(1, N+1)] + x[IX(0, N)]);
+      x[IX(N+1, 0)] = 0.5 * (x[IX(N, 0)] + x[IX(N+1, 1)]);
+      x[IX(N+1, N+1)] = 0.5 * (x[IX(N, N+1)] + x[IX(N+1, N)]);
+    }
+    
+    // Initialize when page loads
+    window.onload = init;
+  </script>
+</body>
+</html>

@@ -1,0 +1,1748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Glow-Pong 3D</title>
+<style>
+  :root{
+    --bg:#05070c;
+    --neon:#49ffe3;
+    --neon2:#35a3ff;
+    --mag:#ff39d6;
+    --warn:#ff4d4d;
+    --glass: rgba(10, 24, 34, .46);
+    --glass2: rgba(6, 14, 22, .24);
+    --border: rgba(73, 255, 227, .22);
+    --border2: rgba(53, 163, 255, .18);
+    --text: rgba(210,255,246,.92);
+    --muted: rgba(210,255,246,.72);
+  }
+  html,body{height:100%;margin:0;background:radial-gradient(1100px 800px at 50% 10%, #07101a 0%, var(--bg) 55%, #02040a 100%); overflow:hidden;}
+  canvas{position:fixed; inset:0; width:100%; height:100%; display:block; background:transparent; }
+  #ui{position:fixed; inset:0; pointer-events:none; font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color:var(--text);}
+
+  .frame{
+    position:absolute; inset:14px;
+    border:1px solid rgba(73,255,227,.10);
+    box-shadow:
+      0 0 0 1px rgba(53,163,255,.08) inset,
+      0 0 18px rgba(73,255,227,.06),
+      0 0 60px rgba(53,163,255,.05);
+    border-radius:14px;
+    background: linear-gradient(180deg, rgba(6,12,20,.10), rgba(0,0,0,0));
+    pointer-events:none;
+  }
+  .frame:before,.frame:after{
+    content:"";
+    position:absolute; inset:-1px; border-radius:14px;
+    pointer-events:none;
+    background:
+      radial-gradient(650px 120px at 50% 0%, rgba(73,255,227,.10), transparent 60%),
+      radial-gradient(420px 140px at 10% 110%, rgba(255,57,214,.09), transparent 70%),
+      radial-gradient(460px 160px at 90% 110%, rgba(53,163,255,.08), transparent 72%);
+    mix-blend-mode: screen;
+  }
+
+  #topBar{
+    position:absolute; left:26px; right:26px; top:22px;
+    display:flex; gap:16px; align-items:center; justify-content:space-between;
+    pointer-events:none;
+  }
+  .panel{
+    background: linear-gradient(180deg, rgba(10,24,34,.56), rgba(4,10,18,.28));
+    border:1px solid rgba(73,255,227,.16);
+    box-shadow: 0 0 0 1px rgba(53,163,255,.08) inset, 0 0 18px rgba(73,255,227,.06);
+    border-radius:12px;
+    padding:10px 12px;
+    backdrop-filter: blur(6px);
+  }
+  #score{
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 14px;
+    color: rgba(235,255,250,.95);
+  }
+  #stats{
+    display:flex; gap:12px; align-items:center;
+    font-size: 12px; letter-spacing:.08em;
+    color: var(--muted);
+  }
+  .stat b{color: rgba(235,255,250,.95); font-weight: 700;}
+  #controls{
+    position:absolute; left:26px; bottom:22px;
+    display:flex; gap:10px; align-items:center;
+    pointer-events:auto;
+  }
+  button{
+    font-family: inherit;
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform: uppercase;
+    color: rgba(235,255,250,.92);
+    background: linear-gradient(180deg, rgba(20,40,54,.58), rgba(7,15,24,.42));
+    border:1px solid rgba(73,255,227,.22);
+    box-shadow: 0 0 0 1px rgba(53,163,255,.10) inset, 0 0 14px rgba(73,255,227,.05);
+    padding:10px 12px;
+    border-radius:12px;
+    cursor:pointer;
+  }
+  button:hover{border-color: rgba(73,255,227,.38); box-shadow: 0 0 0 1px rgba(53,163,255,.14) inset, 0 0 20px rgba(73,255,227,.07);}
+  button:active{transform: translateY(1px);}
+  label{
+    display:flex; gap:10px; align-items:center;
+    padding:10px 12px;
+    border-radius:12px;
+    background: linear-gradient(180deg, rgba(10,24,34,.52), rgba(4,10,18,.24));
+    border:1px solid rgba(73,255,227,.14);
+    box-shadow: 0 0 0 1px rgba(53,163,255,.08) inset, 0 0 14px rgba(73,255,227,.05);
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform: uppercase;
+    color: rgba(235,255,250,.86);
+  }
+  input[type="range"]{width:160px;}
+  #hint{
+    position:absolute; right:26px; bottom:22px;
+    pointer-events:none;
+    font-size:12px;
+    color: rgba(210,255,246,.68);
+    letter-spacing:.08em;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(53,163,255,.12);
+    background: linear-gradient(180deg, rgba(10,24,34,.34), rgba(4,10,18,.12));
+    box-shadow: 0 0 0 1px rgba(73,255,227,.06) inset, 0 0 16px rgba(53,163,255,.04);
+  }
+
+  #pauseOverlay{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    pointer-events:none;
+    background: radial-gradient(900px 520px at 50% 50%, rgba(6,20,34,.48), rgba(2,4,10,.72));
+    backdrop-filter: blur(4px);
+  }
+  #pauseOverlay .card{
+    pointer-events:none;
+    text-align:center;
+    border-radius:16px;
+    padding:18px 18px;
+    border:1px solid rgba(73,255,227,.18);
+    background: linear-gradient(180deg, rgba(10,24,34,.58), rgba(4,10,18,.26));
+    box-shadow: 0 0 0 1px rgba(53,163,255,.10) inset, 0 0 40px rgba(73,255,227,.06);
+    width:min(520px, calc(100vw - 56px));
+  }
+  #pauseOverlay .title{
+    font-size:18px;
+    letter-spacing:.18em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: rgba(235,255,250,.96);
+  }
+  #pauseOverlay .sub{
+    margin-top:8px;
+    font-size:12px;
+    letter-spacing:.10em;
+    color: rgba(210,255,246,.72);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="ui">
+  <div class="frame"></div>
+  <div id="topBar">
+    <div class="panel" id="score">PLAYER <span id="pScore">0</span> : <span id="aScore">0</span> AI</div>
+    <div class="panel" id="stats">
+      <div class="stat">FPS <b id="fps">--</b></div>
+      <div class="stat">PING <b id="ping">--</b>ms</div>
+      <div class="stat">RES <b id="res">1.00</b>x</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="pauseBtn">Pause</button>
+    <label>SENS <input id="sens" type="range" min="0.50" max="3.00" step="0.01" value="1.35"><span id="sensV" style="width:44px;text-align:right;opacity:.9;">1.35</span></label>
+    <button id="muteBtn">Audio: Off</button>
+  </div>
+
+  <div id="hint">Move mouse/touch · Arrow keys optional · Click for audio</div>
+
+  <div id="pauseOverlay">
+    <div class="card">
+      <div class="title">Paused</div>
+      <div class="sub">Press Pause / Space to resume</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const rnd = (a=0,b=1)=>a+Math.random()*(b-a);
+
+  const v3 = {
+    add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+    sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+    mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+    dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+    len:(a)=>Math.hypot(a[0],a[1],a[2]),
+    norm:(a)=>{ const l=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/l,a[1]/l,a[2]/l]; },
+  };
+  function reflect(v,n){
+    const d = v3.dot(v,n);
+    return [v[0]-2*d*n[0], v[1]-2*d*n[1], v[2]-2*d*n[2]];
+  }
+
+  function mat4(){
+    const m = new Float32Array(16);
+    m[0]=1;m[5]=1;m[10]=1;m[15]=1;
+    return m;
+  }
+  function mat4Identity(out){
+    out[0]=1;out[1]=0;out[2]=0;out[3]=0;
+    out[4]=0;out[5]=1;out[6]=0;out[7]=0;
+    out[8]=0;out[9]=0;out[10]=1;out[11]=0;
+    out[12]=0;out[13]=0;out[14]=0;out[15]=1;
+    return out;
+  }
+  function mat4Perspective(out, fovy, aspect, near, far){
+    const f = 1.0 / Math.tan(fovy/2);
+    out[0]=f/aspect; out[1]=0; out[2]=0; out[3]=0;
+    out[4]=0; out[5]=f; out[6]=0; out[7]=0;
+    out[8]=0; out[9]=0; out[10]=(far+near)/(near-far); out[11]=-1;
+    out[12]=0; out[13]=0; out[14]=(2*far*near)/(near-far); out[15]=0;
+    return out;
+  }
+  function mat4Multiply(out, a, b){
+    const a00=a[0],a01=a[1],a02=a[2],a03=a[3];
+    const a10=a[4],a11=a[5],a12=a[6],a13=a[7];
+    const a20=a[8],a21=a[9],a22=a[10],a23=a[11];
+    const a30=a[12],a31=a[13],a32=a[14],a33=a[15];
+
+    const b00=b[0],b01=b[1],b02=b[2],b03=b[3];
+    const b10=b[4],b11=b[5],b12=b[6],b13=b[7];
+    const b20=b[8],b21=b[9],b22=b[10],b23=b[11];
+    const b30=b[12],b31=b[13],b32=b[14],b33=b[15];
+
+    out[0]=a00*b00 + a10*b01 + a20*b02 + a30*b03;
+    out[1]=a01*b00 + a11*b01 + a21*b02 + a31*b03;
+    out[2]=a02*b00 + a12*b01 + a22*b02 + a32*b03;
+    out[3]=a03*b00 + a13*b01 + a23*b02 + a33*b03;
+
+    out[4]=a00*b10 + a10*b11 + a20*b12 + a30*b13;
+    out[5]=a01*b10 + a11*b11 + a21*b12 + a31*b13;
+    out[6]=a02*b10 + a12*b11 + a22*b12 + a32*b13;
+    out[7]=a03*b10 + a13*b11 + a23*b12 + a33*b13;
+
+    out[8]=a00*b20 + a10*b21 + a20*b22 + a30*b23;
+    out[9]=a01*b20 + a11*b21 + a21*b22 + a31*b23;
+    out[10]=a02*b20 + a12*b21 + a22*b22 + a32*b23;
+    out[11]=a03*b20 + a13*b21 + a23*b22 + a33*b23;
+
+    out[12]=a00*b30 + a10*b31 + a20*b32 + a30*b33;
+    out[13]=a01*b30 + a11*b31 + a21*b32 + a31*b33;
+    out[14]=a02*b30 + a12*b31 + a22*b32 + a32*b33;
+    out[15]=a03*b30 + a13*b31 + a23*b32 + a33*b33;
+    return out;
+  }
+  function mat4Translate(out, a, v){
+    const x=v[0],y=v[1],z=v[2];
+    if(out!==a) out.set(a);
+    out[12]=a[0]*x+a[4]*y+a[8]*z+a[12];
+    out[13]=a[1]*x+a[5]*y+a[9]*z+a[13];
+    out[14]=a[2]*x+a[6]*y+a[10]*z+a[14];
+    out[15]=a[3]*x+a[7]*y+a[11]*z+a[15];
+    return out;
+  }
+  function mat4Scale(out, a, v){
+    const x=v[0],y=v[1],z=v[2];
+    out[0]=a[0]*x; out[1]=a[1]*x; out[2]=a[2]*x; out[3]=a[3]*x;
+    out[4]=a[4]*y; out[5]=a[5]*y; out[6]=a[6]*y; out[7]=a[7]*y;
+    out[8]=a[8]*z; out[9]=a[9]*z; out[10]=a[10]*z; out[11]=a[11]*z;
+    out[12]=a[12]; out[13]=a[13]; out[14]=a[14]; out[15]=a[15];
+    return out;
+  }
+  function mat4RotateX(out, a, rad){
+    const s=Math.sin(rad), c=Math.cos(rad);
+    const a10=a[4],a11=a[5],a12=a[6],a13=a[7];
+    const a20=a[8],a21=a[9],a22=a[10],a23=a[11];
+    if(out!==a) out.set(a);
+    out[4]=a10*c + a20*s; out[5]=a11*c + a21*s; out[6]=a12*c + a22*s; out[7]=a13*c + a23*s;
+    out[8]=a20*c - a10*s; out[9]=a21*c - a11*s; out[10]=a22*c - a12*s; out[11]=a23*c - a13*s;
+    return out;
+  }
+  function mat4RotateY(out, a, rad){
+    const s=Math.sin(rad), c=Math.cos(rad);
+    const a00=a[0],a01=a[1],a02=a[2],a03=a[3];
+    const a20=a[8],a21=a[9],a22=a[10],a23=a[11];
+    if(out!==a) out.set(a);
+    out[0]=a00*c - a20*s; out[1]=a01*c - a21*s; out[2]=a02*c - a22*s; out[3]=a03*c - a23*s;
+    out[8]=a00*s + a20*c; out[9]=a01*s + a21*c; out[10]=a02*s + a22*c; out[11]=a03*s + a23*c;
+    return out;
+  }
+  function mat4LookAt(out, eye, center, up){
+    let zx = eye[0]-center[0], zy=eye[1]-center[1], zz=eye[2]-center[2];
+    let zlen = Math.hypot(zx,zy,zz)||1; zx/=zlen; zy/=zlen; zz/=zlen;
+    let xx = up[1]*zz - up[2]*zy;
+    let xy = up[2]*zx - up[0]*zz;
+    let xz = up[0]*zy - up[1]*zx;
+    let xlen = Math.hypot(xx,xy,xz)||1; xx/=xlen; xy/=xlen; xz/=xlen;
+    let yx = zy*xz - zz*xy;
+    let yy = zz*xx - zx*xz;
+    let yz = zx*xy - zy*xx;
+
+    out[0]=xx; out[1]=yx; out[2]=zx; out[3]=0;
+    out[4]=xy; out[5]=yy; out[6]=zy; out[7]=0;
+    out[8]=xz; out[9]=yz; out[10]=zz; out[11]=0;
+    out[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+    out[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+    out[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+    out[15]=1;
+    return out;
+  }
+
+  function createCylinder(radius, length, radialSeg=48, lenSeg=40){
+    const positions=[], normals=[], uvs=[], indices=[];
+    for(let i=0;i<=lenSeg;i++){
+      const v=i/lenSeg;
+      const z = -v*length;
+      for(let j=0;j<=radialSeg;j++){
+        const u=j/radialSeg;
+        const a = u*Math.PI*2;
+        const x = Math.cos(a)*radius;
+        const y = Math.sin(a)*radius;
+        positions.push(x,y,z);
+        normals.push(-Math.cos(a), -Math.sin(a), 0);
+        uvs.push(u, v);
+      }
+    }
+    const row = radialSeg+1;
+    for(let i=0;i<lenSeg;i++){
+      for(let j=0;j<radialSeg;j++){
+        const a = i*row+j;
+        const b = a+row;
+        indices.push(a, b, a+1,  b, b+1, a+1);
+      }
+    }
+    return {positions, normals, uvs, indices};
+  }
+
+  function createQuad(size=1){
+    const s=size;
+    const positions=[-s,-s,0,  s,-s,0,  s,s,0,  -s,s,0];
+    const normals=[0,0,1, 0,0,1, 0,0,1, 0,0,1];
+    const uvs=[0,0, 1,0, 1,1, 0,1];
+    const indices=[0,1,2, 0,2,3];
+    return {positions,normals,uvs,indices};
+  }
+
+  function createCube(sx=1,sy=1,sz=1){
+    const p=[],n=[],uv=[],idx=[];
+    const faces = [
+      {n:[ 0, 0, 1], v:[[-sx,-sy, sz],[ sx,-sy, sz],[ sx, sy, sz],[-sx, sy, sz]]},
+      {n:[ 0, 0,-1], v:[[ sx,-sy,-sz],[-sx,-sy,-sz],[-sx, sy,-sz],[ sx, sy,-sz]]},
+      {n:[ 1, 0, 0], v:[[ sx,-sy, sz],[ sx,-sy,-sz],[ sx, sy,-sz],[ sx, sy, sz]]},
+      {n:[-1, 0, 0], v:[[-sx,-sy,-sz],[-sx,-sy, sz],[-sx, sy, sz],[-sx, sy,-sz]]},
+      {n:[ 0, 1, 0], v:[[-sx, sy, sz],[ sx, sy, sz],[ sx, sy,-sz],[-sx, sy,-sz]]},
+      {n:[ 0,-1, 0], v:[[-sx,-sy,-sz],[ sx,-sy,-sz],[ sx,-sy, sz],[-sx,-sy, sz]]},
+    ];
+    let vi=0;
+    for(const f of faces){
+      const uvs=[[0,0],[1,0],[1,1],[0,1]];
+      for(let i=0;i<4;i++){
+        p.push(...f.v[i]);
+        n.push(...f.n);
+        uv.push(...uvs[i]);
+      }
+      idx.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
+      vi+=4;
+    }
+    return {positions:p,normals:n,uvs:uv,indices:idx};
+  }
+
+  function createSphere(r=1, lon=18, lat=10){
+    const positions=[], normals=[], uvs=[], indices=[];
+    for(let y=0;y<=lat;y++){
+      const v=y/lat;
+      const th=v*Math.PI;
+      const st=Math.sin(th), ct=Math.cos(th);
+      for(let x=0;x<=lon;x++){
+        const u=x/lon;
+        const ph=u*Math.PI*2;
+        const sp=Math.sin(ph), cp=Math.cos(ph);
+        const nx=cp*st, ny=ct, nz=sp*st;
+        positions.push(nx*r, ny*r, nz*r);
+        normals.push(nx,ny,nz);
+        uvs.push(u,v);
+      }
+    }
+    const row=lon+1;
+    for(let y=0;y<lat;y++){
+      for(let x=0;x<lon;x++){
+        const a=y*row+x;
+        const b=a+row;
+        indices.push(a,b,a+1, b,b+1,a+1);
+      }
+    }
+    return {positions,normals,uvs,indices};
+  }
+
+  class RendererEngine{
+    constructor(canvas){
+      this.canvas = canvas;
+      this.gl = canvas.getContext("webgl2", { antialias:false, alpha:false, premultipliedAlpha:false, powerPreference:"high-performance" });
+      if(!this.gl) throw new Error("WebGL2 not available");
+
+      const gl=this.gl;
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.enable(gl.CULL_FACE);
+      gl.cullFace(gl.BACK);
+      gl.clearColor(0,0,0,1);
+
+      this.resScale = 1.0;
+      this._needResize = true;
+
+      this.programs = {};
+      this.meshes = {};
+
+      this.fbo = null;
+      this.fboTex = null;
+      this.fboDepth = null;
+      this.fboW = 0;
+      this.fboH = 0;
+
+      this._buildPrograms();
+      this._buildFullscreen();
+    }
+
+    setResolutionScale(s){
+      this.resScale = clamp(s, 0.5, 1.0);
+      this._needResize = true;
+    }
+
+    resize(){
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = Math.max(2, Math.floor(this.canvas.clientWidth * dpr));
+      const h = Math.max(2, Math.floor(this.canvas.clientHeight * dpr));
+      if(this.canvas.width !== w || this.canvas.height !== h){
+        this.canvas.width = w; this.canvas.height = h;
+        this._needResize = true;
+      }
+      if(this._needResize){
+        this._needResize = false;
+        this._resizeFBO();
+      }
+    }
+
+    _resizeFBO(){
+      const gl=this.gl;
+      const w = Math.max(2, Math.floor(this.canvas.width * this.resScale));
+      const h = Math.max(2, Math.floor(this.canvas.height * this.resScale));
+      if(w===this.fboW && h===this.fboH && this.fbo) return;
+      this.fboW = w; this.fboH = h;
+
+      if(!this.fbo) this.fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+
+      if(!this.fboTex) this.fboTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.fboTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTex, 0);
+
+      if(!this.fboDepth) this.fboDepth = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, this.fboDepth);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.fboDepth);
+
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    _compile(type, src){
+      const gl=this.gl;
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+        const err = gl.getShaderInfoLog(sh);
+        console.error(err);
+        throw new Error(err);
+      }
+      return sh;
+    }
+    _link(vsSrc, fsSrc){
+      const gl=this.gl;
+      const vs=this._compile(gl.VERTEX_SHADER, vsSrc);
+      const fs=this._compile(gl.FRAGMENT_SHADER, fsSrc);
+      const p=gl.createProgram();
+      gl.attachShader(p,vs);
+      gl.attachShader(p,fs);
+      gl.linkProgram(p);
+      if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+        const err = gl.getProgramInfoLog(p);
+        console.error(err);
+        throw new Error(err);
+      }
+      gl.deleteShader(vs); gl.deleteShader(fs);
+      return p;
+    }
+
+    _buildPrograms(){
+      const solidVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in vec3 aNor;
+      layout(location=2) in vec2 aUV;
+      uniform mat4 uModel;
+      uniform mat4 uViewProj;
+      out vec3 vPos;
+      out vec3 vNor;
+      out vec2 vUV;
+      void main(){
+        vec4 wp = uModel * vec4(aPos,1.0);
+        vPos = wp.xyz;
+        vNor = mat3(uModel) * aNor;
+        vUV = aUV;
+        gl_Position = uViewProj * wp;
+      }`;
+
+      const solidFS = `#version 300 es
+      precision highp float;
+      in vec3 vPos;
+      in vec3 vNor;
+      in vec2 vUV;
+      uniform vec3 uCamPos;
+      uniform vec3 uBallPos;
+      uniform vec3 uBallColor;
+      uniform float uBallIntensity;
+      uniform float uTime;
+      uniform float uMode; // 0 tunnel, 1 paddle, 2 brick
+      uniform float uWallFlash;
+      out vec4 o;
+
+      float hash12(vec2 p){
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      void main(){
+        vec3 N = normalize(vNor);
+        vec3 V = normalize(uCamPos - vPos);
+
+        float dist = length(uBallPos - vPos);
+        float light = uBallIntensity / (1.0 + dist*dist*0.11);
+        float ndv = max(dot(N, V), 0.0);
+        float fres = pow(1.0 - ndv, 2.6);
+
+        vec3 base;
+        float emiss = 0.0;
+
+        if(uMode < 0.5){
+          float u = vUV.x;
+          float v = vUV.y + uTime*0.09;
+          float g1 = abs(fract(u*16.0)-0.5);
+          float g2 = abs(fract(v*18.0)-0.5);
+          float grid = smoothstep(0.22, 0.02, min(g1,g2));
+          float diag = smoothstep(0.18, 0.03, abs(fract((u+v)*10.0)-0.5));
+          float micro = smoothstep(0.45, 0.05, abs(fract(u*53.0 + v*41.0)-0.5));
+          float pat = clamp(grid*0.95 + diag*0.55 + micro*0.18, 0.0, 1.0);
+
+          float flick = 0.85 + 0.15*sin(uTime*2.2 + u*12.0);
+          base = vec3(0.02,0.06,0.09) + vec3(0.02,0.08,0.10)*pat;
+          vec3 neon = mix(vec3(0.10,0.95,0.85), vec3(0.21,0.58,1.0), 0.40 + 0.35*sin(uTime*0.35));
+          emiss = pat * flick;
+          base += neon * (0.07*pat);
+          base += neon * (0.10*emiss) * (0.22 + 0.78*light);
+          base += vec3(1.0,0.22,0.82) * (0.03*diag) * (0.35 + 0.65*light);
+          base += vec3(0.9,0.15,0.15) * (uWallFlash*0.25) * (0.2 + 0.8*pat);
+        } else if(uMode < 1.5){
+          base = vec3(0.02,0.09,0.10);
+          vec3 edge = mix(vec3(0.10,0.95,0.85), vec3(0.21,0.58,1.0), 0.5);
+          emiss = 0.25 + 0.75*fres;
+          base += edge * (0.18*emiss);
+        } else {
+          base = vec3(0.02,0.05,0.08);
+          vec3 neon = mix(vec3(0.10,0.95,0.85), vec3(1.0,0.22,0.82), 0.5 + 0.5*sin(uTime*0.7 + vPos.z*0.4));
+          float grain = hash12(vUV*vec2(150.0,80.0) + uTime*0.35);
+          emiss = 0.20 + 0.65*fres + 0.12*grain;
+          base += neon * (0.12*emiss);
+        }
+
+        vec3 lit = base;
+        lit += uBallColor * (0.65*light + 0.25*light*fres);
+        lit += vec3(0.12,0.20,0.26) * (0.40*ndv);
+        float fog = smoothstep(-55.0, -10.0, vPos.z);
+        lit *= mix(0.62, 1.0, fog);
+
+        o = vec4(lit, 1.0);
+      }`;
+
+      const ballVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in vec3 aNor;
+      layout(location=2) in vec2 aUV;
+      uniform mat4 uModel;
+      uniform mat4 uViewProj;
+      out vec3 vPos;
+      out vec3 vNor;
+      void main(){
+        vec4 wp = uModel * vec4(aPos,1.0);
+        vPos = wp.xyz;
+        vNor = mat3(uModel) * aNor;
+        gl_Position = uViewProj * wp;
+      }`;
+
+      const ballFS = `#version 300 es
+      precision highp float;
+      in vec3 vPos;
+      in vec3 vNor;
+      uniform vec3 uCamPos;
+      uniform vec3 uColor;
+      uniform float uPower;
+      uniform float uTime;
+      out vec4 o;
+      void main(){
+        vec3 N = normalize(vNor);
+        vec3 V = normalize(uCamPos - vPos);
+        float fres = pow(1.0 - max(dot(N,V), 0.0), 2.2);
+        float core = pow(max(dot(N, -V), 0.0), 1.4);
+        float pulse = 0.85 + 0.15*sin(uTime*8.0);
+        vec3 col = uColor * (0.30 + 1.65*core + 1.15*fres) * (uPower) * pulse;
+        o = vec4(col, clamp(0.25 + 0.75*(core+fres), 0.0, 1.0));
+      }`;
+
+      const particleVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in vec4 aColSize;
+      uniform mat4 uViewProj;
+      out vec4 vCol;
+      void main(){
+        vCol = aColSize;
+        gl_Position = uViewProj * vec4(aPos,1.0);
+        gl_PointSize = aColSize.a;
+      }`;
+
+      const particleFS = `#version 300 es
+      precision highp float;
+      in vec4 vCol;
+      out vec4 o;
+      void main(){
+        vec2 p = gl_PointCoord*2.0-1.0;
+        float d = dot(p,p);
+        float a = smoothstep(1.0, 0.0, d);
+        a *= a;
+        o = vec4(vCol.rgb, a);
+      }`;
+
+      const postVS = `#version 300 es
+      precision highp float;
+      const vec2 verts[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+      out vec2 vUV;
+      void main(){
+        vec2 p = verts[gl_VertexID];
+        vUV = p*0.5 + 0.5;
+        gl_Position = vec4(p,0.0,1.0);
+      }`;
+
+      const postFS = `#version 300 es
+      precision highp float;
+      in vec2 vUV;
+      uniform sampler2D uTex;
+      uniform vec2 uInvRes;
+      uniform float uTime;
+      uniform float uChroma;
+      uniform float uVignette;
+      uniform float uScan;
+      uniform float uShockT;
+      uniform vec2 uShockUV;
+      uniform float uShockPow;
+      out vec4 o;
+
+      float n2(vec2 p){
+        p = fract(p*vec2(123.34, 345.45));
+        p += dot(p, p+34.345);
+        return fract(p.x*p.y);
+      }
+
+      vec3 sampleTex(vec2 uv){
+        return texture(uTex, uv).rgb;
+      }
+
+      void main(){
+        vec2 uv = vUV;
+
+        float t = uShockT;
+        if(t > 0.0){
+          float d = distance(uv, uShockUV);
+          float wave = sin((d*28.0 - t*42.0)) * exp(-d*7.5);
+          float ring = smoothstep(0.25, 0.0, abs(d - t*0.12));
+          uv += normalize(uv - uShockUV + 1e-6) * (wave * 0.0055 * uShockPow + ring * 0.0065 * uShockPow);
+        }
+
+        float chrom = uChroma;
+        vec2 off = uInvRes * (2.0 + 10.0*chrom);
+        vec3 col;
+        col.r = sampleTex(uv + off*chrom).r;
+        col.g = sampleTex(uv).g;
+        col.b = sampleTex(uv - off*chrom).b;
+
+        vec3 bloom = vec3(0.0);
+        vec3 c0 = sampleTex(uv);
+        float l0 = dot(c0, vec3(0.2126,0.7152,0.0722));
+        float thr = smoothstep(0.55, 1.15, l0);
+        vec2 b1 = uInvRes*vec2(1.0,0.0);
+        vec2 b2 = uInvRes*vec2(0.0,1.0);
+        bloom += sampleTex(uv + b1*2.0);
+        bloom += sampleTex(uv - b1*2.0);
+        bloom += sampleTex(uv + b2*2.0);
+        bloom += sampleTex(uv - b2*2.0);
+        bloom += sampleTex(uv + (b1+b2)*2.0);
+        bloom += sampleTex(uv - (b1+b2)*2.0);
+        bloom *= (0.095 * thr);
+
+        col += bloom;
+
+        float vign = smoothstep(1.18, 0.35, distance(uv, vec2(0.5)));
+        col *= mix(1.0 - uVignette, 1.0, vign);
+
+        float scan = sin((uv.y*850.0) + uTime*18.0)*0.5 + 0.5;
+        col *= (0.92 + 0.08*scan*uScan);
+
+        float noise = n2(uv*vec2(900.0, 500.0) + uTime*0.7);
+        col += (noise-0.5)*0.02;
+
+        col = pow(col, vec3(0.92));
+        o = vec4(col, 1.0);
+      }`;
+
+      this.programs.solid = this._link(solidVS, solidFS);
+      this.programs.ball = this._link(ballVS, ballFS);
+      this.programs.particle = this._link(particleVS, particleFS);
+      this.programs.post = this._link(postVS, postFS);
+    }
+
+    _buildFullscreen(){
+      const gl=this.gl;
+      this.fullVAO = gl.createVertexArray();
+    }
+
+    createMesh(geo){
+      const gl=this.gl;
+      const vao=gl.createVertexArray();
+      gl.bindVertexArray(vao);
+
+      const vboPos=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vboPos);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geo.positions), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+
+      const vboNor=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vboNor);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geo.normals), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+
+      const vboUV=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vboUV);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geo.uvs), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2,2,gl.FLOAT,false,0,0);
+
+      const ibo=gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geo.indices), gl.STATIC_DRAW);
+
+      gl.bindVertexArray(null);
+      return {vao, count: geo.indices.length};
+    }
+
+    createDynamicParticleMesh(max){
+      const gl=this.gl;
+      const vao=gl.createVertexArray();
+      gl.bindVertexArray(vao);
+
+      const posBuf=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, max*3*4, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+
+      const colBuf=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, max*4*4, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1,4,gl.FLOAT,false,0,0);
+
+      gl.bindVertexArray(null);
+      return {vao, posBuf, colBuf, max, count:0};
+    }
+
+    render(scene, post){
+      const gl=this.gl;
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+      gl.viewport(0,0,this.fboW,this.fboH);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      scene(gl, this);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0,0,this.canvas.width,this.canvas.height);
+
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.useProgram(this.programs.post);
+      gl.bindVertexArray(this.fullVAO);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.fboTex);
+
+      const p = this.programs.post;
+      gl.uniform1i(gl.getUniformLocation(p,"uTex"), 0);
+      gl.uniform2f(gl.getUniformLocation(p,"uInvRes"), 1/this.fboW, 1/this.fboH);
+      gl.uniform1f(gl.getUniformLocation(p,"uTime"), post.time);
+      gl.uniform1f(gl.getUniformLocation(p,"uChroma"), post.chroma);
+      gl.uniform1f(gl.getUniformLocation(p,"uVignette"), post.vignette);
+      gl.uniform1f(gl.getUniformLocation(p,"uScan"), post.scan);
+      gl.uniform1f(gl.getUniformLocation(p,"uShockT"), post.shockT);
+      gl.uniform2f(gl.getUniformLocation(p,"uShockUV"), post.shockUV[0], post.shockUV[1]);
+      gl.uniform1f(gl.getUniformLocation(p,"uShockPow"), post.shockPow);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.CULL_FACE);
+    }
+  }
+
+  class TunnelSystem{
+    constructor(renderer, cfg){
+      this.cfg = cfg;
+      this.mesh = renderer.createMesh(createCylinder(cfg.radius, cfg.length, 56, 44));
+    }
+    draw(gl, r, u){
+      gl.useProgram(r.programs.solid);
+      gl.bindVertexArray(this.mesh.vao);
+      gl.uniformMatrix4fv(u.uModel, false, u.modelI);
+      gl.uniform1f(u.uMode, 0.0);
+      gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+    }
+  }
+
+  class PaddleSystem{
+    constructor(renderer, cfg){
+      this.cfg = cfg;
+      this.mesh = renderer.createMesh(createQuad(1.0));
+      this.player = { pos:[0,0,cfg.playerZ], target:[0,0,cfg.playerZ], vel:[0,0,0], tilt:[0,0], r: cfg.paddleR };
+      this.ai     = { pos:[0,0,cfg.aiZ],     target:[0,0,cfg.aiZ],     vel:[0,0,0], tilt:[0,0], r: cfg.paddleR };
+      this.sens = 1.35;
+      this.kbd = {left:false,right:false,up:false,down:false};
+    }
+    setSensitivity(s){ this.sens = s; }
+    setPlayerTarget(nx, ny){
+      const maxR = this.cfg.radius - (this.player.r + 0.55);
+      let x = nx * maxR * this.sens;
+      let y = ny * maxR * this.sens;
+      const l = Math.hypot(x,y);
+      if(l > maxR){ x = x/l*maxR; y = y/l*maxR; }
+      this.player.target[0]=x; this.player.target[1]=y;
+    }
+    update(dt, ball){
+      const p=this.player;
+      const a=this.ai;
+
+      let kx=0, ky=0;
+      if(this.kbd.left) kx -= 1;
+      if(this.kbd.right) kx += 1;
+      if(this.kbd.up) ky += 1;
+      if(this.kbd.down) ky -= 1;
+      if(kx||ky){
+        const maxR = this.cfg.radius - (p.r + 0.55);
+        p.target[0] = clamp(p.target[0] + kx*dt*14.0, -maxR, maxR);
+        p.target[1] = clamp(p.target[1] + ky*dt*14.0, -maxR, maxR);
+        const l = Math.hypot(p.target[0], p.target[1]);
+        if(l > maxR){ p.target[0] = p.target[0]/l*maxR; p.target[1] = p.target[1]/l*maxR; }
+      }
+
+      const follow = 1.0 - Math.exp(-dt*10.5);
+      const px0=p.pos[0], py0=p.pos[1];
+      p.pos[0] = lerp(p.pos[0], p.target[0], follow);
+      p.pos[1] = lerp(p.pos[1], p.target[1], follow);
+      p.vel[0] = (p.pos[0]-px0)/Math.max(dt,1e-6);
+      p.vel[1] = (p.pos[1]-py0)/Math.max(dt,1e-6);
+      p.tilt[0] = lerp(p.tilt[0], clamp(-p.vel[1]*0.008, -0.25, 0.25), 1.0 - Math.exp(-dt*12.0));
+      p.tilt[1] = lerp(p.tilt[1], clamp( p.vel[0]*0.008, -0.25, 0.25), 1.0 - Math.exp(-dt*12.0));
+
+      const aiMax = this.cfg.radius - (a.r + 0.55);
+      const react = clamp(0.9 + ball.speed*0.02, 0.9, 1.75);
+      a.target[0] = clamp(ball.pos[0] * 0.92, -aiMax, aiMax);
+      a.target[1] = clamp(ball.pos[1] * 0.92, -aiMax, aiMax);
+
+      const lag = 1.0 - Math.exp(-dt*(5.2*react));
+      const ax0=a.pos[0], ay0=a.pos[1];
+      a.pos[0] = lerp(a.pos[0], a.target[0], lag);
+      a.pos[1] = lerp(a.pos[1], a.target[1], lag);
+      a.vel[0] = (a.pos[0]-ax0)/Math.max(dt,1e-6);
+      a.vel[1] = (a.pos[1]-ay0)/Math.max(dt,1e-6);
+      a.tilt[0] = lerp(a.tilt[0], clamp( a.vel[1]*0.006, -0.20, 0.20), 1.0 - Math.exp(-dt*10.0));
+      a.tilt[1] = lerp(a.tilt[1], clamp(-a.vel[0]*0.006, -0.20, 0.20), 1.0 - Math.exp(-dt*10.0));
+    }
+    draw(gl, r, u){
+      gl.useProgram(r.programs.solid);
+      gl.bindVertexArray(this.mesh.vao);
+      gl.uniform1f(u.uMode, 1.0);
+
+      const m = u._tmpM;
+      mat4Identity(m);
+      mat4Translate(m, m, this.player.pos);
+      mat4RotateX(m, m, this.player.tilt[0]);
+      mat4RotateY(m, m, this.player.tilt[1]);
+      mat4Scale(m, m, [this.player.r, this.player.r, 1.0]);
+      gl.uniformMatrix4fv(u.uModel, false, m);
+      gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+
+      mat4Identity(m);
+      mat4Translate(m, m, this.ai.pos);
+      mat4RotateX(m, m, this.ai.tilt[0]);
+      mat4RotateY(m, m, this.ai.tilt[1]);
+      mat4Scale(m, m, [this.ai.r, this.ai.r, 1.0]);
+      gl.uniformMatrix4fv(u.uModel, false, m);
+      gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+    }
+  }
+
+  class BallSystem{
+    constructor(renderer, cfg){
+      this.cfg = cfg;
+      this.mesh = renderer.createMesh(createSphere(cfg.ballR, 18, 10));
+      this.pos = [0,0,-cfg.length*0.55];
+      this.vel = [3.2, 2.2, -13.5];
+      this.ballR = cfg.ballR;
+      this.speed = 16.5;
+      this.baseSpeed = 16.5;
+      this.hitBoost = 1.06;
+      this.maxSpeed = 34.0;
+      this.trail = {len: 2.8, pow: 0.7};
+      this._prevPos = this.pos.slice();
+    }
+    reset(towardAI=true){
+      this.pos = [rnd(-1.2,1.2), rnd(-1.2,1.2), -this.cfg.length*0.52];
+      const dirZ = towardAI ? -1 : 1;
+      const vx = rnd(-4.0, 4.0);
+      const vy = rnd(-3.2, 3.2);
+      this.speed = this.baseSpeed;
+      let v = v3.norm([vx, vy, dirZ*9.0]);
+      this.vel = v3.mul(v, this.speed);
+      this._prevPos = this.pos.slice();
+    }
+    update(dt){
+      this._prevPos = this.pos.slice();
+      this.pos[0] += this.vel[0]*dt;
+      this.pos[1] += this.vel[1]*dt;
+      this.pos[2] += this.vel[2]*dt;
+      this.speed = Math.min(this.maxSpeed, v3.len(this.vel));
+    }
+    nudgeSpeed(){
+      let v = v3.norm(this.vel);
+      this.speed = Math.min(this.maxSpeed, this.speed * this.hitBoost + 0.35);
+      this.vel = v3.mul(v, this.speed);
+    }
+    draw(gl, r, u, camPos, time){
+      gl.useProgram(r.programs.ball);
+      gl.bindVertexArray(this.mesh.vao);
+
+      const p = r.programs.ball;
+      gl.uniformMatrix4fv(gl.getUniformLocation(p,"uViewProj"), false, u.viewProj);
+      gl.uniform3f(gl.getUniformLocation(p,"uCamPos"), camPos[0], camPos[1], camPos[2]);
+      gl.uniform3f(gl.getUniformLocation(p,"uColor"), 0.15, 1.0, 0.9);
+      gl.uniform1f(gl.getUniformLocation(p,"uTime"), time);
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+
+      const m = u._tmpM;
+
+      const power = clamp(0.85 + this.speed*0.05, 0.9, 2.6);
+      gl.uniform1f(gl.getUniformLocation(p,"uPower"), power);
+
+      mat4Identity(m);
+      mat4Translate(m, m, this.pos);
+      mat4Scale(m, m, [1,1,1]);
+      gl.uniformMatrix4fv(gl.getUniformLocation(p,"uModel"), false, m);
+      gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+
+      const v = this.vel;
+      const vlen = Math.hypot(v[0],v[1],v[2])||1;
+      const back = [-v[0]/vlen, -v[1]/vlen, -v[2]/vlen];
+      const trailPos = [this.pos[0] + back[0]*0.65, this.pos[1] + back[1]*0.65, this.pos[2] + back[2]*0.65];
+
+      gl.uniform1f(gl.getUniformLocation(p,"uPower"), power*0.65*this.trail.pow);
+      mat4Identity(m);
+      mat4Translate(m, m, trailPos);
+      mat4Scale(m, m, [1.15, 1.15, 1.15 + this.speed*0.06]);
+      gl.uniformMatrix4fv(gl.getUniformLocation(p,"uModel"), false, m);
+      gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+
+      gl.disable(gl.BLEND);
+    }
+  }
+
+  class BrickSystem{
+    constructor(renderer, cfg){
+      this.cfg = cfg;
+      this.mesh = renderer.createMesh(createCube(0.55,0.35,0.20));
+      this.bricks = [];
+      this.r = 0.72;
+      this.respawnT = 0;
+      this.spawnSet();
+    }
+    spawnSet(){
+      this.bricks.length = 0;
+      const L = this.cfg.length;
+      const rings = 6;
+      const perRing = 14;
+      for(let k=0;k<rings;k++){
+        const z = -rnd(10, L-10);
+        const rad = rnd(2.2, 5.8);
+        for(let i=0;i<perRing;i++){
+          const a = (i/perRing)*Math.PI*2 + rnd(-0.08,0.08);
+          const x = Math.cos(a)*rad + rnd(-0.2,0.2);
+          const y = Math.sin(a)*rad + rnd(-0.2,0.2);
+          this.bricks.push({pos:[x,y,z], alive:true, pulse:rnd(0,1)});
+        }
+      }
+    }
+    aliveCount(){
+      let c=0; for(const b of this.bricks) if(b.alive) c++; return c;
+    }
+    update(dt){
+      if(this.aliveCount()===0){
+        this.respawnT += dt;
+        if(this.respawnT>1.15){
+          this.respawnT=0;
+          this.spawnSet();
+        }
+      } else this.respawnT=0;
+    }
+    draw(gl, r, u, time){
+      gl.useProgram(r.programs.solid);
+      gl.bindVertexArray(this.mesh.vao);
+      gl.uniform1f(u.uMode, 2.0);
+      const m=u._tmpM;
+      for(const b of this.bricks){
+        if(!b.alive) continue;
+        const wob = 0.08*Math.sin(time*1.4 + b.pulse*6.28);
+        mat4Identity(m);
+        mat4Translate(m, m, [b.pos[0], b.pos[1], b.pos[2] + wob]);
+        mat4RotateY(m, m, Math.sin(time*0.7 + b.pulse)*0.10);
+        mat4RotateX(m, m, Math.cos(time*0.8 + b.pulse)*0.08);
+        gl.uniformMatrix4fv(u.uModel, false, m);
+        gl.drawElements(gl.TRIANGLES, this.mesh.count, gl.UNSIGNED_SHORT, 0);
+      }
+    }
+  }
+
+  class ParticleSystem{
+    constructor(renderer, cfg){
+      this.cfg = cfg;
+      this.max = 2200;
+      this.mesh = renderer.createDynamicParticleMesh(this.max);
+      this.p = new Array(this.max);
+      this.count = 0;
+      this._posData = new Float32Array(this.max*3);
+      this._colData = new Float32Array(this.max*4);
+      for(let i=0;i<this.max;i++) this.p[i] = {alive:false, pos:[0,0,0], vel:[0,0,0], life:0, maxLife:0, col:[1,1,1], size:6};
+    }
+    spawnBurst(pos, baseCol, count, speed=9.5, size=10){
+      for(let i=0;i<count;i++){
+        let idx = -1;
+        for(let k=0;k<this.max;k++){ if(!this.p[k].alive){ idx=k; break; } }
+        if(idx<0) break;
+        const P = this.p[idx];
+        P.alive = true;
+        P.pos[0]=pos[0]; P.pos[1]=pos[1]; P.pos[2]=pos[2];
+        const ang = rnd(0, Math.PI*2);
+        const up = rnd(-1,1);
+        const s = Math.sqrt(Math.max(0,1-up*up));
+        const dir = [Math.cos(ang)*s, Math.sin(ang)*s, up];
+        const sp = speed * rnd(0.35, 1.05);
+        P.vel[0]=dir[0]*sp; P.vel[1]=dir[1]*sp; P.vel[2]=dir[2]*sp;
+        P.maxLife = P.life = rnd(0.35, 0.95);
+        P.col[0]=baseCol[0]*rnd(0.8,1.2);
+        P.col[1]=baseCol[1]*rnd(0.8,1.2);
+        P.col[2]=baseCol[2]*rnd(0.8,1.2);
+        P.size = size * rnd(0.6, 1.25);
+      }
+    }
+    update(dt){
+      for(const P of this.p){
+        if(!P.alive) continue;
+        P.life -= dt;
+        if(P.life<=0){ P.alive=false; continue; }
+        P.pos[0] += P.vel[0]*dt;
+        P.pos[1] += P.vel[1]*dt;
+        P.pos[2] += P.vel[2]*dt;
+        const damp = Math.pow(0.12, dt);
+        P.vel[0]*=damp; P.vel[1]*=damp; P.vel[2]*=damp;
+      }
+    }
+    upload(gl){
+      let c=0;
+      for(const P of this.p){
+        if(!P.alive) continue;
+        const a = clamp(P.life / P.maxLife, 0, 1);
+        const i3=c*3, i4=c*4;
+        this._posData[i3]=P.pos[0];
+        this._posData[i3+1]=P.pos[1];
+        this._posData[i3+2]=P.pos[2];
+        this._colData[i4]=P.col[0]*(0.55+0.65*a);
+        this._colData[i4+1]=P.col[1]*(0.55+0.65*a);
+        this._colData[i4+2]=P.col[2]*(0.55+0.65*a);
+        this._colData[i4+3]=P.size*(0.7+0.7*a);
+        c++;
+        if(c>=this.max) break;
+      }
+      this.mesh.count = c;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh.posBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this._posData.subarray(0, c*3));
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh.colBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this._colData.subarray(0, c*4));
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+    draw(gl, r, u){
+      if(this.mesh.count<=0) return;
+      gl.useProgram(r.programs.particle);
+      gl.bindVertexArray(this.mesh.vao);
+      gl.uniformMatrix4fv(gl.getUniformLocation(r.programs.particle,"uViewProj"), false, u.viewProj);
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.depthMask(false);
+      gl.drawArrays(gl.POINTS, 0, this.mesh.count);
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+    }
+  }
+
+  class PhysicsEngine{
+    constructor(cfg, audio){
+      this.cfg = cfg;
+      this.audio = audio;
+      this.timeScale = 1.0;
+      this.slowT = 0;
+      this.impactShake = 0;
+      this.wallFlash = 0;
+      this.lastImpactUV = [0.5,0.5];
+      this.lastImpactT = 0;
+      this.lastImpactPow = 0;
+    }
+
+    setImpact(uv, pow=1){
+      this.lastImpactUV[0]=uv[0]; this.lastImpactUV[1]=uv[1];
+      this.lastImpactT = 0.0001;
+      this.lastImpactPow = pow;
+      this.impactShake = Math.max(this.impactShake, 0.6*pow);
+    }
+
+    update(dt, paddles, ball, bricks, particles, viewProj, viewportWH, score){
+      if(this.slowT>0){
+        this.slowT -= dt;
+        if(this.slowT<=0) this.timeScale = 1.0;
+      }
+
+      this.wallFlash = Math.max(0, this.wallFlash - dt*1.8);
+
+      const sdt = dt*this.timeScale;
+      ball.update(sdt);
+
+      // Wall collision (cylinder)
+      const R = this.cfg.radius - ball.ballR;
+      const rx = ball.pos[0], ry = ball.pos[1];
+      const rl = Math.hypot(rx,ry);
+      if(rl > R){
+        const nx = rx/rl, ny=ry/rl;
+        ball.pos[0] = nx*R;
+        ball.pos[1] = ny*R;
+        ball.vel = reflect(ball.vel, [nx,ny,0]);
+        ball.nudgeSpeed();
+        this.wallFlash = Math.min(1.0, this.wallFlash + 0.35);
+        particles.spawnBurst(ball.pos, [0.12,0.9,1.0], 38, 8.8, 12);
+        this.audio?.hit(0.55);
+        this._impactFromWorld(ball.pos, viewProj);
+      }
+
+      // Paddle collision helper
+      const paddleHit = (pad, sign) => {
+        const dz = ball.pos[2] - pad.pos[2];
+        if(sign>0){
+          if(ball.vel[2] > 0 && dz > -ball.ballR && dz < ball.ballR*1.3){
+            const dx=ball.pos[0]-pad.pos[0], dy=ball.pos[1]-pad.pos[1];
+            const d = Math.hypot(dx,dy);
+            if(d < pad.r){
+              ball.pos[2] = pad.pos[2] - ball.ballR*1.01;
+              ball.vel[2] = -Math.abs(ball.vel[2]);
+              ball.vel[0] += (dx / Math.max(d,1e-4)) * 2.1 + pad.vel[0]*0.035;
+              ball.vel[1] += (dy / Math.max(d,1e-4)) * 2.1 + pad.vel[1]*0.035;
+              ball.nudgeSpeed();
+              particles.spawnBurst(ball.pos, [0.10,1.0,0.8], 48, 10.5, 13);
+              this.audio?.hit(0.9);
+              this._impactFromWorld(ball.pos, viewProj, 1.25);
+              return true;
+            }
+          }
+        } else {
+          if(ball.vel[2] < 0 && dz < ball.ballR && dz > -ball.ballR*1.3){
+            const dx=ball.pos[0]-pad.pos[0], dy=ball.pos[1]-pad.pos[1];
+            const d = Math.hypot(dx,dy);
+            if(d < pad.r){
+              ball.pos[2] = pad.pos[2] + ball.ballR*1.01;
+              ball.vel[2] = Math.abs(ball.vel[2]);
+              ball.vel[0] += (dx / Math.max(d,1e-4)) * 2.0 + pad.vel[0]*0.03;
+              ball.vel[1] += (dy / Math.max(d,1e-4)) * 2.0 + pad.vel[1]*0.03;
+              ball.nudgeSpeed();
+              particles.spawnBurst(ball.pos, [0.20,0.55,1.0], 46, 10.0, 13);
+              this.audio?.hit(0.85);
+              this._impactFromWorld(ball.pos, viewProj, 1.15);
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+
+      const hitPlayer = paddleHit(paddles.player, +1);
+      const hitAI = paddleHit(paddles.ai, -1);
+      if(hitPlayer || hitAI){
+        score.volley++;
+      }
+
+      // Brick collision
+      const br = bricks.r;
+      for(const b of bricks.bricks){
+        if(!b.alive) continue;
+        const dx=ball.pos[0]-b.pos[0], dy=ball.pos[1]-b.pos[1], dz=ball.pos[2]-b.pos[2];
+        const d = Math.hypot(dx,dy,dz);
+        if(d < ball.ballR + br){
+          b.alive=false;
+          const n = [dx/Math.max(d,1e-4), dy/Math.max(d,1e-4), dz/Math.max(d,1e-4)];
+          ball.vel = reflect(ball.vel, n);
+          ball.nudgeSpeed();
+          particles.spawnBurst(b.pos, [1.0,0.25,0.9], 90, 12.8, 14);
+          particles.spawnBurst(b.pos, [0.10,1.0,0.8], 32, 9.5, 10);
+          this.audio?.shatter();
+          this.timeScale = 0.38;
+          this.slowT = 0.11;
+          this._impactFromWorld(b.pos, viewProj, 1.35);
+          break;
+        }
+      }
+
+      // Score zones
+      if(ball.pos[2] > this.cfg.playerZ + 2.6){
+        score.ai++;
+        score.volley = 0;
+        particles.spawnBurst([0,0,this.cfg.playerZ+0.2], [1.0,0.18,0.18], 120, 14.5, 15);
+        this.audio?.score(false);
+        ball.reset(true);
+        this._impactFromWorld([0,0,this.cfg.playerZ], viewProj, 1.8);
+      } else if(ball.pos[2] < this.cfg.aiZ - 2.6){
+        score.player++;
+        score.volley = 0;
+        particles.spawnBurst([0,0,this.cfg.aiZ-0.2], [0.15,1.0,0.9], 120, 14.5, 15);
+        this.audio?.score(true);
+        ball.reset(false);
+        this._impactFromWorld([0,0,this.cfg.aiZ], viewProj, 1.8);
+      }
+
+      this.lastImpactT = this.lastImpactT>0 ? this.lastImpactT + dt : 0;
+      if(this.lastImpactT > 1.2) this.lastImpactT = 0;
+      this.impactShake = Math.max(0, this.impactShake - dt*2.8);
+    }
+
+    _impactFromWorld(pos, viewProj, pow=1.0){
+      const x=pos[0], y=pos[1], z=pos[2];
+      const m=viewProj;
+      const cx = m[0]*x + m[4]*y + m[8]*z + m[12];
+      const cy = m[1]*x + m[5]*y + m[9]*z + m[13];
+      const cw = m[3]*x + m[7]*y + m[11]*z + m[15];
+      const ndcX = cx / Math.max(1e-6, cw);
+      const ndcY = cy / Math.max(1e-6, cw);
+      const uv = [ndcX*0.5+0.5, ndcY*0.5+0.5];
+      this.setImpact(uv, pow);
+    }
+  }
+
+  class AudioEngine{
+    constructor(){
+      this.ctx = null;
+      this.master = null;
+      this.humNode = null;
+      this.enabled = false;
+    }
+    ensure(){
+      if(this.ctx) return true;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return false;
+      this.ctx = new Ctx();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.6;
+      this.master.connect(this.ctx.destination);
+      return true;
+    }
+    setEnabled(on){
+      this.enabled = on;
+      if(!this.ensure()) return;
+      if(on){
+        this._startHum();
+      }else{
+        this._stopHum();
+      }
+    }
+    _startHum(){
+      if(!this.ctx || this.humNode) return;
+      const ctx=this.ctx;
+      const g = ctx.createGain();
+      g.gain.value = 0.11;
+      const o1 = ctx.createOscillator(); o1.type="sine"; o1.frequency.value = 48;
+      const o2 = ctx.createOscillator(); o2.type="triangle"; o2.frequency.value = 96;
+      const f = ctx.createBiquadFilter(); f.type="lowpass"; f.frequency.value = 420;
+
+      const nbuf = ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate);
+      const data = nbuf.getChannelData(0);
+      for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1) * 0.25;
+      const ns = ctx.createBufferSource(); ns.buffer = nbuf; ns.loop = true;
+      const ng = ctx.createGain(); ng.gain.value = 0.035;
+
+      o1.connect(g); o2.connect(g);
+      ns.connect(ng); ng.connect(f);
+      g.connect(f);
+      f.connect(this.master);
+
+      o1.start(); o2.start(); ns.start();
+      this.humNode = {g,o1,o2,ns,ng,f};
+    }
+    _stopHum(){
+      if(!this.ctx || !this.humNode) return;
+      const {g,o1,o2,ns} = this.humNode;
+      const t = this.ctx.currentTime;
+      g.gain.setTargetAtTime(0.0001, t, 0.04);
+      try{ o1.stop(t+0.15); o2.stop(t+0.15); ns.stop(t+0.15); }catch(e){}
+      this.humNode = null;
+    }
+    _envGain(dur, peak){
+      const ctx=this.ctx;
+      const g = ctx.createGain();
+      const t=ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      g.connect(this.master);
+      return g;
+    }
+    hit(str=0.8){
+      if(!this.enabled || !this.ensure()) return;
+      const ctx=this.ctx;
+      const g=this._envGain(0.12, 0.26*str);
+      const o=ctx.createOscillator();
+      o.type="sine";
+      const t=ctx.currentTime;
+      o.frequency.setValueAtTime(420 + 220*str, t);
+      o.frequency.exponentialRampToValueAtTime(180 + 80*str, t+0.12);
+      o.connect(g);
+      o.start();
+      o.stop(t+0.14);
+    }
+    shatter(){
+      if(!this.enabled || !this.ensure()) return;
+      const ctx=this.ctx;
+      const dur = 0.18;
+      const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate*dur), ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for(let i=0;i<d.length;i++){
+        const t=i/d.length;
+        const n = (Math.random()*2-1);
+        d[i] = n * (1.0-t) * (0.9 + 0.2*Math.random());
+      }
+      const src = ctx.createBufferSource(); src.buffer = b;
+      const bp = ctx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value = 1900; bp.Q.value = 0.9;
+      const g = this._envGain(dur, 0.28);
+      src.connect(bp); bp.connect(g);
+      src.start();
+    }
+    score(player=true){
+      if(!this.enabled || !this.ensure()) return;
+      const ctx=this.ctx;
+      const t=ctx.currentTime;
+      const g=this._envGain(0.35, 0.22);
+      const o=ctx.createOscillator();
+      o.type="triangle";
+      const base = player ? 520 : 260;
+      o.frequency.setValueAtTime(base, t);
+      o.frequency.setValueAtTime(base*1.25, t+0.06);
+      o.frequency.setValueAtTime(base*1.65, t+0.12);
+      o.connect(g);
+      o.start();
+      o.stop(t+0.36);
+    }
+  }
+
+  class UIController{
+    constructor(){
+      this.el = {
+        fps: document.getElementById("fps"),
+        ping: document.getElementById("ping"),
+        res: document.getElementById("res"),
+        pScore: document.getElementById("pScore"),
+        aScore: document.getElementById("aScore"),
+        pauseBtn: document.getElementById("pauseBtn"),
+        muteBtn: document.getElementById("muteBtn"),
+        sens: document.getElementById("sens"),
+        sensV: document.getElementById("sensV"),
+        pauseOverlay: document.getElementById("pauseOverlay"),
+      };
+      this._pingT=0; this._ping=50;
+    }
+    setScore(p,a){
+      this.el.pScore.textContent = p|0;
+      this.el.aScore.textContent = a|0;
+    }
+    setFPS(v){
+      this.el.fps.textContent = (v|0);
+    }
+    setResScale(v){
+      this.el.res.textContent = v.toFixed(2);
+    }
+    updatePing(dt){
+      this._pingT += dt;
+      if(this._pingT > 0.35){
+        this._pingT = 0;
+        this._ping = Math.round(lerp(this._ping, rnd(38, 78), 0.25));
+        this.el.ping.textContent = this._ping;
+      }
+    }
+    setPaused(p){
+      this.el.pauseOverlay.style.display = p ? "flex" : "none";
+      this.el.pauseBtn.textContent = p ? "Resume" : "Pause";
+    }
+    setAudio(on){
+      this.el.muteBtn.textContent = on ? "Audio: On" : "Audio: Off";
+    }
+  }
+
+  class GameEngine{
+    constructor(canvas){
+      this.cfg = {
+        radius: 8.0,
+        length: 48.0,
+        playerZ: 1.1,
+        aiZ: -48.1,
+        paddleR: 2.55,
+        ballR: 0.62,
+      };
+
+      this.renderer = new RendererEngine(canvas);
+      this.ui = new UIController();
+      this.audio = new AudioEngine();
+
+      this.tunnel = new TunnelSystem(this.renderer, this.cfg);
+      this.paddles = new PaddleSystem(this.renderer, this.cfg);
+      this.ball = new BallSystem(this.renderer, this.cfg);
+      this.bricks = new BrickSystem(this.renderer, this.cfg);
+      this.particles = new ParticleSystem(this.renderer, this.cfg);
+      this.physics = new PhysicsEngine(this.cfg, this.audio);
+
+      this.score = {player:0, ai:0, volley:0};
+
+      this.time = 0;
+      this.paused = false;
+      this._last = performance.now();
+      this._fps = 60;
+      this._fpsAcc = 0;
+      this._fpsN = 0;
+
+      this.camera = {
+        pos:[0,0,3.2],
+        target:[0,0,-10],
+        up:[0,1,0],
+      };
+      this.mats = {
+        proj: mat4(),
+        view: mat4(),
+        viewProj: mat4(),
+        modelI: mat4(),
+        _tmpM: mat4(),
+      };
+
+      this.post = {
+        time:0, chroma:0.0, vignette:0.20, scan:1.0,
+        shockT:0.0, shockUV:[0.5,0.5], shockPow:0.0
+      };
+
+      this._bindUI();
+      this._bindInput(canvas);
+
+      this.ball.reset(true);
+      this.ui.setScore(0,0);
+      this.ui.setResScale(this.renderer.resScale);
+      this.ui.setAudio(false);
+    }
+
+    _bindUI(){
+      const ui = this.ui.el;
+      ui.pauseBtn.addEventListener("click", ()=>this.togglePause());
+      ui.sens.addEventListener("input", ()=>{
+        const v = parseFloat(ui.sens.value);
+        this.paddles.setSensitivity(v);
+        ui.sensV.textContent = v.toFixed(2);
+      });
+      ui.sens.dispatchEvent(new Event("input"));
+      ui.muteBtn.addEventListener("click", ()=>{
+        const next = !this.audio.enabled;
+        this.audio.setEnabled(next);
+        this.ui.setAudio(next);
+      });
+
+      window.addEventListener("keydown", (e)=>{
+        if(e.code==="Space"){ e.preventDefault(); this.togglePause(); }
+      });
+    }
+
+    _bindInput(canvas){
+      const normFromEvent = (e) => {
+        const r = canvas.getBoundingClientRect();
+        const x = (e.clientX - r.left) / Math.max(1, r.width);
+        const y = (e.clientY - r.top) / Math.max(1, r.height);
+        const nx = (x - 0.5) * 2.0;
+        const ny = (0.5 - y) * 2.0;
+        return [nx, ny];
+      };
+
+      const onInteract = () => {
+        if(!this.audio.enabled && this.audio.ensure()){
+          // do nothing; user can toggle audio; but resume context on first gesture
+          this.audio.ctx.resume?.();
+        }
+      };
+
+      canvas.addEventListener("mousemove", (e)=>{
+        onInteract();
+        const [nx, ny] = normFromEvent(e);
+        this.paddles.setPlayerTarget(nx, ny);
+      }, {passive:true});
+
+      canvas.addEventListener("pointerdown", (e)=>{
+        onInteract();
+        canvas.setPointerCapture?.(e.pointerId);
+        const [nx, ny] = normFromEvent(e);
+        this.paddles.setPlayerTarget(nx, ny);
+      }, {passive:true});
+
+      canvas.addEventListener("touchstart", (e)=>{
+        onInteract();
+        const t = e.touches[0];
+        const r = canvas.getBoundingClientRect();
+        const x = (t.clientX - r.left) / Math.max(1, r.width);
+        const y = (t.clientY - r.top) / Math.max(1, r.height);
+        const nx = (x - 0.5) * 2.0;
+        const ny = (0.5 - y) * 2.0;
+        this.paddles.setPlayerTarget(nx, ny);
+      }, {passive:true});
+      canvas.addEventListener("touchmove", (e)=>{
+        const t = e.touches[0];
+        const r = canvas.getBoundingClientRect();
+        const x = (t.clientX - r.left) / Math.max(1, r.width);
+        const y = (t.clientY - r.top) / Math.max(1, r.height);
+        const nx = (x - 0.5) * 2.0;
+        const ny = (0.5 - y) * 2.0;
+        this.paddles.setPlayerTarget(nx, ny);
+      }, {passive:true});
+
+      window.addEventListener("keydown", (e)=>{
+        if(e.code==="ArrowLeft") this.paddles.kbd.left=true;
+        if(e.code==="ArrowRight") this.paddles.kbd.right=true;
+        if(e.code==="ArrowUp") this.paddles.kbd.up=true;
+        if(e.code==="ArrowDown") this.paddles.kbd.down=true;
+      });
+      window.addEventListener("keyup", (e)=>{
+        if(e.code==="ArrowLeft") this.paddles.kbd.left=false;
+        if(e.code==="ArrowRight") this.paddles.kbd.right=false;
+        if(e.code==="ArrowUp") this.paddles.kbd.up=false;
+        if(e.code==="ArrowDown") this.paddles.kbd.down=false;
+      });
+    }
+
+    togglePause(){
+      this.paused = !this.paused;
+      this.ui.setPaused(this.paused);
+      if(!this.paused) this._last = performance.now();
+    }
+
+    _updateCamera(dt){
+      const t=this.time;
+      const shake = this.physics.impactShake;
+      const sx = (Math.random()*2-1) * 0.06 * shake;
+      const sy = (Math.random()*2-1) * 0.05 * shake;
+      const sz = (Math.random()*2-1) * 0.08 * shake;
+
+      const drift = 0.15*Math.sin(t*0.35) + 0.06*Math.sin(t*0.8);
+      this.camera.pos[0] = 0.10*Math.sin(t*0.25) + sx;
+      this.camera.pos[1] = 0.07*Math.cos(t*0.22) + sy;
+      this.camera.pos[2] = 3.25 + drift + sz;
+
+      this.camera.target[0] = 0.04*Math.sin(t*0.33);
+      this.camera.target[1] = 0.03*Math.cos(t*0.31);
+      this.camera.target[2] = -14.0;
+
+      const aspect = this.renderer.canvas.width / Math.max(1, this.renderer.canvas.height);
+      mat4Perspective(this.mats.proj, Math.PI/3.05, aspect, 0.05, 120.0);
+      mat4LookAt(this.mats.view, this.camera.pos, this.camera.target, this.camera.up);
+      mat4Multiply(this.mats.viewProj, this.mats.proj, this.mats.view);
+    }
+
+    _adaptiveResolution(dt){
+      this._fpsAcc += this._fps;
+      this._fpsN++;
+      if(this._fpsN >= 18){
+        const avg = this._fpsAcc / this._fpsN;
+        this._fpsAcc=0; this._fpsN=0;
+
+        let s = this.renderer.resScale;
+        if(avg < 46 && s > 0.68) s -= 0.07;
+        else if(avg > 58 && s < 1.0) s += 0.04;
+        s = clamp(s, 0.62, 1.0);
+        if(Math.abs(s - this.renderer.resScale) > 0.005){
+          this.renderer.setResolutionScale(s);
+          this.ui.setResScale(s);
+        }
+      }
+    }
+
+    frame(now){
+      const rawDt = (now - this._last)/1000;
+      this._last = now;
+      const dt = clamp(rawDt, 0.0, 0.033);
+
+      this.renderer.resize();
+      if(!this.paused){
+        this.time += dt;
+
+        this.paddles.update(dt, this.ball);
+        this.bricks.update(dt);
+        this.particles.update(dt);
+
+        this._updateCamera(dt);
+
+        this.physics.update(dt, this.paddles, this.ball, this.bricks, this.particles, this.mats.viewProj, [this.renderer.fboW, this.renderer.fboH], this.score);
+
+        this.ui.setScore(this.score.player, this.score.ai);
+        this.ui.updatePing(dt);
+      } else {
+        this._updateCamera(0);
+        this.ui.updatePing(dt);
+      }
+
+      const ballSpeed = this.ball.speed;
+      this.post.time = this.time;
+      this.post.chroma = clamp((ballSpeed - 16.0) / 22.0, 0.0, 1.0) * 0.95 + (this.physics.impactShake*0.12);
+      this.post.vignette = 0.22 + 0.10*clamp(ballSpeed/30,0,1);
+      this.post.scan = 1.0;
+      this.post.shockT = this.physics.lastImpactT > 0 ? this.physics.lastImpactT : 0.0;
+      this.post.shockUV[0] = this.physics.lastImpactUV[0];
+      this.post.shockUV[1] = this.physics.lastImpactUV[1];
+      this.post.shockPow = this.physics.lastImpactPow;
+
+      this._render();
+
+      const fpsInst = 1/Math.max(1e-6, rawDt);
+      this._fps = lerp(this._fps, fpsInst, 0.08);
+      this.ui.setFPS(this._fps);
+
+      this._adaptiveResolution(dt);
+
+      requestAnimationFrame((t)=>this.frame(t));
+    }
+
+    _render(){
+      const gl=this.renderer.gl;
+      const r=this.renderer;
+
+      const camPos = this.camera.pos;
+      const u = {
+        viewProj: this.mats.viewProj,
+        modelI: this.mats.modelI,
+        _tmpM: this.mats._tmpM,
+        uModel: null,
+        uViewProj: null,
+        uCamPos: null,
+        uBallPos: null,
+        uBallColor: null,
+        uBallIntensity: null,
+        uTime: null,
+        uMode: null,
+        uWallFlash: null,
+      };
+
+      const pSolid = r.programs.solid;
+      u.uModel = gl.getUniformLocation(pSolid,"uModel");
+      u.uViewProj = gl.getUniformLocation(pSolid,"uViewProj");
+      u.uCamPos = gl.getUniformLocation(pSolid,"uCamPos");
+      u.uBallPos = gl.getUniformLocation(pSolid,"uBallPos");
+      u.uBallColor = gl.getUniformLocation(pSolid,"uBallColor");
+      u.uBallIntensity = gl.getUniformLocation(pSolid,"uBallIntensity");
+      u.uTime = gl.getUniformLocation(pSolid,"uTime");
+      u.uMode = gl.getUniformLocation(pSolid,"uMode");
+      u.uWallFlash = gl.getUniformLocation(pSolid,"uWallFlash");
+
+      const scene = (gl, r) => {
+        gl.useProgram(pSolid);
+
+        gl.uniformMatrix4fv(u.uViewProj, false, this.mats.viewProj);
+        gl.uniform3f(u.uCamPos, camPos[0], camPos[1], camPos[2]);
+        gl.uniform3f(u.uBallPos, this.ball.pos[0], this.ball.pos[1], this.ball.pos[2]);
+
+        const ballIntensity = clamp(1.6 + this.ball.speed*0.08, 1.7, 4.4);
+        gl.uniform3f(u.uBallColor, 0.18, 1.0, 0.88);
+        gl.uniform1f(u.uBallIntensity, ballIntensity);
+        gl.uniform1f(u.uTime, this.time);
+        gl.uniform1f(u.uWallFlash, this.physics.wallFlash);
+
+        this.tunnel.draw(gl, r, u);
+        this.bricks.draw(gl, r, u, this.time);
+        this.paddles.draw(gl, r, u);
+
+        this.particles.upload(gl);
+        this.particles.draw(gl, r, {viewProj: this.mats.viewProj});
+
+        this.ball.draw(gl, r, {viewProj:this.mats.viewProj, _tmpM:this.mats._tmpM}, camPos, this.time);
+      };
+
+      this.renderer.render(scene, this.post);
+    }
+  }
+
+  const canvas = document.getElementById("c");
+  const game = new GameEngine(canvas);
+
+  window.addEventListener("resize", ()=>game.renderer.resize());
+  requestAnimationFrame((t)=>{ game._last = t; game.frame(t); });
+
+})();
+</script>
+</body>
+</html>

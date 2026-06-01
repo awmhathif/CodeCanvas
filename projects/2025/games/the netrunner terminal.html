@@ -1,0 +1,1398 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>The Netrunner Terminal</title>
+  <style>
+    :root{
+      --bg:#030407;
+      --g:#7CFF7C;
+      --g2:#1dffb9;
+      --c:#48e7ff;
+      --p:#ff40c8;
+      --r:#ff3040;
+      --ui: rgba(10, 255, 170, 0.14);
+      --ui2: rgba(80, 255, 220, 0.30);
+      --glass: rgba(2, 10, 8, .55);
+      --glass2: rgba(8, 20, 20, .28);
+    }
+    html,body{height:100%; margin:0; background:var(--bg); overflow:hidden; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+    #gl{position:fixed; inset:0; width:100vw; height:100vh; display:block; background:#000;}
+
+    #ui{
+      position:fixed; inset:0; pointer-events:none;
+      color:var(--g);
+      text-shadow: 0 0 8px rgba(60,255,170,.25), 0 0 18px rgba(40,210,255,.12);
+      mix-blend-mode: screen;
+    }
+    #ui::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(10, 255, 170, 0.05) 0px,
+          rgba(10, 255, 170, 0.02) 1px,
+          rgba(0,0,0,0.00) 3px,
+          rgba(0,0,0,0.00) 6px
+        );
+      opacity:.35;
+      pointer-events:none;
+    }
+    #ui::after{
+      content:"";
+      position:absolute; inset:-30px;
+      background:
+        radial-gradient(1200px 800px at 15% 20%, rgba(72,231,255,.12), rgba(0,0,0,0) 55%),
+        radial-gradient(900px 700px at 70% 80%, rgba(255,64,200,.08), rgba(0,0,0,0) 55%),
+        radial-gradient(1200px 800px at 50% 50%, rgba(120,255,120,.07), rgba(0,0,0,0) 60%);
+      filter: blur(1px);
+      opacity:.75;
+      pointer-events:none;
+      animation: flicker 6.5s infinite steps(2,end);
+    }
+
+    @keyframes flicker{
+      0%, 100%{opacity:.78}
+      7%{opacity:.62}
+      8%{opacity:.80}
+      12%{opacity:.70}
+      19%{opacity:.86}
+      27%{opacity:.72}
+      32%{opacity:.84}
+      41%{opacity:.76}
+      58%{opacity:.88}
+      69%{opacity:.73}
+      83%{opacity:.86}
+      91%{opacity:.68}
+    }
+
+    .panel{
+      position:fixed;
+      background: linear-gradient(180deg, rgba(10,20,18,.52), rgba(2,10,8,.40));
+      border: 1px solid rgba(100,255,230,.24);
+      box-shadow:
+        0 0 0 1px rgba(10,255,170,.08) inset,
+        0 0 18px rgba(40,210,255,.10),
+        0 0 26px rgba(120,255,120,.06);
+      backdrop-filter: blur(6px);
+      pointer-events:none;
+    }
+
+    #terminalWrap{
+      left:14px; top:14px;
+      width: min(620px, 54vw);
+      height: min(560px, 62vh);
+      display:flex;
+      flex-direction:column;
+      padding: 10px 10px 8px 10px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(3,10,10,.60), rgba(2,6,7,.38));
+      overflow:hidden;
+    }
+    #terminalHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 4px 6px 8px 6px;
+      border-bottom: 1px solid rgba(120,255,220,.14);
+      color: rgba(120,255,180,.95);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    #terminalHeader .tag{
+      color: rgba(72,231,255,.9);
+      text-shadow: 0 0 10px rgba(72,231,255,.25);
+    }
+    #terminalHeader .rightTag{
+      color: rgba(255,64,200,.75);
+      text-shadow: 0 0 10px rgba(255,64,200,.20);
+    }
+
+    #terminalOut{
+      flex: 1 1 auto;
+      overflow:auto;
+      padding: 8px 6px 10px 6px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: rgba(160,255,210,.92);
+    }
+    #terminalOut::-webkit-scrollbar{width:10px}
+    #terminalOut::-webkit-scrollbar-thumb{
+      background: rgba(80,255,220,.18);
+      border: 1px solid rgba(80,255,220,.18);
+      border-radius: 8px;
+    }
+    #terminalOut::-webkit-scrollbar-track{background: rgba(0,0,0,.0)}
+    .line{white-space:pre-wrap; word-break:break-word;}
+    .dim{color: rgba(160,255,210,.62)}
+    .cyan{color: rgba(72,231,255,.90)}
+    .pink{color: rgba(255,64,200,.82)}
+    .red{color: rgba(255,64,64,.88)}
+    .glitchLine{
+      position:relative;
+      filter: saturate(1.2);
+      animation: lineGlitch 620ms steps(2,end) 1;
+    }
+    @keyframes lineGlitch{
+      0%{transform: translateX(0) skewX(0deg); text-shadow: 0 0 0 rgba(0,0,0,0)}
+      12%{transform: translateX(-2px) skewX(9deg); text-shadow: 2px 0 0 rgba(72,231,255,.35), -2px 0 0 rgba(255,64,200,.25)}
+      35%{transform: translateX(1px) skewX(-8deg); text-shadow: 3px 0 0 rgba(72,231,255,.28), -3px 0 0 rgba(255,64,200,.20)}
+      72%{transform: translateX(-1px) skewX(4deg); text-shadow: 2px 0 0 rgba(72,231,255,.22), -2px 0 0 rgba(255,64,200,.18)}
+      100%{transform: translateX(0) skewX(0deg); text-shadow: 0 0 0 rgba(0,0,0,0)}
+    }
+
+    #promptLine{
+      flex: 0 0 auto;
+      display:flex; align-items:center;
+      padding: 8px 6px 4px 6px;
+      border-top: 1px solid rgba(120,255,220,.14);
+      background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.12));
+      font-size: 13px;
+    }
+    #promptSym{
+      color: rgba(72,231,255,.95);
+      margin-right: 8px;
+      text-shadow: 0 0 12px rgba(72,231,255,.22);
+    }
+    #cmdText{
+      color: rgba(200,255,225,.92);
+      min-height: 1.1em;
+    }
+    #caret{
+      display:inline-block;
+      width: 9px;
+      margin-left: 2px;
+      transform: translateY(1px);
+      border-bottom: 2px solid rgba(120,255,170,.92);
+      filter: drop-shadow(0 0 6px rgba(120,255,170,.18));
+      animation: caretBlink 950ms steps(1,end) infinite;
+    }
+    @keyframes caretBlink{ 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+    #stats{
+      right:14px; top:14px;
+      width: min(280px, 30vw);
+      padding: 10px 12px 10px 12px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(3,10,10,.55), rgba(2,6,7,.34));
+    }
+    #stats .row{
+      display:flex; justify-content:space-between;
+      font-size: 12px; letter-spacing:.06em;
+      color: rgba(160,255,210,.90);
+      padding: 2px 0;
+    }
+    #stats .k{color: rgba(72,231,255,.88)}
+    #stats .v{color: rgba(160,255,210,.90)}
+    #stats .warn{color: rgba(255,64,64,.90)}
+    #stats .ok{color: rgba(120,255,170,.90)}
+    #hint{
+      position:fixed; left:14px; bottom:14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(3,10,10,.48), rgba(2,6,7,.28));
+      border: 1px solid rgba(100,255,230,.18);
+      box-shadow: 0 0 0 1px rgba(10,255,170,.06) inset, 0 0 18px rgba(40,210,255,.08);
+      color: rgba(160,255,210,.78);
+      font-size: 12px;
+      pointer-events:none;
+    }
+    #hint b{color: rgba(72,231,255,.92); font-weight:600}
+    #blocker{
+      position:fixed; inset:0; pointer-events:auto;
+      background: rgba(0,0,0,0);
+    }
+    #err{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      color:#d6ffef;
+      background:#000;
+      padding:20px;
+      font-size:14px;
+      pointer-events:auto;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="ui">
+  <div id="terminalWrap" class="panel">
+    <div id="terminalHeader">
+      <div><span class="tag">NETRUNNER</span> / <span class="dim">TERMINAL</span></div>
+      <div class="rightTag" id="statusTag">LINK: STANDBY</div>
+    </div>
+    <div id="terminalOut"></div>
+    <div id="promptLine">
+      <span id="promptSym">&gt;</span>
+      <span id="cmdText"></span><span id="caret"></span>
+    </div>
+  </div>
+
+  <div id="stats" class="panel">
+    <div class="row"><span class="k">FPS</span><span class="v" id="fps">—</span></div>
+    <div class="row"><span class="k">PING</span><span class="v" id="ping">—</span></div>
+    <div class="row"><span class="k">SPEED</span><span class="v" id="spd">—</span></div>
+    <div class="row"><span class="k">GLITCH</span><span class="v" id="glv">—</span></div>
+    <div class="row"><span class="k">STATUS</span><span class="v ok" id="sys">IDLE</span></div>
+  </div>
+
+  <div id="hint">
+    Commands: <b>scan</b> / <b>breach</b> / <b>decrypt</b> / <b>trace</b> / <b>clear</b><br/>
+    Type + Enter. Click anywhere to focus.
+  </div>
+
+  <div id="blocker" title="Click to focus"></div>
+</div>
+
+<div id="err"></div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gl');
+  const err = document.getElementById('err');
+
+  /** ===================== WebGL2 ===================== **/
+  const gl = canvas.getContext('webgl2', { antialias:false, depth:false, stencil:false, premultipliedAlpha:false, preserveDrawingBuffer:false });
+  if(!gl){
+    err.style.display = 'flex';
+    err.textContent = 'WebGL2 not supported in this browser. Try a modern Chrome/Edge/Firefox.';
+    return;
+  }
+
+  const VERT = `#version 300 es
+  precision highp float;
+  layout(location=0) in vec2 a_pos;
+  out vec2 v_uv;
+  void main(){
+    v_uv = a_pos*0.5 + 0.5;
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+  }`;
+
+  const SCENE = `#version 300 es
+  precision highp float;
+  out vec4 fragColor;
+  in vec2 v_uv;
+
+  uniform vec2 u_res;
+  uniform float u_time;
+  uniform float u_travel;
+  uniform float u_scanT;    // seconds since scan start, or -1
+  uniform float u_breach;   // 0..1
+  uniform float u_decrypt;  // 0..1
+  uniform float u_trace;    // 0..1
+  uniform float u_shake;    // 0..1
+  uniform float u_speed;    // current speed
+
+  float hash11(float p){ return fract(sin(p*127.1)*43758.5453123); }
+  vec2 hash21(float p){ return fract(sin(vec2(p, p+19.19)*vec2(127.1,311.7))*43758.5453123); }
+  float hash31(vec3 p){ return fract(sin(dot(p, vec3(127.1,311.7,74.7)))*43758.5453123); }
+
+  mat2 rot(float a){
+    float s=sin(a), c=cos(a);
+    return mat2(c,-s,s,c);
+  }
+
+  float stroke(float d, float w){
+    return smoothstep(w, 0.0, d);
+  }
+
+  float glyphBars(vec2 p, float seed){
+    // p in [-.5..+.5]
+    float a = hash11(seed*1.7+0.11);
+    float b = hash11(seed*2.1+1.73);
+    float c = hash11(seed*3.9+4.21);
+    float v = 0.0;
+    v += stroke(abs(p.x - (a-0.5)*0.62), 0.06) * smoothstep(0.48, 0.08, abs(p.y));
+    v += stroke(abs(p.y - (b-0.5)*0.62), 0.06) * smoothstep(0.48, 0.10, abs(p.x));
+    v += stroke(abs(p.x + p.y - (c-0.5)*0.18), 0.07);
+    v *= smoothstep(0.52, 0.18, length(p));
+    return clamp(v, 0.0, 1.0);
+  }
+
+  // 5x7 bitmap row masks for required letters (D,E,C,R,Y,P,T) and space.
+  int rowMask(int ch, int row){
+    // ch: 0=D 1=E 2=C 3=R 4=Y 5=P 6=T 7=space
+    if(ch==0){
+      int m[7] = int[7](30,17,17,17,17,17,30); // D
+      return m[row];
+    } else if(ch==1){
+      int m[7] = int[7](31,16,16,30,16,16,31); // E
+      return m[row];
+    } else if(ch==2){
+      int m[7] = int[7](14,17,16,16,16,17,14); // C
+      return m[row];
+    } else if(ch==3){
+      int m[7] = int[7](30,17,17,30,20,18,17); // R
+      return m[row];
+    } else if(ch==4){
+      int m[7] = int[7](17,17,10,4,4,4,4); // Y
+      return m[row];
+    } else if(ch==5){
+      int m[7] = int[7](30,17,17,30,16,16,16); // P
+      return m[row];
+    } else if(ch==6){
+      int m[7] = int[7](31,4,4,4,4,4,4); // T
+      return m[row];
+    }
+    return 0;
+  }
+
+  float drawChar(vec2 uv, int ch){
+    // uv in [0..1] within a char cell
+    int ix = int(floor(uv.x * 5.0));
+    int iy = int(floor((1.0-uv.y) * 7.0));
+    if(ix < 0 || ix > 4 || iy < 0 || iy > 6) return 0.0;
+    int mask = rowMask(ch, iy);
+    int bit = (mask >> (4-ix)) & 1;
+    return float(bit);
+  }
+
+  float drawTextDECRYPTED(vec2 p){
+    // p in panel local coords: x in [-1..1], y in [-1..1]
+    // returns alpha
+    vec2 uv = p * 0.5 + 0.5;
+    uv.y = clamp(uv.y, 0.0, 1.0);
+
+    // string "DECRYPTED" => [D,E,C,R,Y,P,T,E,D] => [0,1,2,3,4,5,6,1,0]
+    const int LEN = 9;
+    int msg[LEN] = int[LEN](0,1,2,3,4,5,6,1,0);
+
+    float left = 0.06;
+    float right = 0.94;
+    float x = (uv.x - left) / (right-left);
+    if(x < 0.0 || x >= 1.0) return 0.0;
+
+    float fx = x * float(LEN);
+    int idx = int(floor(fx));
+    if(idx < 0 || idx >= LEN) return 0.0;
+
+    float cx = fract(fx);
+    float cy = (uv.y - 0.30) / 0.40; // vertical band
+    if(cy < 0.0 || cy > 1.0) return 0.0;
+
+    float a = drawChar(vec2(cx, cy), msg[idx]);
+    // soften pixels
+    vec2 g = vec2(fwidth(cx), fwidth(cy));
+    a = smoothstep(0.15, 0.85, a + (g.x+g.y)*0.0);
+    return a;
+  }
+
+  vec3 tunnelColor(vec2 uv, float travel){
+    // camera rays
+    vec2 p = uv*2.0 - 1.0;
+    p.x *= u_res.x / u_res.y;
+
+    // shake / wobble
+    float sh = u_shake;
+    float wob = (sin(u_time*10.0) * 0.5 + sin(u_time*17.0)*0.25 + sin(u_time*29.0)*0.15) * sh;
+    p += vec2(sin(u_time*23.0 + 2.0)*0.007, cos(u_time*19.0 + 1.0)*0.007) * sh;
+    p = rot(wob*0.35) * p;
+
+    float fov = mix(1.6, 1.35, u_breach);
+    vec3 rd = normalize(vec3(p, fov));
+    rd.xy = rot(0.08*sin(u_time*0.6) + 0.02*sin(travel*0.08)) * rd.xy;
+
+    // tunnel bounds
+    float w = 1.28;
+    float h = 1.04;
+
+    float tx = 1e9;
+    float ty = 1e9;
+    if(abs(rd.x) > 1e-4) tx = (((rd.x > 0.0) ? w : -w)) / rd.x;
+    if(abs(rd.y) > 1e-4) ty = (((rd.y > 0.0) ? h : -h)) / rd.y;
+
+    float t = min(tx, ty);
+    bool hitX = (tx < ty);
+
+    vec3 hit = rd * t;
+    vec3 n = hitX ? vec3(-sign(rd.x), 0.0, 0.0) : vec3(0.0, -sign(rd.y), 0.0);
+    float nd = clamp(dot(n, -rd), 0.0, 1.0);
+
+    float zWorld = hit.z + travel;
+
+    // wall coordinates
+    float side = hitX ? hit.y : hit.x;     // lateral on wall
+    vec2 wall = vec2(zWorld, side);
+
+    // grid + seams
+    float gridZ = abs(fract(wall.x*0.18) - 0.5);
+    float gridS = abs(fract((wall.y + (hitX? h : w))*5.2) - 0.5);
+    float grid = stroke(gridZ - 0.49, 0.010) + stroke(gridS - 0.49, 0.012);
+    grid *= 0.85;
+
+    // voxel-like blocks on walls
+    vec2 vg = vec2(wall.x*0.45, wall.y*3.7);
+    vec2 cell = floor(vg);
+    vec2 f = fract(vg) - 0.5;
+    float r = hash31(vec3(cell, floor(wall.x*0.08)));
+    float block = step(0.78, r);
+    float bx = max(abs(f.x)*1.1, abs(f.y)*1.4);
+    float vox = block * stroke(bx - 0.22, 0.06);
+    vox *= (0.7 + 0.3*hash11(cell.x*7.0 + cell.y*13.0));
+
+    // matrix-ish glyph fragments on walls (procedural bars)
+    float colId = floor((wall.y + 2.0) * 8.0);
+    float fall = u_time*1.8 + hash11(colId*9.3)*5.0 + u_breach*0.8;
+    vec2 mg = vec2(wall.x*0.55 + fall, wall.y*7.4);
+    vec2 mcell = floor(mg);
+    vec2 mp = fract(mg) - 0.5;
+    float mseed = hash31(vec3(mcell, colId));
+    float m = glyphBars(mp, mseed*91.17);
+    float mGate = step(0.42 + 0.25*sin(mcell.x*0.23 + mcell.y*0.51), hash11(mseed*33.3));
+    m *= mGate;
+    float decryptBias = smoothstep(0.15, 0.9, u_decrypt);
+    // during decrypt, stabilize randomness and brighten
+    m *= mix(1.0, 1.4, decryptBias);
+    m *= mix(1.0, 0.6 + 0.4*step(0.55, hash11(mcell.x*11.0 + mcell.y*3.0)), decryptBias);
+
+    // edges/corners glow
+    float corner = 0.0;
+    float a = hitX ? abs(hit.y) : abs(hit.x);
+    float b = hitX ? w : h;
+    corner = stroke((b - abs(a)) - 0.035, 0.05);
+    corner = clamp(corner, 0.0, 1.0);
+
+    // scan pulse on walls (3D-ish)
+    float scanPulse = 0.0;
+    if(u_scanT >= 0.0){
+      float pulseZ = u_scanT * 26.0;
+      scanPulse = exp(-abs(hit.z - pulseZ) * 0.55) * 1.2;
+      scanPulse += exp(-abs(length(p) - (0.12 + u_scanT*0.26)) * 40.0) * 0.9;
+    }
+
+    // base palette
+    vec3 green = vec3(0.16, 1.0, 0.56);
+    vec3 cyan  = vec3(0.25, 0.88, 1.0);
+    vec3 pink  = vec3(1.0, 0.25, 0.82);
+
+    float hueSel = hash11(floor(zWorld*0.12) + float(hitX)*13.0);
+    vec3 base = mix(green, cyan, smoothstep(0.1, 0.95, hueSel));
+    base = mix(base, pink, step(0.92, hueSel)*0.6);
+
+    // lighting / emission
+    float depth = t;
+    float fog = exp(-depth*0.06);
+    float emit = 0.18 + 0.55*nd;
+    emit += 0.65*grid + 1.0*vox + 0.85*m + 0.65*corner;
+    emit *= (0.7 + 0.3*sin(u_time*8.0 + zWorld*0.15 + hueSel*6.28));
+    emit += scanPulse;
+
+    vec3 col = base * emit * fog;
+
+    // inner darkness
+    col *= (0.62 + 0.38*smoothstep(1.2, 0.1, length(p)));
+
+    return col;
+  }
+
+  vec3 addObjects(vec2 uv, float travel, vec3 col){
+    vec2 p = uv*2.0 - 1.0;
+    p.x *= u_res.x / u_res.y;
+
+    // match scene rd (approx)
+    float fov = mix(1.6, 1.35, u_breach);
+    float sh = u_shake;
+    float wob = (sin(u_time*10.0) * 0.5 + sin(u_time*17.0)*0.25 + sin(u_time*29.0)*0.15) * sh;
+    p += vec2(sin(u_time*23.0 + 2.0)*0.007, cos(u_time*19.0 + 1.0)*0.007) * sh;
+    p = rot(wob*0.35) * p;
+
+    vec3 rd = normalize(vec3(p, fov));
+    rd.xy = rot(0.08*sin(u_time*0.6) + 0.02*sin(travel*0.08)) * rd.xy;
+
+    float w = 1.28;
+    float h = 1.04;
+
+    vec3 green = vec3(0.16, 1.0, 0.56);
+    vec3 cyan  = vec3(0.25, 0.88, 1.0);
+    vec3 pink  = vec3(1.0, 0.25, 0.82);
+    vec3 red   = vec3(1.0, 0.20, 0.24);
+
+    // floating particles & plates
+    const int N = 24;
+    float L = 160.0;
+    for(int i=0;i<N;i++){
+      float fi = float(i);
+      vec2 h2 = hash21(fi*19.3 + 4.2);
+      vec2 xy = (h2*2.0 - 1.0) * vec2(w*0.80, h*0.80);
+      float spacing = 7.0;
+      float baseZ = fi*spacing + hash11(fi*7.7)*spacing;
+      float z = fract((baseZ - travel) / L) * L;
+      z = max(z, 0.7);
+
+      // drift/spiral
+      float spin = (u_time*0.5 + fi*0.7 + travel*0.02);
+      xy = rot(0.35*sin(spin + h2.x*6.28)) * xy;
+
+      vec3 obj = vec3(xy, z);
+
+      float tproj = dot(obj, rd);
+      if(tproj > 0.0){
+        vec3 closest = obj - rd * tproj;
+        float d = length(closest);
+
+        float glow = exp(-d*d*70.0) / (1.0 + tproj*0.08);
+        // elongated "data streak"
+        float streak = exp(-d*d*35.0) * smoothstep(0.0, 1.0, (obj.z - tproj) * 0.12 + 0.55) / (1.0 + tproj*0.10);
+
+        vec3 pc = mix(cyan, green, h2.y);
+        pc = mix(pc, pink, step(0.92, hash11(fi*13.9)));
+        float pulse = 0.0;
+        if(u_scanT >= 0.0){
+          float pulseZ = u_scanT*26.0;
+          pulse = exp(-abs(obj.z - pulseZ) * 0.65) * 1.4;
+        }
+
+        float warn = u_trace * (0.25 + 0.75*step(0.5, hash11(fi*2.1 + floor(travel*0.1))));
+        vec3 warnCol = mix(pc, red, warn);
+
+        col += warnCol * (glow*1.35 + streak*0.55) * (1.0 + pulse);
+      }
+    }
+
+    // light beams / stretched particles
+    const int B = 10;
+    for(int j=0;j<B;j++){
+      float fj = float(j);
+      float x = (hash11(fj*31.1)-0.5) * 1.6;
+      float y = (hash11(fj*17.7+9.0)-0.5) * 1.1;
+      // projected beam position in screen-ish space
+      float bx = x / 2.0;
+      float by = y / 2.0;
+      float d = length(p - vec2(bx, by));
+      float beam = exp(-d*d*14.0) * 0.08;
+      beam *= (0.55 + 0.45*sin(u_time*3.0 + fj*2.4 + travel*0.06));
+      vec3 bc = mix(cyan, green, hash11(fj*5.3));
+      col += bc * beam;
+    }
+
+    // trace warning streaks (chasing)
+    if(u_trace > 0.0){
+      float t = u_time*2.6 + travel*0.08;
+      float v = 0.0;
+      for(int k=0;k<6;k++){
+        float fk = float(k);
+        float x = mix(-0.95, 0.95, hash11(fk*9.7));
+        float wv = 0.006 + 0.010*u_trace;
+        float wobx = 0.03*sin(t*1.2 + fk*3.1);
+        float ln = exp(-abs((p.x + wobx) - x) / wv) * smoothstep(0.8, -0.8, p.y);
+        v += ln;
+      }
+      col += vec3(1.0, 0.18, 0.22) * v * (0.22 + 0.48*u_trace);
+    }
+
+    return col;
+  }
+
+  vec3 decryptPanel(vec2 uv, vec3 col){
+    if(u_decrypt <= 0.0) return col;
+
+    vec2 p = uv*2.0 - 1.0;
+    p.x *= u_res.x / u_res.y;
+
+    // ray towards plane z = zP in camera space
+    float zP = 10.5;
+    float fov = mix(1.6, 1.35, u_breach);
+    vec3 rd = normalize(vec3(p, fov));
+
+    if(rd.z <= 0.0001) return col;
+    float t = zP / rd.z;
+    vec3 hit = rd * t;
+
+    vec2 panel = hit.xy / vec2(1.25, 0.45);
+    // panel bounds
+    if(abs(panel.x) < 1.0 && abs(panel.y) < 1.0){
+      float border = stroke(max(abs(panel.x), abs(panel.y)) - 0.98, 0.02);
+      float bg = smoothstep(1.0, 0.0, max(abs(panel.x), abs(panel.y)));
+      float txt = drawTextDECRYPTED(panel);
+      float reveal = smoothstep(0.05, 0.9, u_decrypt);
+      float glow = 0.18 + 0.65*border + 0.18*bg;
+      vec3 c = mix(vec3(0.10, 0.90, 0.55), vec3(0.25, 0.88, 1.0), 0.45);
+      vec3 pcol = c * glow + vec3(1.0, 0.25, 0.82) * border * 0.25;
+      pcol += vec3(0.18, 1.0, 0.65) * txt * 1.25 * reveal;
+      pcol += vec3(0.25, 0.88, 1.0) * (0.14 * sin(u_time*32.0 + hit.x*18.0)) * border;
+      float a = (0.85*bg + 0.35*border + 0.95*txt*reveal);
+      col = mix(col, col + pcol, clamp(a, 0.0, 1.0));
+    }
+    return col;
+  }
+
+  void main(){
+    vec2 uv = v_uv;
+    float travel = u_travel;
+
+    vec3 col = tunnelColor(uv, travel);
+    col = addObjects(uv, travel, col);
+    col = decryptPanel(uv, col);
+
+    // subtle red intrusion wash during breach
+    col = mix(col, col + vec3(1.0, 0.12, 0.14) * (0.10 + 0.18*sin(u_time*25.0)) * u_breach, u_breach);
+
+    // black background bias
+    col = max(col, vec3(0.0));
+
+    fragColor = vec4(col, 1.0);
+  }`;
+
+  const POST = `#version 300 es
+  precision highp float;
+  out vec4 fragColor;
+  in vec2 v_uv;
+
+  uniform vec2 u_res;
+  uniform float u_time;
+  uniform float u_glitch;   // 0..1+
+  uniform float u_breach;   // 0..1
+  uniform float u_trace;    // 0..1
+  uniform float u_scanT;    // seconds or -1
+  uniform float u_speed;
+
+  uniform sampler2D u_scene;
+
+  float hash12(vec2 p){
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  vec3 sampleScene(vec2 uv){
+    return texture(u_scene, uv).rgb;
+  }
+
+  void main(){
+    vec2 uv = v_uv;
+
+    float g = clamp(u_glitch, 0.0, 2.0);
+    float t = u_time;
+
+    // scanlines + line jitter
+    float line = (uv.y * u_res.y);
+    float jitter = (hash12(vec2(floor(line), floor(t*60.0))) - 0.5);
+    float lineKick = smoothstep(0.80, 1.0, hash12(vec2(floor(line*0.25), floor(t*12.0))));
+    float xJ = jitter * 0.004 * g * lineKick;
+
+    // distortion waves
+    float wave = sin(uv.y*90.0 + t*18.0) * 0.0025 * (0.3 + 0.7*g);
+    uv.x += xJ + wave;
+
+    // mild fisheye
+    vec2 p = uv*2.0 - 1.0;
+    p.x *= u_res.x / u_res.y;
+    float r2 = dot(p,p);
+    uv += (p * r2) * (0.012 + 0.022*u_breach);
+
+    // RGB split
+    float split = (0.0015 + 0.0065*u_breach + 0.0040*g) * (0.5 + 0.5*hash12(vec2(floor(t*30.0), floor(line))));
+    vec2 off = vec2(split, 0.0);
+
+    vec3 c0 = sampleScene(uv);
+    vec3 cR = sampleScene(uv + off);
+    vec3 cB = sampleScene(uv - off);
+
+    vec3 col = vec3(cR.r, c0.g, cB.b);
+
+    // cheap motion blur during breach: multi-sample along a tiny vector
+    if(u_breach > 0.001){
+      vec2 dir = normalize(vec2(0.6, 0.2)) * (0.004 + 0.010*u_breach) * (0.3 + 0.7*clamp(u_speed/40.0, 0.0, 1.0));
+      vec3 m1 = sampleScene(uv - dir);
+      vec3 m2 = sampleScene(uv + dir);
+      col = mix(col, (col + m1 + m2)/3.0, 0.65*u_breach);
+    }
+
+    // scanline brightness
+    float scan = 0.92 + 0.08*sin(line*1.25);
+    scan *= 0.98 + 0.02*sin(t*12.0 + uv.x*20.0);
+    col *= scan;
+
+    // noise
+    float n = hash12(vec2(uv*u_res + fract(t*60.0))) - 0.5;
+    col += n * (0.06*g + 0.04*u_breach);
+
+    // vignette
+    vec2 q = v_uv*2.0 - 1.0;
+    float v = smoothstep(1.4, 0.2, dot(q,q));
+    col *= v;
+
+    // trace warning overlay
+    col += vec3(1.0, 0.12, 0.14) * (0.06 + 0.10*sin(t*24.0)) * u_trace;
+
+    // scan ring overlay
+    if(u_scanT >= 0.0){
+      float rr = length(q);
+      float ring = exp(-abs(rr - (0.14 + u_scanT*0.28)) * 70.0);
+      col += vec3(0.18, 1.0, 0.68) * ring * 0.25;
+    }
+
+    fragColor = vec4(max(col, 0.0), 1.0);
+  }`;
+
+  function compile(type, src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+      const info = gl.getShaderInfoLog(sh) || 'Shader compile error';
+      gl.deleteShader(sh);
+      throw new Error(info);
+    }
+    return sh;
+  }
+  function link(vsSrc, fsSrc){
+    const prog = gl.createProgram();
+    const vs = compile(gl.VERTEX_SHADER, vsSrc);
+    const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+      const info = gl.getProgramInfoLog(prog) || 'Program link error';
+      gl.deleteProgram(prog);
+      throw new Error(info);
+    }
+    return prog;
+  }
+
+  let sceneProg, postProg;
+  try{
+    sceneProg = link(VERT, SCENE);
+    postProg = link(VERT, POST);
+  }catch(e){
+    err.style.display = 'flex';
+    err.textContent = String(e.message || e);
+    return;
+  }
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  // fullscreen triangle strip (2 triangles) via quad:
+  const verts = new Float32Array([
+    -1,-1,   1,-1,   -1, 1,
+    -1, 1,   1,-1,    1, 1
+  ]);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+
+  function uni(prog, name){ return gl.getUniformLocation(prog, name); }
+
+  const U = {
+    scene: {
+      res: uni(sceneProg, 'u_res'),
+      time: uni(sceneProg, 'u_time'),
+      travel: uni(sceneProg, 'u_travel'),
+      scanT: uni(sceneProg, 'u_scanT'),
+      breach: uni(sceneProg, 'u_breach'),
+      decrypt: uni(sceneProg, 'u_decrypt'),
+      trace: uni(sceneProg, 'u_trace'),
+      shake: uni(sceneProg, 'u_shake'),
+      speed: uni(sceneProg, 'u_speed'),
+    },
+    post: {
+      res: uni(postProg, 'u_res'),
+      time: uni(postProg, 'u_time'),
+      glitch: uni(postProg, 'u_glitch'),
+      breach: uni(postProg, 'u_breach'),
+      trace: uni(postProg, 'u_trace'),
+      scanT: uni(postProg, 'u_scanT'),
+      speed: uni(postProg, 'u_speed'),
+      scene: uni(postProg, 'u_scene'),
+    }
+  };
+
+  // FBO
+  let fbo = null;
+  let sceneTex = null;
+
+  function createTarget(w, h){
+    if(sceneTex) gl.deleteTexture(sceneTex);
+    if(fbo) gl.deleteFramebuffer(fbo);
+
+    sceneTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  let W=0, H=0;
+  function resize(){
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = Math.floor(innerWidth * dpr);
+    const h = Math.floor(innerHeight * dpr);
+    if(w === W && h === H) return;
+    W = w; H = h;
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    gl.viewport(0,0,W,H);
+    createTarget(W,H);
+  }
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+
+  /** ===================== Terminal UI ===================== **/
+  const out = document.getElementById('terminalOut');
+  const cmdText = document.getElementById('cmdText');
+  const statusTag = document.getElementById('statusTag');
+  const fpsEl = document.getElementById('fps');
+  const pingEl = document.getElementById('ping');
+  const spdEl = document.getElementById('spd');
+  const glvEl = document.getElementById('glv');
+  const sysEl = document.getElementById('sys');
+  const blocker = document.getElementById('blocker');
+
+  let buffer = '';
+  let history = [];
+  let histIndex = -1;
+
+  function scrollToBottom(){ out.scrollTop = out.scrollHeight; }
+
+  const printQueue = [];
+  let activePrint = null;
+
+  function enqueueLine(text, cls='', cps=120){
+    printQueue.push({ text, cls, cps });
+  }
+  function enqueueBlock(text, cls='', cps=120){
+    const lines = String(text).replace(/\r/g,'').split('\n');
+    for(const ln of lines) enqueueLine(ln, cls, cps);
+  }
+
+  function clearTerminal(){
+    out.innerHTML = '';
+  }
+
+  function addLineEl(cls){
+    const el = document.createElement('div');
+    el.className = 'line' + (cls ? (' ' + cls) : '');
+    out.appendChild(el);
+    return el;
+  }
+
+  function tickTerminal(dt){
+    if(!activePrint && printQueue.length){
+      const item = printQueue.shift();
+      activePrint = { el: addLineEl(item.cls), full: item.text, shown:'', i:0, cps:item.cps };
+    }
+    if(activePrint){
+      const chars = Math.max(1, Math.floor(activePrint.cps * dt));
+      activePrint.i = Math.min(activePrint.full.length, activePrint.i + chars);
+      activePrint.el.textContent = activePrint.full.slice(0, activePrint.i);
+      scrollToBottom();
+      if(activePrint.i >= activePrint.full.length){
+        activePrint = null;
+      }
+    }
+  }
+
+  function promptEcho(cmd){
+    const el = addLineEl('cyan');
+    el.textContent = '> ' + cmd;
+    scrollToBottom();
+  }
+
+  function glitchText(s){
+    const glyphs = '!@#$%^&*()[]{}<>/\\|~`+=_-;:,.?';
+    return s.split('').map((ch, i) => {
+      if(ch===' ') return ' ';
+      if(Math.random() < 0.22) return glyphs[(Math.random()*glyphs.length)|0];
+      if(Math.random() < 0.06) return ch.toUpperCase();
+      return ch;
+    }).join('');
+  }
+
+  /** ===================== Audio (WebAudio synth) ===================== **/
+  let audio = null;
+  function initAudio(){
+    if(audio) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    const ctx = new AC();
+
+    // master
+    const master = ctx.createGain();
+    master.gain.value = 0.22;
+    master.connect(ctx.destination);
+
+    // rumble: osc + filtered noise
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 42;
+
+    const rumble = ctx.createGain();
+    rumble.gain.value = 0.14;
+
+    const rumbleFilter = ctx.createBiquadFilter();
+    rumbleFilter.type = 'lowpass';
+    rumbleFilter.frequency.value = 220;
+    rumbleFilter.Q.value = 0.8;
+
+    osc.connect(rumble);
+    rumble.connect(rumbleFilter);
+    rumbleFilter.connect(master);
+
+    // noise generator
+    const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    {
+      const d = noiseBuf.getChannelData(0);
+      let x = 0;
+      for(let i=0;i<d.length;i++){
+        // simple pink-ish noise approximation
+        x = 0.98*x + 0.02*(Math.random()*2-1);
+        d[i] = x;
+      }
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuf;
+    noise.loop = true;
+
+    const nGain = ctx.createGain();
+    nGain.gain.value = 0.06;
+
+    const nFilter = ctx.createBiquadFilter();
+    nFilter.type = 'bandpass';
+    nFilter.frequency.value = 580;
+    nFilter.Q.value = 0.7;
+
+    noise.connect(nGain);
+    nGain.connect(nFilter);
+    nFilter.connect(master);
+
+    osc.start();
+    noise.start();
+
+    function burst(type='glitch', amt=1){
+      const now = ctx.currentTime;
+
+      const n = ctx.createBufferSource();
+      n.buffer = noiseBuf;
+      n.loop = false;
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, now);
+
+      const f = ctx.createBiquadFilter();
+      f.type = (type === 'breach' || type === 'trace') ? 'bandpass' : 'highpass';
+      f.frequency.setValueAtTime(type === 'breach' ? 220 : 1200, now);
+      f.Q.setValueAtTime(type === 'trace' ? 2.2 : 0.9, now);
+
+      // envelope
+      const peak = (type === 'breach' ? 0.55 : type === 'trace' ? 0.35 : 0.22) * amt;
+      const dur = (type === 'breach' ? 0.40 : type === 'trace' ? 0.22 : 0.12);
+      g.gain.exponentialRampToValueAtTime(peak, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      // pitchy tone for breach
+      let tone = null, tg=null;
+      if(type === 'breach'){
+        tone = ctx.createOscillator();
+        tone.type = 'sawtooth';
+        tone.frequency.setValueAtTime(120, now);
+        tone.frequency.exponentialRampToValueAtTime(42, now + 0.30);
+        tg = ctx.createGain();
+        tg.gain.setValueAtTime(0.0001, now);
+        tg.gain.exponentialRampToValueAtTime(0.12*amt, now + 0.01);
+        tg.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+        tone.connect(tg);
+        tg.connect(master);
+        tone.start(now);
+        tone.stop(now + 0.36);
+      }
+
+      n.connect(g);
+      g.connect(f);
+      f.connect(master);
+      n.start(now);
+      n.stop(now + dur + 0.05);
+    }
+
+    audio = { ctx, burst };
+  }
+
+  /** ===================== Command System / State ===================== **/
+  let t0 = performance.now();
+  let last = t0;
+  let nowS = 0;
+
+  let travel = 0;
+  let baseSpeed = 28; // units/sec
+  let speed = baseSpeed;
+
+  let glitch = 0;
+
+  let scanStart = -1;
+  let breachStart = -1;
+  let decryptStart = -1;
+  let traceStart = -1;
+
+  let freezeUntil = -1;
+
+  function setSys(text, cls){
+    sysEl.textContent = text;
+    sysEl.classList.remove('ok','warn');
+    if(cls) sysEl.classList.add(cls);
+  }
+
+  function burstGlitch(amount=1){
+    glitch = Math.min(2.0, glitch + 0.7*amount);
+  }
+
+  function runCommand(cmd){
+    const raw = cmd.trim();
+    if(!raw) return;
+
+    if(!audio){
+      try{ initAudio(); }catch(_){}
+    }
+
+    history.unshift(raw);
+    if(history.length > 30) history.pop();
+    histIndex = -1;
+
+    promptEcho(raw);
+
+    const c = raw.toLowerCase();
+
+    if(c === 'clear'){
+      clearTerminal();
+      burstGlitch(0.2);
+      setSys('IDLE','ok');
+      statusTag.textContent = 'LINK: ACTIVE';
+      return;
+    }
+
+    if(c === 'scan'){
+      scanStart = nowS;
+      burstGlitch(0.35);
+      if(audio) audio.burst('glitch', 0.9);
+
+      statusTag.textContent = 'LINK: ACTIVE';
+      setSys('SCANNING','ok');
+
+      enqueueLine('INIT: RADAR PULSE ONLINE', 'cyan', 150);
+      enqueueLine('EMIT: SYNTHETIC LIDAR/PHOTON SWEEP', 'dim', 150);
+
+      const nodes = 6 + ((Math.random()*5)|0);
+      enqueueLine('RESULTS:', 'cyan', 150);
+      for(let i=0;i<nodes;i++){
+        const a = (Math.random()*255)|0, b=(Math.random()*255)|0, c2=(Math.random()*255)|0;
+        const port = [21,22,23,25,53,80,110,143,443,445,8080,9001][(Math.random()*12)|0];
+        const lat = (8 + Math.random()*54).toFixed(1);
+        const sig = (40 + Math.random()*59).toFixed(1);
+        const flag = Math.random() < 0.22 ? ' [ANOM]' : '';
+        enqueueLine(` - node ${i+1}: ${a}.${b}.${c2}.x:${port}  ping=${lat}ms  sig=${sig}%${flag}`, Math.random()<0.18?'pink':'', 210);
+      }
+      enqueueLine('SCAN COMPLETE (cache: warmed)', 'dim', 160);
+      return;
+    }
+
+    if(c === 'breach'){
+      breachStart = nowS;
+      burstGlitch(1.25);
+      if(audio) audio.burst('breach', 1.0);
+
+      statusTag.textContent = 'LINK: INTRUSION';
+      setSys('BREACH','warn');
+
+      enqueueBlock([
+        'BREACH: HANDSHAKE SPOOF',
+        'VECTOR: RSA-FAULT / TIMING WINDOW',
+        'INJECT: POLYMORPHIC PAYLOAD',
+        'ELEVATE: KERNEL TOKEN SWAP',
+        'BYPASS: IDS MIRROR-SHUNT',
+        'STATUS: EXFILTRATION CHANNEL OPEN'
+      ].join('\n'), 'red', 220);
+
+      enqueueLine('NOTE: Keep moving. Do not stop.', 'pink', 180);
+      return;
+    }
+
+    if(c === 'decrypt'){
+      decryptStart = nowS;
+      freezeUntil = nowS + 0.85;
+      burstGlitch(0.55);
+      if(audio) audio.burst('glitch', 0.8);
+
+      statusTag.textContent = 'LINK: DECODING';
+      setSys('DECRYPT','ok');
+
+      enqueueLine('DECRYPT: STREAM LOCKED', 'cyan', 160);
+      enqueueLine('PAUSE: CAPTURE WINDOW (FROZEN TUNNEL)', 'dim', 140);
+
+      // progress animation (printed lines)
+      const steps = [12, 24, 37, 51, 66, 78, 89, 97, 100];
+      for(let i=0;i<steps.length;i++){
+        const pct = steps[i];
+        const bars = Math.round(pct/5);
+        const bar = '[' + '#'.repeat(bars) + '-'.repeat(20-bars) + `] ${pct}%`;
+        enqueueLine(' ' + bar, pct<100 ? 'dim' : 'cyan', 260);
+      }
+      enqueueLine('DECRYPTED: PLAINTEXT VERIFIED', 'cyan', 180);
+      return;
+    }
+
+    if(c === 'trace'){
+      traceStart = nowS;
+      burstGlitch(0.8);
+      if(audio) audio.burst('trace', 1.0);
+
+      statusTag.textContent = 'LINK: COMPROMISED';
+      setSys('TRACE','warn');
+
+      enqueueBlock([
+        'ALERT: TRACE SIGNAL DETECTED',
+        'COUNTERMEASURE: ROUTE SPLIT (x3)',
+        'WARNING: PURSUIT VECTORS LOCKING',
+        'WARNING: RED TRACERS INBOUND',
+        'ACTION: RUN'
+      ].join('\n'), 'red', 220);
+      return;
+    }
+
+    // unknown command
+    burstGlitch(0.6);
+    if(audio) audio.burst('glitch', 0.7);
+    const el = addLineEl('glitchLine pink');
+    el.textContent = glitchText(`Unknown command: ${raw}`);
+    scrollToBottom();
+  }
+
+  /** ===================== Input Handling ===================== **/
+  function updateCmd(){
+    cmdText.textContent = buffer;
+  }
+
+  function focusTerminal(){
+    // Nothing to focus (custom input), but can hide hints if needed.
+    blocker.style.background = 'rgba(0,0,0,0)';
+  }
+
+  blocker.addEventListener('pointerdown', (e) => {
+    focusTerminal();
+    e.preventDefault();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    // prevent page scrolling keys
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ', 'Tab'].includes(e.key)) e.preventDefault();
+
+    if(e.ctrlKey && (e.key === 'l' || e.key === 'L')){
+      e.preventDefault();
+      clearTerminal();
+      return;
+    }
+
+    if(e.key === 'Backspace'){
+      e.preventDefault();
+      buffer = buffer.slice(0, -1);
+      updateCmd();
+      return;
+    }
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const cmd = buffer;
+      buffer = '';
+      updateCmd();
+      runCommand(cmd);
+      return;
+    }
+    if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      if(!history.length) return;
+      histIndex = Math.min(history.length-1, histIndex+1);
+      buffer = history[histIndex] || '';
+      updateCmd();
+      return;
+    }
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      if(!history.length) return;
+      histIndex = Math.max(-1, histIndex-1);
+      buffer = histIndex === -1 ? '' : (history[histIndex] || '');
+      updateCmd();
+      return;
+    }
+    if(e.key === 'Escape'){
+      e.preventDefault();
+      buffer = '';
+      updateCmd();
+      return;
+    }
+    if(e.key.length === 1 && !e.metaKey && !e.ctrlKey){
+      buffer += e.key;
+      updateCmd();
+    }
+  }, {passive:false});
+
+  window.addEventListener('paste', (e) => {
+    const txt = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if(txt){
+      buffer += txt.replace(/\r?\n/g, ' ');
+      updateCmd();
+    }
+    e.preventDefault();
+  });
+
+  /** ===================== Boot Sequence ===================== **/
+  function boot(){
+    clearTerminal();
+    enqueueLine('BOOT: The Netrunner Terminal', 'cyan', 180);
+    enqueueLine('INIT: GPU pipeline / offline mode', 'dim', 160);
+    enqueueLine('LINK: establishing secure channel...', 'dim', 160);
+    enqueueLine('OK: tunnel feed acquired', 'cyan', 170);
+    enqueueLine('READY: type a command', 'pink', 180);
+    statusTag.textContent = 'LINK: ACTIVE';
+    setSys('IDLE','ok');
+  }
+  boot();
+
+  /** ===================== Render Loop ===================== **/
+  let fpsAcc = 0, fpsFrames = 0, fpsLast = performance.now();
+  let pingLast = performance.now();
+  let ping = 22;
+
+  function ease01(x){ return x<0?0:x>1?1:x; }
+  function smooth01(x){ x=ease01(x); return x*x*(3-2*x); }
+
+  function frame(ts){
+    resize();
+    const dt = Math.min(0.05, (ts - last) / 1000);
+    last = ts;
+    nowS = (ts - t0) / 1000;
+
+    // terminal typing
+    tickTerminal(dt);
+
+    // effect envelopes
+    let breach = 0, trace = 0, decrypt = 0;
+    let scanT = -1;
+
+    if(scanStart >= 0){
+      const t = nowS - scanStart;
+      if(t > 2.8) scanStart = -1;
+      else scanT = t;
+    }
+
+    if(breachStart >= 0){
+      const t = nowS - breachStart;
+      if(t > 3.6) breachStart = -1;
+      else {
+        breach = smooth01(t/0.25) * (1 - smooth01((t-3.0)/0.6));
+        breach = Math.max(0, breach);
+      }
+    }
+
+    if(decryptStart >= 0){
+      const t = nowS - decryptStart;
+      if(t > 3.6) decryptStart = -1;
+      else decrypt = smooth01(t/3.0);
+    }
+
+    if(traceStart >= 0){
+      const t = nowS - traceStart;
+      if(t > 5.2) traceStart = -1;
+      else trace = smooth01(t/0.6) * (0.55 + 0.45*Math.sin(nowS*8.0));
+      trace = Math.max(0, trace);
+    }
+
+    // speed / freeze
+    const frozen = (freezeUntil > nowS) ? 1 : 0;
+    const freezeFactor = frozen ? 0.0 : 1.0;
+
+    speed = baseSpeed * (1 + 0.75*breach);
+    travel += dt * speed * freezeFactor;
+
+    // glitch decay and boosts
+    glitch *= Math.exp(-dt * (2.2 + 2.8*breach));
+    glitch = Math.max(glitch, 0);
+
+    const shake = Math.min(1, 0.12 + 0.40*breach + 0.25*trace + 0.18*glitch);
+    const glitchMix = Math.min(2, glitch + 0.8*breach + 0.55*trace);
+
+    // stats
+    fpsAcc += dt; fpsFrames++;
+    const nowMs = performance.now();
+    if(nowMs - fpsLast > 250){
+      const fps = Math.round(fpsFrames / fpsAcc);
+      fpsEl.textContent = String(fps);
+      fpsAcc = 0; fpsFrames = 0;
+      fpsLast = nowMs;
+    }
+    if(nowMs - pingLast > 1000){
+      ping = 14 + Math.random()*36 + (breach*25) + (trace*20);
+      pingEl.textContent = ping.toFixed(0) + 'ms';
+      pingLast = nowMs;
+    }
+    spdEl.textContent = (frozen ? '0.0' : speed.toFixed(1));
+    glvEl.textContent = glitchMix.toFixed(2);
+
+    if(breach > 0.15){ setSys('BREACH','warn'); }
+    else if(trace > 0.15){ setSys('TRACE','warn'); }
+    else if(decrypt > 0.05){ setSys('DECRYPT','ok'); }
+    else if(scanT >= 0){ setSys('SCANNING','ok'); }
+    else setSys('IDLE','ok');
+
+    // render pass 1: scene to texture
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0,0,W,H);
+    gl.useProgram(sceneProg);
+    gl.bindVertexArray(vao);
+
+    gl.uniform2f(U.scene.res, W, H);
+    gl.uniform1f(U.scene.time, nowS);
+    gl.uniform1f(U.scene.travel, travel);
+    gl.uniform1f(U.scene.scanT, scanT);
+    gl.uniform1f(U.scene.breach, breach);
+    gl.uniform1f(U.scene.decrypt, decrypt);
+    gl.uniform1f(U.scene.trace, trace);
+    gl.uniform1f(U.scene.shake, shake);
+    gl.uniform1f(U.scene.speed, speed);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // render pass 2: postprocess to screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0,0,W,H);
+    gl.useProgram(postProg);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.uniform1i(U.post.scene, 0);
+
+    gl.uniform2f(U.post.res, W, H);
+    gl.uniform1f(U.post.time, nowS);
+    gl.uniform1f(U.post.glitch, glitchMix);
+    gl.uniform1f(U.post.breach, breach);
+    gl.uniform1f(U.post.trace, trace);
+    gl.uniform1f(U.post.scanT, scanT);
+    gl.uniform1f(U.post.speed, speed);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // subtle periodic noise bursts even when idle
+  setInterval(() => {
+    if(glitch < 0.1 && Math.random() < 0.35) glitch += 0.07;
+  }, 700);
+
+})();
+</script>
+</body>
+</html>

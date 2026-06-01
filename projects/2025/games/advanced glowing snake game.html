@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Glowing Snake Game</title>
+  <style>
+    /* ===========================
+       Global Styles and Layout
+       =========================== */
+    body {
+      background: #000;
+      margin: 0;
+      overflow: hidden;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    #gameCanvas {
+      display: block;
+      margin: 20px auto;
+      background: #111;
+      border: 2px solid #fff;
+      box-shadow: 0 0 20px #0f0;
+    }
+
+    #scoreBoard {
+      text-align: center;
+      font-size: 24px;
+      margin-top: 10px;
+    }
+
+    /* ===========================
+       Additional CSS Effects
+       =========================== */
+    .glow {
+      text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Canvas Element for the Game -->
+  <canvas id="gameCanvas"></canvas>
+  <!-- Score Display -->
+  <div id="scoreBoard" class="glow">Score: 0</div>
+
+  <script>
+    // ===========================
+    // Global Variables and Settings
+    // ===========================
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 600;
+    canvas.height = 600;
+
+    // Grid and cell configuration
+    const cellSize = 20;
+    const gridWidth = canvas.width / cellSize;
+    const gridHeight = canvas.height / cellSize;
+
+    // Snake array (each element is a segment with x and y grid coordinates)
+    let snake = [
+      { x: Math.floor(gridWidth / 2), y: Math.floor(gridHeight / 2) }
+    ];
+
+    // Snake movement direction (initially moving to the right)
+    let dx = 1;
+    let dy = 0;
+
+    // Food object (will be spawned randomly on the grid)
+    let food = { x: 0, y: 0 };
+
+    // Obstacles array (each obstacle is placed on the grid)
+    let obstacles = [];
+
+    // Power-up object (currently one power-up available at a time)
+    let powerUp = null;
+
+    // Game score and speed settings
+    let score = 0;
+    let gameSpeed = 100; // Lower is faster (in ms)
+    let lastTime = 0;
+    let isGameOver = false;
+
+    // Explosion particles (for game over effect)
+    let explosionParticles = [];
+
+    // ===========================
+    // Audio: Using Web Audio API for Sound Effects
+    // ===========================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Function to play a beep sound with a given frequency and duration
+    function playSound(frequency, duration) {
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+      oscillator.connect(audioCtx.destination);
+      oscillator.start();
+      setTimeout(() => {
+        oscillator.stop();
+      }, duration);
+    }
+
+    // ===========================
+    // Food Functions
+    // ===========================
+    // Randomly spawns food ensuring it does not appear on the snake
+    function spawnFood() {
+      food.x = Math.floor(Math.random() * gridWidth);
+      food.y = Math.floor(Math.random() * gridHeight);
+      // Prevent food from spawning on the snake
+      for (let segment of snake) {
+        if (segment.x === food.x && segment.y === food.y) {
+          spawnFood();
+          return;
+        }
+      }
+    }
+    spawnFood();
+
+    // ===========================
+    // Obstacle Functions
+    // ===========================
+    // Randomly spawns an obstacle ensuring no overlap with snake or food
+    function spawnObstacle() {
+      let obstacle = {
+        x: Math.floor(Math.random() * gridWidth),
+        y: Math.floor(Math.random() * gridHeight)
+      };
+
+      // Ensure obstacle doesn't spawn on the snake
+      for (let segment of snake) {
+        if (segment.x === obstacle.x && segment.y === obstacle.y) {
+          return;
+        }
+      }
+      // Ensure obstacle doesn't spawn on the food
+      if (food.x === obstacle.x && food.y === obstacle.y) return;
+      obstacles.push(obstacle);
+    }
+
+    // ===========================
+    // Power-Up Functions
+    // ===========================
+    // Randomly spawns a power-up that gives a temporary slow-motion effect
+    function spawnPowerUp() {
+      powerUp = {
+        x: Math.floor(Math.random() * gridWidth),
+        y: Math.floor(Math.random() * gridHeight),
+        effect: "slow" // Future effects can be added here
+      };
+
+      // Check collision with snake segments
+      for (let segment of snake) {
+        if (segment.x === powerUp.x && segment.y === powerUp.y) {
+          powerUp = null;
+          return;
+        }
+      }
+      // Check collision with food
+      if (food.x === powerUp.x && food.y === powerUp.y) {
+        powerUp = null;
+        return;
+      }
+      // Check collision with obstacles
+      for (let obs of obstacles) {
+        if (obs.x === powerUp.x && obs.y === powerUp.y) {
+          powerUp = null;
+          return;
+        }
+      }
+    }
+    // Periodically attempt to spawn a power-up (every 10 seconds)
+    setInterval(() => {
+      if (!powerUp && !isGameOver) {
+        spawnPowerUp();
+      }
+    }, 10000);
+
+    // ===========================
+    // Explosion Effect Functions (Game Over)
+    // ===========================
+    // Create explosion particles at the given grid location (x, y)
+    function createExplosion(gridX, gridY) {
+      explosionParticles = [];
+      // Create 50 particles with random velocities and fade rates
+      for (let i = 0; i < 50; i++) {
+        explosionParticles.push({
+          x: gridX * cellSize + cellSize / 2,
+          y: gridY * cellSize + cellSize / 2,
+          dx: (Math.random() - 0.5) * 4,
+          dy: (Math.random() - 0.5) * 4,
+          alpha: 1
+        });
+      }
+    }
+
+    // Update explosion particles positions and fade them out
+    function updateExplosion() {
+      for (let particle of explosionParticles) {
+        particle.x += particle.dx;
+        particle.y += particle.dy;
+        particle.alpha -= 0.02;
+      }
+      explosionParticles = explosionParticles.filter(p => p.alpha > 0);
+    }
+
+    // Draw explosion particles on the canvas
+    function drawExplosion() {
+      for (let particle of explosionParticles) {
+        ctx.save();
+        ctx.globalAlpha = particle.alpha;
+        ctx.fillStyle = "#f80";
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ===========================
+    // Game Update Functions
+    // ===========================
+    // Check if the head collides with the snake's body
+    function checkCollision(head) {
+      for (let i = 1; i < snake.length; i++) {
+        if (snake[i].x === head.x && snake[i].y === head.y) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Update the game state: snake movement, collisions, eating food/power-ups, etc.
+    function update() {
+      // Calculate new head position based on current direction
+      const head = {
+        x: snake[0].x + dx,
+        y: snake[0].y + dy
+      };
+
+      // Check for collision with walls
+      if (
+        head.x < 0 ||
+        head.x >= gridWidth ||
+        head.y < 0 ||
+        head.y >= gridHeight
+      ) {
+        gameOver();
+        return;
+      }
+
+      // Check for collision with the snake's own body
+      if (checkCollision(head)) {
+        gameOver();
+        return;
+      }
+
+      // Check for collision with obstacles
+      for (let obs of obstacles) {
+        if (head.x === obs.x && head.y === obs.y) {
+          gameOver();
+          return;
+        }
+      }
+
+      // Add the new head to the snake array
+      snake.unshift(head);
+
+      // Check if snake has eaten the food
+      if (head.x === food.x && head.y === food.y) {
+        playSound(440, 100);
+        score += 10;
+        spawnFood();
+
+        // Occasionally spawn an obstacle as score increases
+        if (score % 50 === 0 && obstacles.length < Math.floor(score / 50)) {
+          spawnObstacle();
+        }
+
+        // Increase speed (i.e. decrease delay) gradually
+        if (gameSpeed > 50) gameSpeed -= 1;
+      } else {
+        // Remove the tail segment if no food eaten
+        snake.pop();
+      }
+
+      // Check if snake has picked up a power-up
+      if (powerUp && head.x === powerUp.x && head.y === powerUp.y) {
+        // Slow down the game temporarily
+        gameSpeed += 50;
+        playSound(300, 100);
+        powerUp = null;
+      }
+    }
+
+    // ===========================
+    // Drawing Functions
+    // ===========================
+    function draw() {
+      // Clear the entire canvas
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // ---------------------------
+      // Draw the Food with a glowing effect
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = "#ff0";
+      ctx.fillStyle = "#ff0";
+      ctx.fillRect(
+        food.x * cellSize,
+        food.y * cellSize,
+        cellSize,
+        cellSize
+      );
+
+      // ---------------------------
+      // Draw Obstacles with a red glow
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "#f00";
+      ctx.fillStyle = "#f00";
+      for (let obs of obstacles) {
+        ctx.fillRect(obs.x * cellSize, obs.y * cellSize, cellSize, cellSize);
+      }
+
+      // ---------------------------
+      // Draw Power-Up (if exists) with a pink glow
+      if (powerUp) {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#ff69b4";
+        ctx.fillStyle = "#ff69b4";
+        ctx.fillRect(
+          powerUp.x * cellSize,
+          powerUp.y * cellSize,
+          cellSize,
+          cellSize
+        );
+      }
+
+      // ---------------------------
+      // Draw the Snake with gradient colors
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#0f0";
+      for (let i = 0; i < snake.length; i++) {
+        let segment = snake[i];
+        // Head segment is highlighted in a cyan color
+        if (i === 0) {
+          ctx.fillStyle = "#0ff";
+        } else {
+          // Body segments cycle through hues for a cool effect
+          ctx.fillStyle = "hsl(" + ((i * 15) % 360) + ", 100%, 50%)";
+        }
+        ctx.fillRect(segment.x * cellSize, segment.y * cellSize, cellSize, cellSize);
+      }
+
+      // ---------------------------
+      // Draw Explosion Particles if Game Over
+      drawExplosion();
+    }
+
+    // ===========================
+    // Game Over and Reset Functions
+    // ===========================
+    function gameOver() {
+      // Set game over flag and play a low sound
+      isGameOver = true;
+      playSound(100, 500);
+      // Create an explosion at the snake's head position
+      createExplosion(snake[0].x, snake[0].y);
+      // Delay the reset to allow explosion animation to show
+      setTimeout(() => {
+        alert("Game Over! Your score: " + score);
+        resetGame();
+      }, 500);
+    }
+
+    // Reset all game variables to start a new game
+    function resetGame() {
+      snake = [
+        { x: Math.floor(gridWidth / 2), y: Math.floor(gridHeight / 2) }
+      ];
+      dx = 1;
+      dy = 0;
+      score = 0;
+      gameSpeed = 100;
+      obstacles = [];
+      powerUp = null;
+      explosionParticles = [];
+      spawnFood();
+      isGameOver = false;
+    }
+
+    // ===========================
+    // Main Game Loop using requestAnimationFrame
+    // ===========================
+    function gameLoop(time) {
+      if (!isGameOver && time - lastTime > gameSpeed) {
+        update();
+        draw();
+        document.getElementById("scoreBoard").innerText = "Score: " + score;
+        lastTime = time;
+      } else if (isGameOver) {
+        // Even when game over, update explosion animations
+        updateExplosion();
+        draw();
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    requestAnimationFrame(gameLoop);
+
+    // ===========================
+    // Event Listener for Keyboard Input
+    // ===========================
+    window.addEventListener("keydown", e => {
+      switch (e.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          // Prevent reversing direction directly
+          if (dy === 1) break;
+          dx = 0;
+          dy = -1;
+          break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+          if (dy === -1) break;
+          dx = 0;
+          dy = 1;
+          break;
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          if (dx === 1) break;
+          dx = -1;
+          dy = 0;
+          break;
+        case "ArrowRight":
+        case "d":
+        case "D":
+          if (dx === -1) break;
+          dx = 1;
+          dy = 0;
+          break;
+      }
+    });
+
+    // ===========================
+    // Additional Debugging and Info (Optional)
+    // ===========================
+    // Uncomment the line below to view game variables in the console
+    // setInterval(() => console.log({ score, gameSpeed, snake, obstacles, powerUp }), 5000);
+    
+    // End of Game Code
+  </script>
+</body>
+</html>

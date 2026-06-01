@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spirograph 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050510;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #f08;
+            font-size: 22px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 20px #f08;
+            z-index: 10;
+        }
+
+        .stats {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            color: #0ff;
+            font-size: 11px;
+            line-height: 1.8;
+            z-index: 10;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            font-size: 11px;
+            font-family: inherit;
+            background: transparent;
+            border: 1px solid #f08;
+            color: #f08;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 0, 128, 0.1);
+            box-shadow: 0 0 20px rgba(255, 0, 128, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">SPIROGRAPH 3D</div>
+    <div class="stats">R1: <span id="r1">5.0</span><br>R2: <span id="r2">3.0</span><br>R3: <span
+            id="r3">2.0</span><br>POINTS: <span id="pts">0</span></div>
+    <div class="controls">
+        <button class="btn" id="preset1">CLASSIC</button>
+        <button class="btn" id="preset2">CHAOS</button>
+        <button class="btn" id="preset3">SPIRAL</button>
+        <button class="btn" id="clear">CLEAR</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.z = 30;
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setClearColor(0x050510);
+        document.body.appendChild(renderer.domElement);
+
+        const presets = {
+            classic: { r1: 5, r2: 3, r3: 2, s1: 1, s2: 2.5, s3: 4, s4: 0.5 },
+            chaos: { r1: 6, r2: 2, r3: 4, s1: 1.7, s2: 3.3, s3: 2.1, s4: 0.8 },
+            spiral: { r1: 4, r2: 4, r3: 1, s1: 1, s2: 1.618, s3: 2.618, s4: 0.3 }
+        };
+
+        let params = { ...presets.classic };
+        let points = [], colors = [];
+        const maxPoints = 20000;
+        let time = 0, tubeGroup = new THREE.Group();
+        scene.add(tubeGroup);
+
+        // Arm visualization
+        const armGroup = new THREE.Group();
+        scene.add(armGroup);
+        const armMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 });
+
+        function getPosition(t) {
+            const { r1, r2, r3, s1, s2, s3, s4 } = params;
+            return new THREE.Vector3(
+                r1 * Math.cos(s1 * t) + r2 * Math.cos(s2 * t) + r3 * Math.cos(s3 * t),
+                r1 * Math.sin(s1 * t) + r2 * Math.sin(s2 * t) + r3 * Math.sin(s3 * t),
+                r3 * Math.sin(s4 * t) * 3
+            );
+        }
+
+        function updateArms(t) {
+            armGroup.children.forEach(c => armGroup.remove(c));
+            const { r1, r2, r3, s1, s2, s3 } = params;
+            const p0 = new THREE.Vector3(0, 0, 0);
+            const p1 = new THREE.Vector3(r1 * Math.cos(s1 * t), r1 * Math.sin(s1 * t), 0);
+            const p2 = p1.clone().add(new THREE.Vector3(r2 * Math.cos(s2 * t), r2 * Math.sin(s2 * t), 0));
+            const p3 = getPosition(t);
+
+            [p0, p1, p2, p3].forEach((p, i) => {
+                if (i < 3) {
+                    const next = [p0, p1, p2, p3][i + 1];
+                    const geo = new THREE.BufferGeometry().setFromPoints([p, next]);
+                    armGroup.add(new THREE.Line(geo, armMat));
+                }
+                const dotGeo = new THREE.SphereGeometry(0.15, 8, 8);
+                const hue = i * 0.25;
+                const dotMat = new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 1, 0.5) });
+                const dot = new THREE.Mesh(dotGeo, dotMat);
+                dot.position.copy(p);
+                armGroup.add(dot);
+            });
+        }
+
+        function updateTube() {
+            tubeGroup.children.forEach(c => tubeGroup.remove(c));
+            if (points.length < 3) return;
+
+            const curve = new THREE.CatmullRomCurve3(points.slice(-500));
+            const tubeSeg = Math.min(points.length - 1, 499);
+            const geo = new THREE.TubeGeometry(curve, tubeSeg, 0.08, 6, false);
+
+            const cols = new Float32Array(geo.attributes.position.count * 3);
+            for (let i = 0; i < cols.length; i += 3) {
+                const hue = (i / cols.length + time * 0.0001) % 1;
+                const c = new THREE.Color().setHSL(hue, 1, 0.5);
+                cols[i] = c.r; cols[i + 1] = c.g; cols[i + 2] = c.b;
+            }
+            geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+            const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8 });
+            tubeGroup.add(new THREE.Mesh(geo, mat));
+
+            // Fading older segments
+            if (points.length > 1000) {
+                const oldCurve = new THREE.CatmullRomCurve3(points.slice(0, -500));
+                const oldGeo = new THREE.TubeGeometry(oldCurve, Math.min(points.length - 501, 500), 0.06, 4, false);
+                const oldMat = new THREE.MeshBasicMaterial({ color: 0x330033, transparent: true, opacity: 0.2 });
+                tubeGroup.add(new THREE.Mesh(oldGeo, oldMat));
+            }
+        }
+
+        function clear() {
+            points = [];
+            tubeGroup.children.forEach(c => tubeGroup.remove(c));
+        }
+
+        function setPreset(name) {
+            params = { ...presets[name] };
+            clear();
+            document.getElementById('r1').textContent = params.r1.toFixed(1);
+            document.getElementById('r2').textContent = params.r2.toFixed(1);
+            document.getElementById('r3').textContent = params.r3.toFixed(1);
+        }
+
+        document.getElementById('preset1').onclick = () => setPreset('classic');
+        document.getElementById('preset2').onclick = () => setPreset('chaos');
+        document.getElementById('preset3').onclick = () => setPreset('spiral');
+        document.getElementById('clear').onclick = clear;
+
+        let rotY = 0, rotX = 0.3, isDrag = false, lastM = { x: 0, y: 0 };
+        renderer.domElement.addEventListener('mousedown', e => { isDrag = true; lastM = { x: e.clientX, y: e.clientY }; });
+        renderer.domElement.addEventListener('mousemove', e => { if (isDrag) { rotY += (e.clientX - lastM.x) * 0.005; rotX += (e.clientY - lastM.y) * 0.005; lastM = { x: e.clientX, y: e.clientY }; } });
+        renderer.domElement.addEventListener('mouseup', () => isDrag = false);
+        renderer.domElement.addEventListener('wheel', e => camera.position.z = Math.max(10, Math.min(80, camera.position.z + e.deltaY * 0.05)));
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.02;
+
+            const pos = getPosition(time);
+            if (points.length >= maxPoints) points.shift();
+            points.push(pos);
+
+            updateArms(time);
+            if (time % 0.1 < 0.02) updateTube();
+            document.getElementById('pts').textContent = points.length;
+
+            scene.rotation.y = rotY;
+            scene.rotation.x = rotX;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    </script>
+</body>
+
+</html>

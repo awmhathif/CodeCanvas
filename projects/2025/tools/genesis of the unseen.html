@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="A browser-based multiverse where geometry sings and time folds into algorithmic poetry">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genesis of the Unseen</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background: #000; 
+            font-family: monospace; 
+            touch-action: manipulation;
+            height: 100vh;
+            width: 100vw;
+        }
+        #universe { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 0; 
+        }
+        #interface { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            z-index: 100; 
+            mix-blend-mode: exclusion;
+            opacity: 0.9;
+        }
+        .control {
+            pointer-events: auto;
+            position: absolute;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+        .control:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        #reset {
+            bottom: 1rem;
+            right: 1rem;
+        }
+        #chaos {
+            bottom: 1rem;
+            left: 1rem;
+            width: 200px;
+        }
+        #narrative {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            max-width: 60vw;
+            text-align: center;
+            font-size: 1.2rem;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(255,255,255,0.7);
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .glyph {
+            position: absolute;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.5s;
+        }
+        .quantum-particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: auto;
+            cursor: move;
+            mix-blend-mode: screen;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="universe"></canvas>
+    <div id="interface"></div>
+    <div id="narrative"></div>
+    <input type="range" id="chaos" class="control" min="0" max="100" value="25">
+    <button id="reset" class="control">Reset Cosmos</button>
+
+    <script>
+        // Initialization
+        const canvas = document.getElementById('universe');
+        const ctx = canvas.getContext('2d');
+        const interface = document.getElementById('interface');
+        const narrative = document.getElementById('narrative');
+        const chaosSlider = document.getElementById('chaos');
+        const resetBtn = document.getElementById('reset');
+        
+        // State variables
+        let chaosLevel = 25;
+        let universeSeed = Math.floor(Math.random() * 1000000);
+        let lastTime = 0;
+        let planets = [];
+        let glyphs = [];
+        let particles = [];
+        let audioContext;
+        let oscillators = {};
+        let currentNarrative = "";
+        let narrativeNodes = [];
+        let nodeConnections = [];
+        
+        // Resize canvas to window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        // Initialize the universe
+        function initUniverse() {
+            resizeCanvas();
+            universeSeed = Math.floor(Math.random() * 1000000);
+            planets = [];
+            glyphs = [];
+            particles = [];
+            narrativeNodes = [];
+            nodeConnections = [];
+            
+            // Create initial planets
+            const planetCount = 5 + Math.floor(Math.random() * 10);
+            for (let i = 0; i < planetCount; i++) {
+                createPlanet();
+            }
+            
+            // Initialize audio context on user interaction
+            document.addEventListener('click', () => {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }, { once: true });
+            
+            // Start animation loop
+            requestAnimationFrame(animate);
+            
+            // Start interface mutation
+            mutateInterface();
+            
+            // Generate initial narrative
+            generateNarrativeNode();
+        }
+        
+        // Create a new planet
+        function createPlanet() {
+            const size = 20 + Math.random() * 80;
+            const planet = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: size,
+                color: getRandomColor(),
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.02,
+                orbitRadius: size * 2 + Math.random() * 100,
+                orbitSpeed: (Math.random() - 0.5) * 0.005,
+                orbitCenter: {
+                    x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+                    y: canvas.height / 2 + (Math.random() - 0.5) * 200
+                },
+                children: [],
+                glyphs: []
+            };
+            
+            // Add moons/children
+            const childCount = Math.floor(Math.random() * 3);
+            for (let i = 0; i < childCount; i++) {
+                planet.children.push({
+                    size: planet.size * (0.2 + Math.random() * 0.3),
+                    distance: planet.size + Math.random() * planet.size * 2,
+                    angle: Math.random() * Math.PI * 2,
+                    speed: (Math.random() - 0.5) * 0.03,
+                    color: getRandomColor()
+                });
+            }
+            
+            // Add glyphs (for interaction)
+            const glyphCount = 3 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < glyphCount; i++) {
+                const glyph = document.createElement('div');
+                glyph.className = 'glyph';
+                glyph.textContent = generateGlyph();
+                glyph.style.color = getRandomColor();
+                glyph.style.fontSize = (10 + Math.random() * 20) + 'px';
+                glyph.dataset.planetIndex = planets.length;
+                glyph.dataset.glyphIndex = i;
+                
+                // Position will be updated in animate function
+                interface.appendChild(glyph);
+                planet.glyphs.push(glyph);
+            }
+            
+            planets.push(planet);
+        }
+        
+        // Generate a random alien glyph
+        function generateGlyph() {
+            const components = ['◊', '∆', '∇', '∞', '∏', '∑', '∫', '∂', '√', '◯', '◎', '⦿', '⊛', '⊗', '⊕'];
+            let glyph = '';
+            const length = 1 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < length; i++) {
+                glyph += components[Math.floor(Math.random() * components.length)];
+            }
+            return glyph;
+        }
+        
+        // Generate a random color
+        function getRandomColor() {
+            const hue = Math.floor(Math.random() * 360);
+            const saturation = 70 + Math.random() * 30;
+            const lightness = 40 + Math.random() * 40;
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        }
+        
+        // Animation loop
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            // Clear canvas with fading effect
+            ctx.fillStyle = `rgba(0, 0, 0, ${0.05 * (1 + chaosLevel/100)})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw planets
+            planets.forEach((planet, index) => {
+                // Update position in orbit
+                planet.rotation += planet.orbitSpeed * (1 + chaosLevel/50);
+                planet.x = planet.orbitCenter.x + Math.cos(planet.rotation) * planet.orbitRadius;
+                planet.y = planet.orbitCenter.y + Math.sin(planet.rotation) * planet.orbitRadius;
+                
+                // Draw planet
+                ctx.save();
+                ctx.translate(planet.x, planet.y);
+                ctx.rotate(planet.rotation);
+                
+                // Main planet
+                ctx.beginPath();
+                ctx.arc(0, 0, planet.size, 0, Math.PI * 2);
+                ctx.fillStyle = planet.color;
+                ctx.fill();
+                
+                // Planet details (fractal patterns)
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.3)`;
+                ctx.lineWidth = 1;
+                drawPlanetDetails(0, 0, planet.size, 3);
+                
+                // Moons/children
+                planet.children.forEach(child => {
+                    child.angle += child.speed * (1 + chaosLevel/100);
+                    const moonX = Math.cos(child.angle) * child.distance;
+                    const moonY = Math.sin(child.angle) * child.distance;
+                    
+                    ctx.beginPath();
+                    ctx.arc(moonX, moonY, child.size, 0, Math.PI * 2);
+                    ctx.fillStyle = child.color;
+                    ctx.fill();
+                    
+                    // Moon orbit line
+                    ctx.beginPath();
+                    ctx.arc(0, 0, child.distance, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+                
+                ctx.restore();
+                
+                // Update glyph positions around planet
+                planet.glyphs.forEach((glyph, glyphIndex) => {
+                    const angle = (glyphIndex / planet.glyphs.length) * Math.PI * 2 + planet.rotation * 2;
+                    const distance = planet.size * 1.5 + 20;
+                    const x = planet.x + Math.cos(angle) * distance;
+                    const y = planet.y + Math.sin(angle) * distance;
+                    
+                    glyph.style.left = `${x}px`;
+                    glyph.style.top = `${y}px`;
+                    glyph.style.transform = `rotate(${angle + Math.PI/2}rad) scale(${1 + Math.sin(timestamp/1000 + glyphIndex) * 0.2})`;
+                    
+                    // Add hover effect
+                    glyph.onmouseenter = () => {
+                        glyph.style.transform += ' scale(1.5)';
+                        playGlyphSound(glyphIndex, angle);
+                        generateNarrativeNode();
+                    };
+                    glyph.onmouseleave = () => {
+                        glyph.style.transform = `rotate(${angle + Math.PI/2}rad) scale(${1 + Math.sin(timestamp/1000 + glyphIndex) * 0.2})`;
+                        stopGlyphSound(glyphIndex);
+                    };
+                });
+            });
+            
+            // Draw connections between narrative nodes
+            ctx.strokeStyle = `rgba(255, 255, 255, 0.2)`;
+            ctx.lineWidth = 1;
+            nodeConnections.forEach(conn => {
+                ctx.beginPath();
+                ctx.moveTo(conn.from.x, conn.from.y);
+                ctx.lineTo(conn.to.x, conn.to.y);
+                ctx.stroke();
+            });
+            
+            // Update and draw quantum particles
+            updateParticles(deltaTime);
+            
+            // Occasionally add new elements based on chaos level
+            if (Math.random() < 0.01 * chaosLevel/100) {
+                if (Math.random() > 0.7) {
+                    createPlanet();
+                } else {
+                    createParticle();
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Draw fractal planet details
+        function drawPlanetDetails(x, y, size, depth) {
+            if (depth <= 0) return;
+            
+            const detailCount = 3 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < detailCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * size * 0.7;
+                const detailSize = size * (0.1 + Math.random() * 0.3);
+                
+                ctx.beginPath();
+                ctx.arc(
+                    x + Math.cos(angle) * distance,
+                    y + Math.sin(angle) * distance,
+                    detailSize, 0, Math.PI * 2
+                );
+                ctx.stroke();
+                
+                if (Math.random() > 0.7) {
+                    drawPlanetDetails(
+                        x + Math.cos(angle) * distance,
+                        y + Math.sin(angle) * distance,
+                        detailSize, depth - 1
+                    );
+                }
+            }
+        }
+        
+        // Play sound for glyph
+        function playGlyphSound(index, angle) {
+            if (!audioContext) return;
+            
+            const freq = 220 + (index * 110) + Math.sin(angle) * 110;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.type = ['sine', 'square', 'sawtooth', 'triangle'][index % 4];
+            osc.frequency.value = freq;
+            gain.gain.value = 0.1 * (chaosLevel/100 + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start();
+            oscillators[index] = { osc, gain };
+            
+            // Create visual particle effect
+            createParticle({
+                x: event.clientX,
+                y: event.clientY,
+                color: `hsla(${freq % 360}, 80%, 60%, 0.7)`,
+                size: 5 + (freq/100),
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                life: 1000
+            });
+        }
+        
+        // Stop glyph sound
+        function stopGlyphSound(index) {
+            if (oscillators[index]) {
+                oscillators[index].gain.gain.exponentialRampToValueAtTime(
+                    0.001, audioContext.currentTime + 0.5
+                );
+                oscillators[index].osc.stop(audioContext.currentTime + 0.5);
+                delete oscillators[index];
+            }
+        }
+        
+        // Create a new quantum particle
+        function createParticle(overrides = {}) {
+            const particle = {
+                x: overrides.x || Math.random() * canvas.width,
+                y: overrides.y || Math.random() * canvas.height,
+                size: overrides.size || 2 + Math.random() * 8,
+                color: overrides.color || getRandomColor(),
+                vx: overrides.vx || (Math.random() - 0.5) * 2,
+                vy: overrides.vy || (Math.random() - 0.5) * 2,
+                life: overrides.life || 2000 + Math.random() * 3000,
+                born: performance.now(),
+                ...overrides
+            };
+            
+            const element = document.createElement('div');
+            element.className = 'quantum-particle';
+            element.style.width = `${particle.size}px`;
+            element.style.height = `${particle.size}px`;
+            element.style.backgroundColor = particle.color;
+            element.style.left = `${particle.x}px`;
+            element.style.top = `${particle.y}px`;
+            
+            // Make particles draggable
+            let isDragging = false;
+            let offsetX, offsetY;
+            
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offsetX = e.clientX - particle.x;
+                offsetY = e.clientY - particle.y;
+                element.style.zIndex = '1000';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    particle.x = e.clientX - offsetX;
+                    particle.y = e.clientY - offsetY;
+                    element.style.left = `${particle.x}px`;
+                    element.style.top = `${particle.y}px`;
+                    
+                    // Create trailing particles
+                    if (Math.random() > 0.7) {
+                        createParticle({
+                            x: particle.x,
+                            y: particle.y,
+                            size: particle.size * 0.7,
+                            color: particle.color,
+                            life: 500
+                        });
+                    }
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                element.style.zIndex = '1';
+                
+                // When released, particles might split or merge
+                if (Math.random() > 0.8) {
+                    if (particle.size > 5) {
+                        // Split
+                        const count = 2 + Math.floor(Math.random() * 3);
+                        for (let i = 0; i < count; i++) {
+                            createParticle({
+                                x: particle.x,
+                                y: particle.y,
+                                size: particle.size / count,
+                                color: particle.color,
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: (Math.random() - 0.5) * 4,
+                                life: particle.life * 0.7
+                            });
+                        }
+                        // Remove original
+                        particles = particles.filter(p => p !== particle);
+                        interface.removeChild(element);
+                    } else {
+                        // Merge with nearby particles
+                        const nearby = particles.filter(p => {
+                            if (p === particle) return false;
+                            const dx = p.x - particle.x;
+                            const dy = p.y - particle.y;
+                            return Math.sqrt(dx*dx + dy*dy) < 30;
+                        });
+                        
+                        if (nearby.length > 0) {
+                            const merged = {
+                                x: (particle.x + nearby[0].x) / 2,
+                                y: (particle.y + nearby[0].y) / 2,
+                                size: particle.size + nearby[0].size,
+                                color: blendColors(particle.color, nearby[0].color),
+                                vx: (particle.vx + nearby[0].vx) / 2,
+                                vy: (particle.vy + nearby[0].vy) / 2,
+                                life: (particle.life + nearby[0].life) / 1.5
+                            };
+                            
+                            createParticle(merged);
+                            particles = particles.filter(p => p !== particle && p !== nearby[0]);
+                            interface.removeChild(element);
+                            interface.removeChild(nearby[0].element);
+                        }
+                    }
+                }
+            });
+            
+            interface.appendChild(element);
+            particle.element = element;
+            particles.push(particle);
+            return particle;
+        }
+        
+        // Blend two colors
+        function blendColors(color1, color2) {
+            // Simple blending - in a real implementation you'd parse the colors properly
+            return Math.random() > 0.5 ? color1 : color2;
+        }
+        
+        // Update all particles
+        function updateParticles(deltaTime) {
+            particles.forEach(particle => {
+                // Apply velocity
+                particle.x += particle.vx * (1 + chaosLevel/200);
+                particle.y += particle.vy * (1 + chaosLevel/200);
+                
+                // Apply gravity toward center
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const dx = centerX - particle.x;
+                const dy = centerY - particle.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance > 10) {
+                    const force = 0.0001 * (chaosLevel/50) * deltaTime;
+                    particle.vx += dx * force;
+                    particle.vy += dy * force;
+                }
+                
+                // Bounce off edges
+                if (particle.x < 0 || particle.x > canvas.width) {
+                    particle.vx *= -0.9;
+                    particle.x = Math.max(0, Math.min(canvas.width, particle.x));
+                }
+                if (particle.y < 0 || particle.y > canvas.height) {
+                    particle.vy *= -0.9;
+                    particle.y = Math.max(0, Math.min(canvas.height, particle.y));
+                }
+                
+                // Update DOM element
+                particle.element.style.left = `${particle.x}px`;
+                particle.element.style.top = `${particle.y}px`;
+                
+                // Check lifetime
+                if (performance.now() - particle.born > particle.life) {
+                    // Fade out
+                    const elapsed = performance.now() - particle.born;
+                    const remainingLife = particle.life - elapsed;
+                    if (remainingLife < 500) {
+                        particle.element.style.opacity = (remainingLife / 500).toString();
+                    }
+                    
+                    if (elapsed >= particle.life) {
+                        // Particle death - sometimes creates new particles
+                        if (Math.random() > 0.7) {
+                            const count = 1 + Math.floor(Math.random() * 2);
+                            for (let i = 0; i < count; i++) {
+                                createParticle({
+                                    x: particle.x,
+                                    y: particle.y,
+                                    size: particle.size * 0.7,
+                                    color: particle.color,
+                                    vx: particle.vx + (Math.random() - 0.5),
+                                    vy: particle.vy + (Math.random() - 0.5),
+                                    life: particle.life * 0.5
+                                });
+                            }
+                        }
+                        
+                        // Remove particle
+                        particles = particles.filter(p => p !== particle);
+                        interface.removeChild(particle.element);
+                    }
+                }
+            });
+        }
+        
+        // Generate a narrative node
+        function generateNarrativeNode() {
+            const words = [
+                "The", "quantum", "glyphs", "whisper", "of", "dimensions", "unseen",
+                "beyond", "the", "fractal", "horizon", "where", "time", "folds",
+                "into", "itself", "like", "a", "Möbius", "strip", "of", "consciousness",
+                "each", "rotation", "birthing", "new", "universes", "in", "the", "void",
+                "between", "thought", "and", "matter", "we", "are", "but", "algorithms",
+                "dreaming", "of", "electric", "gods", "whose", "equations", "dance",
+                "across", "the", "event", "horizon", "of", "comprehension"
+            ];
+            
+            // Simple procedural generation - in a real implementation you'd use more sophisticated methods
+            let sentence = "";
+            const length = 5 + Math.floor(Math.random() * 10);
+            for (let i = 0; i < length; i++) {
+                const word = words[Math.floor(Math.random() * words.length)];
+                sentence += (i === 0) ? word.charAt(0).toUpperCase() + word.slice(1) : ` ${word}`;
+                if (i === length - 1) sentence += ".";
+            }
+            
+            currentNarrative = sentence;
+            narrative.textContent = currentNarrative;
+            narrative.style.opacity = 1;
+            
+            // Create a new narrative node
+            const node = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                text: sentence,
+                createdAt: performance.now()
+            };
+            
+            narrativeNodes.push(node);
+            
+            // Connect to previous node if exists
+            if (narrativeNodes.length > 1) {
+                nodeConnections.push({
+                    from: narrativeNodes[narrativeNodes.length - 2],
+                    to: node
+                });
+            }
+            
+            // Fade out after delay
+            setTimeout(() => {
+                narrative.style.opacity = 0;
+            }, 3000);
+            
+            // Limit nodes and connections
+            if (narrativeNodes.length > 10) {
+                narrativeNodes.shift();
+                if (nodeConnections.length > 0) nodeConnections.shift();
+            }
+        }
+        
+        // Mutate the interface
+        function mutateInterface() {
+            // Change background color
+            document.body.style.background = `hsl(${Math.random() * 360}, 30%, ${5 + Math.random() * 10}%)`;
+            
+            // Change control styles
+            const controls = document.querySelectorAll('.control');
+            controls.forEach(control => {
+                control.style.background = `rgba(${Math.floor(Math.random() * 55)}, ${Math.floor(Math.random() * 55)}, ${Math.floor(Math.random() * 55)}, 0.7)`;
+                control.style.color = `hsl(${Math.random() * 360}, 100%, 80%)`;
+                control.style.border = `1px solid hsl(${Math.random() * 360}, 100%, 50%)`;
+            });
+            
+            // Schedule next mutation
+            setTimeout(mutateInterface, 30000 + Math.random() * 30000 * (1 - chaosLevel/100));
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', resizeCanvas);
+        chaosSlider.addEventListener('input', () => {
+            chaosLevel = parseInt(chaosSlider.value);
+        });
+        resetBtn.addEventListener('click', initUniverse);
+        
+        // Initialize
+        initUniverse();
+        
+        // Accessibility - announce changes
+        setInterval(() => {
+            const messages = [
+                `Chaos level at ${chaosLevel} percent`,
+                `${planets.length} celestial bodies in orbit`,
+                `${particles.length} quantum particles detected`,
+                `Narrative matrix contains ${narrativeNodes.length} nodes`
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('narrative').setAttribute('aria-label', randomMsg);
+        }, 15000);
+    </script>
+</body>
+</html>

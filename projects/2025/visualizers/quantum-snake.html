@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Snake</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-bg: #0a0a0a;
+            --grid-bg: #111111;
+            --snake-color: #00ff88;
+            --food-color: #ff3366;
+            --glow-color: rgba(0, 255, 136, 0.5);
+            --text-color: #ffffff;
+            --accent-color: #00fff2;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        body {
+            background: var(--primary-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 250px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .game-board {
+            width: 100%;
+            aspect-ratio: 1;
+            background: var(--grid-bg);
+            border-radius: 10px;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .snake-segment {
+            position: absolute;
+            background: var(--snake-color);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--glow-color);
+            transition: all 0.05s linear;
+        }
+
+        .food {
+            position: absolute;
+            background: var(--food-color);
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.7);
+            animation: pulse 1s infinite;
+        }
+
+        .stat-item {
+            margin-bottom: 15px;
+        }
+
+        .stat-label {
+            color: var(--accent-color);
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            color: var(--text-color);
+        }
+
+        .control-btn {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--accent-color);
+            color: var(--text-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--accent-color);
+            color: var(--primary-bg);
+        }
+
+        .power-up {
+            position: absolute;
+            border-radius: 50%;
+            animation: rotate 2s infinite linear;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+        }
+
+        .user-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .datetime {
+            color: var(--accent-color);
+            font-size: 0.8em;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="sidebar">
+            <div class="user-info">
+                <div class="datetime" id="datetime">2025-02-15 07:14:18</div>
+                <div class="username">Player</div>
+            </div>
+
+            <div class="game-stats">
+                <div class="stat-item">
+                    <div class="stat-label">Score</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">High Score</div>
+                    <div class="stat-value" id="highScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Speed</div>
+                    <div class="stat-value" id="speed">1x</div>
+                </div>
+            </div>
+
+            <div class="controls" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px;">
+                <button class="control-btn" onclick="changeDirection('left')">←</button>
+                <button class="control-btn" onclick="changeDirection('up')">↑</button>
+                <button class="control-btn" onclick="changeDirection('right')">→</button>
+                <button class="control-btn" id="pauseBtn" onclick="togglePause()">⏯️</button>
+                <button class="control-btn" onclick="changeDirection('down')">↓</button>
+                <button class="control-btn" id="restartBtn" onclick="restartGame()">⟳</button>
+            </div>
+        </div>
+
+        <div class="game-board" id="gameBoard"></div>
+
+        <div class="sidebar">
+            <h3 style="color: var(--accent-color); margin-bottom: 15px;">Power-ups</h3>
+            <div class="power-up-list">
+                <div class="stat-item">
+                    <div class="stat-label">Speed Boost</div>
+                    <div>Increases snake speed temporarily</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Ghost Mode</div>
+                    <div>Pass through walls temporarily</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Score Multiplier</div>
+                    <div>Double points for food</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameOver">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button class="control-btn" id="playAgainBtn" onclick="restartGame()">Play Again</button>
+    </div>
+
+    <script>
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: 15, y: 15 };
+        let direction = 'right';
+        let nextDirection = 'right';
+        let score = 0;
+        let highScore = localStorage.getItem('snakeHighScore') || 0;
+        let gameInterval;
+        let isPaused = false;
+        let gridSize = 20;
+        let speed = 100;
+        let powerUps = [];
+        let activeEffects = {};
+
+        function initGame() {
+            score = 0;
+            direction = 'right';
+            nextDirection = 'right';
+            snake = [{ x: 10, y: 10 }];
+            placeFood();
+            updateScore();
+            render();
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, speed);
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        function placeFood() {
+            while (true) {
+                food = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+                if (!snake.some(segment => segment.x === food.x && segment.y === food.y)) {
+                    break;
+                }
+            }
+        }
+
+        function gameLoop() {
+            if (isPaused) return;
+
+            direction = nextDirection;
+            const head = { ...snake[0] };
+
+            switch (direction) {
+                case 'up': head.y--; break;
+                case 'down': head.y++; break;
+                case 'left': head.x--; break;
+                case 'right': head.x++; break;
+            }
+
+            if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
+                if (!activeEffects.ghostMode) {
+                    endGame();
+                    return;
+                } else {
+                    head.x = (head.x + gridSize) % gridSize;
+                    head.y = (head.y + gridSize) % gridSize;
+                }
+            }
+
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                endGame();
+                return;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += activeEffects.doublePoints ? 20 : 10;
+                updateScore();
+                placeFood();
+            } else {
+                snake.pop();
+            }
+
+            checkPowerUps();
+            render();
+        }
+
+        function render() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+
+            snake.forEach((segment, index) => {
+                const element = document.createElement('div');
+                element.className = 'snake-segment';
+                element.style.width = `${100 / gridSize}%`;
+                element.style.height = `${100 / gridSize}%`;
+                element.style.left = `${segment.x * (100 / gridSize)}%`;
+                element.style.top = `${segment.y * (100 / gridSize)}%`;
+
+                if (index === 0) {
+                    element.style.backgroundColor = '#00ff88';
+                    element.style.boxShadow = '0 0 15px rgba(0, 255, 136, 0.7)';
+                }
+
+                board.appendChild(element);
+            });
+
+            const foodElement = document.createElement('div');
+            foodElement.className = 'food';
+            foodElement.style.width = `${100 / gridSize}%`;
+            foodElement.style.height = `${100 / gridSize}%`;
+            foodElement.style.left = `${food.x * (100 / gridSize)}%`;
+            foodElement.style.top = `${food.y * (100 / gridSize)}%`;
+            board.appendChild(foodElement);
+
+            powerUps.forEach(powerUp => {
+                const element = document.createElement('div');
+                element.className = `power-up ${powerUp.type}`;
+                element.style.width = `${100 / gridSize}%`;
+                element.style.height = `${100 / gridSize}%`;
+                element.style.left = `${powerUp.x * (100 / gridSize)}%`;
+                element.style.top = `${powerUp.y * (100 / gridSize)}%`;
+                board.appendChild(element);
+            });
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snakeHighScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalScore').textContent = score;
+        }
+
+        function changeDirection(newDirection) {
+            if (newDirection === 'up' && direction !== 'down') nextDirection = 'up';
+            if (newDirection === 'down' && direction !== 'up') nextDirection = 'down';
+            if (newDirection === 'left' && direction !== 'right') nextDirection = 'left';
+            if (newDirection === 'right' && direction !== 'left') nextDirection = 'right';
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pauseBtn').textContent = isPaused ? '▶️' : '⏯️';
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        function checkPowerUps() {
+            // Implement power-up logic here
+        }
+
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp': changeDirection('up'); break;
+                case 'ArrowDown': changeDirection('down'); break;
+                case 'ArrowLeft': changeDirection('left'); break;
+                case 'ArrowRight': changeDirection('right'); break;
+                case ' ': togglePause(); break;
+            }
+        });
+
+        function updateDateTime() {
+            const now = new Date();
+            const formatted = now.toISOString().replace('T', ' ').substr(0, 19);
+            document.getElementById('datetime').textContent = formatted;
+        }
+        setInterval(updateDateTime, 1000);
+
+        initGame();
+    </script>
+</body>
+</html>

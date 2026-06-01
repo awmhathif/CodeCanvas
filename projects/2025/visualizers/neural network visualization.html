@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050510;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .interface {
+            position: absolute;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .hud {
+            position: absolute;
+            color: #0af;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px rgba(0, 170, 255, 0.7);
+        }
+        
+        .top-left {
+            top: 20px;
+            left: 20px;
+        }
+        
+        .top-right {
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+        
+        .bottom-left {
+            bottom: 20px;
+            left: 20px;
+        }
+        
+        .bottom-right {
+            bottom: 20px;
+            right: 20px;
+            text-align: right;
+        }
+        
+        .center {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 24px;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        
+        .panel {
+            background-color: rgba(0, 20, 40, 0.3);
+            border: 1px solid rgba(0, 170, 255, 0.5);
+            border-radius: 5px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
+        }
+        
+        .title {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #0af;
+            border-bottom: 1px solid rgba(0, 170, 255, 0.3);
+            padding-bottom: 5px;
+        }
+        
+        .data-row {
+            font-size: 12px;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .value {
+            margin-left: 10px;
+            color: #fff;
+        }
+        
+        .highlight {
+            color: #ff0;
+        }
+        
+        .warning {
+            color: #f50;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background-color: rgba(0, 170, 255, 0.2);
+            margin: 5px 0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #0af;
+            box-shadow: 0 0 10px #0af;
+            width: 0%;
+            transition: width 0.5s;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .blink {
+            animation: blink 2s infinite;
+        }
+        
+        .notification {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 20, 40, 0.7);
+            border: 1px solid #0af;
+            border-radius: 5px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="interface">
+        <div class="hud top-left panel">
+            <div class="title">SYSTEM STATUS</div>
+            <div class="data-row">
+                CPU UTILIZATION: <span class="value" id="cpu-value">87.2%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="cpu-bar" style="width: 87.2%"></div>
+            </div>
+            <div class="data-row">
+                MEMORY ALLOCATION: <span class="value" id="memory-value">6.4GB / 8.0GB</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="memory-bar" style="width: 80%"></div>
+            </div>
+            <div class="data-row">
+                NEURAL PROCESSING: <span class="value highlight" id="neural-value">ACTIVE</span>
+            </div>
+            <div class="data-row">
+                QUANTUM STABILITY: <span class="value" id="quantum-value">98.7%</span>
+            </div>
+        </div>
+        
+        <div class="hud top-right panel">
+            <div class="title">NETWORK ACTIVITY</div>
+            <div class="data-row">
+                CONNECTED NODES: <span class="value" id="nodes-value">1,247</span>
+            </div>
+            <div class="data-row">
+                DATA THROUGHPUT: <span class="value" id="throughput-value">847.3 MB/s</span>
+            </div>
+            <div class="data-row">
+                PACKET LOSS: <span class="value" id="packet-value">0.03%</span>
+            </div>
+            <div class="data-row">
+                ENCRYPTION: <span class="value highlight">QUANTUM</span>
+            </div>
+        </div>
+        
+        <div class="hud bottom-left panel">
+            <div class="title">ANALYSIS MODULE</div>
+            <div class="data-row">
+                PATTERN RECOGNITION: <span class="value" id="pattern-value">94.6%</span>
+            </div>
+            <div class="data-row">
+                ANOMALIES DETECTED: <span class="value" id="anomaly-value">3</span>
+            </div>
+            <div class="data-row">
+                PREDICTION ACCURACY: <span class="value" id="prediction-value">91.8%</span>
+            </div>
+            <div class="data-row">
+                THREAT ASSESSMENT: <span class="value" id="threat-value">LOW</span>
+            </div>
+        </div>
+        
+        <div class="hud bottom-right panel">
+            <div class="title">TEMPORAL DATA</div>
+            <div class="data-row">
+                SYSTEM TIME: <span class="value" id="time-value">14:45:33</span>
+            </div>
+            <div class="data-row">
+                UPTIME: <span class="value" id="uptime-value">73:12:44</span>
+            </div>
+            <div class="data-row">
+                NEXT MAINTENANCE: <span class="value" id="maintenance-value">06:14:27</span>
+            </div>
+            <div class="data-row">
+                STATUS: <span class="value highlight blink">MONITORING</span>
+            </div>
+        </div>
+        
+        <div class="hud center" id="center-message">
+            NEURAL NETWORK INITIALIZED
+        </div>
+        
+        <div class="notification" id="notification">
+            New pattern detected in data stream
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas dimensions
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Neural network visualization
+        class NeuralNetwork {
+            constructor() {
+                this.layers = [15, 30, 25, 20, 10]; // Nodes per layer
+                this.nodes = [];
+                this.connections = [];
+                this.initialize();
+            }
+            
+            initialize() {
+                let xOffset = 0;
+                const layerSpacing = canvas.width / (this.layers.length + 1);
+                
+                // Create nodes
+                for (let l = 0; l < this.layers.length; l++) {
+                    xOffset += layerSpacing;
+                    const nodeCount = this.layers[l];
+                    const layerHeight = canvas.height * 0.7;
+                    const nodeSpacing = layerHeight / (nodeCount + 1);
+                    let yOffset = (canvas.height - layerHeight) / 2;
+                    
+                    for (let n = 0; n < nodeCount; n++) {
+                        yOffset += nodeSpacing;
+                        this.nodes.push({
+                            x: xOffset,
+                            y: yOffset,
+                            radius: 3 + Math.random() * 2,
+                            layer: l,
+                            activation: Math.random(),
+                            pulseRadius: 0,
+                            pulsing: false,
+                            pulseTime: 0
+                        });
+                    }
+                }
+                
+                // Create connections between layers
+                for (let l = 0; l < this.layers.length - 1; l++) {
+                    const currentLayerNodes = this.nodes.filter(node => node.layer === l);
+                    const nextLayerNodes = this.nodes.filter(node => node.layer === l + 1);
+                    
+                    for (let current of currentLayerNodes) {
+                        for (let next of nextLayerNodes) {
+                            if (Math.random() > 0.5) { // Not fully connected
+                                this.connections.push({
+                                    from: current,
+                                    to: next,
+                                    weight: Math.random(),
+                                    signalPosition: 0,
+                                    signalActive: false,
+                                    signalSpeed: 0.005 + Math.random() * 0.02
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            update() {
+                // Randomly activate nodes
+                if (Math.random() < 0.05) {
+                    const inputNodes = this.nodes.filter(node => node.layer === 0);
+                    const randomNode = inputNodes[Math.floor(Math.random() * inputNodes.length)];
+                    randomNode.activation = 0.8 + Math.random() * 0.2;
+                    randomNode.pulsing = true;
+                    randomNode.pulseTime = 0;
+                }
+                
+                // Update node activations
+                for (let node of this.nodes) {
+                    if (node.pulsing) {
+                        node.pulseTime += 0.05;
+                        node.pulseRadius = 20 * Math.sin(Math.min(Math.PI, node.pulseTime));
+                        
+                        if (node.pulseTime >= Math.PI) {
+                            node.pulsing = false;
+                            node.pulseRadius = 0;
+                        }
+                    }
+                    
+                    // Decay activation
+                    if (node.activation > 0.1) {
+                        node.activation *= 0.99;
+                    }
+                }
+                
+                // Propagate signals
+                for (let conn of this.connections) {
+                    if (conn.from.activation > 0.5 && !conn.signalActive && Math.random() < 0.3) {
+                        conn.signalActive = true;
+                        conn.signalPosition = 0;
+                    }
+                    
+                    if (conn.signalActive) {
+                        conn.signalPosition += conn.signalSpeed;
+                        
+                        if (conn.signalPosition >= 1) {
+                            conn.signalActive = false;
+                            conn.signalPosition = 0;
+                            conn.to.activation = Math.max(conn.to.activation, conn.from.activation * conn.weight);
+                            conn.to.pulsing = true;
+                            conn.to.pulseTime = 0;
+                        }
+                    }
+                }
+            }
+            
+            draw() {
+                // Draw connections
+                for (let conn of this.connections) {
+                    const gradient = ctx.createLinearGradient(
+                        conn.from.x, conn.from.y, 
+                        conn.to.x, conn.to.y
+                    );
+                    
+                    const alpha = 0.1 + 0.2 * Math.max(conn.from.activation, conn.to.activation);
+                    gradient.addColorStop(0, `rgba(0, 170, 255, ${alpha})`);
+                    gradient.addColorStop(1, `rgba(0, 255, 170, ${alpha})`);
+                    
+                    ctx.beginPath();
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 0.5 + conn.weight;
+                    ctx.moveTo(conn.from.x, conn.from.y);
+                    ctx.lineTo(conn.to.x, conn.to.y);
+                    ctx.stroke();
+                    
+                    // Draw signal pulse
+                    if (conn.signalActive) {
+                        const x = conn.from.x + (conn.to.x - conn.from.x) * conn.signalPosition;
+                        const y = conn.from.y + (conn.to.y - conn.from.y) * conn.signalPosition;
+                        
+                        ctx.beginPath();
+                        ctx.arc(x, y, 2 + conn.weight, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                        ctx.fill();
+                    }
+                }
+                
+                // Draw nodes
+                for (let node of this.nodes) {
+                    // Draw pulse effect
+                    if (node.pulseRadius > 0) {
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, node.pulseRadius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(0, 170, 255, ${0.5 * (1 - node.pulseTime / Math.PI)})`;
+                        ctx.fill();
+                    }
+                    
+                    // Draw node
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                    
+                    const intensity = Math.floor(node.activation * 255);
+                    ctx.fillStyle = `rgb(${intensity}, ${intensity + 100}, 255)`;
+                    ctx.shadowBlur = 10 * node.activation;
+                    ctx.shadowColor = 'rgba(0, 170, 255, 0.8)';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+        
+        // Background particle system
+        class ParticleSystem {
+            constructor() {
+                this.particles = [];
+                this.createParticles(100);
+            }
+            
+            createParticles(count) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: 0.5 + Math.random() * 1,
+                        speedX: (Math.random() - 0.5) * 0.3,
+                        speedY: (Math.random() - 0.5) * 0.3,
+                        opacity: 0.1 + Math.random() * 0.5
+                    });
+                }
+            }
+            
+            update() {
+                for (let p of this.particles) {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    
+                    // Wrap around edges
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                    if (p.y > canvas.height) p.y = 0;
+                }
+            }
+            
+            draw() {
+                ctx.fillStyle = 'rgba(0, 170, 255, 0.5)';
+                
+                for (let p of this.particles) {
+                    ctx.globalAlpha = p.opacity;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        // Initialize objects
+        const neuralNetwork = new NeuralNetwork();
+        const particleSystem = new ParticleSystem();
+        
+        // Animation loop
+        function animate() {
+            // Clear canvas with a semi-transparent black to create trail effect
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw
+            particleSystem.update();
+            particleSystem.draw();
+            
+            neuralNetwork.update();
+            neuralNetwork.draw();
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        // UI updates
+        function updateUI() {
+            // Update system stats
+            document.getElementById('cpu-value').textContent = `${(70 + Math.random() * 25).toFixed(1)}%`;
+            document.getElementById('cpu-bar').style.width = document.getElementById('cpu-value').textContent;
+            
+            const memoryUsage = (5 + Math.random() * 2.5).toFixed(1);
+            document.getElementById('memory-value').textContent = `${memoryUsage}GB / 8.0GB`;
+            document.getElementById('memory-bar').style.width = `${(memoryUsage / 8) * 100}%`;
+            
+            document.getElementById('quantum-value').textContent = `${(95 + Math.random() * 4.9).toFixed(1)}%`;
+            
+            document.getElementById('nodes-value').textContent = Math.floor(1200 + Math.random() * 100).toLocaleString();
+            document.getElementById('throughput-value').textContent = `${(500 + Math.random() * 500).toFixed(1)} MB/s`;
+            document.getElementById('packet-value').textContent = `${(Math.random() * 0.1).toFixed(2)}%`;
+            
+            document.getElementById('pattern-value').textContent = `${(90 + Math.random() * 9).toFixed(1)}%`;
+            document.getElementById('prediction-value').textContent = `${(85 + Math.random() * 12).toFixed(1)}%`;
+            
+            // Update time
+            const now = new Date();
+            document.getElementById('time-value').textContent = now.toTimeString().substring(0, 8);
+            
+            // Random notifications
+            if (Math.random() < 0.05) {
+                showNotification();
+            }
+            
+            // Random center message
+            if (Math.random() < 0.02) {
+                showCenterMessage();
+            }
+            
+            setTimeout(updateUI, 2000);
+        }
+        
+        function showNotification() {
+            const messages = [
+                "New pattern detected in data stream",
+                "Quantum stabilization complete",
+                "Neural pathway optimization in progress",
+                "Anomaly detected in sector 7",
+                "System update available: v3.7.2",
+                "Memory optimization complete: +12% efficiency"
+            ];
+            
+            const notification = document.getElementById('notification');
+            notification.textContent = messages[Math.floor(Math.random() * messages.length)];
+            notification.style.opacity = "1";
+            
+            setTimeout(() => {
+                notification.style.opacity = "0";
+            }, 4000);
+        }
+        
+        function showCenterMessage() {
+            const messages = [
+                "NEURAL NETWORK OPTIMIZED",
+                "QUANTUM CALIBRATION COMPLETE",
+                "SYSTEM SECURITY UPGRADED",
+                "DATA ANALYSIS COMPLETE",
+                "PATTERN RECOGNITION ENHANCED",
+                "ANOMALY DETECTION ACTIVATED"
+            ];
+            
+            const centerMsg = document.getElementById('center-message');
+            centerMsg.textContent = messages[Math.floor(Math.random() * messages.length)];
+            centerMsg.style.opacity = "1";
+            
+            setTimeout(() => {
+                centerMsg.style.opacity = "0";
+            }, 3000);
+        }
+        
+        // Initialize UI
+        setTimeout(() => {
+            document.getElementById('center-message').style.opacity = "1";
+            setTimeout(() => {
+                document.getElementById('center-message').style.opacity = "0";
+                updateUI();
+            }, 3000);
+        }, 1000);
+    </script>
+</body>
+</html>

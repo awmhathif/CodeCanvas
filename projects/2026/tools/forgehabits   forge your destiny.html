@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeHabits — Forge Your Destiny</title>
+<style>
+:root {
+  --bg0:#0a0a0f; --bg1:#12121a; --bg2:#1a1a28; --bg3:#242438;
+  --tx0:#e8e6f0; --tx1:#b0adc0; --tx2:#787690;
+  --ember:#ff6a00; --ember2:#ff9d00; --ember3:#ffcc33;
+  --molten:#ff3d00; --cool:#4a7cff; --ice:#8ecfff;
+  --legendary:#ffd700; --epic:#a855f7; --rare:#3b82f6;
+  --bronze:#cd7f32; --silver:#c0c0c0; --gold:#ffd700;
+  --hp-green:#22c55e; --hp-red:#ef4444;
+  --crack:#5c2a0a;
+  --radius:10px; --radius-sm:6px;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+  --font-display:'Georgia',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--tx0);font-family:var(--font);font-size:14px;}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+input,select,textarea{font-family:inherit;background:var(--bg1);border:1px solid var(--bg3);color:var(--tx0);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--ember);}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh;flex-direction:column;}
+#topBar{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--bg1);border-bottom:1px solid var(--bg3);min-height:52px;z-index:100;}
+#topBar .logo{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:18px;color:var(--ember);white-space:nowrap;}
+#topBar .logo svg{width:28px;height:28px;}
+.topSpacer{flex:1;}
+.topBtn{background:var(--bg3);color:var(--tx0);padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;transition:.2s;}
+.topBtn:hover{background:var(--ember);color:#000;}
+.topBtn.accent{background:var(--ember);color:#000;}
+.topBtn.accent:hover{background:var(--ember2);}
+#forgeLevel{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx1);}
+#forgeLevel .lvl{font-weight:700;color:var(--ember);font-size:16px;}
+#forgeLevelBar{width:120px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+#forgeLevelBar .fill{height:100%;background:linear-gradient(90deg,var(--ember),var(--ember3));border-radius:3px;transition:width .5s;}
+
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* ── LEFT: HABIT LIST ── */
+#leftPanel{width:280px;min-width:280px;background:var(--bg1);border-right:1px solid var(--bg3);display:flex;flex-direction:column;overflow:hidden;}
+#leftHeader{padding:12px;border-bottom:1px solid var(--bg3);}
+#leftHeader h3{font-size:13px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+#addHabitBtn{width:100%;padding:8px;background:var(--bg3);color:var(--ember);border-radius:var(--radius-sm);font-size:13px;font-weight:600;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+#addHabitBtn:hover{background:var(--ember);color:#000;}
+#habitList{flex:1;overflow-y:auto;padding:8px;}
+.habitCard{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);padding:10px;margin-bottom:6px;cursor:pointer;transition:.2s;position:relative;}
+.habitCard:hover{border-color:var(--ember);transform:translateX(2px);}
+.habitCard.selected{border-color:var(--ember);box-shadow:0 0 12px rgba(255,106,0,.15);}
+.habitCard .hName{font-weight:600;font-size:13px;margin-bottom:2px;display:flex;align-items:center;gap:6px;}
+.habitCard .hSub{font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:6px;}
+.habitCard .hStreak{font-size:11px;font-weight:700;margin-left:auto;}
+.habitCard .hStreak.hot{color:var(--ember);}
+.habitCard .hStreak.cold{color:var(--cool);}
+.habitCard .tierBadge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;text-transform:uppercase;}
+.tierBadge.bronze{background:rgba(205,127,50,.2);color:var(--bronze);}
+.tierBadge.silver{background:rgba(192,192,192,.2);color:var(--silver);}
+.tierBadge.gold{background:rgba(255,215,0,.2);color:var(--gold);}
+.itemIcon{font-size:18px;}
+
+/* ── CENTER: THE FORGE ── */
+#centerPanel{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#forgeArea{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+#emberCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;}
+#forgeContent{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:20px;padding:20px;}
+.anvilContainer{position:relative;width:280px;height:200px;display:flex;align-items:center;justify-content:center;}
+#anvilSvg{width:100%;height:100%;filter:drop-shadow(0 0 20px rgba(255,106,0,.2));}
+#currentItem{position:absolute;top:20px;font-size:72px;filter:drop-shadow(0 0 15px rgba(255,106,0,.3));transition:filter .5s,transform .3s;z-index:3;}
+#currentItem.striking{animation:strike .15s ease-out;}
+#currentItem.quenched{filter:drop-shadow(0 0 8px rgba(74,124,255,.4)) grayscale(.5);animation:crack .5s ease-out;}
+@keyframes strike{0%{transform:scale(1)}50%{transform:scale(1.15) translateY(-5px)}100%{transform:scale(1)}}
+@keyframes crack{0%{transform:scale(1)}30%{transform:scale(.95)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+#itemLabel{font-family:var(--font-display);font-size:18px;color:var(--tx1);text-align:center;}
+#itemStage{font-size:13px;color:var(--ember);font-weight:600;}
+#streakDisplay{font-size:48px;font-weight:900;color:var(--ember);text-shadow:0 0 30px rgba(255,106,0,.4);}
+#streakLabel{font-size:12px;color:var(--tx2);text-transform:uppercase;letter-spacing:2px;}
+
+/* Bellows button */
+#bellowsBtn{width:160px;height:56px;background:linear-gradient(135deg,var(--ember),var(--molten));color:#fff;font-size:16px;font-weight:800;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 25px rgba(255,106,0,.35);transition:.2s;text-transform:uppercase;letter-spacing:1px;}
+#bellowsBtn:hover{transform:scale(1.05);box-shadow:0 6px 35px rgba(255,106,0,.5);}
+#bellowsBtn:active{transform:scale(.97);}
+#bellowsBtn.done{background:linear-gradient(135deg,var(--hp-green),#16a34a);box-shadow:0 4px 25px rgba(34,197,94,.35);}
+#bellowsBtn.done:hover{transform:scale(1);cursor:default;}
+
+/* Progress ring */
+#progressRing{margin-top:8px;}
+#progressRing circle{transition:stroke-dashoffset .5s;}
+
+/* Heatmap */
+#heatmapArea{padding:12px 16px;border-top:1px solid var(--bg3);background:var(--bg1);}
+#heatmapTitle{font-size:11px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+#heatmapGrid{display:flex;gap:3px;flex-wrap:wrap;}
+.heatCell{width:14px;height:14px;border-radius:2px;background:var(--bg3);transition:.2s;}
+.heatCell.l1{background:rgba(255,106,0,.2);}
+.heatCell.l2{background:rgba(255,106,0,.4);}
+.heatCell.l3{background:rgba(255,106,0,.6);}
+.heatCell.l4{background:rgba(255,106,0,.85);}
+.heatCell.l5{background:var(--ember);box-shadow:0 0 4px rgba(255,106,0,.4);}
+.heatCell.today{outline:2px solid var(--ember3);outline-offset:1px;}
+.heatCell.quench{background:rgba(74,124,255,.5);}
+
+/* ── RIGHT PANEL ── */
+#rightPanel{width:320px;min-width:320px;background:var(--bg1);border-left:1px solid var(--bg3);display:flex;flex-direction:column;overflow:hidden;}
+#rightTabs{display:flex;border-bottom:1px solid var(--bg3);}
+.rTab{flex:1;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);background:none;text-align:center;border-bottom:2px solid transparent;transition:.2s;}
+.rTab:hover{color:var(--tx0);}
+.rTab.active{color:var(--ember);border-bottom-color:var(--ember);}
+.rTabContent{flex:1;overflow-y:auto;padding:12px;display:none;}
+.rTabContent.active{display:block;}
+
+/* Right: Stats */
+.statCard{background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:8px;}
+.statCard h4{font-size:11px;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.statCard .val{font-size:28px;font-weight:800;color:var(--ember);}
+.statCard .sub{font-size:11px;color:var(--tx2);margin-top:2px;}
+.statRow{display:flex;gap:8px;}
+.statRow .statCard{flex:1;}
+
+/* Right: Dragon Boss */
+#dragonArea{background:var(--bg2);border-radius:var(--radius);padding:14px;margin-bottom:10px;border:1px solid var(--bg3);}
+#dragonArea h4{font-size:13px;color:var(--hp-red);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+#dragonHP{width:100%;height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;margin-bottom:6px;}
+#dragonHP .fill{height:100%;background:linear-gradient(90deg,var(--hp-green),var(--hp-red));border-radius:6px;transition:width .5s;}
+#dragonInfo{font-size:11px;color:var(--tx2);}
+
+/* Right: Armory */
+.armoryItem{display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:var(--radius);padding:10px;margin-bottom:6px;border:1px solid var(--bg3);}
+.armoryItem .armIcon{font-size:32px;filter:drop-shadow(0 0 8px rgba(255,215,0,.4));}
+.armoryItem .armInfo{flex:1;}
+.armoryItem .armName{font-weight:600;font-size:13px;color:var(--legendary);}
+.armoryItem .armDate{font-size:11px;color:var(--tx2);}
+.armoryItem .armTier{font-size:10px;color:var(--tx2);}
+
+/* Right: Weekly Report */
+.reportSection{background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:8px;}
+.reportSection h4{font-size:12px;color:var(--tx1);margin-bottom:6px;}
+.reportBar{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.reportBar .rLabel{font-size:11px;color:var(--tx2);width:30px;}
+.reportBar .rTrack{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.reportBar .rFill{height:100%;border-radius:4px;transition:width .3s;}
+
+/* Right: Guild */
+#guildSection .guildMember{display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg2);border-radius:var(--radius);margin-bottom:6px;}
+.guildMember .gAvatar{width:32px;height:32px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px;}
+.guildMember .gName{font-weight:600;font-size:13px;flex:1;}
+.guildMember .gForge{font-size:11px;color:var(--ember);}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s;}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);padding:24px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto;transform:translateY(20px);transition:.3s;}
+.modal-overlay.show .modal-box{transform:translateY(0);}
+.modal-box h2{font-size:18px;color:var(--ember);margin-bottom:16px;font-family:var(--font-display);}
+.modal-box label{display:block;font-size:12px;color:var(--tx2);margin-bottom:4px;margin-top:12px;text-transform:uppercase;letter-spacing:.5px;}
+.modal-box input,.modal-box select,.modal-box textarea{width:100%;}
+.modal-box textarea{min-height:60px;resize:vertical;}
+.modal-actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end;}
+.modal-actions button{padding:8px 20px;border-radius:var(--radius-sm);font-weight:600;font-size:13px;}
+.mbtn-cancel{background:var(--bg3);color:var(--tx1);}
+.mbtn-cancel:hover{background:var(--bg2);}
+.mbtn-save{background:var(--ember);color:#000;}
+.mbtn-save:hover{background:var(--ember2);}
+.mbtn-delete{background:var(--hp-red);color:#fff;}
+.mbtn-delete:hover{background:#dc2626;}
+
+/* ── TOAST ── */
+#toastContainer{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px;}
+.toast{padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;background:var(--bg3);color:var(--tx0);border-left:3px solid var(--ember);animation:toastIn .3s,toastOut .3s 2.7s forwards;box-shadow:0 4px 12px rgba(0,0,0,.3);}
+.toast.success{border-left-color:var(--hp-green);}
+.toast.error{border-left-color:var(--hp-red);}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px);}to{opacity:1;transform:translateX(0);}}
+@keyframes toastOut{to{opacity:0;transform:translateX(40px);}}
+
+/* Item stage glow */
+.glow-raw{filter:drop-shadow(0 0 4px rgba(100,100,100,.3));}
+.glow-heated{filter:drop-shadow(0 0 10px rgba(255,106,0,.3));}
+.glow-shaped{filter:drop-shadow(0 0 15px rgba(255,157,0,.4));}
+.glow-tempered{filter:drop-shadow(0 0 18px rgba(255,204,51,.5));}
+.glow-legendary{filter:drop-shadow(0 0 25px rgba(255,215,0,.7));animation:legendaryPulse 2s infinite;}
+@keyframes legendaryPulse{0%,100%{filter:drop-shadow(0 0 25px rgba(255,215,0,.7));}50%{filter:drop-shadow(0 0 40px rgba(255,215,0,1));}}
+
+/* Responsive */
+@media(max-width:900px){
+  #leftPanel{width:220px;min-width:220px;}
+  #rightPanel{width:260px;min-width:260px;}
+}
+@media(max-width:700px){
+  #main{flex-direction:column;}
+  #leftPanel,#rightPanel{width:100%;min-width:0;max-height:40vh;}
+}
+
+/* Empty state */
+.emptyState{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--tx2);gap:12px;text-align:center;padding:40px;}
+.emptyState .emIcon{font-size:64px;opacity:.4;}
+.emptyState p{max-width:240px;font-size:13px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOP BAR -->
+  <div id="topBar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      ForgeHabits
+    </div>
+    <div id="forgeLevel">
+      <span>Forge Lv.</span>
+      <span class="lvl" id="forgeLvlNum">1</span>
+      <div id="forgeLevelBar"><div class="fill" id="forgeLvlFill" style="width:0%"></div></div>
+    </div>
+    <div class="topSpacer"></div>
+    <button class="topBtn" onclick="openSmeltReport()">📊 Smelt Report</button>
+    <button class="topBtn" onclick="showArmory()">🏆 Armory</button>
+    <button class="topBtn" onclick="showGuild()">⚔️ Guild</button>
+    <button class="topBtn" onclick="exportData()">💾 Export</button>
+    <button class="topBtn" onclick="importData()">📂 Import</button>
+    <button class="topBtn" onclick="resetAll()" style="color:var(--hp-red)">🗑️ Reset</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- LEFT -->
+    <div id="leftPanel">
+      <div id="leftHeader">
+        <h3>⚒️ Weapon Rack</h3>
+        <button id="addHabitBtn" onclick="openAddHabit()">＋ Forge New Habit</button>
+      </div>
+      <div id="habitList"></div>
+    </div>
+
+    <!-- CENTER -->
+    <div id="centerPanel">
+      <div id="forgeArea">
+        <canvas id="emberCanvas"></canvas>
+        <div id="forgeContent">
+          <div id="noHabitState" class="emptyState">
+            <div class="emIcon">🔥</div>
+            <p>Your forge is cold. Add a habit to begin forging your destiny.</p>
+          </div>
+          <div id="activeForge" style="display:none;text-align:center;">
+            <div id="streakDisplay">0</div>
+            <div id="streakLabel">Day Streak</div>
+            <div class="anvilContainer">
+              <svg id="anvilSvg" viewBox="0 0 280 200">
+                <defs>
+                  <linearGradient id="anvilGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#5a5a6e"/>
+                    <stop offset="100%" stop-color="#2a2a3e"/>
+                  </linearGradient>
+                </defs>
+                <!-- Anvil body -->
+                <path d="M60 120 L220 120 L240 140 L250 160 L240 170 L200 170 L200 190 L80 190 L80 170 L40 170 L30 160 L40 140 Z" fill="url(#anvilGrad)" stroke="#3a3a4e" stroke-width="2"/>
+                <!-- Anvil top face -->
+                <path d="M60 120 L220 120 L210 100 L70 100 Z" fill="#6a6a7e" stroke="#4a4a5e" stroke-width="1"/>
+                <!-- Anvil horn -->
+                <path d="M220 120 L260 115 L255 125 L220 130" fill="#5a5a6e" stroke="#3a3a4e" stroke-width="1"/>
+              </svg>
+              <div id="currentItem">⚔️</div>
+            </div>
+            <div id="itemLabel">—</div>
+            <div id="itemStage">Raw Ore</div>
+
+            <svg id="progressRing" width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="34" stroke="var(--bg3)" stroke-width="5" fill="none"/>
+              <circle id="progCircle" cx="40" cy="40" r="34" stroke="var(--ember)" stroke-width="5" fill="none"
+                stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              <text x="40" y="44" text-anchor="middle" fill="var(--tx0)" font-size="14" font-weight="700" id="progText">0%</text>
+            </svg>
+
+            <button id="bellowsBtn" onclick="bellowsStrike()">🔥 BELLOWS</button>
+          </div>
+        </div>
+      </div>
+      <div id="heatmapArea">
+        <div id="heatmapTitle">Last 30 Days</div>
+        <div id="heatmapGrid"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div id="rightPanel">
+      <div id="rightTabs">
+        <button class="rTab active" onclick="switchRTab('stats')">Stats</button>
+        <button class="rTab" onclick="switchRTab('dragon')">🐉 Dragon</button>
+        <button class="rTab" onclick="switchRTab('armory')">Armory</button>
+        <button class="rTab" onclick="switchRTab('report')">Report</button>
+      </div>
+
+      <!-- Stats Tab -->
+      <div class="rTabContent active" id="tab-stats">
+        <div class="statRow">
+          <div class="statCard"><h4>Total Strikes</h4><div class="val" id="sTotalStrikes">0</div><div class="sub">lifetime check-ins</div></div>
+          <div class="statCard"><h4>Best Streak</h4><div class="val" id="sBestStreak">0</div><div class="sub">consecutive days</div></div>
+        </div>
+        <div class="statRow">
+          <div class="statCard"><h4>Habits Active</h4><div class="val" id="sHabitCount">0</div></div>
+          <div class="statCard"><h4>Legendary Items</h4><div class="val" id="sLegendary">0</div></div>
+        </div>
+        <div class="statCard"><h4>Weekly Consistency</h4><div class="val" id="sWeekly">0%</div><div class="sub">this week's completion rate</div></div>
+        <div class="statCard"><h4>Forge Level Progress</h4>
+          <div id="forgeLevelDetail" style="font-size:12px;color:var(--tx2);margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Dragon Tab -->
+      <div class="rTabContent" id="tab-dragon">
+        <div id="dragonArea">
+          <h4>🐉 Monthly Dragon Boss</h4>
+          <div id="dragonHP"><div class="fill" id="dragonHPFill" style="width:100%"></div></div>
+          <div id="dragonInfo">Hit ALL habits every day this month to defeat the dragon. Each missed day heals the beast!</div>
+          <div style="margin-top:10px;font-size:24px;text-align:center;" id="dragonEmoji">🐉</div>
+          <div style="text-align:center;margin-top:6px;" id="dragonStatus"></div>
+        </div>
+        <div class="statCard">
+          <h4>Dragon HP</h4>
+          <div class="val" id="dragonHPVal">100%</div>
+          <div class="sub" id="dragonDaysInfo"></div>
+        </div>
+        <div class="statCard">
+          <h4>Dragons Slain</h4>
+          <div class="val" id="dragonsSlain">0</div>
+        </div>
+      </div>
+
+      <!-- Armory Tab -->
+      <div class="rTabContent" id="tab-armory">
+        <h4 style="font-size:13px;color:var(--tx2);margin-bottom:10px;">🏆 LEGENDARY ARMORY</h4>
+        <div id="armoryList">
+          <div class="emptyState" style="height:auto;padding:20px;">
+            <div class="emIcon" style="font-size:40px;">🗡️</div>
+            <p>No legendary items yet. Complete a 30-day streak to forge one!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Tab -->
+      <div class="rTabContent" id="tab-report">
+        <h4 style="font-size:13px;color:var(--tx2);margin-bottom:10px;">📊 WEEKLY SMELT REPORT</h4>
+        <div id="weeklyReport"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="habitModal">
+  <div class="modal-box">
+    <h2 id="modalTitle">⚒️ Forge New Habit</h2>
+    <label>Habit Name</label>
+    <input id="mName" placeholder="e.g. Morning Run">
+    <label>Item Type</label>
+    <select id="mItem">
+      <option value="⚔️">⚔️ Sword</option>
+      <option value="🛡️">🛡️ Shield</option>
+      <option value="🗡️">🗡️ Dagger</option>
+      <option value="🏹">🏹 Bow</option>
+      <option value="🔨">🔨 Hammer</option>
+      <option value="🪓">🪓 Axe</option>
+      <option value="🔱">🔱 Trident</option>
+      <option value="👑">👑 Crown</option>
+      <option value="💎">💎 Gem</option>
+      <option value="🧿">🧿 Amulet</option>
+      <option value="🪖">🪖 Helm</option>
+      <option value="🦾">🦾 Gauntlet</option>
+    </select>
+    <label>Difficulty Tier</label>
+    <select id="mTier">
+      <option value="bronze">🥉 Bronze — Easy goal</option>
+      <option value="silver">🥈 Silver — Medium goal</option>
+      <option value="gold">🥇 Gold — Hard goal</option>
+    </select>
+    <label>Description (optional)</label>
+    <textarea id="mDesc" placeholder="What does this habit mean to you?"></textarea>
+    <div class="modal-actions">
+      <button class="mbtn-delete" id="mDeleteBtn" style="display:none;margin-right:auto;" onclick="deleteHabit()">Delete</button>
+      <button class="mbtn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="mbtn-save" onclick="saveHabit()">Forge It!</button>
+    </div>
+  </div>
+</div>
+
+<!-- SMELT REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box" style="width:520px;">
+    <h2>📊 Weekly Smelt Report</h2>
+    <div id="reportModalContent"></div>
+    <div class="modal-actions">
+      <button class="mbtn-cancel" onclick="closeReportModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- GUILD MODAL -->
+<div class="modal-overlay" id="guildModal">
+  <div class="modal-box">
+    <h2>⚔️ Guild (Local Demo)</h2>
+    <div id="guildModalContent">
+      <p style="color:var(--tx2);font-size:13px;margin-bottom:12px;">Guild members see each other's forge progress. In this demo, simulated guild members are shown below.</p>
+      <div id="guildMembers"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="mbtn-cancel" onclick="closeGuildModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  FORGEHABITS — State & DB
+// ═══════════════════════════════════════════
+const DB_NAME = 'ForgeHabitsDB';
+const DB_VER = 1;
+const STORE = 'state';
+let db = null;
+
+const STAGES = [
+  { name:'Raw Ore', min:0, cls:'glow-raw' },
+  { name:'Heated Metal', min:6, cls:'glow-heated' },
+  { name:'Shaped Form', min:12, cls:'glow-shaped' },
+  { name:'Tempered Edge', min:20, cls:'glow-tempered' },
+  { name:'Legendary Artifact', min:30, cls:'glow-legendary' }
+];
+
+const TIER_NAMES = { bronze:'Bronze', silver:'Silver', gold:'Gold' };
+const TIER_XP = { bronze:1, silver:2, gold:3 };
+
+let state = {
+  habits: [],
+  selectedId: null,
+  armory: [],
+  forgeXP: 0,
+  forgeLevel: 1,
+  dragonsSlain: 0,
+  dragonMonth: null,
+  dragonPerfectDays: 0,
+};
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function getMonthStr() {
+  return new Date().toISOString().slice(0,7);
+}
+
+function getDaysInMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+}
+
+function getDayOfMonth() {
+  return new Date().getDate();
+}
+
+// ── IndexedDB ──
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => { e.target.result.createObjectStore(STORE); };
+    r.onsuccess = e => { db = e.target.result; res(db); };
+    r.onerror = e => rej(e.target.error);
+  });
+}
+
+function saveState() {
+  if (!db) return;
+  const tx = db.transaction(STORE,'readwrite');
+  tx.objectStore(STORE).put(state,'appState');
+}
+
+function loadState() {
+  return new Promise((res) => {
+    if (!db) return res(null);
+    const tx = db.transaction(STORE,'readonly');
+    const r = tx.objectStore(STORE).get('appState');
+    r.onsuccess = () => res(r.result || null);
+    r.onerror = () => res(null);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  AUDIO — Web Audio synthesized sounds
+// ═══════════════════════════════════════════
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playStrike() {
+  try {
+    const ctx = getAudio();
+    // Metallic clang
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    // Noise burst for "clank"
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.2;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.4, ctx.currentTime);
+    ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.frequency.value = 3000;
+    filt.Q.value = 2;
+    noise.connect(filt).connect(ng).connect(ctx.destination);
+    noise.start(ctx.currentTime);
+    noise.stop(ctx.currentTime + 0.12);
+  } catch(e) {}
+}
+
+function playQuench() {
+  try {
+    const ctx = getAudio();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(5000, ctx.currentTime);
+    f.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.4);
+    noise.connect(f).connect(g).connect(ctx.destination);
+    noise.start();
+    noise.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+function playLegendary() {
+  try {
+    const ctx = getAudio();
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+      g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.15 + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.6);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.6);
+    });
+  } catch(e) {}
+}
+
+function playEmberSound() {
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 220 + Math.random() * 60;
+    g.gain.setValueAtTime(0.05, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════
+//  EMBER PARTICLE SYSTEM (Canvas)
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('emberCanvas');
+const ectx = canvas.getContext('2d');
+let embers = [];
+let burstEmbers = [];
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+
+class Ember {
+  constructor(x, y, burst = false) {
+    this.x = x || Math.random() * canvas.width;
+    this.y = y || canvas.height + 5;
+    this.size = burst ? (1.5 + Math.random() * 3) : (1 + Math.random() * 2.5);
+    this.speedX = (Math.random() - 0.5) * (burst ? 4 : 1.2);
+    this.speedY = burst ? (-(2 + Math.random() * 6)) : (-(0.5 + Math.random() * 1.5));
+    this.life = 1;
+    this.decay = burst ? (0.015 + Math.random() * 0.025) : (0.003 + Math.random() * 0.008);
+    this.brightness = 0.6 + Math.random() * 0.4;
+    this.wobble = Math.random() * Math.PI * 2;
+    this.wobbleSpeed = 0.02 + Math.random() * 0.04;
+  }
+  update() {
+    this.wobble += this.wobbleSpeed;
+    this.x += this.speedX + Math.sin(this.wobble) * 0.3;
+    this.y += this.speedY;
+    this.life -= this.decay;
+    this.size *= 0.999;
+  }
+  draw() {
+    if (this.life <= 0) return;
+    const alpha = this.life * this.brightness;
+    const r = 255, g = Math.floor(100 + this.life * 100), b = Math.floor(this.life * 30);
+    ectx.beginPath();
+    ectx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ectx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+    ectx.fill();
+    // Glow
+    ectx.beginPath();
+    ectx.arc(this.x, this.y, this.size * 2.5, 0, Math.PI * 2);
+    ectx.fillStyle = `rgba(${r},${g},0,${alpha * 0.15})`;
+    ectx.fill();
+  }
+}
+
+let ambientRate = 0.3; // embers per frame
+
+function animateEmbers() {
+  ectx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ambient embers
+  if (Math.random() < ambientRate) {
+    const cx = canvas.width / 2;
+    embers.push(new Ember(cx + (Math.random() - 0.5) * 200, canvas.height * 0.6 + Math.random() * 40));
+  }
+
+  embers = embers.filter(e => e.life > 0);
+  embers.forEach(e => { e.update(); e.draw(); });
+
+  burstEmbers = burstEmbers.filter(e => e.life > 0);
+  burstEmbers.forEach(e => { e.update(); e.draw(); });
+
+  requestAnimationFrame(animateEmbers);
+}
+
+function burstEffect(count = 40) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.4;
+  for (let i = 0; i < count; i++) {
+    burstEmbers.push(new Ember(cx + (Math.random()-0.5)*60, cy + (Math.random()-0.5)*30, true));
+  }
+}
+
+function quenchEffect() {
+  // Blue/cool particles
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.4;
+  for (let i = 0; i < 30; i++) {
+    const e = new Ember(cx + (Math.random()-0.5)*80, cy, true);
+    e.brightness = 0.5;
+    // Override draw for blue
+    const origDraw = e.draw.bind(e);
+    e.draw = function() {
+      if (this.life <= 0) return;
+      const alpha = this.life * 0.8;
+      ectx.beginPath();
+      ectx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ectx.fillStyle = `rgba(100,180,255,${alpha})`;
+      ectx.fill();
+      ectx.beginPath();
+      ectx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+      ectx.fillStyle = `rgba(80,160,255,${alpha * 0.1})`;
+      ectx.fill();
+    };
+    burstEmbers.push(e);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  HABIT LOGIC
+// ═══════════════════════════════════════════
+function createHabit(name, item, tier, desc) {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name,
+    item,
+    tier, // bronze|silver|gold
+    desc: desc || '',
+    streak: 0,
+    bestStreak: 0,
+    totalStrikes: 0,
+    createdAt: todayStr(),
+    completions: {}, // { "2026-02-25": true }
+    quenched: false,
+    legendary: false,
+  };
+}
+
+function getStage(streak) {
+  let stage = STAGES[0];
+  for (const s of STAGES) {
+    if (streak >= s.min) stage = s;
+  }
+  return stage;
+}
+
+function getSelectedHabit() {
+  return state.habits.find(h => h.id === state.selectedId) || null;
+}
+
+// Check if a habit is completed today
+function isCompletedToday(h) {
+  return h.completions[todayStr()] === true;
+}
+
+// Check streak continuity — should be called on load
+function recalcStreak(h) {
+  const today = new Date();
+  let streak = 0;
+  // Count backwards from today (or yesterday if not completed today)
+  let d = new Date(today);
+  if (!h.completions[todayStr()]) {
+    d.setDate(d.getDate() - 1);
+  }
+  while (true) {
+    const ds = d.toISOString().slice(0,10);
+    if (h.completions[ds]) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  h.streak = streak;
+  if (streak > h.bestStreak) h.bestStreak = streak;
+  // Check if quenched (streak was broken recently)
+  if (!h.completions[todayStr()]) {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const ys = yesterday.toISOString().slice(0,10);
+    // If they had a streak going but missed yesterday
+    if (h.streak === 0 && h.totalStrikes > 0 && !h.completions[ys]) {
+      h.quenched = true;
+    }
+  }
+  // Check legendary
+  if (h.streak >= 30 && !h.legendary) {
+    h.legendary = true;
+    moveTo_armory(h);
+  }
+}
+
+function moveTo_armory(h) {
+  state.armory.push({
+    name: h.name,
+    item: h.item,
+    tier: h.tier,
+    completedAt: todayStr(),
+    streak: h.streak,
+  });
+  toast(`🏆 ${h.name} has become LEGENDARY!`, 'success');
+  playLegendary();
+}
+
+function bellowsStrike() {
+  const h = getSelectedHabit();
+  if (!h) return;
+  if (isCompletedToday(h)) return; // Already done
+
+  h.completions[todayStr()] = true;
+  h.totalStrikes++;
+  h.quenched = false;
+  recalcStreak(h);
+
+  // XP
+  state.forgeXP += TIER_XP[h.tier] || 1;
+  calcForgeLevel();
+
+  // Dragon
+  updateDragon();
+
+  saveState();
+  playStrike();
+  burstEffect(35 + h.streak * 2);
+
+  const itemEl = document.getElementById('currentItem');
+  itemEl.classList.add('striking');
+  setTimeout(() => itemEl.classList.remove('striking'), 200);
+
+  renderAll();
+
+  // Check for legendary
+  if (h.streak >= 30 && !h.legendary) {
+    h.legendary = true;
+    moveTo_armory(h);
+    saveState();
+    renderAll();
+  }
+}
+
+function calcForgeLevel() {
+  // Level = floor(sqrt(xp / 5)) + 1, max 99
+  state.forgeLevel = Math.min(99, Math.floor(Math.sqrt(state.forgeXP / 5)) + 1);
+}
+
+function updateDragon() {
+  const month = getMonthStr();
+  if (state.dragonMonth !== month) {
+    state.dragonMonth = month;
+    state.dragonPerfectDays = 0;
+  }
+  // Check if ALL habits are completed today
+  if (state.habits.length > 0 && state.habits.every(h => isCompletedToday(h))) {
+    // Mark today as perfect if not already counted
+    const key = '_dragon_' + todayStr();
+    if (!state[key]) {
+      state[key] = true;
+      state.dragonPerfectDays++;
+    }
+  }
+  // Check dragon defeated
+  if (state.dragonPerfectDays >= getDaysInMonth()) {
+    state.dragonsSlain++;
+    toast('🐉 Dragon SLAIN! You are legendary!', 'success');
+  }
+}
+
+// ═══════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════
+function renderAll() {
+  renderHabitList();
+  renderForge();
+  renderHeatmap();
+  renderStats();
+  renderDragon();
+  renderArmoryPanel();
+  renderWeeklyReport();
+  renderForgeLevel();
+}
+
+function renderHabitList() {
+  const list = document.getElementById('habitList');
+  if (state.habits.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx2);font-size:12px;">No habits yet</div>';
+    return;
+  }
+  list.innerHTML = state.habits.map(h => {
+    const stage = getStage(h.streak);
+    const done = isCompletedToday(h);
+    const sel = h.id === state.selectedId;
+    return `<div class="habitCard${sel?' selected':''}" onclick="selectHabit('${h.id}')" ondblclick="openEditHabit('${h.id}')">
+      <div class="hName">
+        <span class="itemIcon ${stage.cls}">${h.item}</span>
+        ${h.name}
+        ${h.legendary?'<span style="color:var(--legendary)">★</span>':''}
+      </div>
+      <div class="hSub">
+        <span class="tierBadge ${h.tier}">${TIER_NAMES[h.tier]}</span>
+        <span>${stage.name}</span>
+        <span class="hStreak ${h.streak>0?'hot':'cold'}">${done?'✅ ':''} ${h.streak}🔥</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderForge() {
+  const h = getSelectedHabit();
+  const noState = document.getElementById('noHabitState');
+  const active = document.getElementById('activeForge');
+
+  if (!h) {
+    noState.style.display = '';
+    active.style.display = 'none';
+    ambientRate = 0.1;
+    return;
+  }
+
+  noState.style.display = 'none';
+  active.style.display = '';
+
+  const stage = getStage(h.streak);
+  const done = isCompletedToday(h);
+
+  document.getElementById('currentItem').textContent = h.item;
+  document.getElementById('currentItem').className = stage.cls + (h.quenched ? ' quenched' : '');
+  document.getElementById('itemLabel').textContent = h.name;
+  document.getElementById('itemStage').textContent = stage.name + (h.legendary ? ' ★ LEGENDARY' : '');
+  document.getElementById('itemStage').style.color = h.legendary ? 'var(--legendary)' : 'var(--ember)';
+  document.getElementById('streakDisplay').textContent = h.streak;
+  document.getElementById('streakDisplay').style.color = h.quenched ? 'var(--cool)' : 'var(--ember)';
+
+  // Progress ring: 0-30 days
+  const pct = Math.min(1, h.streak / 30);
+  const circ = 213.6;
+  document.getElementById('progCircle').setAttribute('stroke-dashoffset', circ - circ * pct);
+  document.getElementById('progText').textContent = Math.round(pct * 100) + '%';
+
+  // Bellows button
+  const btn = document.getElementById('bellowsBtn');
+  if (done) {
+    btn.textContent = '✅ FORGED TODAY';
+    btn.className = 'done';
+    btn.setAttribute('id', 'bellowsBtn');
+  } else {
+    btn.textContent = '🔥 BELLOWS';
+    btn.className = '';
+    btn.setAttribute('id', 'bellowsBtn');
+  }
+
+  // Adjust ember rate based on streak
+  ambientRate = Math.min(0.8, 0.1 + h.streak * 0.02);
+}
+
+function renderHeatmap() {
+  const h = getSelectedHabit();
+  const grid = document.getElementById('heatmapGrid');
+  if (!h) { grid.innerHTML = ''; return; }
+
+  const today = new Date();
+  let html = '';
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    const done = h.completions[ds];
+    const isToday = i === 0;
+    let lvl = '';
+    if (done) {
+      // Count consecutive from this day backward to determine "heat"
+      let consecutive = 0;
+      const dd = new Date(d);
+      while (h.completions[dd.toISOString().slice(0,10)]) {
+        consecutive++;
+        dd.setDate(dd.getDate() - 1);
+      }
+      if (consecutive >= 25) lvl = 'l5';
+      else if (consecutive >= 18) lvl = 'l4';
+      else if (consecutive >= 12) lvl = 'l3';
+      else if (consecutive >= 6) lvl = 'l2';
+      else lvl = 'l1';
+    }
+    // Detect quench: day after a streak broke
+    const prevD = new Date(d);
+    prevD.setDate(prevD.getDate() - 1);
+    const prevDone = h.completions[prevD.toISOString().slice(0,10)];
+    const isQuench = !done && prevDone && i > 0;
+
+    html += `<div class="heatCell ${lvl}${isToday?' today':''}${isQuench?' quench':''}" title="${ds}${done?' ✅':''}${isQuench?' ❄️ Quenched':''}"></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function renderStats() {
+  const totalStrikes = state.habits.reduce((s,h) => s + h.totalStrikes, 0);
+  const bestStreak = state.habits.reduce((s,h) => Math.max(s, h.bestStreak), 0);
+
+  document.getElementById('sTotalStrikes').textContent = totalStrikes;
+  document.getElementById('sBestStreak').textContent = bestStreak;
+  document.getElementById('sHabitCount').textContent = state.habits.length;
+  document.getElementById('sLegendary').textContent = state.armory.length;
+
+  // Weekly consistency
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun
+  let total = 0, done = 0;
+  for (let i = 0; i <= dayOfWeek; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (dayOfWeek - i));
+    const ds = d.toISOString().slice(0,10);
+    state.habits.forEach(h => {
+      total++;
+      if (h.completions[ds]) done++;
+    });
+  }
+  const wk = total > 0 ? Math.round((done/total)*100) : 0;
+  document.getElementById('sWeekly').textContent = wk + '%';
+}
+
+function renderDragon() {
+  const month = getMonthStr();
+  if (state.dragonMonth !== month) {
+    state.dragonMonth = month;
+    state.dragonPerfectDays = 0;
+  }
+  const totalDays = getDaysInMonth();
+  const dmg = state.dragonPerfectDays;
+  const hpPct = Math.max(0, 100 - Math.round((dmg / totalDays) * 100));
+  document.getElementById('dragonHPFill').style.width = hpPct + '%';
+  document.getElementById('dragonHPVal').textContent = hpPct + '%';
+  document.getElementById('dragonDaysInfo').textContent = `${dmg}/${totalDays} perfect days this month`;
+  document.getElementById('dragonsSlain').textContent = state.dragonsSlain;
+
+  if (hpPct <= 0) {
+    document.getElementById('dragonEmoji').textContent = '💀';
+    document.getElementById('dragonStatus').innerHTML = '<span style="color:var(--hp-green);font-weight:700;">DRAGON SLAIN!</span>';
+  } else if (hpPct < 30) {
+    document.getElementById('dragonEmoji').textContent = '🐉';
+    document.getElementById('dragonStatus').innerHTML = '<span style="color:var(--ember);">The beast weakens!</span>';
+  } else {
+    document.getElementById('dragonEmoji').textContent = '🐉';
+    document.getElementById('dragonStatus').innerHTML = `<span style="color:var(--tx2);">Keep forging to slay the dragon.</span>`;
+  }
+}
+
+function renderArmoryPanel() {
+  const list = document.getElementById('armoryList');
+  if (state.armory.length === 0) {
+    list.innerHTML = '<div class="emptyState" style="height:auto;padding:20px;"><div class="emIcon" style="font-size:40px;">🗡️</div><p>No legendary items yet. Complete a 30-day streak to forge one!</p></div>';
+    return;
+  }
+  list.innerHTML = state.armory.map(a => `
+    <div class="armoryItem">
+      <div class="armIcon glow-legendary">${a.item}</div>
+      <div class="armInfo">
+        <div class="armName">${a.name}</div>
+        <div class="armDate">Forged: ${a.completedAt}</div>
+        <div class="armTier">${TIER_NAMES[a.tier]} tier · ${a.streak} day streak</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderWeeklyReport() {
+  const container = document.getElementById('weeklyReport');
+  if (state.habits.length === 0) {
+    container.innerHTML = '<div style="color:var(--tx2);font-size:12px;">No habits to report.</div>';
+    return;
+  }
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let html = '';
+  state.habits.forEach(h => {
+    let weekDone = 0;
+    let dayBars = '';
+    for (let i = 0; i <= 6; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (dayOfWeek - i));
+      const ds = d.toISOString().slice(0,10);
+      const done = h.completions[ds];
+      if (done) weekDone++;
+      const isFuture = i > dayOfWeek;
+      const color = done ? 'var(--ember)' : (isFuture ? 'var(--bg3)' : 'var(--hp-red)');
+      dayBars += `<div class="reportBar"><div class="rLabel">${days[i]}</div><div class="rTrack"><div class="rFill" style="width:${done||isFuture?'100':'100'}%;background:${color};"></div></div></div>`;
+    }
+    const pct = Math.round((weekDone / (dayOfWeek + 1)) * 100);
+    html += `<div class="reportSection">
+      <h4>${h.item} ${h.name} — <span style="color:var(--ember)">${pct}%</span></h4>
+      ${dayBars}
+      <div style="font-size:11px;color:var(--tx2);margin-top:4px;">${weekDone}/${dayOfWeek + 1} days · Streak: ${h.streak} · Best: ${h.bestStreak}</div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function renderForgeLevel() {
+  calcForgeLevel();
+  document.getElementById('forgeLvlNum').textContent = state.forgeLevel;
+  const nextLvlXP = Math.pow(state.forgeLevel, 2) * 5;
+  const prevLvlXP = Math.pow(state.forgeLevel - 1, 2) * 5;
+  const pct = Math.min(100, ((state.forgeXP - prevLvlXP) / (nextLvlXP - prevLvlXP)) * 100);
+  document.getElementById('forgeLvlFill').style.width = pct + '%';
+  document.getElementById('forgeLevelDetail').textContent = `XP: ${state.forgeXP} · Next level at ${nextLvlXP} XP`;
+}
+
+// ═══════════════════════════════════════════
+//  UI INTERACTIONS
+// ═══════════════════════════════════════════
+function selectHabit(id) {
+  state.selectedId = id;
+  const h = getSelectedHabit();
+  if (h) recalcStreak(h);
+  saveState();
+  renderAll();
+  playEmberSound();
+}
+
+let editingId = null;
+
+function openAddHabit() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '⚒️ Forge New Habit';
+  document.getElementById('mName').value = '';
+  document.getElementById('mItem').value = '⚔️';
+  document.getElementById('mTier').value = 'silver';
+  document.getElementById('mDesc').value = '';
+  document.getElementById('mDeleteBtn').style.display = 'none';
+  document.getElementById('habitModal').classList.add('show');
+}
+
+function openEditHabit(id) {
+  const h = state.habits.find(x => x.id === id);
+  if (!h) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '✏️ Edit Habit';
+  document.getElementById('mName').value = h.name;
+  document.getElementById('mItem').value = h.item;
+  document.getElementById('mTier').value = h.tier;
+  document.getElementById('mDesc').value = h.desc;
+  document.getElementById('mDeleteBtn').style.display = '';
+  document.getElementById('habitModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('habitModal').classList.remove('show');
+}
+
+function saveHabit() {
+  const name = document.getElementById('mName').value.trim();
+  if (!name) { toast('Give your habit a name!', 'error'); return; }
+  const item = document.getElementById('mItem').value;
+  const tier = document.getElementById('mTier').value;
+  const desc = document.getElementById('mDesc').value.trim();
+
+  if (editingId) {
+    const h = state.habits.find(x => x.id === editingId);
+    if (h) {
+      h.name = name;
+      h.item = item;
+      h.tier = tier;
+      h.desc = desc;
+      toast('Habit updated!', 'success');
+    }
+  } else {
+    const h = createHabit(name, item, tier, desc);
+    state.habits.push(h);
+    state.selectedId = h.id;
+    toast('New habit forged!', 'success');
+  }
+
+  saveState();
+  closeModal();
+  renderAll();
+}
+
+function deleteHabit() {
+  if (!editingId) return;
+  if (!confirm('Destroy this habit? This cannot be undone.')) return;
+  state.habits = state.habits.filter(h => h.id !== editingId);
+  if (state.selectedId === editingId) {
+    state.selectedId = state.habits.length > 0 ? state.habits[0].id : null;
+  }
+  saveState();
+  closeModal();
+  renderAll();
+  toast('Habit destroyed.', 'error');
+  playQuench();
+  quenchEffect();
+}
+
+function switchRTab(tab) {
+  document.querySelectorAll('.rTab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.rTabContent').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.rTab[onclick="switchRTab('${tab}')"]`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function openSmeltReport() {
+  const modal = document.getElementById('reportModal');
+  const content = document.getElementById('reportModalContent');
+
+  if (state.habits.length === 0) {
+    content.innerHTML = '<p style="color:var(--tx2);">No habits to report on yet.</p>';
+  } else {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let totalDone = 0, totalPossible = 0;
+
+    let html = '<div style="margin-bottom:16px;">';
+    state.habits.forEach(h => {
+      let weekDone = 0;
+      for (let i = 0; i <= dayOfWeek; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - (dayOfWeek - i));
+        const ds = d.toISOString().slice(0,10);
+        if (h.completions[ds]) weekDone++;
+      }
+      totalDone += weekDone;
+      totalPossible += dayOfWeek + 1;
+      const pct = Math.round((weekDone / (dayOfWeek + 1)) * 100);
+      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:20px;">${h.item}</span>
+        <span style="flex:1;font-weight:600;">${h.name}</span>
+        <span style="color:${pct>=80?'var(--hp-green)':pct>=50?'var(--ember)':'var(--hp-red)'};font-weight:700;">${pct}%</span>
+      </div>
+      <div style="height:6px;background:var(--bg3);border-radius:3px;margin-bottom:10px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--hp-green)':pct>=50?'var(--ember)':'var(--hp-red)'};border-radius:3px;"></div>
+      </div>`;
+    });
+    const overallPct = totalPossible > 0 ? Math.round((totalDone/totalPossible)*100) : 0;
+    html += `</div><div style="text-align:center;padding:12px;background:var(--bg3);border-radius:var(--radius);">
+      <div style="font-size:11px;color:var(--tx2);text-transform:uppercase;">Overall Consistency</div>
+      <div style="font-size:36px;font-weight:900;color:${overallPct>=80?'var(--hp-green)':overallPct>=50?'var(--ember)':'var(--hp-red)'}">${overallPct}%</div>
+      <div style="font-size:12px;color:var(--tx2);">Forge Level ${state.forgeLevel} · ${state.forgeXP} XP</div>
+    </div>`;
+    content.innerHTML = html;
+  }
+  modal.classList.add('show');
+}
+
+function closeReportModal() {
+  document.getElementById('reportModal').classList.remove('show');
+}
+
+function showArmory() {
+  switchRTab('armory');
+}
+
+function showGuild() {
+  const modal = document.getElementById('guildModal');
+  const members = document.getElementById('guildMembers');
+  // Simulate guild members
+  const guild = [
+    { name:'You', emoji:'🧑‍🔧', level:state.forgeLevel, habits:state.habits.length, streak:state.habits.reduce((s,h)=>Math.max(s,h.streak),0) },
+    { name:'IronWolf', emoji:'🐺', level:Math.floor(Math.random()*20)+1, habits:5, streak:Math.floor(Math.random()*30) },
+    { name:'BladeRunner', emoji:'🏃', level:Math.floor(Math.random()*15)+3, habits:3, streak:Math.floor(Math.random()*25) },
+    { name:'EmberQueen', emoji:'👑', level:Math.floor(Math.random()*25)+5, habits:7, streak:Math.floor(Math.random()*30) },
+    { name:'SteelHeart', emoji:'💪', level:Math.floor(Math.random()*18)+2, habits:4, streak:Math.floor(Math.random()*20) },
+  ];
+  members.innerHTML = guild.map(g => `
+    <div class="guildMember">
+      <div class="gAvatar">${g.emoji}</div>
+      <div style="flex:1;">
+        <div class="gName">${g.name}${g.name==='You'?' (you)':''}</div>
+        <div style="font-size:11px;color:var(--tx2);">${g.habits} habits · Best streak: ${g.streak}</div>
+      </div>
+      <div class="gForge">Lv.${g.level}</div>
+    </div>
+  `).join('');
+  modal.classList.add('show');
+}
+
+function closeGuildModal() {
+  document.getElementById('guildModal').classList.remove('show');
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `forgehabits-backup-${todayStr()}.json`;
+  a.click();
+  toast('Data exported!', 'success');
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (data.habits && Array.isArray(data.habits)) {
+        Object.assign(state, data);
+        state.habits.forEach(h => recalcStreak(h));
+        saveState();
+        renderAll();
+        toast('Data imported!', 'success');
+      } else {
+        toast('Invalid file format', 'error');
+      }
+    } catch(err) {
+      toast('Import failed: ' + err.message, 'error');
+    }
+  };
+  input.click();
+}
+
+function resetAll() {
+  if (!confirm('⚠️ This will destroy ALL forge data. Continue?')) return;
+  if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  state = {
+    habits: [],
+    selectedId: null,
+    armory: [],
+    forgeXP: 0,
+    forgeLevel: 1,
+    dragonsSlain: 0,
+    dragonMonth: null,
+    dragonPerfectDays: 0,
+  };
+  saveState();
+  renderAll();
+  toast('Forge has been reset.', 'error');
+  playQuench();
+  quenchEffect();
+}
+
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ═══════════════════════════════════════════
+//  DAILY STREAK CHECK — detect quench on load
+// ═══════════════════════════════════════════
+function dailyCheck() {
+  const today = todayStr();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ys = yesterday.toISOString().slice(0,10);
+
+  state.habits.forEach(h => {
+    // If yesterday wasn't completed and there was a streak, mark quench
+    if (!h.completions[today] && !h.completions[ys] && h.streak > 0) {
+      h.quenched = true;
+    }
+    recalcStreak(h);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeReportModal();
+    closeGuildModal();
+  }
+  if (e.key === ' ' && !e.target.closest('input,textarea,select')) {
+    e.preventDefault();
+    bellowsStrike();
+  }
+});
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+(async function init() {
+  await openDB();
+  const saved = await loadState();
+  if (saved) {
+    Object.assign(state, saved);
+  }
+
+  resizeCanvas();
+  animateEmbers();
+  dailyCheck();
+
+  if (state.habits.length > 0 && !state.selectedId) {
+    state.selectedId = state.habits[0].id;
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dyson Swarm Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        canvas {
+            display: block;
+            border: 1px solid #333;
+            background: radial-gradient(circle, #001122 0%, #000 70%);
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            margin: 10px 5px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255,107,53,0.4);
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(255,107,53,0.6);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="info">
+        <div>Collectors: <span id="count">0</span></div>
+        <div>Energy: <span id="energy">0</span> /s</div>
+        <button onclick="addCollectors(10)">Add 10</button>
+        <button onclick="addCollectors(100)">Add 100</button>
+        <button onclick="clearAll()">Clear</button>
+        <p>Click anywhere to add collectors!</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const countEl = document.getElementById('count');
+        const energyEl = document.getElementById('energy');
+
+        let collectors = [];
+        let centerX = 0;
+        let centerY = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let energyRate = 0;
+
+        // Resize canvas
+        function resize() {
+            canvas.width = window.innerWidth - 40;
+            canvas.height = window.innerHeight - 80;
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Collector class
+        class Collector {
+            constructor(x, y) {
+                this.angle = Math.random() * Math.PI * 2;
+                this.radius = 50 + Math.random() * 200;
+                this.orbitSpeed = 0.001 + Math.random() * 0.004;
+                this.glowSize = 2 + Math.random() * 3;
+                this.targetAngle = this.angle;
+                this.laserProgress = 0;
+                this.color = `hsl(${200 + Math.random() * 60}, 70%, ${50 + Math.random() * 20}%)`;
+            }
+
+            update() {
+                // Self-organize into rings
+                const targetRadius = 80 + (collectors.length * 0.8) % 300;
+                this.targetAngle += this.orbitSpeed * 0.5;
+                
+                // Smooth angle towards target (flocking-like)
+                const diff = this.targetAngle - this.angle;
+                this.angle += (diff > Math.PI ? diff - Math.PI * 2 : diff < -Math.PI ? diff + Math.PI * 2 : diff) * 0.02;
+                
+                this.radius += (targetRadius - this.radius) * 0.05;
+                
+                // Laser beam pulse
+                this.laserProgress += 0.1;
+                if (this.laserProgress > 1) this.laserProgress = 0;
+            }
+
+            draw() {
+                const x = centerX + Math.cos(this.angle) * this.radius;
+                const y = centerY + Math.sin(this.angle) * this.radius;
+
+                // Glow trail
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.glowSize * 8);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(0.6, `hsla(${this.color.slice(4, -1).replace('%)', ', 0.3)')}`);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, this.glowSize * 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core collector
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(x, y, this.glowSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Laser beam to center
+                const beamAlpha = this.laserProgress * 0.8;
+                ctx.strokeStyle = `rgba(255, 255, 200, ${beamAlpha})`;
+                ctx.lineWidth = 1 + beamAlpha * 2;
+                ctx.shadowColor = '#fff';
+                ctx.shadowBlur = 10;
+                ctx.lineDashOffset = -this.laserProgress * 20;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(centerX, centerY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Add collectors
+        function addCollectors(num = 1) {
+            for (let i = 0; i < num; i++) {
+                collectors.push(new Collector(mouseX, mouseY));
+            }
+            updateStats();
+        }
+
+        function clearAll() {
+            collectors = [];
+            updateStats();
+        }
+
+        function updateStats() {
+            countEl.textContent = collectors.length;
+            energyRate = collectors.length * 1.2;
+            energyEl.textContent = Math.floor(energyRate);
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('click', (e) => {
+            addCollectors(5);
+        });
+
+        // Animation loop
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 20, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Central star
+            const starGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 60);
+            starGradient.addColorStop(0, '#fff');
+            starGradient.addColorStop(0.3, '#ffdd00');
+            starGradient.addColorStop(0.7, '#ff8800');
+            starGradient.addColorStop(1, 'rgba(255, 136, 0, 0)');
+            ctx.fillStyle = starGradient;
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 40;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 60, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Update and draw collectors
+            collectors.forEach(c => {
+                c.update();
+                c.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        updateStats();
+        animate();
+    </script>
+</body>
+</html>

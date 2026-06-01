@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procrastination Topology - 3D Task Landscape</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 15px 40px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-info {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: absolute;
+            left: 20px;
+            top: 100px;
+            width: 340px;
+            max-height: calc(100vh - 140px);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .control-panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 6px 20px rgba(67, 233, 123, 0.6);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.4);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px rgba(250, 112, 154, 0.6);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        /* Task List */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .task-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .task-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-3px);
+        }
+
+        .task-item.valley {
+            border-left-color: #fa709a;
+            background: rgba(250, 112, 154, 0.1);
+        }
+
+        .task-item.peak {
+            border-left-color: #43e97b;
+            background: rgba(67, 233, 123, 0.1);
+        }
+
+        .task-item.climbing {
+            border-left-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .task-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .task-status {
+            font-size: 20px;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+        }
+
+        .task-progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .task-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #43e97b);
+            transition: width 0.3s;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .task-actions button {
+            flex: 1;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .task-actions button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-value.valley {
+            color: #fa709a;
+        }
+
+        .stat-value.peak {
+            color: #43e97b;
+        }
+
+        .stat-value.climbing {
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Modal */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(30px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 500px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+            font-size: 22px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .slider-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+        }
+
+        /* Legend */
+        .legend {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .legend-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 6px;
+        }
+
+        /* Toast */
+        .toast {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 15px 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid #43e97b;
+        }
+
+        .toast.warning {
+            border-left: 4px solid #fa709a;
+        }
+
+        .toast.info {
+            border-left: 4px solid #667eea;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            width: 280px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .right-panel h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .insight-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .insight-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #667eea;
+        }
+
+        .insight-text {
+            font-size: 12px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Scrollbar */
+        .control-panel::-webkit-scrollbar,
+        .task-list::-webkit-scrollbar,
+        .modal::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .control-panel::-webkit-scrollbar-track,
+        .task-list::-webkit-scrollbar-track,
+        .modal::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb,
+        .task-list::-webkit-scrollbar-thumb,
+        .modal::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="topoCanvas"></canvas>
+
+    <div class="ui-overlay">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏔️ Procrastination Topology</h1>
+            <div class="header-info">
+                Valleys = Procrastinated | Mountains = Completed
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>📋 Your Task Landscape</h2>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value valley" id="valleyCount">0</div>
+                    <div class="stat-label">🕳️ Valleys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value peak" id="peakCount">0</div>
+                    <div class="stat-label">⛰️ Peaks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value climbing" id="climbingCount">0</div>
+                    <div class="stat-label">🧗 Climbing</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgProgress">0%</div>
+                    <div class="stat-label">📊 Avg Progress</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="section">
+                <button class="btn" id="addTaskBtn">➕ Add Task</button>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-title">🗺️ Topology Guide</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to top, #fa709a, #1a1a3a);"></div>
+                    <span>Valley - Procrastinated (0% progress)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to top, #1a1a3a, #667eea);"></div>
+                    <span>Climbing - In Progress (1-99%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to top, #667eea, #43e97b);"></div>
+                    <span>Peak - Completed (100%)</span>
+                </div>
+            </div>
+
+            <!-- Task List -->
+            <div class="section">
+                <div class="section-title">📝 Tasks (<span id="taskCount">0</span>)</div>
+                <div class="task-list" id="taskList"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Insights -->
+        <div class="right-panel">
+            <h3>💡 Insights</h3>
+            
+            <div class="insight-card">
+                <div class="insight-title">Deepest Valley</div>
+                <div class="insight-text" id="deepestValley">No tasks yet</div>
+            </div>
+
+            <div class="insight-card">
+                <div class="insight-title">Highest Peak</div>
+                <div class="insight-text" id="highestPeak">No completed tasks</div>
+            </div>
+
+            <div class="insight-card">
+                <div class="insight-title">Recommendation</div>
+                <div class="insight-text" id="recommendation">Add tasks to get started!</div>
+            </div>
+
+            <div class="section" style="margin-top: 20px;">
+                <button class="btn btn-small" id="resetViewBtn">🎯 Reset View</button>
+            </div>
+        </div>
+
+        <!-- Add/Edit Task Modal -->
+        <div class="modal" id="taskModal">
+            <h2 id="taskModalTitle">➕ Add New Task</h2>
+            <form id="taskForm">
+                <div class="form-group">
+                    <label>Task Name</label>
+                    <input type="text" id="taskName" placeholder="What needs to be done?" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="taskDescription" placeholder="Add details about this task..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select id="taskPriority">
+                        <option value="low">🟢 Low</option>
+                        <option value="medium" selected>🟡 Medium</option>
+                        <option value="high">🔴 High</option>
+                        <option value="urgent">🚨 Urgent</option>
+                    </select>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Difficulty Level</span>
+                        <span class="slider-value" id="difficultyValue">5</span>
+                    </div>
+                    <input type="range" id="taskDifficulty" min="1" max="10" value="5">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Current Progress</span>
+                        <span class="slider-value" id="progressValue">0%</span>
+                    </div>
+                    <input type="range" id="taskProgress" min="0" max="100" value="0">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" id="cancelTaskBtn">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Task</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('topoCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // ==================== Task Class ====================
+        class Task {
+            constructor(id, name, description, priority, difficulty, progress) {
+                this.id = id;
+                this.name = name;
+                this.description = description;
+                this.priority = priority;
+                this.difficulty = difficulty;
+                this.progress = progress; // 0-100
+                this.createdAt = Date.now();
+                this.updatedAt = Date.now();
+                
+                // Position in landscape
+                this.x = (Math.random() - 0.5) * 800;
+                this.z = (Math.random() - 0.5) * 800;
+                
+                // Animation
+                this.animationPhase = Math.random() * Math.PI * 2;
+            }
+
+            getHeight() {
+                // Height based on progress
+                // 0% = deep valley (-difficulty * 30)
+                // 1-99% = climbing (proportional to progress and difficulty)
+                // 100% = peak (difficulty * 50)
+                
+                if (this.progress === 0) {
+                    return -this.difficulty * 30; // Valley depth
+                } else if (this.progress === 100) {
+                    return this.difficulty * 50; // Peak height
+                } else {
+                    // Climbing: interpolate from valley to peak
+                    const valleyDepth = -this.difficulty * 30;
+                    const peakHeight = this.difficulty * 50;
+                    return valleyDepth + (peakHeight - valleyDepth) * (this.progress / 100);
+                }
+            }
+
+            getColor() {
+                if (this.progress === 0) {
+                    // Valley - red/pink
+                    return { r: 250, g: 112, b: 154 };
+                } else if (this.progress === 100) {
+                    // Peak - green
+                    return { r: 67, g: 233, b: 123 };
+                } else {
+                    // Climbing - blue/purple gradient
+                    const t = this.progress / 100;
+                    return {
+                        r: Math.round(102 + (67 - 102) * t),
+                        g: Math.round(126 + (233 - 126) * t),
+                        b: Math.round(234 + (123 - 234) * t)
+                    };
+                }
+            }
+
+            getStatus() {
+                if (this.progress === 0) return 'valley';
+                if (this.progress === 100) return 'peak';
+                return 'climbing';
+            }
+
+            getStatusEmoji() {
+                if (this.progress === 0) return '🕳️';
+                if (this.progress === 100) return '⛰️';
+                return '🧗';
+            }
+        }
+
+        // ==================== Application State ====================
+        const state = {
+            tasks: [],
+            selectedTask: null,
+            nextTaskId: 1,
+            camera: {
+                x: 0,
+                y: 300,
+                z: 600,
+                rotationX: -0.5,
+                rotationY: 0,
+                targetRotationX: -0.5,
+                targetRotationY: 0
+            },
+            mouse: {
+                x: 0,
+                y: 0,
+                isDragging: false,
+                lastX: 0,
+                lastY: 0
+            },
+            time: 0
+        };
+
+        // ==================== 3D Math ====================
+        function rotateX(x, y, z, angle) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return {
+                x: x,
+                y: y * cos - z * sin,
+                z: y * sin + z * cos
+            };
+        }
+
+        function rotateY(x, y, z, angle) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return {
+                x: x * cos + z * sin,
+                y: y,
+                z: -x * sin + z * cos
+            };
+        }
+
+        function project3D(x, y, z) {
+            const scale = state.camera.z / (state.camera.z + z);
+            return {
+                x: x * scale + width / 2,
+                y: y * scale + height / 2,
+                scale: scale
+            };
+        }
+
+        // ==================== Terrain Generation ====================
+        function getTerrainHeight(x, z) {
+            let height = 0;
+            
+            // Each task creates a terrain feature
+            state.tasks.forEach(task => {
+                const dx = x - task.x;
+                const dz = z - task.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                
+                // Gaussian influence
+                const radius = task.difficulty * 20 + 50;
+                const influence = Math.exp(-(distance * distance) / (2 * radius * radius));
+                
+                height += task.getHeight() * influence;
+            });
+            
+            return height;
+        }
+
+        // ==================== Rendering ====================
+        function drawTerrain() {
+            const gridSize = 40;
+            const gridSpacing = 40;
+            const startX = -gridSize * gridSpacing / 2;
+            const startZ = -gridSize * gridSpacing / 2;
+            
+            // Create mesh points
+            const points = [];
+            for (let iz = 0; iz < gridSize; iz++) {
+                for (let ix = 0; ix < gridSize; ix++) {
+                    const x = startX + ix * gridSpacing;
+                    const z = startZ + iz * gridSpacing;
+                    const y = getTerrainHeight(x, z);
+                    
+                    // Rotate point
+                    let rotated = rotateY(x, y, z, state.camera.rotationY);
+                    rotated = rotateX(rotated.x, rotated.y, rotated.z, state.camera.rotationX);
+                    
+                    const projected = project3D(rotated.x, rotated.y, rotated.z);
+                    
+                    points.push({
+                        ix, iz,
+                        x: projected.x,
+                        y: projected.y,
+                        z: rotated.z,
+                        height: y,
+                        worldX: x,
+                        worldZ: z
+                    });
+                }
+            }
+            
+            // Sort by depth
+            const polygons = [];
+            for (let iz = 0; iz < gridSize - 1; iz++) {
+                for (let ix = 0; ix < gridSize - 1; ix++) {
+                    const i1 = iz * gridSize + ix;
+                    const i2 = iz * gridSize + ix + 1;
+                    const i3 = (iz + 1) * gridSize + ix + 1;
+                    const i4 = (iz + 1) * gridSize + ix;
+                    
+                    const avgZ = (points[i1].z + points[i2].z + points[i3].z + points[i4].z) / 4;
+                    const avgHeight = (points[i1].height + points[i2].height + points[i3].height + points[i4].height) / 4;
+                    
+                    polygons.push({
+                        points: [points[i1], points[i2], points[i3], points[i4]],
+                        avgZ: avgZ,
+                        avgHeight: avgHeight
+                    });
+                }
+            }
+            
+            // Sort back to front
+            polygons.sort((a, b) => a.avgZ - b.avgZ);
+            
+            // Draw polygons
+            polygons.forEach(poly => {
+                const height = poly.avgHeight;
+                
+                // Color based on height
+                let color;
+                if (height < -100) {
+                    // Deep valley - dark red
+                    const t = Math.max(0, Math.min(1, (height + 300) / 200));
+                    color = {
+                        r: Math.round(100 + 150 * t),
+                        g: Math.round(20 + 92 * t),
+                        b: Math.round(50 + 104 * t)
+                    };
+                } else if (height < 0) {
+                    // Shallow valley - red to dark blue
+                    const t = (height + 100) / 100;
+                    color = {
+                        r: Math.round(250 - 150 * t),
+                        g: Math.round(112 - 92 * t),
+                        b: Math.round(154 - 104 * t)
+                    };
+                } else if (height < 100) {
+                    // Climbing - dark blue to blue
+                    const t = height / 100;
+                    color = {
+                        r: Math.round(26 + 76 * t),
+                        g: Math.round(20 + 106 * t),
+                        b: Math.round(50 + 184 * t)
+                    };
+                } else {
+                    // Peak - blue to green
+                    const t = Math.min(1, (height - 100) / 200);
+                    color = {
+                        r: Math.round(102 - 35 * t),
+                        g: Math.round(126 + 107 * t),
+                        b: Math.round(234 - 111 * t)
+                    };
+                }
+                
+                // Draw polygon
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.1)`;
+                ctx.lineWidth = 0.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(poly.points[0].x, poly.points[0].y);
+                poly.points.forEach((p, i) => {
+                    if (i > 0) ctx.lineTo(p.x, p.y);
+                });
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function drawTaskMarkers() {
+            // Draw task markers
+            state.tasks.forEach(task => {
+                const x = task.x;
+                const z = task.z;
+                const y = task.getHeight();
+                
+                // Add floating animation
+                const floatOffset = Math.sin(state.time * 0.002 + task.animationPhase) * 10;
+                const markerY = y + floatOffset + 50;
+                
+                // Rotate and project
+                let rotated = rotateY(x, markerY, z, state.camera.rotationY);
+                rotated = rotateX(rotated.x, rotated.y, rotated.z, state.camera.rotationX);
+                
+                const projected = project3D(rotated.x, rotated.y, rotated.z);
+                
+                if (projected.scale < 0.1) return;
+                
+                const size = 15 * projected.scale;
+                const color = task.getColor();
+                
+                // Glow
+                const gradient = ctx.createRadialGradient(
+                    projected.x, projected.y, 0,
+                    projected.x, projected.y, size * 3
+                );
+                gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`);
+                gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+                gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(projected.x, projected.y, size * 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Marker
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.beginPath();
+                ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Border
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Label
+                if (projected.scale > 0.4) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = `bold ${Math.max(10, 12 * projected.scale)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    
+                    // Text shadow
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(task.name, projected.x, projected.y - size - 10);
+                    ctx.shadowBlur = 0;
+                    
+                    // Progress badge
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillRect(projected.x - 20, projected.y + size + 5, 40, 18);
+                    ctx.fillStyle = 'white';
+                    ctx.font = `bold ${Math.max(9, 10 * projected.scale)}px Arial`;
+                    ctx.fillText(`${task.progress}%`, projected.x, projected.y + size + 18);
+                }
+            });
+        }
+
+        function render() {
+            // Clear
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#0f0c29');
+            gradient.addColorStop(0.5, '#302b63');
+            gradient.addColorStop(1, '#24243e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Update camera
+            state.camera.rotationX += (state.camera.targetRotationX - state.camera.rotationX) * 0.1;
+            state.camera.rotationY += (state.camera.targetRotationY - state.camera.rotationY) * 0.1;
+            
+            // Draw scene
+            drawTerrain();
+            drawTaskMarkers();
+            
+            state.time++;
+            requestAnimationFrame(render);
+        }
+
+        // ==================== UI Functions ====================
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        function updateStats() {
+            const valleys = state.tasks.filter(t => t.progress === 0).length;
+            const peaks = state.tasks.filter(t => t.progress === 100).length;
+            const climbing = state.tasks.filter(t => t.progress > 0 && t.progress < 100).length;
+            const avgProgress = state.tasks.length > 0 
+                ? Math.round(state.tasks.reduce((sum, t) => sum + t.progress, 0) / state.tasks.length)
+                : 0;
+            
+            document.getElementById('valleyCount').textContent = valleys;
+            document.getElementById('peakCount').textContent = peaks;
+            document.getElementById('climbingCount').textContent = climbing;
+            document.getElementById('avgProgress').textContent = avgProgress + '%';
+            document.getElementById('taskCount').textContent = state.tasks.length;
+        }
+
+        function updateInsights() {
+            // Deepest valley
+            const valleys = state.tasks.filter(t => t.progress === 0);
+            if (valleys.length > 0) {
+                const deepest = valleys.reduce((prev, curr) => 
+                    curr.getHeight() < prev.getHeight() ? curr : prev
+                );
+                document.getElementById('deepestValley').textContent = 
+                    `"${deepest.name}" - Priority: ${deepest.priority.toUpperCase()}`;
+            } else {
+                document.getElementById('deepestValley').textContent = 'No procrastinated tasks! 🎉';
+            }
+            
+            // Highest peak
+            const peaks = state.tasks.filter(t => t.progress === 100);
+            if (peaks.length > 0) {
+                const highest = peaks.reduce((prev, curr) => 
+                    curr.getHeight() > prev.getHeight() ? curr : prev
+                );
+                document.getElementById('highestPeak').textContent = 
+                    `"${highest.name}" - Difficulty: ${highest.difficulty}/10`;
+            } else {
+                document.getElementById('highestPeak').textContent = 'Complete your first task!';
+            }
+            
+            // Recommendation
+            let recommendation = 'Add tasks to get started!';
+            if (valleys.length > 0) {
+                const urgent = valleys.filter(t => t.priority === 'urgent');
+                const high = valleys.filter(t => t.priority === 'high');
+                
+                if (urgent.length > 0) {
+                    recommendation = `🚨 ${urgent.length} urgent task(s) need immediate attention!`;
+                } else if (high.length > 0) {
+                    recommendation = `🔴 Start with ${high.length} high-priority task(s) in valleys.`;
+                } else {
+                    const easiest = valleys.reduce((prev, curr) => 
+                        curr.difficulty < prev.difficulty ? curr : prev
+                    );
+                    recommendation = `💡 Try "${easiest.name}" - it's the easiest valley to climb!`;
+                }
+            } else if (state.tasks.length > 0 && state.tasks.every(t => t.progress === 100)) {
+                recommendation = '🎉 Amazing! All tasks completed! Add more challenges!';
+            } else if (state.tasks.filter(t => t.progress > 0 && t.progress < 100).length > 0) {
+                recommendation = '🧗 Keep climbing! You\'re making progress on multiple tasks!';
+            }
+            
+            document.getElementById('recommendation').textContent = recommendation;
+        }
+
+        function renderTaskList() {
+            const taskList = document.getElementById('taskList');
+            
+            if (state.tasks.length === 0) {
+                taskList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🏔️</div>
+                        <div>No tasks yet.<br>Add your first task to create the landscape!</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by priority and progress
+            const sorted = [...state.tasks].sort((a, b) => {
+                const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+                const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+                if (priorityDiff !== 0) return priorityDiff;
+                return a.progress - b.progress;
+            });
+            
+            taskList.innerHTML = sorted.map(task => `
+                <div class="task-item ${task.getStatus()}" data-id="${task.id}">
+                    <div class="task-header">
+                        <div class="task-title">${task.name}</div>
+                        <div class="task-status">${task.getStatusEmoji()}</div>
+                    </div>
+                    <div class="task-meta">
+                        <span>Priority: ${task.priority.toUpperCase()}</span>
+                        <span>Difficulty: ${task.difficulty}/10</span>
+                    </div>
+                    <div class="task-progress-bar">
+                        <div class="task-progress-fill" style="width: ${task.progress}%"></div>
+                    </div>
+                    <div class="task-actions">
+                        <button onclick="makeProgress(${task.id})">+10% Progress</button>
+                        <button onclick="editTask(${task.id})">✏️ Edit</button>
+                        <button onclick="deleteTask(${task.id})">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==================== CRUD Operations ====================
+        function addTask(name, description, priority, difficulty, progress) {
+            const task = new Task(state.nextTaskId++, name, description, priority, difficulty, progress);
+            state.tasks.push(task);
+            
+            updateStats();
+            updateInsights();
+            renderTaskList();
+            
+            showToast(`✨ Task "${name}" added to the landscape!`, 'success');
+        }
+
+        function editTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            document.getElementById('taskModalTitle').textContent = '✏️ Edit Task';
+            document.getElementById('taskName').value = task.name;
+            document.getElementById('taskDescription').value = task.description;
+            document.getElementById('taskPriority').value = task.priority;
+            document.getElementById('taskDifficulty').value = task.difficulty;
+            document.getElementById('taskProgress').value = task.progress;
+            
+            document.getElementById('difficultyValue').textContent = task.difficulty;
+            document.getElementById('progressValue').textContent = task.progress + '%';
+            
+            document.getElementById('taskForm').dataset.editId = id;
+            showModal('taskModal');
+        }
+
+        function updateTask(id, name, description, priority, difficulty, progress) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            task.name = name;
+            task.description = description;
+            task.priority = priority;
+            task.difficulty = difficulty;
+            task.progress = progress;
+            task.updatedAt = Date.now();
+            
+            updateStats();
+            updateInsights();
+            renderTaskList();
+            
+            showToast(`✏️ Task "${name}" updated!`, 'success');
+        }
+
+        function deleteTask(id) {
+            if (!confirm('Delete this task from the landscape?')) return;
+            
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            
+            updateStats();
+            updateInsights();
+            renderTaskList();
+            
+            showToast(`🗑️ Task deleted`, 'info');
+        }
+
+        function makeProgress(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            if (task.progress >= 100) {
+                showToast('🎉 Task already completed!', 'success');
+                return;
+            }
+            
+            task.progress = Math.min(100, task.progress + 10);
+            task.updatedAt = Date.now();
+            
+            updateStats();
+            updateInsights();
+            renderTaskList();
+            
+            if (task.progress === 100) {
+                showToast(`🎉 Congrats! "${task.name}" reached the peak!`, 'success');
+            } else {
+                showToast(`🧗 Progress! "${task.name}" is now at ${task.progress}%`, 'info');
+            }
+        }
+
+        // ==================== Event Handlers ====================
+        // Canvas mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            state.mouse.isDragging = true;
+            state.mouse.lastX = e.clientX;
+            state.mouse.lastY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (state.mouse.isDragging) {
+                const deltaX = e.clientX - state.mouse.lastX;
+                const deltaY = e.clientY - state.mouse.lastY;
+                
+                state.camera.targetRotationY += deltaX * 0.005;
+                state.camera.targetRotationX += deltaY * 0.005;
+                
+                // Clamp rotation
+                state.camera.targetRotationX = Math.max(-Math.PI / 2, Math.min(0, state.camera.targetRotationX));
+                
+                state.mouse.lastX = e.clientX;
+                state.mouse.lastY = e.clientY;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            state.mouse.isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            state.camera.z += e.deltaY * 0.5;
+            state.camera.z = Math.max(300, Math.min(1200, state.camera.z));
+        });
+
+        // UI Events
+        document.getElementById('addTaskBtn').addEventListener('click', () => {
+            document.getElementById('taskModalTitle').textContent = '➕ Add New Task';
+            document.getElementById('taskForm').reset();
+            delete document.getElementById('taskForm').dataset.editId;
+            document.getElementById('difficultyValue').textContent = '5';
+            document.getElementById('progressValue').textContent = '0%';
+            showModal('taskModal');
+        });
+
+        document.getElementById('taskForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('taskName').value;
+            const description = document.getElementById('taskDescription').value;
+            const priority = document.getElementById('taskPriority').value;
+            const difficulty = parseInt(document.getElementById('taskDifficulty').value);
+            const progress = parseInt(document.getElementById('taskProgress').value);
+            
+            const editId = document.getElementById('taskForm').dataset.editId;
+            
+            if (editId) {
+                updateTask(parseInt(editId), name, description, priority, difficulty, progress);
+            } else {
+                addTask(name, description, priority, difficulty, progress);
+            }
+            
+            hideModal('taskModal');
+        });
+
+        document.getElementById('cancelTaskBtn').addEventListener('click', () => {
+            hideModal('taskModal');
+        });
+
+        document.getElementById('taskDifficulty').addEventListener('input', (e) => {
+            document.getElementById('difficultyValue').textContent = e.target.value;
+        });
+
+        document.getElementById('taskProgress').addEventListener('input', (e) => {
+            document.getElementById('progressValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('resetViewBtn').addEventListener('click', () => {
+            state.camera.targetRotationX = -0.5;
+            state.camera.targetRotationY = 0;
+            state.camera.z = 600;
+            showToast('🎯 View reset', 'info');
+        });
+
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        });
+
+        // ==================== Initialization ====================
+        function init() {
+            updateStats();
+            updateInsights();
+            renderTaskList();
+            
+            // Add sample tasks
+            if (state.tasks.length === 0) {
+                addTask('Write Weekly Report', 'Summarize this week\'s accomplishments', 'high', 3, 0);
+                addTask('Learn React Hooks', 'Complete tutorial and build demo project', 'medium', 7, 30);
+                addTask('Reply to Emails', 'Clear inbox and respond to pending messages', 'urgent', 2, 0);
+                addTask('Gym Session', 'Complete full body workout routine', 'medium', 5, 60);
+                addTask('Read 50 Pages', 'Continue reading current book', 'low', 2, 100);
+            }
+            
+            render();
+        }
+
+        init();
+    </script>
+</body>
+</html>

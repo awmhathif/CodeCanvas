@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Visualization Creator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .main-canvas {
+            flex: 1;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-group h3 {
+            margin-bottom: 10px;
+            color: #4fc3f7;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button.active {
+            background: linear-gradient(45deg, #ff6b6b, #ffa500);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 2px;
+        }
+
+        .record-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .record-btn {
+            background: #ff4757;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .record-btn.recording {
+            background: #2ed573;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>🎨 Visual Creator</h2>
+            
+            <div class="control-group">
+                <h3>🎭 Visual Presets</h3>
+                <div class="preset-grid">
+                    <button onclick="loadPreset('spiral')">Spiral</button>
+                    <button onclick="loadPreset('particles')">Particles</button>
+                    <button onclick="loadPreset('waves')">Waves</button>
+                    <button onclick="loadPreset('fractals')">Fractals</button>
+                    <button onclick="loadPreset('galaxy')">Galaxy</button>
+                    <button onclick="loadPreset('aurora')">Aurora</button>
+                    <button onclick="loadPreset('plasma')">Plasma</button>
+                    <button onclick="loadPreset('matrix')">Matrix</button>
+                    <button onclick="loadPreset('geometric')">Geometric</button>
+                    <button onclick="loadPreset('organic')">Organic</button>
+                    <button onclick="loadPreset('cyberpunk')">Cyberpunk</button>
+                    <button onclick="loadPreset('peaceful')">Peaceful</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>🎨 Colors</h3>
+                <input type="color" id="color1" value="#ff6b6b" onchange="updateColors()">
+                <input type="color" id="color2" value="#4ecdc4" onchange="updateColors()">
+                <input type="color" id="color3" value="#45b7d1" onchange="updateColors()">
+                <input type="color" id="color4" value="#f9ca24" onchange="updateColors()">
+                <input type="color" id="color5" value="#6c5ce7" onchange="updateColors()">
+                <input type="color" id="color6" value="#fd79a8" onchange="updateColors()">
+                <br>
+                <button onclick="randomColors()">Random Colors</button>
+                <button onclick="loadColorScheme('neon')">Neon</button>
+                <button onclick="loadColorScheme('pastel')">Pastel</button>
+            </div>
+
+            <div class="control-group">
+                <h3>⚙️ Animation</h3>
+                <label>Speed: <input type="range" id="speed" min="0.1" max="5" value="1" step="0.1" oninput="updateSpeed()"></label>
+                <label>Size: <input type="range" id="size" min="0.1" max="3" value="1" step="0.1" oninput="updateSize()"></label>
+                <label>Complexity: <input type="range" id="complexity" min="1" max="10" value="5" oninput="updateComplexity()"></label>
+                <button onclick="toggleAnimation()" id="animBtn">Pause</button>
+                <button onclick="resetAnimation()">Reset</button>
+            </div>
+
+            <div class="control-group">
+                <h3>✨ Effects</h3>
+                <button onclick="toggleEffect('glow')" id="glowBtn">Glow</button>
+                <button onclick="toggleEffect('blur')" id="blurBtn">Blur</button>
+                <button onclick="toggleEffect('3d')" id="3dBtn">3D Mode</button>
+                <button onclick="toggleEffect('trails')" id="trailsBtn">Trails</button>
+                <button onclick="toggleEffect('mirror')" id="mirrorBtn">Mirror</button>
+                <button onclick="toggleEffect('kaleidoscope')" id="kaleidoscopeBtn">Kaleidoscope</button>
+            </div>
+
+            <div class="control-group">
+                <h3>🔊 Audio</h3>
+                <div class="audio-controls">
+                    <button onclick="toggleAudio()" id="audioBtn">Enable Audio</button>
+                    <button onclick="loadAudioPreset('peaceful')">Peaceful</button>
+                    <button onclick="loadAudioPreset('electronic')">Electronic</button>
+                    <button onclick="loadAudioPreset('nature')">Nature</button>
+                </div>
+                <label>Volume: <input type="range" id="volume" min="0" max="1" value="0.5" step="0.1" oninput="updateVolume()"></label>
+            </div>
+
+            <div class="control-group">
+                <h3>🎬 Recording</h3>
+                <button onclick="startRecording()" id="recordBtn">Start Recording</button>
+                <button onclick="stopRecording()" id="stopBtn" disabled>Stop Recording</button>
+                <button onclick="downloadRecording()" id="downloadBtn" disabled>Download MP4</button>
+            </div>
+
+            <div class="control-group">
+                <h3>💾 Save/Load</h3>
+                <button onclick="savePreset()">Save Current</button>
+                <button onclick="loadSavedPreset()">Load Saved</button>
+                <button onclick="exportImage()">Export Image</button>
+                <button onclick="fullscreen()">Fullscreen</button>
+            </div>
+        </div>
+
+        <div class="main-canvas">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <div class="status" id="status">Ready to create amazing visuals!</div>
+
+    <script>
+        // Global variables
+        let canvas, ctx, animationId;
+        let isAnimating = true;
+        let currentPreset = 'spiral';
+        let effects = {
+            glow: false,
+            blur: false,
+            '3d': false,
+            trails: false,
+            mirror: false,
+            kaleidoscope: false
+        };
+        let colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#fd79a8'];
+        let animationSpeed = 1;
+        let animationSize = 1;
+        let complexity = 5;
+        let time = 0;
+        let particles = [];
+        let audioContext, audioEnabled = false;
+        let mediaRecorder, recordedChunks = [];
+        let isRecording = false;
+
+        // Initialize
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            canvas.addEventListener('click', addInteraction);
+            initAudio();
+            animate();
+            updateStatus('Visualization creator loaded successfully!');
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        function addInteraction(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1,
+                    decay: 0.02
+                });
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isAnimating) return;
+            
+            time += 0.016 * animationSpeed;
+            
+            if (effects.trails) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Apply effects
+            if (effects.glow) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = colors[0];
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            if (effects.blur) {
+                ctx.filter = 'blur(2px)';
+            } else {
+                ctx.filter = 'none';
+            }
+
+            // Draw current preset
+            drawPreset();
+
+            // Draw particles
+            drawParticles();
+
+            // Apply mirror effect
+            if (effects.mirror) {
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-canvas.width, 0);
+                ctx.globalAlpha = 0.5;
+                drawPreset();
+                ctx.restore();
+            }
+
+            // Apply kaleidoscope effect
+            if (effects.kaleidoscope) {
+                applyKaleidoscope();
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function drawPreset() {
+            switch(currentPreset) {
+                case 'spiral':
+                    drawSpiral();
+                    break;
+                case 'particles':
+                    drawParticleSystem();
+                    break;
+                case 'waves':
+                    drawWaves();
+                    break;
+                case 'fractals':
+                    drawFractals();
+                    break;
+                case 'galaxy':
+                    drawGalaxy();
+                    break;
+                case 'aurora':
+                    drawAurora();
+                    break;
+                case 'plasma':
+                    drawPlasma();
+                    break;
+                case 'matrix':
+                    drawMatrix();
+                    break;
+                case 'geometric':
+                    drawGeometric();
+                    break;
+                case 'organic':
+                    drawOrganic();
+                    break;
+                case 'cyberpunk':
+                    drawCyberpunk();
+                    break;
+                case 'peaceful':
+                    drawPeaceful();
+                    break;
+            }
+        }
+
+        function drawSpiral() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < complexity * 50; i++) {
+                const angle = i * 0.1 + time;
+                const radius = i * animationSize;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.beginPath();
+                ctx.arc(x, y, 3 * animationSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawParticleSystem() {
+            for (let i = 0; i < complexity * 20; i++) {
+                const x = canvas.width / 2 + Math.cos(time + i) * (100 + i * 5) * animationSize;
+                const y = canvas.height / 2 + Math.sin(time + i) * (100 + i * 5) * animationSize;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.arc(x, y, 2 * animationSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawWaves() {
+            ctx.strokeStyle = colors[0];
+            ctx.lineWidth = 2 * animationSize;
+            
+            for (let wave = 0; wave < complexity; wave++) {
+                ctx.beginPath();
+                for (let x = 0; x < canvas.width; x += 2) {
+                    const y = canvas.height / 2 + Math.sin(x * 0.01 + time + wave) * (50 + wave * 20) * animationSize;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = colors[wave % colors.length];
+                ctx.stroke();
+            }
+        }
+
+        function drawFractals() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            function drawBranch(x, y, length, angle, depth) {
+                if (depth === 0) return;
+                
+                const endX = x + Math.cos(angle) * length;
+                const endY = y + Math.sin(angle) * length;
+                
+                ctx.strokeStyle = colors[depth % colors.length];
+                ctx.lineWidth = depth * animationSize;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+                
+                drawBranch(endX, endY, length * 0.7, angle + 0.5 + Math.sin(time), depth - 1);
+                drawBranch(endX, endY, length * 0.7, angle - 0.5 - Math.sin(time), depth - 1);
+            }
+            
+            drawBranch(centerX, centerY, 100 * animationSize, -Math.PI / 2, Math.min(complexity, 8));
+        }
+
+        function drawGalaxy() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < complexity * 100; i++) {
+                const angle = i * 0.1 + time * 0.5;
+                const radius = Math.sqrt(i) * 10 * animationSize;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.globalAlpha = 1 - (radius / (canvas.width / 2));
+                ctx.beginPath();
+                ctx.arc(x, y, Math.random() * 2 * animationSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawAurora() {
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            colors.forEach((color, i) => {
+                gradient.addColorStop(i / colors.length, color);
+            });
+            
+            ctx.fillStyle = gradient;
+            
+            for (let x = 0; x < canvas.width; x += 10) {
+                const height = Math.sin(x * 0.01 + time) * 200 * animationSize + canvas.height / 2;
+                ctx.fillRect(x, height, 10, canvas.height - height);
+            }
+        }
+
+        function drawPlasma() {
+            const imageData = ctx.createImageData(canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            for (let x = 0; x < canvas.width; x++) {
+                for (let y = 0; y < canvas.height; y++) {
+                    const value = Math.sin(x * 0.01 + time) + Math.sin(y * 0.01 + time) + 
+                                 Math.sin((x + y) * 0.01 + time) + Math.sin(Math.sqrt(x * x + y * y) * 0.01 + time);
+                    
+                    const colorIndex = Math.floor((value + 4) / 8 * colors.length);
+                    const color = colors[Math.max(0, Math.min(colorIndex, colors.length - 1))];
+                    
+                    const index = (y * canvas.width + x) * 4;
+                    const rgb = hexToRgb(color);
+                    data[index] = rgb.r;
+                    data[index + 1] = rgb.g;
+                    data[index + 2] = rgb.b;
+                    data[index + 3] = 255;
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = colors[0];
+            ctx.font = `${16 * animationSize}px monospace`;
+            
+            for (let x = 0; x < canvas.width; x += 20) {
+                const char = String.fromCharCode(Math.random() * 128);
+                const y = (time * 100 + x) % canvas.height;
+                ctx.fillText(char, x, y);
+            }
+        }
+
+        function drawGeometric() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < complexity * 5; i++) {
+                const sides = 3 + i % 6;
+                const radius = 50 + i * 20 * animationSize;
+                const rotation = time + i;
+                
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.lineWidth = 2 * animationSize;
+                ctx.beginPath();
+                
+                for (let j = 0; j <= sides; j++) {
+                    const angle = (j / sides) * Math.PI * 2 + rotation;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                
+                ctx.stroke();
+            }
+        }
+
+        function drawOrganic() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < complexity * 10; i++) {
+                const angle = i * 0.1 + time;
+                const radius = Math.sin(i * 0.1 + time) * 100 * animationSize + 150;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(x, y, Math.sin(time + i) * 10 + 15, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCyberpunk() {
+            // Grid background
+            ctx.strokeStyle = colors[0];
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.3;
+            
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            ctx.globalAlpha = 1;
+            
+            // Glowing elements
+            for (let i = 0; i < complexity * 3; i++) {
+                const x = Math.sin(time + i) * 200 + canvas.width / 2;
+                const y = Math.cos(time + i * 0.7) * 150 + canvas.height / 2;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = colors[i % colors.length];
+                ctx.fillRect(x, y, 10 * animationSize, 10 * animationSize);
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function drawPeaceful() {
+            // Soft gradient background
+            const gradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2);
+            gradient.addColorStop(0, 'rgba(135, 206, 235, 0.3)');
+            gradient.addColorStop(1, 'rgba(25, 25, 112, 0.1)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Gentle floating circles
+            for (let i = 0; i < complexity * 2; i++) {
+                const x = Math.sin(time * 0.5 + i) * 100 + canvas.width / 2;
+                const y = Math.cos(time * 0.3 + i) * 80 + canvas.height / 2;
+                const radius = Math.sin(time + i) * 20 + 30;
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(x, y, radius * animationSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawParticles() {
+            particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= particle.decay;
+                
+                if (particle.life <= 0) {
+                    particles.splice(index, 1);
+                    return;
+                }
+                
+                ctx.fillStyle = colors[0];
+                ctx.globalAlpha = particle.life;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        function applyKaleidoscope() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            for (let i = 1; i < 6; i++) {
+                ctx.rotate(Math.PI / 3);
+                ctx.scale(1, -1);
+                ctx.drawImage(canvas, -centerX, -centerY);
+                ctx.scale(1, -1);
+            }
+            
+            ctx.restore();
+        }
+
+        // Control functions
+        function loadPreset(preset) {
+            currentPreset = preset;
+            updateStatus(`Loaded ${preset} preset`);
+            
+            // Clear existing particles
+            particles = [];
+            
+            // Load preset-specific settings
+            switch(preset) {
+                case 'peaceful':
+                    loadColorScheme('pastel');
+                    document.getElementById('speed').value = 0.5;
+                    updateSpeed();
+                    break;
+                case 'cyberpunk':
+                    loadColorScheme('neon');
+                    document.getElementById('speed').value = 2;
+                    updateSpeed();
+                    break;
+                case 'galaxy':
+                    colors = ['#ffffff', '#ffff00', '#ff6b6b', '#4ecdc4', '#6c5ce7', '#fd79a8'];
+                    updateColors();
+                    break;
+            }
+        }
+
+        function updateColors() {
+            colors = [
+                document.getElementById('color1').value,
+                document.getElementById('color2').value,
+                document.getElementById('color3').value,
+                document.getElementById('color4').value,
+                document.getElementById('color5').value,
+                document.getElementById('color6').value
+            ];
+        }
+
+        function randomColors() {
+            for (let i = 1; i <= 6; i++) {
+                const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
+                document.getElementById(`color${i}`).value = randomColor;
+            }
+            updateColors();
+            updateStatus('Applied random colors');
+        }
+
+        function loadColorScheme(scheme) {
+            const schemes = {
+                neon: ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#80ff00'],
+                pastel: ['#ffb3ba', '#bae1ff', '#baffc9', '#ffffba', '#ffdfba', '#e0bbff']
+            };
+            
+            if (schemes[scheme]) {
+                colors = schemes[scheme];
+                for (let i = 0; i < 6; i++) {
+                    document.getElementById(`color${i + 1}`).value = colors[i];
+                }
+                updateStatus(`Applied ${scheme} color scheme`);
+            }
+        }
+
+        function updateSpeed() {
+            animationSpeed = parseFloat(document.getElementById('speed').value);
+        }
+
+        function updateSize() {
+            animationSize = parseFloat(document.getElementById('size').value);
+        }
+
+        function updateComplexity() {
+            complexity = parseInt(document.getElementById('complexity').value);
+        }
+
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            const btn = document.getElementById('animBtn');
+            if (isAnimating) {
+                btn.textContent = 'Pause';
+                animate();
+            } else {
+                btn.textContent = 'Play';
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function resetAnimation() {
+            time = 0;
+            particles = [];
+            updateStatus('Animation reset');
+        }
+
+        function toggleEffect(effect) {
+            effects[effect] = !effects[effect];
+            const btn = document.getElementById(effect + 'Btn');
+            btn.classList.toggle('active', effects[effect]);
+            updateStatus(`${effect} effect ${effects[effect] ? 'enabled' : 'disabled'}`);
+        }
+
+        // Audio functions
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audioBtn');
+            btn.textContent = audioEnabled ? 'Disable Audio' : 'Enable Audio';
+            btn.classList.toggle('active', audioEnabled);
+            
+            if (audioEnabled && audioContext) {
+                playAmbientSound();
+            }
+        }
+
+        function playAmbientSound() {
+            if (!audioContext || !audioEnabled) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 220 + Math.sin(time) * 50;
+            gainNode.gain.value = 0.1;
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        function loadAudioPreset(preset) {
+            // Audio preset logic would go here
+            updateStatus(`Loaded ${preset} audio preset`);
+        }
+
+        function updateVolume() {
+            const volume = parseFloat(document.getElementById('volume').value);
+            // Volume control logic would go here
+        }
+
+        // Recording functions
+        function startRecording() {
+            if (!canvas.captureStream) {
+                updateStatus('Recording not supported in this browser');
+                return;
+            }
+            
+            const stream = canvas.captureStream(60);
+            recordedChunks = [];
+            
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'video/webm;codecs=vp9'
+            });
+            
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                document.getElementById('downloadBtn').disabled = false;
+                updateStatus('Recording stopped - ready to download');
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            updateStatus('Recording started...');
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+            }
+        }
+
+        function downloadRecording() {
+            if (recordedChunks.length === 0) return;
+            
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `visualization_${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Recording downloaded successfully');
+        }
+
+        // Utility functions
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function savePreset() {
+            const preset = {
+                currentPreset,
+                colors,
+                animationSpeed,
+                animationSize,
+                complexity,
+                effects
+            };
+            localStorage.setItem('visualizerPreset', JSON.stringify(preset));
+            updateStatus('Preset saved successfully');
+        }
+
+        function loadSavedPreset() {
+            const saved = localStorage.getItem('visualizerPreset');
+            if (saved) {
+                const preset = JSON.parse(saved);
+                currentPreset = preset.currentPreset;
+                colors = preset.colors;
+                animationSpeed = preset.animationSpeed;
+                animationSize = preset.animationSize;
+                complexity = preset.complexity;
+                effects = preset.effects;
+                
+                // Update UI
+                document.getElementById('speed').value = animationSpeed;
+                document.getElementById('size').value = animationSize;
+                document.getElementById('complexity').value = complexity;
+                
+                for (let i = 0; i < 6; i++) {
+                    document.getElementById(`color${i + 1}`).value = colors[i];
+                }
+                
+                updateStatus('Preset loaded successfully');
+            }
+        }
+
+        function exportImage() {
+            const link = document.createElement('a');
+            link.download = `visualization_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            updateStatus('Image exported successfully');
+        }
+
+        function fullscreen() {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) {
+                canvas.webkitRequestFullscreen();
+            } else if (canvas.msRequestFullscreen) {
+                canvas.msRequestFullscreen();
+            }
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            setTimeout(() => {
+                document.getElementById('status').textContent = 'Ready to create amazing visuals!';
+            }, 3000);
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

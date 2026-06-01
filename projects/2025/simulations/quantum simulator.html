@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Simulator</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 100, 0.1);
+        }
+        
+        h1 {
+            color: #00008B;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background-color: #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1;
+            text-align: center;
+            user-select: none;
+        }
+        
+        .nav-tab.active {
+            background-color: #00008B;
+            color: white;
+        }
+        
+        .simulation-container {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .simulation-container.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: black;
+            border-radius: 5px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        button {
+            background-color: #00008B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #0000CD;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-container span {
+            min-width: 40px;
+            text-align: right;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        .description {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .result-display {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            min-height: 100px;
+        }
+        
+        .circuit-element {
+            display: inline-flex;
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            background-color: #e0e0e0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .circuit-builder {
+            min-height: 150px;
+            border: 2px dashed #ccc;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .quantum-bit {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,0,139,1) 0%, rgba(0,0,0,1) 100%);
+            position: absolute;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #00f;
+            transition: all 0.5s ease;
+        }
+        
+        .probability-bar {
+            height: 30px;
+            background-color: #00008B;
+            transition: width 0.5s;
+            border-radius: 3px;
+        }
+        
+        .grid-cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ddd;
+            display: inline-block;
+            margin: 2px;
+            text-align: center;
+            line-height: 30px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        
+        .matrix-grid {
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quantum Simulator</h1>
+        
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="superposition">Superposition</div>
+            <div class="nav-tab" data-tab="entanglement">Entanglement</div>
+            <div class="nav-tab" data-tab="qft">Quantum Fourier</div>
+            <div class="nav-tab" data-tab="grover">Grover Search</div>
+        </div>
+        
+        <!-- Superposition Simulator -->
+        <div class="simulation-container active" id="superposition">
+            <div class="description">
+                <h2>Quantum Superposition Simulator</h2>
+                <p>This simulation demonstrates quantum superposition, where a qubit can exist in multiple states simultaneously. 
+                Adjust the probability amplitude and observe how the qubit behaves when measured multiple times.</p>
+            </div>
+            
+            <canvas id="superposition-canvas" width="600" height="300"></canvas>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Probability of |0⟩:</label>
+                    <div class="slider-container">
+                        <input type="range" id="probability-slider" min="0" max="100" value="50">
+                        <span id="probability-value">50%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Measurement count:</label>
+                    <div class="slider-container">
+                        <input type="range" id="measurement-count" min="1" max="100" value="10">
+                        <span id="measurement-value">10</span>
+                    </div>
+                </div>
+                
+                <button id="reset-superposition">Reset</button>
+                <button id="measure-superposition">Measure</button>
+            </div>
+            
+            <div class="result-display">
+                <h3>Measurement Results:</h3>
+                <div id="superposition-results">Click "Measure" to see results</div>
+                <div style="margin-top: 10px">
+                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <div style="width: 50px">|0⟩:</div>
+                        <div style="flex-grow: 1; background-color: #eee; height: 20px; border-radius: 3px;">
+                            <div id="zero-probability" class="probability-bar" style="width: 50%;"></div>
+                        </div>
+                        <div style="width: 50px; text-align: right;" id="zero-count">0</div>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 50px">|1⟩:</div>
+                        <div style="flex-grow: 1; background-color: #eee; height: 20px; border-radius: 3px;">
+                            <div id="one-probability" class="probability-bar" style="width: 50%;"></div>
+                        </div>
+                        <div style="width: 50px; text-align: right;" id="one-count">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quantum Entanglement Simulator -->
+        <div class="simulation-container" id="entanglement">
+            <div class="description">
+                <h2>Quantum Entanglement Simulator</h2>
+                <p>This simulation demonstrates quantum entanglement, where the state of one qubit is correlated with the state of another, 
+                regardless of the distance between them. Measure one qubit and observe how it affects the other.</p>
+            </div>
+            
+            <canvas id="entanglement-canvas" width="600" height="300"></canvas>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Entanglement Type:</label>
+                    <select id="entanglement-type">
+                        <option value="bell">Bell State (|00⟩ + |11⟩)</option>
+                        <option value="bell2">Bell State (|01⟩ + |10⟩)</option>
+                    </select>
+                </div>
+                
+                <button id="create-entanglement">Create Entangled Pair</button>
+                <button id="measure-qubit1">Measure Qubit 1</button>
+                <button id="measure-qubit2">Measure Qubit 2</button>
+                <button id="reset-entanglement">Reset</button>
+            </div>
+            
+            <div class="result-display">
+                <h3>Entanglement Results:</h3>
+                <div id="entanglement-results">Create an entangled pair, then measure either qubit</div>
+            </div>
+        </div>
+        
+        <!-- Quantum Fourier Transform Simulator -->
+        <div class="simulation-container" id="qft">
+            <div class="description">
+                <h2>Quantum Fourier Transform Simulator</h2>
+                <p>The Quantum Fourier Transform is a quantum version of the discrete Fourier transform, a key component in many quantum algorithms. 
+                This simulation demonstrates how QFT transforms quantum states.</p>
+            </div>
+            
+            <div class="matrix-grid" id="qft-input-grid">
+                <h3>Input Quantum State</h3>
+                <div id="input-grid"></div>
+            </div>
+            
+            <div class="controls">
+                <button id="apply-qft">Apply QFT</button>
+                <button id="reset-qft">Reset</button>
+            </div>
+            
+            <div class="matrix-grid">
+                <h3>Output Quantum State</h3>
+                <div id="output-grid"></div>
+            </div>
+            
+            <div class="result-display">
+                <h3>QFT Analysis:</h3>
+                <div id="qft-results">Select input state values, then apply QFT</div>
+            </div>
+        </div>
+        
+        <!-- Grover's Search Algorithm Simulator -->
+        <div class="simulation-container" id="grover">
+            <div class="description">
+                <h2>Grover's Quantum Search Algorithm</h2>
+                <p>Grover's algorithm provides a quadratic speedup for searching an unsorted database. 
+                This simulation demonstrates how it finds a marked item among N unsorted items.</p>
+            </div>
+            
+            <canvas id="grover-canvas" width="600" height="300"></canvas>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Database Size:</label>
+                    <div class="slider-container">
+                        <input type="range" id="database-size" min="4" max="32" value="8" step="4">
+                        <span id="size-value">8 items</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Target Item:</label>
+                    <div class="slider-container">
+                        <input type="range" id="target-item" min="0" max="7" value="3">
+                        <span id="target-value">Item #3</span>
+                    </div>
+                </div>
+                
+                <button id="initialize-grover">Initialize</button>
+                <button id="run-iteration">Run Iteration</button>
+                <button id="run-full">Run Full Search</button>
+                <button id="reset-grover">Reset</button>
+            </div>
+            
+            <div class="result-display">
+                <h3>Grover Search Results:</h3>
+                <div id="grover-results">Initialize the algorithm to begin</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // General utility functions
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+        
+        // Tab navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Show corresponding container
+                document.querySelectorAll('.simulation-container').forEach(container => {
+                    container.classList.remove('active');
+                });
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // ============== SUPERPOSITION SIMULATOR ==============
+        const superpositionCanvas = document.getElementById('superposition-canvas');
+        const superpositionCtx = superpositionCanvas.getContext('2d');
+        const probabilitySlider = document.getElementById('probability-slider');
+        const probabilityValue = document.getElementById('probability-value');
+        const measurementSlider = document.getElementById('measurement-count');
+        const measurementValue = document.getElementById('measurement-value');
+        const zeroProbability = document.getElementById('zero-probability');
+        const oneProbability = document.getElementById('one-probability');
+        const zeroCount = document.getElementById('zero-count');
+        const oneCount = document.getElementById('one-count');
+        
+        let qubits = [];
+        let measurements = {zero: 0, one: 0};
+        
+        // Update displayed values when sliders change
+        probabilitySlider.addEventListener('input', () => {
+            probabilityValue.textContent = `${probabilitySlider.value}%`;
+        });
+        
+        measurementSlider.addEventListener('input', () => {
+            measurementValue.textContent = measurementSlider.value;
+        });
+        
+        // Reset superposition simulation
+        document.getElementById('reset-superposition').addEventListener('click', () => {
+            qubits = [];
+            measurements = {zero: 0, one: 0};
+            updateSuperpositionResults();
+            drawSuperpositionCanvas();
+        });
+        
+        // Measure qubits
+        document.getElementById('measure-superposition').addEventListener('click', () => {
+            const zeroProb = parseInt(probabilitySlider.value) / 100;
+            const measureCount = parseInt(measurementSlider.value);
+            
+            qubits = [];
+            measurements = {zero: 0, one: 0};
+            
+            // Create and measure qubits
+            for (let i = 0; i < measureCount; i++) {
+                const outcome = Math.random() < zeroProb ? 'zero' : 'one';
+                measurements[outcome]++;
+                
+                // Create qubit visualization
+                const x = getRandomInt(superpositionCanvas.width - 60) + 30;
+                const y = getRandomInt(superpositionCanvas.height - 60) + 30;
+                
+                qubits.push({
+                    x: x,
+                    y: y,
+                    state: outcome,
+                    visible: true,
+                    opacity: 1
+                });
+            }
+            
+            updateSuperpositionResults();
+            drawSuperpositionCanvas();
+        });
+        
+        function updateSuperpositionResults() {
+            const total = measurements.zero + measurements.one;
+            
+            if (total === 0) {
+                document.getElementById('superposition-results').innerHTML = 'Click "Measure" to see results';
+                zeroProbability.style.width = '50%';
+                oneProbability.style.width = '50%';
+                zeroCount.textContent = '0';
+                oneCount.textContent = '0';
+                return;
+            }
+            
+            const zeroPerc = Math.round((measurements.zero / total) * 100);
+            const onePerc = Math.round((measurements.one / total) * 100);
+            
+            document.getElementById('superposition-results').innerHTML = 
+                `Measured ${total} qubits: |0⟩ state: ${measurements.zero} (${zeroPerc}%), |1⟩ state: ${measurements.one} (${onePerc}%)`;
+            
+            zeroProbability.style.width = `${zeroPerc}%`;
+            oneProbability.style.width = `${onePerc}%`;
+            zeroCount.textContent = measurements.zero;
+            oneCount.textContent = measurements.one;
+        }
+        
+        function drawSuperpositionCanvas() {
+            superpositionCtx.clearRect(0, 0, superpositionCanvas.width, superpositionCanvas.height);
+            
+            // Draw probability sphere
+            const centerX = superpositionCanvas.width / 2;
+            const centerY = superpositionCanvas.height / 2;
+            const radius = 80;
+            
+            // Draw Bloch sphere
+            superpositionCtx.beginPath();
+            superpositionCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            superpositionCtx.strokeStyle = '#0077ff';
+            superpositionCtx.lineWidth = 2;
+            superpositionCtx.stroke();
+            
+            // Draw axes
+            superpositionCtx.beginPath();
+            superpositionCtx.moveTo(centerX, centerY - radius - 10);
+            superpositionCtx.lineTo(centerX, centerY + radius + 10);
+            superpositionCtx.strokeStyle = '#ffffff';
+            superpositionCtx.lineWidth = 1;
+            superpositionCtx.stroke();
+            
+            superpositionCtx.beginPath();
+            superpositionCtx.moveTo(centerX - radius - 10, centerY);
+            superpositionCtx.lineTo(centerX + radius + 10, centerY);
+            superpositionCtx.stroke();
+            
+            // Label axes
+            superpositionCtx.fillStyle = '#ffffff';
+            superpositionCtx.font = '14px Arial';
+            superpositionCtx.fillText('|0⟩', centerX - 15, centerY - radius - 15);
+            superpositionCtx.fillText('|1⟩', centerX - 15, centerY + radius + 25);
+            
+            // Draw probability indicator
+            const zeroProb = parseInt(probabilitySlider.value) / 100;
+            const angle = Math.PI * (1 - zeroProb);
+            
+            const arrowX = centerX + Math.sin(angle) * radius * 0.8;
+            const arrowY = centerY - Math.cos(angle) * radius * 0.8;
+            
+            superpositionCtx.beginPath();
+            superpositionCtx.moveTo(centerX, centerY);
+            superpositionCtx.lineTo(arrowX, arrowY);
+            superpositionCtx.strokeStyle = '#00ff00';
+            superpositionCtx.lineWidth = 3;
+            superpositionCtx.stroke();
+            
+            // Draw arrow head
+            superpositionCtx.beginPath();
+            superpositionCtx.moveTo(arrowX, arrowY);
+            superpositionCtx.lineTo(
+                arrowX - 10 * Math.sin(angle - Math.PI/6),
+                arrowY + 10 * Math.cos(angle - Math.PI/6)
+            );
+            superpositionCtx.lineTo(
+                arrowX - 10 * Math.sin(angle + Math.PI/6),
+                arrowY + 10 * Math.cos(angle + Math.PI/6)
+            );
+            superpositionCtx.fillStyle = '#00ff00';
+            superpositionCtx.fill();
+            
+            // Draw measured qubits
+            qubits.forEach(qubit => {
+                if (!qubit.visible) return;
+                
+                superpositionCtx.beginPath();
+                superpositionCtx.arc(qubit.x, qubit.y, 10, 0, Math.PI * 2);
+                
+                if (qubit.state === 'zero') {
+                    superpositionCtx.fillStyle = `rgba(0, 100, 255, ${qubit.opacity})`;
+                } else {
+                    superpositionCtx.fillStyle = `rgba(255, 50, 50, ${qubit.opacity})`;
+                }
+                
+                superpositionCtx.fill();
+                
+                // Display state
+                superpositionCtx.fillStyle = '#ffffff';
+                superpositionCtx.font = '12px Arial';
+                superpositionCtx.textAlign = 'center';
+                superpositionCtx.fillText(qubit.state === 'zero' ? '|0⟩' : '|1⟩', qubit.x, qubit.y + 4);
+            });
+        }
+        
+        // Initialize superposition canvas
+        drawSuperpositionCanvas();
+        
+        // ============== ENTANGLEMENT SIMULATOR ==============
+        const entanglementCanvas = document.getElementById('entanglement-canvas');
+        const entanglementCtx = entanglementCanvas.getContext('2d');
+        
+        let entangledQubits = {
+            qubit1: {
+                x: entanglementCanvas.width * 0.25,
+                y: entanglementCanvas.height / 2,
+                state: null,
+                measured: false
+            },
+            qubit2: {
+                x: entanglementCanvas.width * 0.75,
+                y: entanglementCanvas.height / 2,
+                state: null,
+                measured: false
+            },
+            entangled: false,
+            entanglementType: 'bell'
+        };
+        
+        // Create entangled qubits
+        document.getElementById('create-entanglement').addEventListener('click', () => {
+            entangledQubits.entangled = true;
+            entangledQubits.entanglementType = document.getElementById('entanglement-type').value;
+            entangledQubits.qubit1.state = null;
+            entangledQubits.qubit2.state = null;
+            entangledQubits.qubit1.measured = false;
+            entangledQubits.qubit2.measured = false;
+            
+            document.getElementById('entanglement-results').innerHTML = 
+                'Entangled pair created! Measure either qubit to collapse the wave function.';
+            
+            drawEntanglementCanvas();
+        });
+        
+        // Measure qubit 1
+        document.getElementById('measure-qubit1').addEventListener('click', () => {
+            if (!entangledQubits.entangled) {
+                document.getElementById('entanglement-results').innerHTML = 
+                    'Create an entangled pair first!';
+                return;
+            }
+            
+            if (!entangledQubits.qubit1.measured && !entangledQubits.qubit2.measured) {
+                // First measurement - random outcome
+                const bellState = entangledQubits.entanglementType === 'bell';
+                
+                if (Math.random() < 0.5) {
+                    entangledQubits.qubit1.state = bellState ? 0 : 0;
+                    entangledQubits.qubit2.state = bellState ? 0 : 1;
+                } else {
+                    entangledQubits.qubit1.state = bellState ? 1 : 1;
+                    entangledQubits.qubit2.state = bellState ? 1 : 0;
+                }
+            }
+            
+            entangledQubits.qubit1.measured = true;
+            
+            updateEntanglementResults();
+            drawEntanglementCanvas();
+        });
+        
+        // Measure qubit 2
+        document.getElementById('measure-qubit2').addEventListener('click', () => {
+            if (!entangledQubits.entangled) {
+                document.getElementById('entanglement-results').innerHTML = 
+                    'Create an entangled pair first!';
+                return;
+            }
+            
+            if (!entangledQubits.qubit1.measured && !entangledQubits.qubit2.measured) {
+                // First measurement - random outcome
+                const bellState = entangledQubits.entanglementType === 'bell';
+                
+                if (Math.random() < 0.5) {
+                    entangledQubits.qubit1.state = bellState ? 0 : 0;
+                    entangledQubits.qubit2.state = bellState ? 0 : 1;
+                } else {
+                    entangledQubits.qubit1.state = bellState ? 1 : 1;
+                    entangledQubits.qubit2.state = bellState ? 1 : 0;
+                }
+            }
+            
+            entangledQubits.qubit2.measured = true;
+            
+            updateEntanglementResults();
+            drawEntanglementCanvas();
+        });
+        
+        // Reset entanglement simulation
+        document.getElementById('reset-entanglement').addEventListener('click', () => {
+            entangledQubits.entangled = false;
+            entangledQubits.qubit1.state = null;
+            entangledQubits.qubit2.state = null;
+            entangledQubits.qubit1.measured = false;
+            entangledQubits.qubit2.measured = false;
+            
+            document.getElementById('entanglement-results').innerHTML = 
+                'Create an entangled pair, then measure either qubit';
+            
+            drawEntanglementCanvas();
+        });
+        
+        function updateEntanglementResults() {
+            if (!entangledQubits.entangled) {
+                return;
+            }
+            
+            if (entangledQubits.qubit1.measured && entangledQubits.qubit2.measured) {
+                document.getElementById('entanglement-results').innerHTML = 
+                    `Both qubits measured! Qubit 1: |${entangledQubits.qubit1.state}⟩, Qubit 2: |${entangledQubits.qubit2.state}⟩`;
+            } else if (entangledQubits.qubit1.measured) {
+                document.getElementById('entanglement-results').innerHTML = 
+                    `Qubit 1 measured as |${entangledQubits.qubit1.state}⟩. Since the qubits are entangled, Qubit 2 will collapse to |${entangledQubits.qubit2.state}⟩ when measured.`;
+            } else if (entangledQubits.qubit2.measured) {
+                document.getElementById('entanglement-results').innerHTML = 
+                    `Qubit 2 measured as |${entangledQubits.qubit2.state}⟩. Since the qubits are entangled, Qubit 1 will collapse to |${entangledQubits.qubit1.state}⟩ when measured.`;
+            }
+        }
+        
+        function drawEntanglementCanvas() {
+            entanglementCtx.clearRect(0, 0, entanglementCanvas.width, entanglementCanvas.height);
+            
+            // Draw qubits
+            for (const qubit of [entangledQubits.qubit1, entangledQubits.qubit2]) {
+                // Draw circle
+                entanglementCtx.beginPath();
+                entanglementCtx.arc(qubit.x, qubit.y, 30, 0, Math.PI * 2);
+                
+                if (!entangledQubits.entangled) {
+                    entanglementCtx.fillStyle = '#444';
+                } else if (!qubit.measured) {
+                    // Superposition state visualization
+                    const gradient = entanglementCtx.createRadialGradient(
+                        qubit.x, qubit.y, 0,
+                        qubit.x, qubit.y, 30
+                    );
+                    gradient.addColorStop(0, '#0077ff');
+                    gradient.addColorStop(1, '#ff3377');
+                    entanglementCtx.fillStyle = gradient;
+                } else if (qubit.state === 0) {
+                    entanglementCtx.fillStyle = '#0077ff';
+                } else {
+                    entanglementCtx.fillStyle = '#ff3377';
+                }
+                
+                entanglementCtx.fill();
+                
+                // Draw label
+                entanglementCtx.fillStyle = '#ffffff';
+                entanglementCtx.font = '16px Arial';
+                entanglementCtx.textAlign = 'center';
+                
+                if (!entangledQubits.entangled) {
+                    entanglementCtx.fillText(qubit === entangledQubits.qubit1 ? 'Qubit 1' : 'Qubit 2', qubit.x, qubit.y + 5);
+                } else if (!qubit.measured) {
+                    entanglementCtx.fillText('|ψ⟩', qubit.x, qubit.y + 5);
+                } else {
+                    entanglementCtx.fillText(`|${qubit.state}⟩`, qubit.x, qubit.y + 5);
+                }
+            }
+            
+            // Draw entanglement line
+            if (entangledQubits.entangled) {
+                entanglementCtx.beginPath();
+                entanglementCtx.moveTo(entangledQubits.qubit1.x + 30, entangledQubits.qubit1.y);
+                entanglementCtx.lineTo(entangledQubits.qubit2.x - 30, entangledQubits.qubit2.y);
+                
+                if (!entangledQubits.qubit1.measured && !entangledQubits.qubit2.measured) {
+                    // Create wavy line for unmeasured entangled state
+                    entanglementCtx.setLineDash([5, 5]);
+                    entanglementCtx.strokeStyle = '#00ffff';
+                } else {
+                    entanglementCtx.setLineDash([]);
+                    entanglementCtx.strokeStyle = '#ffffff';
+                }
+                
+                entanglementCtx.lineWidth = 2;
+                entanglementCtx.stroke();
+                entanglementCtx.setLineDash([]);
+            }
+        }
+        
+        // Initialize entanglement canvas
+        drawEntanglementCanvas();
+        
+        // ============== QUANTUM FOURIER TRANSFORM SIMULATOR ==============
+        // Create input grid
+        const gridSize = 8;
+        const inputGrid = document.getElementById('input-grid');
+        const outputGrid = document.getElementById('output-grid');
+// Initialize QFT grids
+        for (let i = 0; i < gridSize; i++) {
+            const inputCell = document.createElement('div');
+            inputCell.className = 'grid-cell';
+            inputCell.textContent = '0';
+            inputCell.dataset.index = i;
+            inputCell.dataset.value = '0';
+            inputCell.addEventListener('click', () => {
+                if (inputCell.dataset.value === '0') {
+                    inputCell.dataset.value = '1';
+                    inputCell.textContent = '1';
+                    inputCell.style.backgroundColor = '#88f';
+                } else {
+                    inputCell.dataset.value = '0';
+                    inputCell.textContent = '0';
+                    inputCell.style.backgroundColor = '#f9f9f9';
+                }
+            });
+            inputGrid.appendChild(inputCell);
+            
+            const outputCell = document.createElement('div');
+            outputCell.className = 'grid-cell';
+            outputCell.textContent = '?';
+            outputGrid.appendChild(outputCell);
+        }
+        
+        // Apply QFT button
+        document.getElementById('apply-qft').addEventListener('click', () => {
+            // Get input state
+            const input = Array.from(inputGrid.children).map(cell => parseInt(cell.dataset.value));
+            
+            // Simple simulation of QFT effect
+            const output = simulateQFT(input);
+            
+            // Display output
+            Array.from(outputGrid.children).forEach((cell, i) => {
+                const probability = Math.abs(output[i]).toFixed(2);
+                cell.textContent = probability;
+                
+                // Color based on probability
+                const intensity = Math.floor(probability * 255);
+                cell.style.backgroundColor = `rgb(${255 - intensity}, ${255 - intensity}, 255)`;
+            });
+            
+            // Update results
+            document.getElementById('qft-results').innerHTML = 
+                `QFT applied to input state. The output represents the probability amplitudes in frequency domain.`;
+        });
+        
+        // Reset QFT button
+        document.getElementById('reset-qft').addEventListener('click', () => {
+            Array.from(inputGrid.children).forEach(cell => {
+                cell.dataset.value = '0';
+                cell.textContent = '0';
+                cell.style.backgroundColor = '#f9f9f9';
+            });
+            
+            Array.from(outputGrid.children).forEach(cell => {
+                cell.textContent = '?';
+                cell.style.backgroundColor = '#f9f9f9';
+            });
+            
+            document.getElementById('qft-results').innerHTML = 
+                'Select input state values, then apply QFT';
+        });
+        
+        // Simplified QFT simulation
+        function simulateQFT(input) {
+            const N = input.length;
+            const output = Array(N).fill(0);
+            
+            // Create a simple transformation that mimics QFT behavior
+            for (let k = 0; k < N; k++) {
+                let sum = 0;
+                for (let j = 0; j < N; j++) {
+                    if (input[j] === 1) {
+                        // Use cosine to simulate the real part of complex exponential
+                        sum += Math.cos(2 * Math.PI * j * k / N);
+                    }
+                }
+                output[k] = Math.abs(sum) / Math.sqrt(N);
+            }
+            
+            // Normalize
+            const max = Math.max(...output);
+            if (max > 0) {
+                for (let i = 0; i < N; i++) {
+                    output[i] = output[i] / max;
+                }
+            }
+            
+            return output;
+        }
+        
+        // ============== GROVER'S SEARCH ALGORITHM SIMULATOR ==============
+        const groverCanvas = document.getElementById('grover-canvas');
+        const groverCtx = groverCanvas.getContext('2d');
+        
+        let groverState = {
+            initialized: false,
+            databaseSize: 8,
+            targetItem: 3,
+            iterations: 0,
+            maxIterations: 2,
+            amplitudes: [],
+            running: false
+        };
+        
+        // Update database size slider
+        document.getElementById('database-size').addEventListener('input', function() {
+            const size = parseInt(this.value);
+            groverState.databaseSize = size;
+            document.getElementById('size-value').textContent = `${size} items`;
+            
+            // Update target slider max value
+            const targetSlider = document.getElementById('target-item');
+            targetSlider.max = size - 1;
+            if (parseInt(targetSlider.value) >= size) {
+                targetSlider.value = size - 1;
+                document.getElementById('target-value').textContent = `Item #${size - 1}`;
+                groverState.targetItem = size - 1;
+            }
+        });
+        
+        // Update target item slider
+        document.getElementById('target-item').addEventListener('input', function() {
+            const target = parseInt(this.value);
+            groverState.targetItem = target;
+            document.getElementById('target-value').textContent = `Item #${target}`;
+        });
+        
+        // Initialize Grover's algorithm
+        document.getElementById('initialize-grover').addEventListener('click', () => {
+            groverState.initialized = true;
+            groverState.iterations = 0;
+            groverState.running = false;
+            
+            // Calculate optimal number of iterations
+            const N = groverState.databaseSize;
+            groverState.maxIterations = Math.floor(Math.PI/4 * Math.sqrt(N));
+            
+            // Initialize with equal superposition
+            groverState.amplitudes = Array(N).fill(1 / Math.sqrt(N));
+            
+            document.getElementById('grover-results').innerHTML = 
+                `Initialized with ${N} items. Target is item #${groverState.targetItem}.<br>` +
+                `Estimated iterations needed: ${groverState.maxIterations}`;
+            
+            drawGroverCanvas();
+        });
+        
+        // Run one iteration
+        document.getElementById('run-iteration').addEventListener('click', () => {
+            if (!groverState.initialized) {
+                document.getElementById('grover-results').innerHTML = 'Please initialize first!';
+                return;
+            }
+            
+            if (groverState.running) return;
+            
+            runGroverIteration();
+        });
+        
+        // Run full algorithm
+        document.getElementById('run-full').addEventListener('click', () => {
+            if (!groverState.initialized) {
+                document.getElementById('grover-results').innerHTML = 'Please initialize first!';
+                return;
+            }
+            
+            if (groverState.running) return;
+            
+            groverState.running = true;
+            runFullGrover();
+        });
+        
+        function runGroverIteration() {
+            if (groverState.iterations >= groverState.maxIterations) {
+                document.getElementById('grover-results').innerHTML += 
+                    '<br>Maximum iterations reached. Algorithm complete.';
+                return;
+            }
+            
+            const N = groverState.databaseSize;
+            const target = groverState.targetItem;
+            
+            // Phase inversion of target
+            groverState.amplitudes[target] = -groverState.amplitudes[target];
+            
+            // Inversion about mean
+            const mean = groverState.amplitudes.reduce((sum, amp) => sum + amp, 0) / N;
+            groverState.amplitudes = groverState.amplitudes.map(amp => 2 * mean - amp);
+            
+            groverState.iterations++;
+            
+            // Calculate probabilities
+            const probabilities = groverState.amplitudes.map(amp => amp * amp);
+            const maxProbIndex = probabilities.indexOf(Math.max(...probabilities));
+            
+            document.getElementById('grover-results').innerHTML = 
+                `Iteration ${groverState.iterations}/${groverState.maxIterations} complete.<br>` +
+                `Highest probability: Item #${maxProbIndex} (${(probabilities[maxProbIndex] * 100).toFixed(1)}%)`;
+            
+            drawGroverCanvas();
+        }
+        
+        function runFullGrover() {
+            if (!groverState.running) return;
+            
+            runGroverIteration();
+            
+            if (groverState.iterations < groverState.maxIterations) {
+                setTimeout(runFullGrover, 500);
+            } else {
+                groverState.running = false;
+            }
+        }
+        
+        // Reset Grover's algorithm
+        document.getElementById('reset-grover').addEventListener('click', () => {
+            groverState.initialized = false;
+            groverState.iterations = 0;
+            groverState.amplitudes = [];
+            groverState.running = false;
+            
+            document.getElementById('grover-results').innerHTML = 'Initialize the algorithm to begin';
+            
+            drawGroverCanvas();
+        });
+        
+        function drawGroverCanvas() {
+            groverCtx.clearRect(0, 0, groverCanvas.width, groverCanvas.height);
+            
+            if (!groverState.initialized) {
+                // Draw placeholder text
+                groverCtx.fillStyle = '#555';
+                groverCtx.font = '16px Arial';
+                groverCtx.textAlign = 'center';
+                groverCtx.fillText('Initialize to start Grover\'s search algorithm', groverCanvas.width/2, groverCanvas.height/2);
+                return;
+            }
+            
+            const N = groverState.databaseSize;
+            const barWidth = (groverCanvas.width - 40) / N;
+            const maxBarHeight = groverCanvas.height - 60;
+            
+            // Draw database items
+            for (let i = 0; i < N; i++) {
+                const x = 20 + i * barWidth;
+                
+                // Calculate probability
+                const probability = groverState.amplitudes[i] * groverState.amplitudes[i];
+                const barHeight = probability * maxBarHeight;
+                
+                // Draw bar
+                groverCtx.fillStyle = i === groverState.targetItem ? '#ff5555' : '#55aaff';
+                groverCtx.fillRect(x, groverCanvas.height - 30 - barHeight, barWidth - 2, barHeight);
+                
+                // Draw item number
+                groverCtx.fillStyle = '#fff';
+                groverCtx.font = '10px Arial';
+                groverCtx.textAlign = 'center';
+                groverCtx.fillText(i.toString(), x + barWidth/2, groverCanvas.height - 15);
+                
+                // Draw probability
+                if (barHeight > 15) {
+                    groverCtx.fillText((probability * 100).toFixed(0) + '%', x + barWidth/2, groverCanvas.height - 35 - barHeight);
+                }
+            }
+            
+            // Draw target marker
+            const targetX = 20 + groverState.targetItem * barWidth + barWidth/2;
+            groverCtx.fillStyle = '#ff0000';
+            groverCtx.beginPath();
+            groverCtx.moveTo(targetX, 20);
+            groverCtx.lineTo(targetX - 10, 5);
+            groverCtx.lineTo(targetX + 10, 5);
+            groverCtx.fill();
+            
+            // Draw iterations
+            groverCtx.fillStyle = '#ffffff';
+            groverCtx.font = '14px Arial';
+            groverCtx.textAlign = 'left';
+            groverCtx.fillText(`Iterations: ${groverState.iterations}/${groverState.maxIterations}`, 10, 20);
+        }
+        
+        // Initialize Grover canvas
+        drawGroverCanvas();
+    </script>
+</body>
+</html>

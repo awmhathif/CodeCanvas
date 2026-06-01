@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Piano Studio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        :root {
+            --primary: #3a0ca3;
+            --secondary: #4cc9f0;
+            --accent: #f72585;
+            --dark: #242423;
+            --light: #f5f3f4;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark), #1a1a1a);
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        header {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: var(--secondary);
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background-color: rgba(58, 12, 163, 0.2);
+            border-radius: 8px;
+            min-width: 150px;
+        }
+        
+        label {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        select, button, input {
+            padding: 8px 15px;
+            background-color: var(--dark);
+            color: white;
+            border: 1px solid var(--secondary);
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        select:hover, button:hover {
+            background-color: var(--primary);
+            cursor: pointer;
+        }
+        
+        button {
+            background-color: var(--primary);
+        }
+        
+        button.record {
+            background-color: var(--accent);
+        }
+        
+        .piano {
+            display: flex;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 30px;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            transform: rotateX(5deg);
+        }
+        
+        .key {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .white-key {
+            width: 60px;
+            height: 200px;
+            background: linear-gradient(to bottom, #f5f5f5 0%, #dbdbdb 100%);
+            border: 1px solid #ccc;
+            border-radius: 0 0 5px 5px;
+            z-index: 1;
+        }
+        
+        .black-key {
+            width: 40px;
+            height: 120px;
+            background: linear-gradient(to bottom, #444 0%, #222 100%);
+            border: 1px solid #000;
+            border-radius: 0 0 5px 5px;
+            z-index: 2;
+            margin-left: -20px;
+            margin-right: -20px;
+        }
+        
+        .white-key.active {
+            background: linear-gradient(to bottom, #cae8ff 0%, #a2d4ff 100%);
+            transform: translateY(5px);
+        }
+        
+        .black-key.active {
+            background: linear-gradient(to bottom, #444 0%, #000 100%);
+            transform: translateY(5px);
+        }
+        
+        .visualizer {
+            height: 100px;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .visualizer-bars {
+            display: flex;
+            height: 100%;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+        
+        .visualizer-bar {
+            width: 5px;
+            background: linear-gradient(to top, var(--primary), var(--secondary));
+            margin: 0 2px;
+            border-radius: 2px 2px 0 0;
+            transition: height 0.1s;
+        }
+        
+        .effects-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            justify-content: center;
+        }
+        
+        .effect-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        input[type="range"] {
+            margin-top: 5px;
+            width: 100%;
+            background: var(--dark);
+        }
+        
+        .presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .preset-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .preset-btn:hover {
+            background-color: var(--accent);
+            transform: scale(1.05);
+        }
+        
+        .recording-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .recording-list {
+            max-height: 150px;
+            overflow-y: auto;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .recording-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .recording-item:last-child {
+            border-bottom: none;
+        }
+        
+        .recording-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .recording-actions button {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        footer {
+            margin-top: auto;
+            width: 100%;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            .white-key {
+                width: 40px;
+            }
+            
+            .black-key {
+                width: 30px;
+                margin-left: -15px;
+                margin-right: -15px;
+            }
+            
+            .control-group {
+                min-width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Advanced Piano Studio</h1>
+        <p>Create, record, and customize your piano experience</p>
+    </header>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="instrument">Instrument</label>
+                <select id="instrument">
+                    <option value="piano">Grand Piano</option>
+                    <option value="synth">Synth</option>
+                    <option value="electric">Electric Piano</option>
+                    <option value="organ">Organ</option>
+                    <option value="guitar">Guitar</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="octave">Octave</label>
+                <select id="octave">
+                    <option value="2">Low (2)</option>
+                    <option value="3">Mid-Low (3)</option>
+                    <option value="4" selected>Middle (4)</option>
+                    <option value="5">Mid-High (5)</option>
+                    <option value="6">High (6)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Volume</label>
+                <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7">
+            </div>
+            
+            <div class="control-group">
+                <button id="record-btn" class="record">Start Recording</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="save-btn">Save Recording</button>
+            </div>
+        </div>
+        
+        <div class="effects-panel">
+            <div class="effect-control">
+                <label>Reverb</label>
+                <input type="range" id="reverb" min="0" max="1" step="0.01" value="0.2">
+            </div>
+            
+            <div class="effect-control">
+                <label>Delay</label>
+                <input type="range" id="delay" min="0" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="effect-control">
+                <label>Distortion</label>
+                <input type="range" id="distortion" min="0" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="effect-control">
+                <label>Vibrato</label>
+                <input type="range" id="vibrato" min="0" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="effect-control">
+                <label>Chorus</label>
+                <input type="range" id="chorus" min="0" max="1" step="0.01" value="0">
+            </div>
+        </div>
+        
+        <div class="presets">
+            <button class="preset-btn" data-preset="classical">Classical</button>
+            <button class="preset-btn" data-preset="jazz">Jazz Piano</button>
+            <button class="preset-btn" data-preset="synthwave">Synthwave</button>
+            <button class="preset-btn" data-preset="ambient">Ambient</button>
+            <button class="preset-btn" data-preset="rock">Rock Organ</button>
+        </div>
+        
+        <div class="visualizer">
+            <div class="visualizer-bars" id="visualizer"></div>
+        </div>
+        
+        <div class="piano" id="piano">
+            <!-- Piano keys will be generated by JavaScript -->
+        </div>
+        
+        <h3>Recordings</h3>
+        <div class="recording-list" id="recording-list">
+            <div class="recording-item">
+                <span>No recordings yet</span>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>Advanced Piano Studio © 2025 | All Rights Reserved</p>
+    </footer>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Tone.js
+            Tone.start();
+            
+            // Create audio context for visualizer
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            
+            // Set up synth and effects
+            const reverb = new Tone.Reverb({
+                decay: 4,
+                wet: 0.2
+            }).toDestination();
+            
+            const delay = new Tone.FeedbackDelay({
+                delayTime: 0.25,
+                feedback: 0.5,
+                wet: 0
+            }).connect(reverb);
+            
+            const distortion = new Tone.Distortion({
+                distortion: 0.8,
+                wet: 0
+            }).connect(delay);
+            
+            const vibrato = new Tone.Vibrato({
+                frequency: 5,
+                depth: 0.5,
+                wet: 0
+            }).connect(distortion);
+            
+            const chorus = new Tone.Chorus({
+                frequency: 1.5,
+                delayTime: 3.5,
+                depth: 0.7,
+                wet: 0
+            }).connect(vibrato);
+            
+            // Create synth
+            let synth = new Tone.PolySynth(Tone.Synth).connect(chorus);
+            synth.volume.value = -10; // Initial volume in dB
+            
+            // Piano configuration
+            const keyMap = {
+                'a': 'C',
+                'w': 'C#',
+                's': 'D',
+                'e': 'D#',
+                'd': 'E',
+                'f': 'F',
+                't': 'F#',
+                'g': 'G',
+                'y': 'G#',
+                'h': 'A',
+                'u': 'A#',
+                'j': 'B',
+                'k': 'C5',
+                'o': 'C#5',
+                'l': 'D5',
+                'p': 'D#5',
+                ';': 'E5',
+                '\'': 'F5'
+            };
+            
+            // Generate piano keys
+            const pianoElement = document.getElementById('piano');
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            let currentOctave = 4;
+            
+            // Create two octaves of keys
+            for (let octave = currentOctave; octave <= currentOctave + 1; octave++) {
+                notes.forEach(note => {
+                    const key = document.createElement('div');
+                    const noteWithOctave = note + octave;
+                    
+                    key.dataset.note = noteWithOctave;
+                    key.classList.add('key');
+                    
+                    if (note.includes('#')) {
+                        key.classList.add('black-key');
+                    } else {
+                        key.classList.add('white-key');
+                    }
+                    
+                    key.addEventListener('mousedown', () => playNote(noteWithOctave));
+                    key.addEventListener('mouseup', () => stopNote(noteWithOctave));
+                    key.addEventListener('mouseout', () => stopNote(noteWithOctave));
+                    key.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        playNote(noteWithOctave);
+                    });
+                    key.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        stopNote(noteWithOctave);
+                    });
+                    
+                    pianoElement.appendChild(key);
+                });
+            }
+            
+            // Set up keyboard controls
+            document.addEventListener('keydown', e => {
+                if (e.repeat) return;
+                const key = e.key.toLowerCase();
+                if (keyMap[key]) {
+                    const octaveWithOffset = document.getElementById('octave').value;
+                    const note = keyMap[key].replace(/\d+$/, '');
+                    const octave = keyMap[key].includes('5') ? parseInt(octaveWithOffset) + 1 : octaveWithOffset;
+                    const noteWithOctave = note + octave;
+                    playNote(noteWithOctave);
+                    
+                    // Highlight the corresponding key
+                    const keyElements = document.querySelectorAll('.key');
+                    keyElements.forEach(keyElem => {
+                        if (keyElem.dataset.note === noteWithOctave) {
+                            keyElem.classList.add('active');
+                        }
+                    });
+                }
+            });
+            
+            document.addEventListener('keyup', e => {
+                const key = e.key.toLowerCase();
+                if (keyMap[key]) {
+                    const octaveWithOffset = document.getElementById('octave').value;
+                    const note = keyMap[key].replace(/\d+$/, '');
+                    const octave = keyMap[key].includes('5') ? parseInt(octaveWithOffset) + 1 : octaveWithOffset;
+                    const noteWithOctave = note + octave;
+                    stopNote(noteWithOctave);
+                    
+                    // Remove highlight from the corresponding key
+                    const keyElements = document.querySelectorAll('.key');
+                    keyElements.forEach(keyElem => {
+                        if (keyElem.dataset.note === noteWithOctave) {
+                            keyElem.classList.remove('active');
+                        }
+                    });
+                }
+            });
+            
+            // Set up visualizer
+            const visualizerElement = document.getElementById('visualizer');
+            const numBars = 32;
+            
+            for (let i = 0; i < numBars; i++) {
+                const bar = document.createElement('div');
+                bar.classList.add('visualizer-bar');
+                visualizerElement.appendChild(bar);
+            }
+            
+            // Function to update visualizer
+            function updateVisualizer() {
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                
+                const bars = document.querySelectorAll('.visualizer-bar');
+                for (let i = 0; i < bars.length; i++) {
+                    const index = Math.floor(i * (dataArray.length / bars.length));
+                    const value = dataArray[index] / 255;
+                    bars[i].style.height = (value * 100) + '%';
+                }
+                
+                requestAnimationFrame(updateVisualizer);
+            }
+            
+            // Start visualizer
+            updateVisualizer();
+            
+            // Set up recorder
+            let recorder;
+            let isRecording = false;
+            let recordedChunks = [];
+            const recordings = [];
+            
+            // Function to play a note
+            function playNote(note) {
+                const instrumentType = document.getElementById('instrument').value;
+                
+                switch(instrumentType) {
+                    case 'piano':
+                        synth.set({
+                            oscillator: { type: 'triangle' },
+                            envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 1.5 }
+                        });
+                        break;
+                    case 'synth':
+                        synth.set({
+                            oscillator: { type: 'sawtooth' },
+                            envelope: { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.8 }
+                        });
+                        break;
+                    case 'electric':
+                        synth.set({
+                            oscillator: { type: 'sine' },
+                            envelope: { attack: 0.005, decay: 0.1, sustain: 0.9, release: 0.3 }
+                        });
+                        break;
+                    case 'organ':
+                        synth.set({
+                            oscillator: { type: 'square' },
+                            envelope: { attack: 0.01, decay: 0.3, sustain: 1, release: 0.01 }
+                        });
+                        break;
+                    case 'guitar':
+                        synth.set({
+                            oscillator: { type: 'fmsquare' },
+                            envelope: { attack: 0.001, decay: 0.2, sustain: 0.5, release: 0.8 }
+                        });
+                        break;
+                }
+                
+                synth.triggerAttack(note);
+                
+                // Update key visual
+                const keyElements = document.querySelectorAll('.key');
+                keyElements.forEach(keyElem => {
+                    if (keyElem.dataset.note === note) {
+                        keyElem.classList.add('active');
+                    }
+                });
+            }
+            
+            // Function to stop a note
+            function stopNote(note) {
+                synth.triggerRelease(note);
+                
+                // Update key visual
+                const keyElements = document.querySelectorAll('.key');
+                keyElements.forEach(keyElem => {
+                    if (keyElem.dataset.note === note) {
+                        keyElem.classList.remove('active');
+                    }
+                });
+            }
+            
+            // Setting up effect controls
+            document.getElementById('reverb').addEventListener('input', e => {
+                reverb.wet.value = parseFloat(e.target.value);
+            });
+            
+            document.getElementById('delay').addEventListener('input', e => {
+                delay.wet.value = parseFloat(e.target.value);
+            });
+            
+            document.getElementById('distortion').addEventListener('input', e => {
+                distortion.wet.value = parseFloat(e.target.value);
+            });
+            
+            document.getElementById('vibrato').addEventListener('input', e => {
+                vibrato.wet.value = parseFloat(e.target.value);
+            });
+            
+            document.getElementById('chorus').addEventListener('input', e => {
+                chorus.wet.value = parseFloat(e.target.value);
+            });
+            
+            // Volume control
+            document.getElementById('volume').addEventListener('input', e => {
+                const volumeValue = parseFloat(e.target.value);
+                synth.volume.value = Tone.gainToDb(volumeValue);
+            });
+            
+            // Octave selection
+            document.getElementById('octave').addEventListener('change', e => {
+                currentOctave = parseInt(e.target.value);
+            });
+            
+            // Recording functionality
+            document.getElementById('record-btn').addEventListener('click', function() {
+                if (!isRecording) {
+                    // Start recording
+                    const dest = Tone.getDestination();
+                    recorder = new Tone.Recorder();
+                    dest.connect(recorder);
+                    recorder.start();
+                    isRecording = true;
+                    this.textContent = "Stop Recording";
+                    this.style.backgroundColor = "red";
+                } else {
+                    // Stop recording
+                    isRecording = false;
+                    this.textContent = "Start Recording";
+                    this.style.backgroundColor = "";
+                    
+                    async function stopRecording() {
+                        // Stop the recorder
+                        const recording = await recorder.stop();
+                        
+                        // Create a unique name for the recording
+                        const now = new Date();
+                        const recordingName = `Recording ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                        
+                        // Store recording info
+                        recordings.push({
+                            name: recordingName,
+                            blob: recording
+                        });
+                        
+                        // Update the recordings list
+                        updateRecordingsList();
+                    }
+                    
+                    stopRecording();
+                }
+            });
+            
+            // Save recording
+            document.getElementById('save-btn').addEventListener('click', function() {
+                if (recordings.length === 0) {
+                    alert("No recordings to save!");
+                    return;
+                }
+                
+                // Save the most recent recording
+                const recording = recordings[recordings.length - 1];
+                const url = URL.createObjectURL(recording.blob);
+                const a = document.createElement("a");
+                document.body.appendChild(a);
+                a.style.display = "none";
+                a.href = url;
+                a.download = recording.name + ".mp3";
+                a.click();
+                window.URL.revokeObjectURL(url);
+            });
+            
+            // Update recordings list
+            function updateRecordingsList() {
+                const recordingList = document.getElementById('recording-list');
+                recordingList.innerHTML = '';
+                
+                if (recordings.length === 0) {
+                    const item = document.createElement('div');
+                    item.classList.add('recording-item');
+                    item.innerHTML = '<span>No recordings yet</span>';
+                    recordingList.appendChild(item);
+                    return;
+                }
+                
+                recordings.forEach((recording, index) => {
+                    const item = document.createElement('div');
+                    item.classList.add('recording-item');
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = recording.name;
+                    
+                    const actions = document.createElement('div');
+                    actions.classList.add('recording-actions');
+                    
+                    const playBtn = document.createElement('button');
+                    playBtn.textContent = 'Play';
+                    playBtn.addEventListener('click', () => {
+                        const url = URL.createObjectURL(recording.blob);
+                        const audio = new Audio(url);
+                        audio.play();
+                    });
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = 'Download';
+                    downloadBtn.addEventListener('click', () => {
+                        const url = URL.createObjectURL(recording.blob);
+                        const a = document.createElement("a");
+                        document.body.appendChild(a);
+                        a.style.display = "none";
+                        a.href = url;
+                        a.download = recording.name + ".mp3";
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    });
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.addEventListener('click', () => {
+                        recordings.splice(index, 1);
+                        updateRecordingsList();
+                    });
+                    
+                    actions.appendChild(playBtn);
+                    actions.appendChild(downloadBtn);
+                    actions.appendChild(deleteBtn);
+                    
+                    item.appendChild(nameSpan);
+                    item.appendChild(actions);
+                    
+                    recordingList.appendChild(item);
+                });
+            }
+            
+            // Preset buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const preset = this.dataset.preset;
+                    
+                    switch(preset) {
+                        case 'classical':
+                            document.getElementById('instrument').value = 'piano';
+                            document.getElementById('reverb').value = 0.3;
+                            document.getElementById('delay').value = 0;
+                            document.getElementById('distortion').value = 0;
+                            document.getElementById('vibrato').value = 0;
+                            document.getElementById('chorus').value = 0.1;
+                            break;
+                        case 'jazz':
+                            document.getElementById('instrument').value = 'electric';
+                            document.getElementById('reverb').value = 0.2;
+                            document.getElementById('delay').value = 0.1;
+                            document.getElementById('distortion').value = 0;
+                            document.getElementById('vibrato').value = 0.2;
+                            document.getElementById('chorus').value = 0.3;
+                            break;
+                        case 'synthwave':
+                            document.getElementById('instrument').value = 'synth';
+                            document.getElementById('reverb').value = 0.4;
+                            document.getElementById('delay').value = 0.4;
+                            document.getElementById('distortion').value = 0.2;
+                            document.getElementById('vibrato').value = 0.1;
+                            document.getElementById('chorus').value = 0.5;
+                            break;
+                        case 'ambient':
+                            document.getElementById('instrument').value = 'piano';
+                            document.getElementById('reverb').value = 0.8;
+                            document.getElementById('delay').value = 0.5;
+                            document.getElementById('distortion').value = 0;
+                            document.getElementById('vibrato').value = 0.3;
+                            document.getElementById('chorus').value = 0.4;
+                            break;
+                        case 'rock':
+                            document.getElementById('instrument').value = 'organ';
+                            document.getElementById('reverb').value = 0.2;
+                            document.getElementById('delay').value = 0.1;
+                            document.getElementById('distortion').value = 0.6;
+                            document.getElementById('vibrato').value = 0.3;
+                            document.getElementById('chorus').value = 0.2;
+                            break;
+                    }
+                    
+                    // Trigger all effect input events to update values
+                    ['reverb', 'delay', 'distortion', 'vibrato', 'chorus'].forEach(effect => {
+                        const event = new Event('input');
+                        document.getElementById(effect).dispatchEvent(event);
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

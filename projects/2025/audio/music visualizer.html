@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Visualizer</title>
+    <style>
+        /* Base styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #111;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Canvas container */
+        #visualizer-container {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Controls */
+        .controls {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* File input styling */
+        .file-input-container {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        #audio-file {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 204, 0.5);
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .file-input-label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 0, 204, 0.7);
+        }
+
+        /* Visualization selector */
+        .viz-selector {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .viz-button {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .viz-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .viz-button.active {
+            background: linear-gradient(45deg, #00ccff, #3333ff);
+            box-shadow: 0 0 10px rgba(0, 204, 255, 0.5);
+        }
+
+        /* Audio controls */
+        .audio-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .play-pause {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00ccff, #3333ff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 204, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .play-pause:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(0, 204, 255, 0.7);
+        }
+
+        .play-pause i {
+            font-size: 20px;
+        }
+
+        .track-info {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Progress bar */
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            height: 5px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #00ccff, #3333ff);
+            border-radius: 5px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            transition: width 0.1s linear;
+        }
+
+        /* Loading animation */
+        .loader {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+        }
+
+        .loader:after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 6px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #00ccff;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .viz-selector {
+                flex-direction: row;
+                overflow-x: auto;
+                padding: 10px 0;
+            }
+            
+            .audio-controls {
+                flex-wrap: wrap;
+            }
+            
+            .progress-container {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="visualizer-container">
+        <canvas id="canvas"></canvas>
+        <div class="loader" id="loader"></div>
+    </div>
+    
+    <div class="controls">
+        <div class="file-input-container">
+            <label for="audio-file" class="file-input-label">
+                Select Music File
+            </label>
+            <input type="file" id="audio-file" accept="audio/*">
+            <div class="track-info" id="track-info">No track selected</div>
+        </div>
+        
+        <div class="viz-selector">
+            <button class="viz-button active" data-viz="bars">Bars</button>
+            <button class="viz-button" data-viz="circles">Circles</button>
+            <button class="viz-button" data-viz="particles">Particles</button>
+            <button class="viz-button" data-viz="waveform">Waveform</button>
+            <button class="viz-button" data-viz="spiral">Spiral</button>
+        </div>
+        
+        <div class="audio-controls">
+            <div class="play-pause" id="play-pause">
+                <i>▶</i>
+            </div>
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let audioContext;
+        let audioSource;
+        let analyser;
+        let canvas;
+        let ctx;
+        let animationId;
+        let audioElement;
+        let currentVisualization = 'bars';
+        let isPlaying = false;
+        let particles = [];
+        
+        // DOM elements
+        const fileInput = document.getElementById('audio-file');
+        const playPauseButton = document.getElementById('play-pause');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const trackInfo = document.getElementById('track-info');
+        const vizButtons = document.querySelectorAll('.viz-button');
+        const loader = document.getElementById('loader');
+        
+        // Initialize
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            setupEventListeners();
+            
+            // Create audio element
+            audioElement = new Audio();
+            audioElement.addEventListener('timeupdate', updateProgressBar);
+            audioElement.addEventListener('ended', () => {
+                isPlaying = false;
+                playPauseButton.innerHTML = '<i>▶</i>';
+            });
+            
+            // Draw initial empty visualizer
+            drawEmptyVisualizer();
+        }
+        
+        // Set up Web Audio API
+        function setupAudio(audioSource) {
+            if (audioContext) {
+                audioContext.close();
+            }
+            
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            
+            const source = audioContext.createMediaElementSource(audioSource);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            
+            analyser.fftSize = 2048;
+        }
+        
+        // Event listeners
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            playPauseButton.addEventListener('click', togglePlayPause);
+            
+            progressContainer.addEventListener('click', seekAudio);
+            
+            vizButtons.forEach(button => {
+                button.addEventListener('click', changeVisualization);
+            });
+        }
+        
+        // Handle file selection
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                
+                // Show loader
+                loader.style.display = 'block';
+                
+                // Cancel any previous animation
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                
+                // Reset audio element
+                if (audioElement.src) {
+                    audioElement.pause();
+                    isPlaying = false;
+                    playPauseButton.innerHTML = '<i>▶</i>';
+                }
+                
+                // Set up new audio
+                audioElement.src = fileURL;
+                
+                // Update track info
+                trackInfo.textContent = file.name;
+                
+                // Wait for audio to load
+                audioElement.addEventListener('loadeddata', () => {
+                    // Hide loader
+                    loader.style.display = 'none';
+                    
+                    // Setup Web Audio API
+                    setupAudio(audioElement);
+                    
+                    // Automatically play when loaded
+                    togglePlayPause();
+                }, { once: true });
+                
+                audioElement.addEventListener('error', () => {
+                    loader.style.display = 'none';
+                    trackInfo.textContent = 'Error loading audio';
+                }, { once: true });
+            }
+        }
+        
+        // Toggle play/pause
+        function togglePlayPause() {
+            if (!audioElement.src) {
+                return;
+            }
+            
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            if (!isPlaying) {
+                audioElement.play();
+                isPlaying = true;
+                playPauseButton.innerHTML = '<i>❚❚</i>';
+                visualize();
+            } else {
+                audioElement.pause();
+                isPlaying = false;
+                playPauseButton.innerHTML = '<i>▶</i>';
+                cancelAnimationFrame(animationId);
+            }
+        }
+        
+        // Update progress bar
+        function updateProgressBar() {
+            const progress = (audioElement.currentTime / audioElement.duration) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        // Seek audio
+        function seekAudio(e) {
+            const rect = progressContainer.getBoundingClientRect();
+            const clickPosition = (e.clientX - rect.left) / rect.width;
+            audioElement.currentTime = clickPosition * audioElement.duration;
+        }
+        
+        // Change visualization
+        function changeVisualization(e) {
+            vizButtons.forEach(button => button.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            currentVisualization = e.target.getAttribute('data-viz');
+            
+            // Reset particles for particle visualization
+            if (currentVisualization === 'particles') {
+                initParticles();
+            }
+        }
+        
+        // Resize canvas to fill window
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // If we're in particle mode, re-initialize particles on resize
+            if (currentVisualization === 'particles') {
+                initParticles();
+            }
+            
+            // Redraw empty visualizer if not playing
+            if (!isPlaying) {
+                drawEmptyVisualizer();
+            }
+        }
+        
+        // Initialize particles for particle visualization
+        function initParticles() {
+            particles = [];
+            const particleCount = Math.floor(canvas.width * canvas.height / 8000);
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    velocity: {
+                        x: (Math.random() - 0.5) * 2,
+                        y: (Math.random() - 0.5) * 2
+                    }
+                });
+            }
+        }
+        
+        // Draw empty visualizer
+        function drawEmptyVisualizer() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw pulsing message
+            const now = Date.now();
+            const alpha = 0.3 + 0.2 * Math.sin(now / 500);
+            
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.font = '18px Arial';
+            ctx.fillText('Select a music file to start', canvas.width / 2, canvas.height / 2);
+        }
+        
+        // Main visualization function
+        function visualize() {
+            if (!analyser) return;
+            
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            function render() {
+                animationId = requestAnimationFrame(render);
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Get audio data
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Choose visualization
+                switch (currentVisualization) {
+                    case 'bars':
+                        drawBars(dataArray, bufferLength);
+                        break;
+                    case 'circles':
+                        drawCircles(dataArray, bufferLength);
+                        break;
+                    case 'particles':
+                        drawParticles(dataArray, bufferLength);
+                        break;
+                    case 'waveform':
+                        drawWaveform(dataArray, bufferLength);
+                        break;
+                    case 'spiral':
+                        drawSpiral(dataArray, bufferLength);
+                        break;
+                }
+            }
+            
+            render();
+        }
+        
+        // Bar visualization
+        function drawBars(dataArray, bufferLength) {
+            const barWidth = canvas.width / (bufferLength / 4);
+            const barCount = Math.floor(canvas.width / barWidth);
+            const step = Math.floor(bufferLength / barCount);
+            
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = i * step;
+                const barHeight = (dataArray[dataIndex] / 255) * canvas.height * 0.8;
+                
+                const hue = (i / barCount) * 360;
+                const x = i * barWidth;
+                const y = canvas.height - barHeight;
+                
+                // Create gradient for each bar
+                const gradient = ctx.createLinearGradient(x, y, x, canvas.height);
+                gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 1)`);
+                gradient.addColorStop(1, `hsla(${hue}, 100%, 80%, 0.3)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, barWidth - 1, barHeight);
+                
+                // Add glow effect
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsla(${hue}, 100%, 50%, 0.7)`;
+                ctx.beginPath();
+                ctx.arc(x + barWidth / 2, y, barWidth / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Circle visualization
+        function drawCircles(dataArray, bufferLength) {
+            // Calculate average level for overall circle size
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const avgLevel = sum / bufferLength;
+            
+            // Draw center circle
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(canvas.width, canvas.height) * 0.4;
+            
+            // Draw multiple circles
+            const circleCount = 5;
+            for (let j = circleCount; j > 0; j--) {
+                const radius = (avgLevel / 255) * maxRadius * (j / circleCount);
+                const hue = (Date.now() / 50) % 360;
+                
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `hsla(${hue + j * 30}, 100%, 50%, ${0.8 - j * 0.1})`;
+                ctx.lineWidth = 5 - j;
+                ctx.stroke();
+                
+                // Add glow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `hsla(${hue + j * 30}, 100%, 50%, 0.7)`;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+            
+            // Draw frequency spikes
+            const spikeCount = 180;
+            for (let i = 0; i < spikeCount; i++) {
+                const angle = (i / spikeCount) * Math.PI * 2;
+                const dataIndex = Math.floor((i / spikeCount) * bufferLength);
+                
+                // Get data value and normalize to a reasonable height
+                const value = dataArray[dataIndex] / 255;
+                const innerRadius = maxRadius * 0.3;
+                const outerRadius = innerRadius + maxRadius * 0.5 * value;
+                
+                const hue = (i / spikeCount) * 360;
+                
+                const startX = centerX + Math.cos(angle) * innerRadius;
+                const startY = centerY + Math.sin(angle) * innerRadius;
+                const endX = centerX + Math.cos(angle) * outerRadius;
+                const endY = centerY + Math.sin(angle) * outerRadius;
+                
+                // Draw the spike line
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.3 + value * 0.7})`;
+                ctx.lineWidth = 2;
+                
+                // Add glow based on intensity
+                if (value > 0.5) {
+                    ctx.shadowBlur = 10 * value;
+                    ctx.shadowColor = `hsla(${hue}, 100%, 50%, 0.7)`;
+                }
+                
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Particle visualization
+        function drawParticles(dataArray, bufferLength) {
+            // If particles array is empty, initialize it
+            if (particles.length === 0) {
+                initParticles();
+            }
+            
+            // Calculate average frequency for overall intensity
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const avgFrequency = sum / bufferLength;
+            const intensity = avgFrequency / 255;
+            
+            // Update and draw particles
+            particles.forEach(particle => {
+                // Update position based on velocity
+                particle.x += particle.velocity.x * (1 + intensity);
+                particle.y += particle.velocity.y * (1 + intensity);
+                
+                // Bounce off edges
+                if (particle.x < 0 || particle.x > canvas.width) {
+                    particle.velocity.x = -particle.velocity.x;
+                }
+                
+                if (particle.y < 0 || particle.y > canvas.height) {
+                    particle.velocity.y = -particle.velocity.y;
+                }
+                
+                // Get the frequency data for this particle's position
+                const dataIndex = Math.floor((particle.x / canvas.width) * bufferLength);
+                const frequencyValue = dataArray[dataIndex] / 255;
+                
+                // Adjust particle size based on frequency
+                const radius = particle.radius * (1 + frequencyValue * 3);
+                
+                // Draw particle with glow
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+                
+                // Color based on frequency and original color
+                const hue = parseInt(particle.color.match(/\d+/)[0]);
+                const brightness = 50 + frequencyValue * 50;
+                ctx.fillStyle = `hsla(${hue}, 100%, ${brightness}%, ${0.3 + frequencyValue * 0.7})`;
+                
+                // Add glow effect
+                ctx.shadowBlur = 10 * frequencyValue;
+                ctx.shadowColor = particle.color;
+                
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Draw connections between nearby particles
+                particles.forEach(otherParticle => {
+                    const dx = particle.x - otherParticle.x;
+                    const dy = particle.y - otherParticle.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 100 * intensity) {
+                        ctx.beginPath();
+                        ctx.moveTo(particle.x, particle.y);
+                        ctx.lineTo(otherParticle.x, otherParticle.y);
+                        ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.1 * (1 - distance / (100 * intensity))})`;
+                        ctx.stroke();
+                    }
+                });
+            });
+        }
+        
+        // Waveform visualization
+        function drawWaveform(dataArray, bufferLength) {
+            // Use a different array for time domain data
+            const timeDataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteTimeDomainData(timeDataArray);
+            
+            const sliceWidth = canvas.width / bufferLength;
+            
+            // Draw center line
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.stroke();
+            
+            // Main waveform
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = timeDataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                const x = i * sliceWidth;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            // Create animated gradient
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            const time = Date.now() / 10000;
+            gradient.addColorStop(0, `hsl(${(time * 360) % 360}, 100%, 50%)`);
+            gradient.addColorStop(0.5, `hsl(${(time * 360 + 120) % 360}, 100%, 50%)`);
+            gradient.addColorStop(1, `hsl(${(time * 360 + 240) % 360}, 100%, 50%)`);
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            
+            // Add glow effect
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = `hsl(${(time * 360 + 180) % 360}, 100%, 70%)`;
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Add mirror effect
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = timeDataArray[i] / 128.0;
+                const y = canvas.height - (v * canvas.height / 2);
+                const x = i * sliceWidth;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.strokeStyle = gradient;
+            ctx.globalAlpha = 0.3;
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+            
+            // Add frequency spikes
+            for (let i = 0; i < bufferLength; i += 20) {
+                const x = i * sliceWidth;
+                const frequency = dataArray[i] / 255;
+                const height = frequency * canvas.height / 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, canvas.height / 2 - 1);
+                ctx.lineTo(x, canvas.height / 2 - height);
+                
+                const hue = (i / bufferLength) * 360;
+                ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.3 + frequency * 0.7})`;
+                ctx.lineWidth = 2;
+                
+                // Add glow based on intensity
+                if (frequency > 0.5) {
+                    ctx.shadowBlur = 10 * frequency;
+                    ctx.shadowColor = `hsla(${hue}, 100%, 50%, 0.7)`;
+                }
+                
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                
+                // Mirror spike
+                ctx.beginPath();
+                ctx.moveTo(x, canvas.height / 2 + 1);
+                ctx.lineTo(x, canvas.height / 2 + height);
+                ctx.globalAlpha = 0.3;
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+        
+        // Spiral visualization
+        function drawSpiral(dataArray, bufferLength) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(canvas.width, canvas.height) * 0.4;
+            
+            // Use fewer data points for performance
+            const step = Math.ceil(bufferLength / 300);
+            const usableBufferLength = Math.floor(bufferLength / step);
+            
+            // Start drawing the spiral from the center
+            let angle = 0;
+            const angleStep = 0.1;  // Controls how tight the spiral is
+            let radius = 0;
+            const radiusStep = maxRadius / usableBufferLength;  // Increase in radius for each point
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            
+            for (let i = 0; i < usableBufferLength; i++) {
+                const dataIndex = i * step;
+                const value = dataArray[dataIndex] / 255;
+                
+                // Vary the radius based on the frequency data
+                const currentRadius = radius + (value * maxRadius * 0.2);
+                
+                // Calculate point on spiral
+                const x = centerX + Math.cos(angle) * currentRadius;
+                const y = centerY + Math.sin(angle) * currentRadius;
+                
+                ctx.lineTo(x, y);
+                
+                // Increase angle and radius for next point
+                angle += angleStep + (value * 0.05);  // Frequency affects twist
+                radius += radiusStep;
+            }
+            
+            // Create an animated color gradient for the spiral
+            const time = Date.now() / 5000;
+            const gradient = ctx.createLinearGradient(
+                centerX - maxRadius, centerY - maxRadius, 
+                centerX + maxRadius, centerY + maxRadius
+            );
+            
+            gradient.addColorStop(0, `hsl(${(time * 360) % 360}, 100%, 50%)`);
+            gradient.addColorStop(0.5, `hsl(${(time * 360 + 120) % 360}, 100%, 50%)`);
+            gradient.addColorStop(1, `hsl(${(time * 360 + 240) % 360}, 100%, 50%)`);
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            
+            // Add glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = `hsl(${(time * 360 + 180) % 360}, 100%, 70%)`;
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Draw frequency dots along the spiral
+            angle = 0;
+            radius = 0;
+            
+            for (let i = 0; i < usableBufferLength; i += 3) {
+                const dataIndex = i * step;
+                const value = dataArray[dataIndex] / 255;
+                
+                // Calculate point on spiral
+                const currentRadius = radius + (value * maxRadius * 0.2);
+                const x = centerX + Math.cos(angle) * currentRadius;
+                const y = centerY + Math.sin(angle) * currentRadius;
+                
+                // Draw dot with size based on frequency
+                const dotSize = 2 + (value * 8);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                
+                const hue = (i / usableBufferLength) * 360;
+                ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${0.3 + value * 0.7})`;
+                
+                // Add glow to brighter dots
+                if (value > 0.5) {
+                    ctx.shadowBlur = 10 * value;
+                    ctx.shadowColor = `hsla(${hue}, 100%, 70%, 0.7)`;
+                }
+                
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Increase angle and radius for next point
+                angle += angleStep + (value * 0.05);
+                radius += radiusStep * 3;  // Skip ahead for dots
+            }
+        }
+        
+        // Initialize app when DOM is loaded
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

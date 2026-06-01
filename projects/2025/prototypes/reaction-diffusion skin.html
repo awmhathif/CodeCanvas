@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reaction-Diffusion Skin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050510;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #80f;
+            font-size: 22px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 20px #80f;
+            z-index: 10;
+        }
+
+        .stats {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            color: #0ff;
+            font-size: 11px;
+            line-height: 1.8;
+            z-index: 10;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            font-size: 11px;
+            font-family: inherit;
+            background: transparent;
+            border: 1px solid #80f;
+            color: #80f;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(136, 0, 255, 0.1);
+            box-shadow: 0 0 20px rgba(136, 0, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">REACTION-DIFFUSION</div>
+    <div class="stats">FEED: <span id="feed">0.055</span><br>KILL: <span id="kill">0.062</span><br>PATTERN: <span
+            id="pattern">CORAL</span></div>
+    <div class="controls">
+        <button class="btn" id="coral">CORAL</button>
+        <button class="btn" id="zebra">ZEBRA</button>
+        <button class="btn" id="spots">SPOTS</button>
+        <button class="btn" id="reset">RESET</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.z = 3;
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setClearColor(0x050510);
+        document.body.appendChild(renderer.domElement);
+
+        const presets = {
+            coral: { feed: 0.055, kill: 0.062 },
+            zebra: { feed: 0.03, kill: 0.06 },
+            spots: { feed: 0.037, kill: 0.06 }
+        };
+
+        const SIZE = 128;
+        let gridA = [], gridB = [], nextA = [], nextB = [];
+        let params = { ...presets.coral };
+
+        // Initialize grids
+        function initGrid() {
+            for (let i = 0; i < SIZE; i++) {
+                gridA[i] = []; gridB[i] = []; nextA[i] = []; nextB[i] = [];
+                for (let j = 0; j < SIZE; j++) {
+                    gridA[i][j] = 1;
+                    gridB[i][j] = 0;
+                    nextA[i][j] = 1;
+                    nextB[i][j] = 0;
+                }
+            }
+            // Seed center
+            const cx = SIZE / 2, cy = SIZE / 2, r = 10;
+            for (let i = -r; i <= r; i++) {
+                for (let j = -r; j <= r; j++) {
+                    if (i * i + j * j < r * r) {
+                        const x = (cx + i + SIZE) % SIZE;
+                        const y = (cy + j + SIZE) % SIZE;
+                        gridB[x][y] = 1;
+                    }
+                }
+            }
+        }
+
+        function laplacian(grid, x, y) {
+            let sum = 0;
+            sum += grid[(x - 1 + SIZE) % SIZE][y] * 0.2;
+            sum += grid[(x + 1) % SIZE][y] * 0.2;
+            sum += grid[x][(y - 1 + SIZE) % SIZE] * 0.2;
+            sum += grid[x][(y + 1) % SIZE] * 0.2;
+            sum += grid[(x - 1 + SIZE) % SIZE][(y - 1 + SIZE) % SIZE] * 0.05;
+            sum += grid[(x + 1) % SIZE][(y - 1 + SIZE) % SIZE] * 0.05;
+            sum += grid[(x - 1 + SIZE) % SIZE][(y + 1) % SIZE] * 0.05;
+            sum += grid[(x + 1) % SIZE][(y + 1) % SIZE] * 0.05;
+            sum -= grid[x][y];
+            return sum;
+        }
+
+        function simulate() {
+            const dA = 1.0, dB = 0.5, dt = 1.0;
+            const { feed, kill } = params;
+
+            for (let x = 0; x < SIZE; x++) {
+                for (let y = 0; y < SIZE; y++) {
+                    const a = gridA[x][y], b = gridB[x][y];
+                    const lapA = laplacian(gridA, x, y);
+                    const lapB = laplacian(gridB, x, y);
+                    const reaction = a * b * b;
+
+                    nextA[x][y] = a + (dA * lapA - reaction + feed * (1 - a)) * dt;
+                    nextB[x][y] = b + (dB * lapB + reaction - (kill + feed) * b) * dt;
+
+                    nextA[x][y] = Math.max(0, Math.min(1, nextA[x][y]));
+                    nextB[x][y] = Math.max(0, Math.min(1, nextB[x][y]));
+                }
+            }
+
+            [gridA, nextA] = [nextA, gridA];
+            [gridB, nextB] = [nextB, gridB];
+        }
+
+        // Create sphere with custom shader
+        const geo = new THREE.SphereGeometry(1, 64, 64);
+        const texture = new THREE.DataTexture(new Uint8Array(SIZE * SIZE * 4), SIZE, SIZE, THREE.RGBAFormat);
+        texture.needsUpdate = true;
+
+        const mat = new THREE.MeshBasicMaterial({ map: texture });
+        const sphere = new THREE.Mesh(geo, mat);
+        scene.add(sphere);
+
+        // Glowing wireframe
+        const wireGeo = new THREE.SphereGeometry(1.02, 32, 32);
+        const wireMat = new THREE.MeshBasicMaterial({ color: 0x8800ff, wireframe: true, transparent: true, opacity: 0.1 });
+        const wire = new THREE.Mesh(wireGeo, wireMat);
+        scene.add(wire);
+
+        function updateTexture() {
+            const data = texture.image.data;
+            for (let x = 0; x < SIZE; x++) {
+                for (let y = 0; y < SIZE; y++) {
+                    const idx = (y * SIZE + x) * 4;
+                    const val = gridB[x][y];
+
+                    // UV color palette
+                    const r = Math.floor((0.5 - val * 0.5 + Math.sin(val * 3) * 0.3) * 255);
+                    const g = Math.floor((val * 0.3 + 0.1) * 255);
+                    const b = Math.floor((0.8 - val * 0.3 + Math.cos(val * 2) * 0.2) * 255);
+
+                    data[idx] = Math.max(0, Math.min(255, r));
+                    data[idx + 1] = Math.max(0, Math.min(255, g));
+                    data[idx + 2] = Math.max(0, Math.min(255, b));
+                    data[idx + 3] = 255;
+                }
+            }
+            texture.needsUpdate = true;
+        }
+
+        function setPreset(name) {
+            params = { ...presets[name] };
+            initGrid();
+            document.getElementById('feed').textContent = params.feed.toFixed(3);
+            document.getElementById('kill').textContent = params.kill.toFixed(3);
+            document.getElementById('pattern').textContent = name.toUpperCase();
+        }
+
+        document.getElementById('coral').onclick = () => setPreset('coral');
+        document.getElementById('zebra').onclick = () => setPreset('zebra');
+        document.getElementById('spots').onclick = () => setPreset('spots');
+        document.getElementById('reset').onclick = () => initGrid();
+
+        let rotY = 0, isDrag = false, lastM = { x: 0, y: 0 };
+        renderer.domElement.addEventListener('mousedown', e => { isDrag = true; lastM = { x: e.clientX, y: e.clientY }; });
+        renderer.domElement.addEventListener('mousemove', e => { if (isDrag) { rotY += (e.clientX - lastM.x) * 0.005; sphere.rotation.x += (e.clientY - lastM.y) * 0.005; lastM = { x: e.clientX, y: e.clientY }; } });
+        renderer.domElement.addEventListener('mouseup', () => isDrag = false);
+        renderer.domElement.addEventListener('wheel', e => camera.position.z = Math.max(2, Math.min(8, camera.position.z + e.deltaY * 0.01)));
+
+        initGrid();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            for (let i = 0; i < 5; i++) simulate();
+            updateTexture();
+            if (!isDrag) rotY += 0.003;
+            sphere.rotation.y = rotY;
+            wire.rotation.y = rotY;
+            wire.rotation.x = sphere.rotation.x;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    </script>
+</body>
+
+</html>

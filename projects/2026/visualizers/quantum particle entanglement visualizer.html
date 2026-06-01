@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Quantum Particle Entanglement Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#020208;color:#e0e0f0;font-family:'Segoe UI',system-ui,sans-serif;user-select:none;-webkit-user-select:none}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+
+.ui{position:fixed;z-index:10;pointer-events:none}
+.ui>*{pointer-events:auto}
+
+/* Top bar */
+.top{top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px}
+.title{font-size:14px;font-weight:700;letter-spacing:-.01em;color:rgba(255,255,255,.6)}
+.subtitle{font-size:10px;color:rgba(255,255,255,.2);margin-top:2px;letter-spacing:.03em}
+.top-right{display:flex;gap:4px}
+.ib{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s}
+.ib:hover{background:rgba(255,255,255,.08);color:#fff}
+.ib:active{transform:scale(.9)}
+.ib.on{background:rgba(100,130,255,.12);border-color:rgba(100,130,255,.2);color:#8ba4ff}
+
+/* Experiment selector */
+.exp-bar{bottom:60px;left:50%;transform:translateX(-50%);display:flex;gap:3px;padding:4px;border-radius:10px;background:rgba(8,8,20,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.04)}
+.exp-btn{padding:6px 10px;border-radius:7px;border:none;background:transparent;color:rgba(255,255,255,.3);font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit;letter-spacing:.02em}
+.exp-btn:hover{color:rgba(255,255,255,.5)}
+.exp-btn.on{background:rgba(100,130,255,.12);color:#8ba4ff}
+
+/* Bottom info */
+.bottom{bottom:10px;left:50%;transform:translateX(-50%);text-align:center;padding:6px 14px;border-radius:8px;background:rgba(8,8,20,.7);border:1px solid rgba(255,255,255,.03);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.bottom .info{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.04em}
+
+/* Quantum state readout */
+.state-panel{top:54px;right:12px;padding:10px 12px;border-radius:10px;background:rgba(8,8,20,.85);border:1px solid rgba(255,255,255,.04);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);min-width:160px;font-family:'Courier New',monospace;font-size:11px;color:rgba(180,190,255,.6);line-height:1.6;max-height:50vh;overflow-y:auto}
+.state-panel::-webkit-scrollbar{width:0}
+.state-panel .sh{color:rgba(255,255,255,.15);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.state-panel .sv{color:rgba(140,160,255,.8)}
+.state-panel .sc{color:rgba(255,120,180,.6)}
+.state-panel .sg{color:rgba(100,255,180,.5)}
+.state-panel.hidden{display:none}
+
+/* Legend */
+.legend{bottom:90px;left:12px;padding:8px 10px;border-radius:8px;background:rgba(8,8,20,.75);border:1px solid rgba(255,255,255,.04);font-size:9px;color:rgba(255,255,255,.2);line-height:1.7;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.legend .lk{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.legend.hidden{display:none}
+
+/* Toast */
+.toast{position:fixed;top:52px;left:50%;transform:translateX(-50%) translateY(-50px);padding:8px 16px;border-radius:8px;font-size:11px;font-weight:500;z-index:100;background:rgba(15,15,30,.9);border:1px solid rgba(100,130,255,.15);color:rgba(140,170,255,.8);opacity:0;transition:all .3s cubic-bezier(.34,1.2,.64,1);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+@media(max-width:600px){
+  .state-panel{display:none!important}
+  .legend{display:none!important}
+  .exp-btn{font-size:9px;padding:5px 7px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="ui top">
+  <div>
+    <div class="title">Quantum Entanglement</div>
+    <div class="subtitle" id="expTitle">Free Entangled Pairs</div>
+  </div>
+  <div class="top-right">
+    <button class="ib on" id="btnWave" title="Wavefunction (Space)">Ψ</button>
+    <button class="ib" id="btnState" title="State Notation">|⟩</button>
+    <button class="ib" id="btnLegend" title="Legend">?</button>
+    <button class="ib" id="btnExport" title="Export State">⤓</button>
+    <button class="ib" id="btnReset" title="Reset (R)">⟳</button>
+  </div>
+</div>
+
+<div class="ui state-panel hidden" id="statePanel">
+  <div class="sh">Quantum State</div>
+  <div id="stateContent">—</div>
+</div>
+
+<div class="ui legend hidden" id="legend">
+  <div><span class="lk" style="background:#6488ff"></span>Spin-up |↑⟩ — Blue</div>
+  <div><span class="lk" style="background:#ff6488"></span>Spin-down |↓⟩ — Pink</div>
+  <div><span class="lk" style="background:rgba(180,140,255,.5)"></span>Superposition — Purple glow</div>
+  <div><span class="lk" style="background:rgba(255,255,255,.15)"></span>Entanglement link — White line</div>
+  <div style="margin-top:4px;color:rgba(255,255,255,.12)">Hover/touch to collapse · Click-drag to entangle</div>
+</div>
+
+<div class="ui exp-bar" id="expBar">
+  <button class="exp-btn on" data-exp="0">Entangled Pairs</button>
+  <button class="exp-btn" data-exp="1">Double Slit</button>
+  <button class="exp-btn" data-exp="2">Bell Test</button>
+  <button class="exp-btn" data-exp="3">Quantum Eraser</button>
+  <button class="exp-btn" data-exp="4">GHZ State</button>
+  <button class="exp-btn" data-exp="5">Teleportation</button>
+</div>
+
+<div class="ui bottom">
+  <div class="info" id="bottomInfo">Hover particles to collapse · Drag between particles to entangle · Space toggles wavefunctions</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// QUANTUM PARTICLE ENTANGLEMENT VISUALIZER
+// ═══════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, dpr;
+let t = 0;
+let showWave = true;
+let experiment = 0;
+let mouseX = -1000, mouseY = -1000;
+let mouseDown = false, dragStart = null, dragEnd = null;
+
+// ─── RESIZE ───
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', () => { resize(); if (experiment !== 1) initExperiment(); });
+
+// ─── QUANTUM STATE ───
+const SPIN_UP = 1;
+const SPIN_DOWN = -1;
+const SUPERPOSITION = 0;
+
+class Particle {
+  constructor(x, y, id) {
+    this.id = id;
+    this.x = x; this.y = y;
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = (Math.random() - 0.5) * 0.4;
+    this.spin = SUPERPOSITION; // 0 = superposition, 1 = up, -1 = down
+    this.phase = Math.random() * Math.PI * 2;
+    this.phaseSpeed = 0.02 + Math.random() * 0.03;
+    this.entangledWith = null; // partner ID
+    this.correlation = -1; // -1 = anti-correlated, +1 = correlated
+    this.collapsed = false;
+    this.collapseTime = 0;
+    this.radius = 6 + Math.random() * 3;
+    this.waveRadius = 30 + Math.random() * 15;
+    this.observed = false;
+    this.decoherenceTimer = 0;
+    this.trail = [];
+    // Double-slit specific
+    this.slitParticle = false;
+    this.detected = false;
+    this.whichSlit = -1;
+    // Bell test
+    this.measureAngle = 0;
+    // Visual
+    this.glowPulse = 0;
+    this.birthTime = t;
+  }
+
+  collapse(spin) {
+    if (this.collapsed) return;
+    this.collapsed = true;
+    this.spin = spin;
+    this.collapseTime = t;
+    this.glowPulse = 1;
+    this.decoherenceTimer = 600 + Math.random() * 400; // ticks until re-superposition
+  }
+
+  uncollapse() {
+    this.collapsed = false;
+    this.spin = SUPERPOSITION;
+    this.observed = false;
+    this.glowPulse = 0;
+  }
+}
+
+let particles = [];
+let entanglements = []; // [{a: id, b: id, correlation}]
+let collapseEffects = []; // visual effects
+let slitWalls = [];
+let detectorOn = false;
+let bellResults = [];
+
+// ─── EXPERIMENTS ───
+const EXP_NAMES = [
+  'Free Entangled Pairs',
+  'Double-Slit Experiment',
+  "Bell's Inequality Test",
+  'Quantum Eraser',
+  'GHZ State (3-Party)',
+  'Quantum Teleportation'
+];
+
+const EXP_INFO = [
+  'Hover to collapse · Drag between particles to entangle',
+  'Particles pass through slits · Toggle detector to destroy interference',
+  'Measure entangled pairs at different angles · Violates classical limits',
+  'Detector marks which-path · Eraser restores interference',
+  'Three-particle entanglement · Collapse one affects all',
+  'State transfers via entanglement channel · Classic → Quantum → Classic'
+];
+
+function initExperiment() {
+  particles = [];
+  entanglements = [];
+  collapseEffects = [];
+  slitWalls = [];
+  bellResults = [];
+  detectorOn = false;
+
+  switch (experiment) {
+    case 0: initFreePairs(); break;
+    case 1: initDoubleSlit(); break;
+    case 2: initBellTest(); break;
+    case 3: initQuantumEraser(); break;
+    case 4: initGHZ(); break;
+    case 5: initTeleportation(); break;
+  }
+
+  document.getElementById('expTitle').textContent = EXP_NAMES[experiment];
+  document.getElementById('bottomInfo').textContent = EXP_INFO[experiment];
+  updateStatePanel();
+}
+
+function initFreePairs() {
+  const count = Math.min(20, Math.floor(W * H / 25000));
+  for (let i = 0; i < count; i += 2) {
+    const x1 = 100 + Math.random() * (W - 200);
+    const y1 = 100 + Math.random() * (H - 200);
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 100 + Math.random() * 200;
+    const x2 = x1 + Math.cos(angle) * dist;
+    const y2 = y1 + Math.sin(angle) * dist;
+
+    const a = new Particle(x1, y1, i);
+    const b = new Particle(
+      Math.max(30, Math.min(W - 30, x2)),
+      Math.max(30, Math.min(H - 30, y2)),
+      i + 1
+    );
+    a.entangledWith = b.id;
+    b.entangledWith = a.id;
+    particles.push(a, b);
+    entanglements.push({ a: a.id, b: b.id, correlation: -1 });
+  }
+}
+
+function initDoubleSlit() {
+  // Create slit walls
+  const slitX = W * 0.45;
+  const slitWidth = 6;
+  const slitGap = 40;
+  const slitHeight = 30;
+  const centerY = H / 2;
+
+  slitWalls = [
+    { x: slitX, y: 0, w: slitWidth, h: centerY - slitGap - slitHeight / 2 },
+    { x: slitX, y: centerY - slitGap + slitHeight / 2, w: slitWidth, h: slitGap * 2 - slitHeight },
+    { x: slitX, y: centerY + slitGap + slitHeight / 2, w: slitWidth, h: H },
+  ];
+
+  // Screen on right
+  slitWalls.push({ x: W * 0.85, y: 0, w: 3, h: H, screen: true });
+}
+
+function initBellTest() {
+  const count = 12;
+  for (let i = 0; i < count; i += 2) {
+    const cx = W / 2;
+    const cy = H / 2;
+    const angle = (i / count) * Math.PI * 2;
+    const dist = 120 + Math.random() * 80;
+
+    const a = new Particle(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, i);
+    const b = new Particle(cx + Math.cos(angle + Math.PI) * dist, cy + Math.sin(angle + Math.PI) * dist, i + 1);
+
+    a.entangledWith = b.id;
+    b.entangledWith = a.id;
+    a.measureAngle = Math.random() * Math.PI;
+    b.measureAngle = Math.random() * Math.PI;
+    a.vx = 0; a.vy = 0;
+    b.vx = 0; b.vy = 0;
+
+    particles.push(a, b);
+    entanglements.push({ a: a.id, b: b.id, correlation: -1 });
+  }
+}
+
+function initQuantumEraser() {
+  initDoubleSlit();
+  detectorOn = true;
+}
+
+function initGHZ() {
+  const groups = Math.min(4, Math.floor(W * H / 80000));
+  let id = 0;
+  for (let g = 0; g < groups; g++) {
+    const cx = 150 + Math.random() * (W - 300);
+    const cy = 150 + Math.random() * (H - 300);
+    const ids = [];
+
+    for (let i = 0; i < 3; i++) {
+      const angle = (i / 3) * Math.PI * 2 - Math.PI / 2;
+      const dist = 80 + Math.random() * 40;
+      const p = new Particle(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, id);
+      p.vx = 0; p.vy = 0;
+      particles.push(p);
+      ids.push(id);
+      id++;
+    }
+
+    // Entangle all three with each other
+    for (let i = 0; i < 3; i++) {
+      for (let j = i + 1; j < 3; j++) {
+        particles[ids[i]].entangledWith = ids[(i + 1) % 3]; // simplified
+        entanglements.push({ a: ids[i], b: ids[j], correlation: -1 });
+      }
+    }
+  }
+}
+
+function initTeleportation() {
+  const cy = H / 2;
+  // Alice's particle (left)
+  const alice = new Particle(W * 0.15, cy, 0);
+  alice.vx = 0; alice.vy = 0;
+  alice.spin = SPIN_UP; alice.collapsed = true; alice.collapseTime = t;
+
+  // Entangled pair
+  const eA = new Particle(W * 0.4, cy, 1);
+  const eB = new Particle(W * 0.6, cy, 2);
+  eA.vx = 0; eA.vy = 0;
+  eB.vx = 0; eB.vy = 0;
+  eA.entangledWith = eB.id;
+  eB.entangledWith = eA.id;
+
+  // Bob's particle (right)
+  const bob = new Particle(W * 0.85, cy, 3);
+  bob.vx = 0; bob.vy = 0;
+
+  particles.push(alice, eA, eB, bob);
+  entanglements.push({ a: 1, b: 2, correlation: -1 });
+}
+
+// ─── DOUBLE SLIT EMITTER ───
+let slitTimer = 0;
+function emitSlitParticle() {
+  if (experiment !== 1 && experiment !== 3) return;
+  const p = new Particle(40, H / 2 + (Math.random() - 0.5) * 60, particles.length);
+  p.vx = 1.5 + Math.random() * 0.5;
+  p.vy = (Math.random() - 0.5) * 0.3;
+  p.slitParticle = true;
+  p.radius = 3;
+  p.waveRadius = 20;
+  particles.push(p);
+}
+
+// ─── UPDATE ───
+function update() {
+  t++;
+
+  // Double slit emitter
+  if ((experiment === 1 || experiment === 3) && t % 8 === 0) {
+    emitSlitParticle();
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.phase += p.phaseSpeed;
+    p.glowPulse *= 0.95;
+
+    // Decoherence (return to superposition)
+    if (p.collapsed && p.decoherenceTimer > 0) {
+      p.decoherenceTimer--;
+      if (p.decoherenceTimer <= 0 && experiment === 0) {
+        p.uncollapse();
+      }
+    }
+
+    // Movement
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // Double-slit collision
+    if (p.slitParticle) {
+      const slitX = W * 0.45;
+      const centerY = H / 2;
+      const slitGap = 40;
+      const slitHeight = 30;
+
+      // Check wall collision
+      if (p.x >= slitX - 3 && p.x <= slitX + 9) {
+        const topSlitY = centerY - slitGap;
+        const botSlitY = centerY + slitGap;
+        const inTopSlit = p.y >= topSlitY - slitHeight / 2 && p.y <= topSlitY + slitHeight / 2;
+        const inBotSlit = p.y >= botSlitY - slitHeight / 2 && p.y <= botSlitY + slitHeight / 2;
+
+        if (!inTopSlit && !inBotSlit) {
+          particles.splice(i, 1); continue;
+        } else {
+          if (inTopSlit) p.whichSlit = 0;
+          if (inBotSlit) p.whichSlit = 1;
+
+          // Add quantum diffraction
+          if (!p.diffracted) {
+            p.diffracted = true;
+            p.vy += (Math.random() - 0.5) * 1.5;
+
+            // If no detector, create superposition of paths
+            if (!(experiment === 3 && detectorOn)) {
+              // Interference: add wave-like spread
+              p.vy += Math.sin(p.y * 0.1) * 0.5;
+            }
+          }
+        }
+      }
+
+      // Screen detection
+      if (p.x >= W * 0.85) {
+        p.detected = true;
+        p.vx = 0; p.vy = 0;
+        p.collapsed = true;
+        p.spin = Math.random() > 0.5 ? SPIN_UP : SPIN_DOWN;
+
+        // Build up interference pattern
+        if (particles.filter(pp => pp.detected).length > 500) {
+          // Remove oldest detected
+          const oldest = particles.find(pp => pp.detected);
+          if (oldest) particles.splice(particles.indexOf(oldest), 1);
+        }
+      }
+
+      if (p.x > W + 50 || p.y < -50 || p.y > H + 50) {
+        particles.splice(i, 1); continue;
+      }
+
+      p.trail.push({ x: p.x, y: p.y });
+      if (p.trail.length > 30) p.trail.shift();
+    } else {
+      // Boundary bounce
+      if (p.x < 20 || p.x > W - 20) { p.vx *= -0.8; p.x = Math.max(20, Math.min(W - 20, p.x)); }
+      if (p.y < 20 || p.y > H - 20) { p.vy *= -0.8; p.y = Math.max(20, Math.min(H - 20, p.y)); }
+
+      // Gentle drift
+      p.vx += (Math.random() - 0.5) * 0.02;
+      p.vy += (Math.random() - 0.5) * 0.02;
+      p.vx *= 0.995;
+      p.vy *= 0.995;
+    }
+  }
+
+  // Collapse effects
+  for (let i = collapseEffects.length - 1; i >= 0; i--) {
+    collapseEffects[i].life -= 0.02;
+    collapseEffects[i].radius += 3;
+    if (collapseEffects[i].life <= 0) collapseEffects.splice(i, 1);
+  }
+}
+
+// ─── RENDER ───
+function render() {
+  ctx.fillStyle = '#020208';
+  ctx.fillRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(60,70,120,.03)';
+  ctx.lineWidth = 1;
+  const gridSize = 60;
+  for (let x = 0; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Double-slit walls
+  if (experiment === 1 || experiment === 3) {
+    renderSlitExperiment();
+  }
+
+  // Entanglement lines
+  for (const ent of entanglements) {
+    const a = particles.find(p => p.id === ent.a);
+    const b = particles.find(p => p.id === ent.b);
+    if (!a || !b) continue;
+    renderEntanglementLine(a, b, ent);
+  }
+
+  // Particles
+  for (const p of particles) {
+    renderParticle(p);
+  }
+
+  // Collapse effects
+  for (const fx of collapseEffects) {
+    ctx.beginPath();
+    ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI * 2);
+    const alpha = fx.life * 0.3;
+    ctx.strokeStyle = fx.color.replace('1)', alpha + ')');
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Drag line
+  if (mouseDown && dragStart) {
+    ctx.beginPath();
+    ctx.moveTo(dragStart.x, dragStart.y);
+    ctx.lineTo(mouseX, mouseY);
+    ctx.strokeStyle = 'rgba(100,140,255,.3)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Teleportation labels
+  if (experiment === 5) {
+    renderTeleportationLabels();
+  }
+}
+
+function renderParticle(p) {
+  const isSuper = !p.collapsed;
+  const age = t - p.birthTime;
+
+  // Wavefunction probability cloud
+  if (showWave && isSuper && !p.slitParticle) {
+    const waves = 3;
+    for (let w = waves; w > 0; w--) {
+      const r = p.waveRadius * (w / waves) * (1 + 0.15 * Math.sin(p.phase + w));
+      const alpha = 0.04 * (1 - w / (waves + 1));
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      grad.addColorStop(0, `rgba(140,120,255,${alpha * 2})`);
+      grad.addColorStop(0.5, `rgba(120,100,255,${alpha})`);
+      grad.addColorStop(1, 'rgba(100,80,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Spinning phase indicator
+    const phaseR = p.radius + 8 + Math.sin(p.phase) * 3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, phaseR, p.phase, p.phase + Math.PI * 0.6);
+    ctx.strokeStyle = 'rgba(160,140,255,.15)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, phaseR, p.phase + Math.PI, p.phase + Math.PI * 1.6);
+    ctx.strokeStyle = 'rgba(255,140,160,.1)';
+    ctx.stroke();
+  }
+
+  // Slit particle trail
+  if (p.slitParticle && !p.detected) {
+    for (let i = 0; i < p.trail.length - 1; i++) {
+      const alpha = (i / p.trail.length) * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(p.trail[i].x, p.trail[i].y);
+      ctx.lineTo(p.trail[i + 1].x, p.trail[i + 1].y);
+      ctx.strokeStyle = isSuper
+        ? `rgba(160,140,255,${alpha})`
+        : p.spin === SPIN_UP ? `rgba(100,140,255,${alpha})` : `rgba(255,100,140,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // Core particle
+  let coreColor;
+  if (isSuper) {
+    const pulse = Math.sin(p.phase) * 0.3 + 0.7;
+    coreColor = `rgba(180,160,255,${pulse * 0.8})`;
+  } else {
+    coreColor = p.spin === SPIN_UP ? 'rgba(100,136,255,.9)' : 'rgba(255,100,136,.9)';
+  }
+
+  // Glow
+  const glowR = p.radius * (2.5 + p.glowPulse * 4);
+  const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
+  if (isSuper) {
+    glowGrad.addColorStop(0, 'rgba(160,140,255,.2)');
+    glowGrad.addColorStop(1, 'rgba(120,100,255,0)');
+  } else if (p.spin === SPIN_UP) {
+    glowGrad.addColorStop(0, `rgba(100,136,255,${0.15 + p.glowPulse * 0.3})`);
+    glowGrad.addColorStop(1, 'rgba(80,120,255,0)');
+  } else {
+    glowGrad.addColorStop(0, `rgba(255,100,136,${0.15 + p.glowPulse * 0.3})`);
+    glowGrad.addColorStop(1, 'rgba(255,80,120,0)');
+  }
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Core dot
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.detected ? 2 : p.radius, 0, Math.PI * 2);
+  ctx.fillStyle = coreColor;
+  ctx.fill();
+
+  // Collapse flash
+  if (p.glowPulse > 0.1) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius + p.glowPulse * 20, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${p.glowPulse * 0.5})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Spin arrow indicator (when collapsed)
+  if (p.collapsed && !p.slitParticle) {
+    const arrowLen = p.radius + 6;
+    const dir = p.spin === SPIN_UP ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y + dir * 2);
+    ctx.lineTo(p.x, p.y + dir * arrowLen);
+    ctx.strokeStyle = p.spin === SPIN_UP ? 'rgba(100,160,255,.6)' : 'rgba(255,100,150,.6)';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Arrowhead
+    const tipY = p.y + dir * arrowLen;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 3, tipY - dir * 4);
+    ctx.lineTo(p.x, tipY);
+    ctx.lineTo(p.x + 3, tipY - dir * 4);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+}
+
+function renderEntanglementLine(a, b, ent) {
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const segments = Math.max(10, Math.floor(dist / 8));
+
+  ctx.beginPath();
+  for (let i = 0; i <= segments; i++) {
+    const frac = i / segments;
+    const x = a.x + (b.x - a.x) * frac;
+    const y = a.y + (b.y - a.y) * frac;
+    const wave = Math.sin(frac * Math.PI * 4 + t * 0.05) * 8 * (1 - Math.abs(frac - 0.5) * 2);
+    const nx = -(b.y - a.y) / dist;
+    const ny = (b.x - a.x) / dist;
+
+    const px = x + nx * wave;
+    const py = y + ny * wave;
+
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+
+  const bothCollapsed = a.collapsed && b.collapsed;
+  const alpha = bothCollapsed ? 0.06 : 0.1 + Math.sin(t * 0.03) * 0.03;
+  ctx.strokeStyle = bothCollapsed
+    ? `rgba(255,255,255,${alpha})`
+    : `rgba(140,130,255,${alpha})`;
+  ctx.lineWidth = bothCollapsed ? 1 : 1.5;
+  ctx.stroke();
+
+  // Entanglement correlation indicator
+  if (!a.collapsed && !b.collapsed) {
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const pulseR = 4 + Math.sin(t * 0.04) * 2;
+    ctx.beginPath();
+    ctx.arc(mx, my, pulseR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(160,140,255,.15)';
+    ctx.fill();
+  }
+}
+
+function renderSlitExperiment() {
+  // Walls
+  const slitX = W * 0.45;
+  const centerY = H / 2;
+  const slitGap = 40;
+  const slitHeight = 30;
+
+  ctx.fillStyle = 'rgba(40,50,80,.6)';
+  // Top wall
+  ctx.fillRect(slitX, 0, 6, centerY - slitGap - slitHeight / 2);
+  // Middle wall
+  ctx.fillRect(slitX, centerY - slitGap + slitHeight / 2, 6, slitGap * 2 - slitHeight);
+  // Bottom wall
+  ctx.fillRect(slitX, centerY + slitGap + slitHeight / 2, 6, H);
+
+  // Slits glow
+  ctx.fillStyle = 'rgba(100,130,255,.1)';
+  ctx.fillRect(slitX - 2, centerY - slitGap - slitHeight / 2, 10, slitHeight);
+  ctx.fillRect(slitX - 2, centerY + slitGap - slitHeight / 2, 10, slitHeight);
+
+  // Screen
+  ctx.fillStyle = 'rgba(60,70,90,.3)';
+  ctx.fillRect(W * 0.85, 0, 3, H);
+
+  // Detector indicator (experiment 3)
+  if (experiment === 3) {
+    ctx.fillStyle = detectorOn ? 'rgba(255,100,100,.15)' : 'rgba(100,255,100,.05)';
+    ctx.fillRect(slitX + 10, centerY - slitGap - slitHeight, 20, slitHeight * 2 + slitGap * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.3)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(detectorOn ? 'DETECTOR ON' : 'DETECTOR OFF', slitX + 20, centerY - slitGap - slitHeight - 8);
+    ctx.fillText('(click to toggle)', slitX + 20, centerY - slitGap - slitHeight + 4);
+  }
+
+  // Labels
+  ctx.fillStyle = 'rgba(255,255,255,.15)';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SOURCE', 40, H / 2 - 40);
+  ctx.fillText('SLITS', slitX + 3, 20);
+  ctx.fillText('SCREEN', W * 0.85, 20);
+}
+
+function renderTeleportationLabels() {
+  ctx.fillStyle = 'rgba(255,255,255,.2)';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  if (particles[0]) ctx.fillText('Alice |ψ⟩', particles[0].x, particles[0].y - 25);
+  if (particles[1]) ctx.fillText('EPR-A', particles[1].x, particles[1].y - 25);
+  if (particles[2]) ctx.fillText('EPR-B', particles[2].x, particles[2].y - 25);
+  if (particles[3]) ctx.fillText('Bob', particles[3].x, particles[3].y - 25);
+
+  // Classical channel
+  if (particles[1] && particles[2]) {
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(particles[0].x, particles[0].y + 30);
+    ctx.lineTo(particles[3].x, particles[3].y + 30);
+    ctx.strokeStyle = 'rgba(255,200,100,.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,200,100,.15)';
+    ctx.fillText('classical channel', (particles[0].x + particles[3].x) / 2, particles[0].y + 45);
+  }
+}
+
+// ─── INTERACTION ───
+function getParticleAt(x, y, radius = 40) {
+  let closest = null, minDist = radius;
+  for (const p of particles) {
+    if (p.slitParticle) continue;
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < minDist) { minDist = d; closest = p; }
+  }
+  return closest;
+}
+
+function collapseParticle(p) {
+  if (p.collapsed) return;
+
+  // Randomly collapse
+  const spin = Math.random() > 0.5 ? SPIN_UP : SPIN_DOWN;
+  p.collapse(spin);
+
+  // Collapse effects
+  collapseEffects.push({
+    x: p.x, y: p.y, radius: 5, life: 1,
+    color: spin === SPIN_UP ? 'rgba(100,140,255,1)' : 'rgba(255,100,140,1)'
+  });
+
+  // Spooky action at a distance: collapse entangled partner
+  collapseEntangledPartners(p, spin);
+
+  updateStatePanel();
+}
+
+function collapseEntangledPartners(p, spin) {
+  for (const ent of entanglements) {
+    let partner = null;
+    if (ent.a === p.id) partner = particles.find(pp => pp.id === ent.b);
+    else if (ent.b === p.id) partner = particles.find(pp => pp.id === ent.a);
+
+    if (partner && !partner.collapsed) {
+      const partnerSpin = ent.correlation === -1 ? -spin : spin;
+      partner.collapse(partnerSpin);
+
+      collapseEffects.push({
+        x: partner.x, y: partner.y, radius: 5, life: 1,
+        color: partnerSpin === SPIN_UP ? 'rgba(100,140,255,1)' : 'rgba(255,100,140,1)'
+      });
+
+      // Propagation line effect
+      collapseEffects.push({
+        x: (p.x + partner.x) / 2,
+        y: (p.y + partner.y) / 2,
+        radius: Math.hypot(p.x - partner.x, p.y - partner.y) / 2,
+        life: 0.6,
+        color: 'rgba(200,180,255,1)'
+      });
+
+      // Recursively collapse for GHZ
+      if (experiment === 4) {
+        collapseEntangledPartners(partner, partnerSpin);
+      }
+    }
+  }
+}
+
+function createEntanglement(p1, p2) {
+  // Remove existing entanglements for both
+  entanglements = entanglements.filter(e =>
+    !(e.a === p1.id || e.b === p1.id || e.a === p2.id || e.b === p2.id)
+  );
+
+  // Reset states
+  p1.uncollapse();
+  p2.uncollapse();
+  p1.entangledWith = p2.id;
+  p2.entangledWith = p1.id;
+
+  entanglements.push({ a: p1.id, b: p2.id, correlation: -1 });
+
+  collapseEffects.push({ x: p1.x, y: p1.y, radius: 5, life: 0.8, color: 'rgba(140,255,200,1)' });
+  collapseEffects.push({ x: p2.x, y: p2.y, radius: 5, life: 0.8, color: 'rgba(140,255,200,1)' });
+
+  toast('Entanglement created: |Ψ⁻⟩ = (|↑↓⟩ − |↓↑⟩)/√2');
+  updateStatePanel();
+}
+
+// ─── STATE PANEL ───
+function updateStatePanel() {
+  const el = document.getElementById('stateContent');
+  let html = '';
+
+  if (experiment === 0 || experiment === 2 || experiment === 4) {
+    for (const ent of entanglements) {
+      const a = particles.find(p => p.id === ent.a);
+      const b = particles.find(p => p.id === ent.b);
+      if (!a || !b) continue;
+
+      const aState = a.collapsed
+        ? (a.spin === SPIN_UP ? '<span class="sv">|↑⟩</span>' : '<span class="sc">|↓⟩</span>')
+        : '<span class="sg">α|↑⟩+β|↓⟩</span>';
+      const bState = b.collapsed
+        ? (b.spin === SPIN_UP ? '<span class="sv">|↑⟩</span>' : '<span class="sc">|↓⟩</span>')
+        : '<span class="sg">α|↑⟩+β|↓⟩</span>';
+
+      html += `<div style="margin-bottom:6px">`;
+      if (!a.collapsed && !b.collapsed) {
+        html += `|Ψ⁻⟩ = <span class="sg">(|↑↓⟩−|↓↑⟩)/√2</span>`;
+      } else {
+        html += `P${a.id}: ${aState} ⊗ P${b.id}: ${bState}`;
+      }
+      html += `</div>`;
+    }
+  } else if (experiment === 5) {
+    html = `
+      <div style="margin-bottom:4px">|ψ⟩<sub>Alice</sub> = ${particles[0]?.collapsed ? (particles[0].spin===1?'<span class="sv">|↑⟩</span>':'<span class="sc">|↓⟩</span>') : '<span class="sg">α|↑⟩+β|↓⟩</span>'}</div>
+      <div style="margin-bottom:4px">|Φ⁺⟩<sub>EPR</sub> = <span class="sg">(|00⟩+|11⟩)/√2</span></div>
+      <div>|ψ⟩<sub>Bob</sub> = ${particles[3]?.collapsed ? (particles[3].spin===1?'<span class="sv">|↑⟩</span>':'<span class="sc">|↓⟩</span>') : '?'}</div>
+    `;
+  } else {
+    html = '<span style="color:rgba(255,255,255,.15)">Observe particles<br>to see state collapse</span>';
+  }
+
+  el.innerHTML = html || '<span style="color:rgba(255,255,255,.15)">No entangled pairs</span>';
+}
+
+// ─── EVENTS ───
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+
+  // Hover collapse
+  if (!mouseDown) {
+    const p = getParticleAt(mouseX, mouseY, 35);
+    if (p && !p.collapsed && !p.slitParticle) {
+      collapseParticle(p);
+    }
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  mouseDown = true;
+  const p = getParticleAt(e.clientX, e.clientY, 35);
+  if (p && !p.slitParticle) {
+    dragStart = { x: p.x, y: p.y, particle: p };
+  } else {
+    dragStart = { x: e.clientX, y: e.clientY, particle: null };
+  }
+
+  // Toggle detector in quantum eraser
+  if (experiment === 3) {
+    const slitX = W * 0.45;
+    const centerY = H / 2;
+    if (e.clientX > slitX && e.clientX < slitX + 40 &&
+        e.clientY > centerY - 80 && e.clientY < centerY + 80) {
+      detectorOn = !detectorOn;
+      // Clear detected particles to see pattern change
+      particles = particles.filter(p => !p.slitParticle);
+      toast(detectorOn ? 'Detector ON — interference destroyed' : 'Detector OFF — interference restored');
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (dragStart && dragStart.particle) {
+    const endP = getParticleAt(e.clientX, e.clientY, 35);
+    if (endP && endP !== dragStart.particle && !endP.slitParticle) {
+      createEntanglement(dragStart.particle, endP);
+    }
+  }
+  mouseDown = false;
+  dragStart = null;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  mouseX = -1000; mouseY = -1000;
+  mouseDown = false; dragStart = null;
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouseX = touch.clientX; mouseY = touch.clientY;
+
+  if (e.touches.length === 2) {
+    // Two-finger: create entangled pair
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const p1 = getParticleAt(t1.clientX, t1.clientY, 50);
+    const p2 = getParticleAt(t2.clientX, t2.clientY, 50);
+    if (p1 && p2 && p1 !== p2) {
+      createEntanglement(p1, p2);
+    }
+    return;
+  }
+
+  const p = getParticleAt(mouseX, mouseY, 50);
+  if (p && !p.collapsed && !p.slitParticle) {
+    collapseParticle(p);
+  }
+
+  // Detector toggle
+  if (experiment === 3) {
+    const slitX = W * 0.45;
+    const centerY = H / 2;
+    if (mouseX > slitX && mouseX < slitX + 40 &&
+        mouseY > centerY - 80 && mouseY < centerY + 80) {
+      detectorOn = !detectorOn;
+      particles = particles.filter(p => !p.slitParticle);
+      toast(detectorOn ? 'Detector ON' : 'Detector OFF');
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouseX = touch.clientX; mouseY = touch.clientY;
+  const p = getParticleAt(mouseX, mouseY, 50);
+  if (p && !p.collapsed && !p.slitParticle) {
+    collapseParticle(p);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  mouseX = -1000; mouseY = -1000;
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === ' ') { e.preventDefault(); toggleWave(); }
+  if (k === 'r' || k === 'R') { initExperiment(); toast('Reset'); }
+  if (k >= '1' && k <= '6') {
+    experiment = parseInt(k) - 1;
+    setExperiment(experiment);
+  }
+});
+
+// ─── UI BUTTONS ───
+document.getElementById('btnWave').addEventListener('click', toggleWave);
+document.getElementById('btnReset').addEventListener('click', () => { initExperiment(); toast('Quantum state reset'); });
+
+document.getElementById('btnState').addEventListener('click', function() {
+  document.getElementById('statePanel').classList.toggle('hidden');
+  this.classList.toggle('on');
+});
+
+document.getElementById('btnLegend').addEventListener('click', function() {
+  document.getElementById('legend').classList.toggle('hidden');
+  this.classList.toggle('on');
+});
+
+document.getElementById('btnExport').addEventListener('click', exportState);
+
+document.querySelectorAll('.exp-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    experiment = parseInt(btn.dataset.exp);
+    setExperiment(experiment);
+  });
+});
+
+function setExperiment(idx) {
+  experiment = idx;
+  document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('on'));
+  document.querySelector(`.exp-btn[data-exp="${idx}"]`).classList.add('on');
+  initExperiment();
+}
+
+function toggleWave() {
+  showWave = !showWave;
+  document.getElementById('btnWave').classList.toggle('on', showWave);
+  toast(showWave ? 'Ψ Wavefunctions visible' : 'Wavefunctions hidden');
+}
+
+function exportState() {
+  let text = `QUANTUM STATE EXPORT\n${'═'.repeat(40)}\n`;
+  text += `Experiment: ${EXP_NAMES[experiment]}\n`;
+  text += `Timestamp: ${new Date().toISOString()}\n`;
+  text += `Particles: ${particles.filter(p => !p.slitParticle).length}\n`;
+  text += `Entanglements: ${entanglements.length}\n\n`;
+
+  text += `HILBERT SPACE REPRESENTATION\n${'─'.repeat(30)}\n`;
+
+  for (const ent of entanglements) {
+    const a = particles.find(p => p.id === ent.a);
+    const b = particles.find(p => p.id === ent.b);
+    if (!a || !b) continue;
+
+    if (!a.collapsed && !b.collapsed) {
+      text += `|Ψ⁻⟩_{${a.id},${b.id}} = (1/√2)(|↑⟩⊗|↓⟩ − |↓⟩⊗|↑⟩)\n`;
+      text += `  Correlation: ${ent.correlation === -1 ? 'Anti-correlated' : 'Correlated'}\n`;
+      text += `  Bell state: Singlet\n\n`;
+    } else {
+      const aS = a.spin === SPIN_UP ? '↑' : '↓';
+      const bS = b.spin === SPIN_UP ? '↑' : '↓';
+      text += `|${aS}⟩_{${a.id}} ⊗ |${bS}⟩_{${b.id}} (collapsed)\n\n`;
+    }
+  }
+
+  text += `\nPARTICLE STATES\n${'─'.repeat(30)}\n`;
+  particles.filter(p => !p.slitParticle).forEach(p => {
+    const state = p.collapsed
+      ? `|${p.spin === SPIN_UP ? '↑' : '↓'}⟩ (eigenstate)`
+      : `α|↑⟩ + β|↓⟩ (superposition)`;
+    text += `P${p.id} @ (${Math.round(p.x)},${Math.round(p.y)}): ${state}\n`;
+  });
+
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.download = `quantum-state-${Date.now()}.txt`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Quantum state exported');
+}
+
+function toast(m) {
+  const el = document.getElementById('toast');
+  el.textContent = m;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─── MAIN LOOP ───
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+initExperiment();
+loop();
+</script>
+</body>
+</html>

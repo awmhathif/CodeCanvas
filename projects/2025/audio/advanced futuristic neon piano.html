@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Advanced Futuristic Neon Piano</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- LameJS library for MP3 encoding -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
+  <style>
+    /* Global Styles & Futuristic Neon Theme */
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #0ff;
+      user-select: none;
+    }
+    h1 {
+      text-align: center;
+      margin: 20px;
+      font-size: 2.5em;
+      text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+    }
+    .piano-container {
+      width: 90%;
+      margin: 0 auto;
+      max-width: 1000px;
+      position: relative;
+      border: 2px solid #0ff;
+      box-shadow: 0 0 20px #0ff;
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .keys {
+      display: flex;
+      position: relative;
+      margin: 20px auto;
+      height: 250px;
+    }
+    .key {
+      flex: 1;
+      border: 1px solid #0ff;
+      margin: 1px;
+      position: relative;
+      background: linear-gradient(to bottom, #003, #000);
+      box-shadow: inset 0 0 10px #0ff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .key:active {
+      transform: scale(0.98);
+      box-shadow: 0 0 20px #0ff;
+    }
+    .key.black {
+      position: absolute;
+      width: 60px;
+      height: 150px;
+      background: linear-gradient(to bottom, #222, #000);
+      border: 1px solid #0ff;
+      top: 0;
+      z-index: 2;
+      border-radius: 5px;
+      box-shadow: inset 0 0 10px #0ff;
+      cursor: pointer;
+    }
+    /* Position black keys over white keys */
+    .black.key-1 { left: 70px; }
+    .black.key-2 { left: 170px; }
+    .black.key-3 { left: 370px; }
+    .black.key-4 { left: 470px; }
+    .black.key-5 { left: 570px; }
+    
+    /* Control Panel Styles */
+    .controls {
+      text-align: center;
+      margin: 20px;
+    }
+    .controls button {
+      background: transparent;
+      border: 2px solid #0ff;
+      color: #0ff;
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 1em;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+      text-shadow: 0 0 10px #0ff;
+    }
+    .controls button:hover {
+      background: rgba(0,255,255,0.1);
+    }
+    .recordings {
+      margin: 20px;
+      text-align: center;
+    }
+    .recordings a {
+      color: #0ff;
+      text-decoration: none;
+      margin: 0 10px;
+      border: 1px solid #0ff;
+      padding: 5px 10px;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    .recordings a:hover {
+      background: rgba(0,255,255,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Advanced Futuristic Neon Piano</h1>
+  <div class="piano-container">
+    <!-- Piano keys -->
+    <div class="keys" id="whiteKeys">
+      <!-- White keys for one octave (C4 to B4) -->
+      <div class="key" data-note="C4"></div>
+      <div class="key" data-note="D4"></div>
+      <div class="key" data-note="E4"></div>
+      <div class="key" data-note="F4"></div>
+      <div class="key" data-note="G4"></div>
+      <div class="key" data-note="A4"></div>
+      <div class="key" data-note="B4"></div>
+      <div class="key" data-note="C5"></div>
+    </div>
+    <!-- Black keys overlay -->
+    <div class="keys" id="blackKeys">
+      <div class="key black key-1" data-note="C#4"></div>
+      <div class="key black key-2" data-note="D#4"></div>
+      <!-- Skip between E and F -->
+      <div class="key black key-3" data-note="F#4"></div>
+      <div class="key black key-4" data-note="G#4"></div>
+      <div class="key black key-5" data-note="A#4"></div>
+    </div>
+    <!-- Control Panel -->
+    <div class="controls">
+      <button id="recordBtn">Record</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <button id="playBtn" disabled>Play Recording</button>
+      <button id="saveBtn" disabled>Save as MP3</button>
+    </div>
+    <!-- Recording List -->
+    <div class="recordings" id="recordingsList">
+      <!-- Links for saved recordings will appear here -->
+    </div>
+  </div>
+
+  <script>
+    // =============================
+    // Global Variables & Audio Setup
+    // =============================
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    let masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.8;
+    masterGain.connect(audioCtx.destination);
+
+    // Create a MediaStreamDestination to record audio from the AudioContext
+    const dest = audioCtx.createMediaStreamDestination();
+    masterGain.connect(dest);
+    let mediaRecorder;
+    let recordedChunks = [];
+    let recordingBuffer = []; // For raw PCM data recording
+
+    // For our custom PCM recorder using ScriptProcessorNode
+    let recorderNode;
+    let isRecording = false;
+    let recordedSamples = [];
+
+    // Map note names to frequencies (approximate piano tuning)
+    const noteFrequencies = {
+      'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13,
+      'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00,
+      'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+      'C5': 523.25
+    };
+
+    // =============================
+    // Piano Key Event Handling
+    // =============================
+    // When a key is pressed or clicked, create an oscillator for the note
+    function playNote(note) {
+      const frequency = noteFrequencies[note];
+      if (!frequency) return;
+      const osc = audioCtx.createOscillator();
+      osc.frequency.value = frequency;
+      // Use a short envelope for a piano-like feel
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+      osc.connect(gainNode);
+      gainNode.connect(masterGain);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 1);
+    }
+    // Add event listeners to keys
+    document.querySelectorAll('.key').forEach(key => {
+      key.addEventListener('mousedown', () => {
+        const note = key.getAttribute('data-note');
+        playNote(note);
+        key.classList.add('active');
+      });
+      key.addEventListener('mouseup', () => {
+        key.classList.remove('active');
+      });
+      key.addEventListener('mouseleave', () => {
+        key.classList.remove('active');
+      });
+    });
+
+    // Map computer keyboard keys to piano notes
+    const keyboardMap = {
+      'a': 'C4',
+      'w': 'C#4',
+      's': 'D4',
+      'e': 'D#4',
+      'd': 'E4',
+      'f': 'F4',
+      't': 'F#4',
+      'g': 'G4',
+      'y': 'G#4',
+      'h': 'A4',
+      'u': 'A#4',
+      'j': 'B4',
+      'k': 'C5'
+    };
+
+    window.addEventListener('keydown', (e) => {
+      const note = keyboardMap[e.key];
+      if (note) {
+        playNote(note);
+        // Highlight corresponding key (if exists)
+        document.querySelectorAll(`.key[data-note="${note}"]`).forEach(key => key.classList.add('active'));
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      const note = keyboardMap[e.key];
+      if (note) {
+        document.querySelectorAll(`.key[data-note="${note}"]`).forEach(key => key.classList.remove('active'));
+      }
+    });
+
+    // =============================
+    // Recording Functionality
+    // =============================
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const playBtn = document.getElementById('playBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const recordingsList = document.getElementById('recordingsList');
+    let recordedAudioBuffer = null; // for playback
+
+    // Set up ScriptProcessorNode to record raw PCM data from masterGain
+    function startRecording() {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      isRecording = true;
+      recordedSamples = [];
+      // Create a ScriptProcessorNode (deprecated but works in many browsers)
+      recorderNode = audioCtx.createScriptProcessor(4096, 1, 1);
+      const recordingSource = audioCtx.createMediaStreamSource(dest.stream);
+      recordingSource.connect(recorderNode);
+      recorderNode.connect(audioCtx.destination);
+      recorderNode.onaudioprocess = function(e) {
+        if (!isRecording) return;
+        // Get the audio data
+        const inputData = e.inputBuffer.getChannelData(0);
+        // Copy the data to our recordedSamples array
+        recordedSamples.push(new Float32Array(inputData));
+      };
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      if (recorderNode) {
+        recorderNode.disconnect();
+      }
+      // Merge all recorded samples into one Float32Array
+      let length = recordedSamples.reduce((sum, arr) => sum + arr.length, 0);
+      let result = new Float32Array(length);
+      let offset = 0;
+      for (let i = 0; i < recordedSamples.length; i++) {
+        result.set(recordedSamples[i], offset);
+        offset += recordedSamples[i].length;
+      }
+      // Create an AudioBuffer from the recorded samples
+      recordedAudioBuffer = audioCtx.createBuffer(1, result.length, audioCtx.sampleRate);
+      recordedAudioBuffer.copyToChannel(result, 0);
+      playBtn.disabled = false;
+      saveBtn.disabled = false;
+    }
+
+    // Playback the recorded audio using an AudioBufferSourceNode
+    function playRecording() {
+      if (!recordedAudioBuffer) return;
+      const source = audioCtx.createBufferSource();
+      source.buffer = recordedAudioBuffer;
+      source.connect(masterGain);
+      source.start();
+    }
+
+    // Utility function: Convert AudioBuffer (PCM data) to WAV Blob
+    function audioBufferToWav(buffer, opt) {
+      opt = opt || {};
+      let numChannels = buffer.numberOfChannels;
+      let sampleRate = buffer.sampleRate;
+      let format = opt.float32 ? 3 : 1;
+      let bitDepth = format === 3 ? 32 : 16;
+
+      let result;
+      if (numChannels === 2) {
+        result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+      } else {
+        result = buffer.getChannelData(0);
+      }
+      return encodeWAV(result, numChannels, sampleRate, bitDepth);
+    }
+    function interleave(inputL, inputR) {
+      let length = inputL.length + inputR.length;
+      let result = new Float32Array(length);
+      let index = 0, inputIndex = 0;
+      while (index < length) {
+        result[index++] = inputL[inputIndex];
+        result[index++] = inputR[inputIndex];
+        inputIndex++;
+      }
+      return result;
+    }
+    function encodeWAV(samples, numChannels, sampleRate, bitDepth) {
+      let bytesPerSample = bitDepth / 8;
+      let blockAlign = numChannels * bytesPerSample;
+      let buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+      let view = new DataView(buffer);
+
+      /* RIFF identifier */
+      writeString(view, 0, 'RIFF');
+      /* RIFF chunk length */
+      view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+      /* RIFF type */
+      writeString(view, 8, 'WAVE');
+      /* format chunk identifier */
+      writeString(view, 12, 'fmt ');
+      /* format chunk length */
+      view.setUint32(16, 16, true);
+      /* sample format (raw) */
+      view.setUint16(20, format === 3 ? 3 : 1, true);
+      /* channel count */
+      view.setUint16(22, numChannels, true);
+      /* sample rate */
+      view.setUint32(24, sampleRate, true);
+      /* byte rate (sample rate * block align) */
+      view.setUint32(28, sampleRate * blockAlign, true);
+      /* block align (channel count * bytes per sample) */
+      view.setUint16(32, blockAlign, true);
+      /* bits per sample */
+      view.setUint16(34, bitDepth, true);
+      /* data chunk identifier */
+      writeString(view, 36, 'data');
+      /* data chunk length */
+      view.setUint32(40, samples.length * bytesPerSample, true);
+      // Write samples
+      if (bitDepth === 16) {
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+          let s = Math.max(-1, Math.min(1, samples[i]));
+          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+      } else {
+        // 32-bit float
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 4) {
+          view.setFloat32(offset, samples[i], true);
+        }
+      }
+      return new Blob([view], { type: 'audio/wav' });
+    }
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+
+    // Convert WAV Blob to MP3 using LameJS
+    function convertWavToMp3(wavBlob, callback) {
+      let fileReader = new FileReader();
+      fileReader.onload = function() {
+        let arrayBuffer = this.result;
+        let wav = lamejs.WavHeader.readHeader(new DataView(arrayBuffer));
+        let samples = new Int16Array(arrayBuffer, wav.dataOffset, wav.dataLen / 2);
+        let mp3encoder = new lamejs.Mp3Encoder(wav.channels, wav.sampleRate, 128);
+        let blockSize = 1152;
+        let mp3Data = [];
+        for (let i = 0; i < samples.length; i += blockSize) {
+          let sampleChunk = samples.subarray(i, i + blockSize);
+          let mp3buf = mp3encoder.encodeBuffer(sampleChunk);
+          if (mp3buf.length > 0) {
+            mp3Data.push(new Int8Array(mp3buf));
+          }
+        }
+        let mp3buf = mp3encoder.flush();
+        if (mp3buf.length > 0) {
+          mp3Data.push(new Int8Array(mp3buf));
+        }
+        let blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        callback(blob);
+      };
+      fileReader.readAsArrayBuffer(wavBlob);
+    }
+
+    // =============================
+    // Button Event Listeners
+    // =============================
+    recordBtn.addEventListener('click', () => {
+      recordBtn.disabled = true;
+      stopBtn.disabled = false;
+      playBtn.disabled = true;
+      saveBtn.disabled = true;
+      startRecording();
+    });
+    stopBtn.addEventListener('click', () => {
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+      stopRecording();
+    });
+    playBtn.addEventListener('click', () => {
+      playRecording();
+    });
+    saveBtn.addEventListener('click', () => {
+      if (!recordedAudioBuffer) return;
+      // Convert recorded AudioBuffer to WAV Blob then to MP3
+      let wavBlob = audioBufferToWav(recordedAudioBuffer);
+      convertWavToMp3(wavBlob, function(mp3Blob) {
+        let url = URL.createObjectURL(mp3Blob);
+        let a = document.createElement('a');
+        a.style.display = 'block';
+        a.href = url;
+        a.download = 'recording.mp3';
+        a.textContent = 'Download MP3 (' + new Date().toLocaleTimeString() + ')';
+        recordingsList.appendChild(a);
+      });
+    });
+    
+    // =============================
+    // Extra Neon Visual Effects (Optional)
+    // =============================
+    // Add a glowing border animation to the piano container periodically
+    function neonPulse() {
+      const container = document.querySelector('.piano-container');
+      container.style.boxShadow = '0 0 30px #0ff, 0 0 60px #0ff';
+      setTimeout(() => {
+        container.style.boxShadow = '0 0 10px #0ff';
+      }, 300);
+      setTimeout(neonPulse, 2000);
+    }
+    neonPulse();
+  </script>
+</body>
+</html>

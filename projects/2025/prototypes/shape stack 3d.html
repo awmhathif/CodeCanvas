@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shape Stack 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Fredoka', sans-serif;
+            background: #222;
+            touch-action: none; /* Prevent pull-to-refresh on mobile */
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-btn {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-pulse {
+            animation: pulse-btn 2s infinite;
+        }
+
+        /* Hidden Classes */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Mock Ad Modal */
+        #ad-modal {
+            background: rgba(0,0,0,0.9);
+            z-index: 50;
+        }
+        
+        .progress-bar {
+            transition: width 0.1s linear;
+        }
+
+        /* Text Shadow for visibility against 3D bg */
+        .text-shadow {
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Container -->
+    <div id="game-container"></div>
+
+    <!-- UI: HUD (Score) -->
+    <div id="hud" class="ui-layer hidden" style="justify-content: flex-start; padding-top: 40px;">
+        <div class="text-6xl font-bold text-white text-shadow" id="score-display">0</div>
+        <div class="text-xl text-white/80 mt-2 font-semibold tracking-wider hidden" id="combo-display">PERFECT!</div>
+    </div>
+
+    <!-- UI: Main Menu -->
+    <div id="main-menu" class="ui-layer interactive bg-black/40 backdrop-blur-sm">
+        <h1 class="text-7xl font-bold text-white mb-2 text-shadow animate-float text-center leading-tight">SHAPE<br><span class="text-yellow-400">STACK</span></h1>
+        <p class="text-white/80 mb-8 text-lg">Tap to place. Don't miss.</p>
+        
+        <button id="start-btn" class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 px-12 rounded-full text-2xl shadow-lg transform transition active:scale-95 btn-pulse border-4 border-white/20">
+            PLAY
+        </button>
+
+        <button id="skins-btn" class="mt-4 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full text-lg shadow-lg transform transition active:scale-95 flex items-center gap-2">
+            🎨 Skins
+        </button>
+    </div>
+
+    <!-- UI: Game Over -->
+    <div id="game-over" class="ui-layer interactive hidden bg-black/60 backdrop-blur-md">
+        <h2 class="text-5xl font-bold text-white mb-2 text-shadow">OOPS!</h2>
+        <div class="text-2xl text-white mb-8">Score: <span id="final-score" class="text-yellow-400 font-bold">0</span></div>
+        
+        <div class="flex flex-col gap-4 w-full max-w-xs px-4">
+            <button id="revive-btn" class="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3 px-8 rounded-xl text-xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2">
+                <span>📺</span> Revive (Watch Ad)
+            </button>
+            
+            <button id="restart-btn" class="bg-white text-gray-900 font-bold py-3 px-8 rounded-xl text-xl shadow-lg transform transition active:scale-95 hover:bg-gray-100">
+                Restart
+            </button>
+        </div>
+    </div>
+
+    <!-- UI: Skins Shop -->
+    <div id="skins-menu" class="ui-layer interactive hidden bg-black/80 backdrop-blur-xl">
+        <h2 class="text-4xl font-bold text-white mb-8 text-shadow">Select Theme</h2>
+        <div class="grid grid-cols-2 gap-4 w-full max-w-sm px-6" id="skin-grid">
+            <!-- Skin items injected via JS -->
+        </div>
+        <button id="close-skins" class="mt-8 text-white/60 hover:text-white underline">Back</button>
+    </div>
+
+    <!-- Mock Ad Modal -->
+    <div id="ad-modal" class="ui-layer interactive hidden">
+        <div class="bg-white p-6 rounded-2xl max-w-sm w-[90%] text-center relative overflow-hidden">
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">ADVERTISEMENT</h3>
+            <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center text-gray-400">
+                Mock Video Player
+            </div>
+            <p class="text-gray-600 mb-4">Reward in <span id="ad-timer">3</span>s...</p>
+            <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                <div id="ad-progress" class="bg-blue-500 h-full w-0 progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Configuration & State ---
+        const CONFIG = {
+            boxHeight: 1,
+            originalBoxSize: 3,
+            moveSpeed: 0.15, // Base speed
+            speedIncrement: 0.005,
+            bgColor: 0x222222,
+            colors: {
+                neon: { bg: 0x111111, base: 200, range: 60 },
+                pastel: { bg: 0xffe4e1, base: 330, range: 40 },
+                ocean: { bg: 0xd4f1f9, base: 180, range: 50 },
+                sunset: { bg: 0x2d1b2e, base: 10, range: 40 }
+            }
+        };
+
+        let state = {
+            score: 0,
+            isPlaying: false,
+            isGameOver: false,
+            stack: [], // Array of Three.js Meshes
+            debris: [], // Array of falling debris objects
+            currentLayer: 1,
+            direction: 'x', // 'x' or 'z'
+            cameraAngle: 0,
+            hasRevived: false,
+            theme: 'neon',
+            prevBoxData: { x: 0, z: 0, width: CONFIG.originalBoxSize, depth: CONFIG.originalBoxSize },
+            // Twist factors
+            twistSpeedMult: 1,
+            perfectCombo: 0
+        };
+
+        // --- Three.js Globals ---
+        let scene, camera, renderer, light;
+        let activeBox; // The box currently moving
+
+        // --- Init ---
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            // Fog to hide the bottom of the infinite stack
+            scene.fog = new THREE.Fog(CONFIG.bgColor, 10, 25);
+
+            // Camera (Orthographic for isometric look)
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
+            camera.position.set(10, 10, 10); // Isometric position
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Perf opt
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            // Handle Resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Interaction
+            document.addEventListener('mousedown', handleInput);
+            document.addEventListener('touchstart', (e) => { 
+                // prevent default to stop zooming/scrolling on some devices
+                // e.preventDefault(); 
+                handleInput(e);
+            }, { passive: false });
+
+            // Generate Skin Menu
+            generateSkinMenu();
+            applyTheme('neon'); // Default
+
+            // Animation Loop
+            animate();
+        }
+
+        function onWindowResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            camera.left = -d * aspect;
+            camera.right = d * aspect;
+            camera.top = d;
+            camera.bottom = -d;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Game Logic ---
+
+        function startGame() {
+            // Reset State
+            state.score = 0;
+            state.currentLayer = 1;
+            state.direction = 'x';
+            state.stack.forEach(mesh => scene.remove(mesh));
+            state.stack = [];
+            state.debris.forEach(obj => scene.remove(obj.mesh));
+            state.debris = [];
+            state.hasRevived = false;
+            state.isPlaying = true;
+            state.isGameOver = false;
+            state.perfectCombo = 0;
+            state.twistSpeedMult = 1;
+            
+            // Reset Camera
+            camera.position.set(10, 10, 10);
+            camera.lookAt(0, 0, 0);
+
+            // Reset UI
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('score-display').innerText = '0';
+
+            // Create Base Box
+            state.prevBoxData = { x: 0, z: 0, width: CONFIG.originalBoxSize, depth: CONFIG.originalBoxSize };
+            addLayer(0, 0, CONFIG.originalBoxSize, CONFIG.originalBoxSize, 0); // Base layer
+
+            // Spawn First Moving Box
+            spawnNextLayer();
+        }
+
+        function spawnNextLayer() {
+            const y = state.currentLayer * CONFIG.boxHeight;
+            const prev = state.prevBoxData;
+            
+            // Generate color based on layer
+            const color = getLayerColor(state.currentLayer);
+
+            const geometry = new THREE.BoxGeometry(prev.width, CONFIG.boxHeight, prev.depth);
+            const material = new THREE.MeshLambertMaterial({ color: color });
+            activeBox = new THREE.Mesh(geometry, material);
+
+            // Set starting position (offset so it slides in)
+            // Twist: Randomize entry side occasionally?
+            // For now, standard alternating
+            state.direction = state.score % 2 === 0 ? 'x' : 'z';
+
+            if (state.direction === 'x') {
+                activeBox.position.set(-10, y, prev.z);
+            } else {
+                activeBox.position.set(prev.x, y, -10);
+            }
+
+            scene.add(activeBox);
+        }
+
+        function addLayer(x, z, width, depth, y) {
+            const geometry = new THREE.BoxGeometry(width, CONFIG.boxHeight, depth);
+            const color = getLayerColor(state.currentLayer - 1); // Color of the layer just placed
+            const material = new THREE.MeshLambertMaterial({ color: color });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            state.stack.push(mesh);
+        }
+
+        function handleInput(e) {
+            // Filter clicks on UI elements
+            if (e.target.closest('button') || e.target.closest('#skins-menu') || e.target.closest('#ad-modal')) return;
+            
+            if (!state.isPlaying || state.isGameOver) return;
+            
+            placeBlock();
+        }
+
+        function placeBlock() {
+            const active = activeBox;
+            const prev = state.prevBoxData;
+            
+            const currentPos = active.position;
+            
+            let overlap, delta;
+            let cutWidth = prev.width;
+            let cutDepth = prev.depth;
+            let cutX = prev.x;
+            let cutZ = prev.z;
+
+            let debrisData = null;
+
+            // Math to calculate overlap and cutting
+            if (state.direction === 'x') {
+                const diff = currentPos.x - prev.x;
+                const absDiff = Math.abs(diff);
+                overlap = prev.width - absDiff;
+                
+                if (overlap > 0) {
+                    cutWidth = overlap;
+                    cutX = prev.x + diff / 2;
+                    
+                    // Logic for "Falling" part
+                    const debrisWidth = prev.width - overlap;
+                    const debrisX = prev.x + (diff > 0 ? (overlap / 2 + debrisWidth / 2) : (-overlap / 2 - debrisWidth / 2));
+                    debrisData = {
+                        w: debrisWidth, h: CONFIG.boxHeight, d: prev.depth,
+                        x: debrisX, y: currentPos.y, z: prev.z,
+                        color: active.material.color
+                    };
+                }
+            } else { // z direction
+                const diff = currentPos.z - prev.z;
+                const absDiff = Math.abs(diff);
+                overlap = prev.depth - absDiff;
+
+                if (overlap > 0) {
+                    cutDepth = overlap;
+                    cutZ = prev.z + diff / 2;
+
+                    // Logic for "Falling" part
+                    const debrisDepth = prev.depth - overlap;
+                    const debrisZ = prev.z + (diff > 0 ? (overlap / 2 + debrisDepth / 2) : (-overlap / 2 - debrisDepth / 2));
+                    debrisData = {
+                        w: prev.width, h: CONFIG.boxHeight, d: debrisDepth,
+                        x: prev.x, y: currentPos.y, z: debrisZ,
+                        color: active.material.color
+                    };
+                }
+            }
+
+            // --- Game Logic Handling ---
+
+            scene.remove(activeBox);
+
+            if (overlap <= 0) {
+                // MISS!
+                gameOver();
+                return;
+            }
+
+            // Combo Bonus: If overlap is very close to perfect, snap it to perfect
+            const tolerance = 0.05;
+            if (Math.abs(overlap - (state.direction === 'x' ? prev.width : prev.depth)) < tolerance) {
+                console.log("Perfect!");
+                state.perfectCombo++;
+                showComboEffect();
+                
+                // Snap to perfect size
+                if(state.direction === 'x') {
+                    cutWidth = prev.width;
+                    cutX = prev.x;
+                } else {
+                    cutDepth = prev.depth;
+                    cutZ = prev.z;
+                }
+                debrisData = null; // No debris on perfect hit
+                
+                // Reward: slightly grow the base if combo is high (optional mechanic, maybe too easy?)
+                // Instead, play a sound or particle effect (skipped for single file simplicity)
+            } else {
+                state.perfectCombo = 0;
+            }
+
+            // Update State
+            state.score++;
+            document.getElementById('score-display').innerText = state.score;
+
+            // Add the solid placed layer
+            addLayer(cutX, cutZ, cutWidth, cutDepth, currentPos.y);
+
+            // Add Debris (Falling part)
+            if (debrisData) {
+                addDebris(debrisData);
+            }
+
+            // Store data for next turn
+            state.prevBoxData = {
+                x: cutX, 
+                z: cutZ,
+                width: cutWidth, 
+                depth: cutDepth
+            };
+
+            // Twist: Increase speed
+            state.twistSpeedMult = 1 + (state.score * 0.02);
+
+            // Move Camera Up
+            state.currentLayer++;
+            moveCamera();
+
+            // Next Turn
+            spawnNextLayer();
+        }
+
+        function addDebris(data) {
+            const geo = new THREE.BoxGeometry(data.w, data.h, data.d);
+            const mat = new THREE.MeshLambertMaterial({ color: data.color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(data.x, data.y, data.z);
+            scene.add(mesh);
+
+            state.debris.push({
+                mesh: mesh,
+                velocity: new THREE.Vector3(0, 0, 0),
+                rotation: new THREE.Vector3(Math.random() * 0.1, Math.random() * 0.1, Math.random() * 0.1)
+            });
+        }
+
+        function moveCamera() {
+            // Smoothly lerp camera Y
+            // But for simplicity in requestAnimationFrame we can just set target
+            // We'll let the animation loop handle smoothing if we wanted, but discrete steps are fine for this style
+            // Actually, let's just increment position.
+            const targetY = 10 + (state.currentLayer * CONFIG.boxHeight);
+            
+            // Simple tween simulation
+            const startY = camera.position.y;
+            const steps = 20;
+            let step = 0;
+            
+            function tween() {
+                step++;
+                const t = step / steps;
+                camera.position.y = startY + (targetY - startY) * t;
+                if(step < steps) requestAnimationFrame(tween);
+            }
+            tween();
+        }
+
+        function gameOver() {
+            state.isPlaying = false;
+            state.isGameOver = true;
+            document.getElementById('final-score').innerText = state.score;
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('game-over').classList.remove('hidden');
+
+            // Show revive button only if haven't revived yet
+            const reviveBtn = document.getElementById('revive-btn');
+            if (state.hasRevived) {
+                reviveBtn.classList.add('hidden');
+            } else {
+                reviveBtn.classList.remove('hidden');
+            }
+        }
+
+        // --- Revive Logic ---
+        async function reviveGame() {
+            // Mock Ad Experience
+            const modal = document.getElementById('ad-modal');
+            const progress = document.getElementById('ad-progress');
+            const timer = document.getElementById('ad-timer');
+            
+            modal.classList.remove('hidden');
+            let timeLeft = 3;
+            progress.style.width = '0%';
+            
+            // Timer Loop
+            for (let i = 0; i <= 30; i++) {
+                await new Promise(r => setTimeout(r, 100));
+                progress.style.width = `${(i/30)*100}%`;
+                if (i % 10 === 0 && timeLeft > 0) {
+                    timer.innerText = timeLeft;
+                    timeLeft--;
+                }
+            }
+
+            // Ad Finished
+            modal.classList.add('hidden');
+            
+            // Restore Game
+            state.hasRevived = true;
+            state.isGameOver = false;
+            state.isPlaying = true;
+            
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            // Reset the "missed" block logic
+            // We basically treat the *previous* successful block as the anchor
+            // And spawn a new block
+            
+            spawnNextLayer();
+        }
+
+        // --- Visuals & Physics Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (state.isPlaying && !state.isGameOver && activeBox) {
+                const time = Date.now() * 0.001;
+                const limit = 6; // Movement range
+                
+                // Speed calculation
+                const speed = CONFIG.moveSpeed * state.twistSpeedMult;
+                
+                // Movement logic (Sin wave for smooth back and forth)
+                const pos = Math.sin(time * speed * 3) * limit;
+
+                if (state.direction === 'x') {
+                    activeBox.position.x = pos;
+                } else {
+                    activeBox.position.z = pos;
+                }
+
+                // Twist: Camera Rotation at high levels (after 20 stacks)
+                if (state.score > 20) {
+                     const angle = (state.score - 20) * 0.005;
+                     camera.rotation.z = Math.sin(time * 0.5) * 0.05; // slight wobble
+                }
+            }
+
+            // Debris Physics
+            for (let i = state.debris.length - 1; i >= 0; i--) {
+                const p = state.debris[i];
+                p.velocity.y -= 0.02; // Gravity
+                p.mesh.position.y += p.velocity.y;
+                p.mesh.rotation.x += p.rotation.x;
+                p.mesh.rotation.z += p.rotation.z;
+
+                // Remove if too low
+                if (p.mesh.position.y < state.currentLayer - 20) {
+                    scene.remove(p.mesh);
+                    state.debris.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Helpers ---
+
+        function getLayerColor(layerIndex) {
+            const conf = CONFIG.colors[state.theme];
+            const hue = (conf.base + (layerIndex * 5)) % 360;
+            return `hsl(${hue}, 70%, 60%)`;
+        }
+
+        function applyTheme(themeName) {
+            state.theme = themeName;
+            CONFIG.bgColor = CONFIG.colors[themeName].bg;
+            if(scene) scene.fog.color.setHex(CONFIG.bgColor);
+            document.body.style.backgroundColor = '#' + CONFIG.bgColor.toString(16);
+        }
+
+        function showComboEffect() {
+            const el = document.getElementById('combo-display');
+            el.classList.remove('hidden');
+            el.style.transform = 'scale(1.5)';
+            el.style.opacity = '1';
+            
+            // Simple animation reset
+            setTimeout(() => {
+                el.style.transition = 'all 0.5s ease';
+                el.style.transform = 'scale(1)';
+                el.style.opacity = '0';
+                setTimeout(() => el.classList.add('hidden'), 500);
+            }, 300);
+        }
+
+        // --- UI Generation & Events ---
+        
+        function generateSkinMenu() {
+            const grid = document.getElementById('skin-grid');
+            const skins = [
+                { id: 'neon', name: 'Neon', color: 'bg-gray-900 border-green-400' },
+                { id: 'pastel', name: 'Pastel', color: 'bg-pink-200 border-pink-400' },
+                { id: 'ocean', name: 'Ocean', color: 'bg-blue-200 border-blue-500' },
+                { id: 'sunset', name: 'Sunset', color: 'bg-orange-900 border-orange-500' }
+            ];
+
+            skins.forEach(skin => {
+                const btn = document.createElement('div');
+                btn.className = `${skin.color} border-4 h-24 rounded-xl flex items-center justify-center cursor-pointer transform transition hover:scale-105 shadow-md`;
+                btn.innerHTML = `<span class="font-bold text-gray-800 bg-white/50 px-2 rounded">${skin.name}</span>`;
+                btn.onclick = () => {
+                    applyTheme(skin.id);
+                    document.getElementById('skins-menu').classList.add('hidden');
+                    document.getElementById('main-menu').classList.remove('hidden');
+                };
+                grid.appendChild(btn);
+            });
+        }
+
+        // UI Event Listeners
+        document.getElementById('start-btn').onclick = startGame;
+        document.getElementById('restart-btn').onclick = startGame;
+        
+        document.getElementById('skins-btn').onclick = () => {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('skins-menu').classList.remove('hidden');
+        };
+
+        document.getElementById('close-skins').onclick = () => {
+            document.getElementById('skins-menu').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        };
+
+        document.getElementById('revive-btn').onclick = reviveGame;
+
+        // Initialize
+        init();
+
+    </script>
+</body>
+</html>

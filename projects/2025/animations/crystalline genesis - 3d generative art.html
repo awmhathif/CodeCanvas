@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crystalline Genesis - 3D Generative Art</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Basic styling for the page */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #05000a; /* Very dark purple background */
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        /* Canvas container */
+        #canvasContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; /* Behind controls */
+        }
+        #canvasContainer canvas {
+             display: block; /* Prevent extra space below canvas */
+        }
+
+        /* Controls Panel Styling (similar to previous) */
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(10, 5, 15, 0.85); /* Dark purple semi-transparent */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 10;
+            max-width: 320px; /* Slightly wider */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        /* Styling for control elements */
+        #controls label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #c0b0d0; /* Lighter purple label color */
+        }
+
+        #controls input[type="range"] {
+            width: 100%;
+            margin-bottom: 15px;
+            cursor: pointer;
+            accent-color: #8b5cf6; /* Violet accent */
+        }
+
+        #controls input[type="color"] {
+             width: 100%;
+             height: 30px;
+             border: none;
+             border-radius: 4px;
+             padding: 0 2px;
+             margin-bottom: 15px;
+             cursor: pointer;
+        }
+
+        #controls button {
+            background-color: #7c3aed; /* Violet */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+            margin-right: 5px;
+        }
+
+        #controls button:hover {
+            background-color: #8b5cf6; /* Lighter Violet */
+        }
+
+        #controls .control-group {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+         #controls .control-group:last-child {
+             border-bottom: none;
+             margin-bottom: 0;
+             padding-bottom: 0;
+         }
+
+        #controls h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #d0c0e0;
+        }
+
+        /* Custom scrollbar for controls */
+        #controls::-webkit-scrollbar {
+            width: 6px;
+        }
+        #controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        #controls::-webkit-scrollbar-thumb {
+            background: #7c3aed;
+            border-radius: 10px;
+        }
+        #controls::-webkit-scrollbar-thumb:hover {
+            background: #8b5cf6;
+        }
+
+         /* Tooltip for controls */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 150px; /* Adjusted width */
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -75px; /* Adjusted margin */
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvasContainer"></div>
+
+    <div id="controls">
+        <h3>Crystalline Genesis Controls</h3>
+
+        <div class="control-group">
+            <label for="growthSteps">Growth Steps Per Frame: <span id="growthStepsValue">5</span></label>
+            <div class="tooltip">
+                 <input type="range" id="growthSteps" min="1" max="20" value="5" step="1">
+                 <span class="tooltiptext">Number of new crystals added per frame (affects speed & performance)</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="branchProbability">Branch Probability: <span id="branchProbabilityValue">0.6</span></label>
+             <div class="tooltip">
+                <input type="range" id="branchProbability" min="0.1" max="1.0" value="0.6" step="0.05">
+                <span class="tooltiptext">Likelihood a new crystal will branch off</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="maxAngle">Max Branch Angle: <span id="maxAngleValue">45</span>°</label>
+             <div class="tooltip">
+                <input type="range" id="maxAngle" min="5" max="90" value="45" step="5">
+                <span class="tooltiptext">Maximum angle deviation for branches (degrees)</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="crystalLength">Crystal Length: <span id="crystalLengthValue">1.5</span></label>
+             <div class="tooltip">
+                <input type="range" id="crystalLength" min="0.5" max="5" value="1.5" step="0.1">
+                <span class="tooltiptext">Base length of new crystal segments</span>
+            </div>
+        </div>
+
+         <div class="control-group">
+            <label for="crystalThickness">Crystal Thickness: <span id="crystalThicknessValue">0.1</span></label>
+             <div class="tooltip">
+                <input type="range" id="crystalThickness" min="0.02" max="0.5" value="0.1" step="0.01">
+                <span class="tooltiptext">Thickness of new crystal segments</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="maxCrystals">Max Crystals: <span id="maxCrystalsValue">1000</span></label>
+             <div class="tooltip">
+                <input type="range" id="maxCrystals" min="100" max="5000" value="1000" step="100">
+                <span class="tooltiptext">Maximum number of crystal segments (stops growth)</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="materialColor">Material Color</label>
+             <div class="tooltip">
+                <input type="color" id="materialColor" value="#a78bfa"> <span class="tooltiptext">Base color of the crystals</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="emissionColor">Glow Color</label>
+             <div class="tooltip">
+                <input type="color" id="emissionColor" value="#7c3aed"> <span class="tooltiptext">Color of the crystal glow (emission)</span>
+            </div>
+        </div>
+
+         <div class="control-group">
+            <label for="shininess">Shininess: <span id="shininessValue">80</span></label>
+             <div class="tooltip">
+                <input type="range" id="shininess" min="0" max="100" value="80" step="5">
+                <span class="tooltiptext">Shininess factor of the material</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+             <div class="tooltip">
+                <button id="resetButton">Restart Growth</button>
+                <span class="tooltiptext">Clear and start new growth</span>
+             </div>
+             <div class="tooltip">
+                <button id="toggleAnimationButton">Pause/Resume</button>
+                <span class="tooltiptext">Pause or resume the growth animation</span>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Three.js Setup ---
+        let scene, camera, renderer, controls;
+        let crystalMaterial;
+        let activeGrowthPoints = []; // Stores { position: Vector3, direction: Vector3, mesh: Mesh }
+        let crystalGroup; // Group to hold all crystal meshes
+        let animationFrameId;
+        let isAnimating = true;
+        let crystalCount = 0;
+
+        // --- Parameters ---
+        let params = {
+            growthSteps: 5,
+            branchProbability: 0.6,
+            maxAngle: 45, // degrees
+            crystalLength: 1.5,
+            crystalThickness: 0.1,
+            maxCrystals: 1000,
+            materialColor: '#a78bfa',
+            emissionColor: '#7c3aed',
+            shininess: 80,
+        };
+
+        // --- Core Functions ---
+
+        function initThree() {
+            const container = document.getElementById('canvasContainer');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x05000a, 0.03); // Add subtle fog matching background
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 25; // Start further back
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x05000a); // Match body background
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404060, 1.5); // Soft ambient light
+            scene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0xffffff, 1, 150);
+            pointLight1.position.set(20, 30, 40);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xaaaaff, 0.8, 150); // Bluish light
+            pointLight2.position.set(-30, -10, -30);
+            scene.add(pointLight2);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Smooth camera movement
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 5;
+            controls.maxDistance = 100;
+
+            // Crystal Material
+            crystalMaterial = new THREE.MeshPhongMaterial({
+                color: new THREE.Color(params.materialColor),
+                emissive: new THREE.Color(params.emissionColor), // Glow effect
+                emissiveIntensity: 0.4,
+                shininess: params.shininess,
+                specular: 0xaaaaaa, // Specular highlights
+                side: THREE.DoubleSide, // Render both sides
+                // transparent: true, // Optional: for transparency effects
+                // opacity: 0.9
+            });
+
+            // Group for crystals
+            crystalGroup = new THREE.Group();
+            scene.add(crystalGroup);
+
+            // Start growth
+            resetGrowth();
+
+            // Start animation loop
+            animate();
+        }
+
+        // Reset the crystal growth simulation
+        function resetGrowth() {
+            // Clear existing crystals
+            while (crystalGroup.children.length > 0) {
+                const obj = crystalGroup.children[0];
+                crystalGroup.remove(obj);
+                if (obj.geometry) obj.geometry.dispose();
+                // Material is shared, no need to dispose here unless creating new ones per crystal
+            }
+
+            activeGrowthPoints = [];
+            crystalCount = 0;
+
+            // Add the initial seed crystal(s)
+            const initialDirection = new THREE.Vector3(0, 1, 0); // Start growing upwards
+            const initialPosition = new THREE.Vector3(0, -params.crystalLength / 2, 0); // Position base at origin
+            addCrystalSegment(initialPosition, initialDirection);
+
+            console.log("Crystal growth reset.");
+             if (!isAnimating) { // If paused, resume on reset
+                 isAnimating = true;
+                 document.getElementById('toggleAnimationButton').textContent = 'Pause';
+                 animate();
+             }
+        }
+
+        // Add a single crystal segment
+        function addCrystalSegment(position, direction) {
+            if (crystalCount >= params.maxCrystals) return; // Stop if max count reached
+
+            const length = params.crystalLength * (0.8 + Math.random() * 0.4); // Slight length variation
+            const thickness = params.crystalThickness * (0.8 + Math.random() * 0.4); // Slight thickness variation
+
+            // Use BoxGeometry for simplicity, could be Cylinder or custom geometry
+            const geometry = new THREE.BoxGeometry(thickness, length, thickness);
+
+            const crystalMesh = new THREE.Mesh(geometry, crystalMaterial);
+
+            // Position the base of the new crystal at the given position
+            crystalMesh.position.copy(position).addScaledVector(direction, length / 2);
+
+            // Orient the crystal along the direction vector
+            const quaternion = new THREE.Quaternion();
+            const up = new THREE.Vector3(0, 1, 0); // Default 'up' for BoxGeometry
+            quaternion.setFromUnitVectors(up, direction.clone().normalize());
+            crystalMesh.setRotationFromQuaternion(quaternion);
+
+            crystalGroup.add(crystalMesh);
+            crystalCount++;
+
+            // Calculate the tip position for the next growth point
+            const tipPosition = position.clone().addScaledVector(direction, length);
+
+            // Add new growth point
+            activeGrowthPoints.push({
+                position: tipPosition,
+                direction: direction.clone(), // Store direction for branching reference
+                mesh: crystalMesh // Reference to the mesh this point belongs to
+            });
+
+             // Prune oldest growth points if the list gets too large (performance)
+            if (activeGrowthPoints.length > params.maxCrystals * 1.5) { // Keep slightly more than max crystals
+                activeGrowthPoints.shift(); // Remove the oldest point
+            }
+        }
+
+        // Perform one step of the growth process
+        function growCrystals() {
+            if (!activeGrowthPoints.length || crystalCount >= params.maxCrystals) {
+                if (isAnimating && crystalCount >= params.maxCrystals) {
+                    console.log("Max crystal count reached. Stopping growth.");
+                    // Don't stop the entire animation loop, just the growth part
+                    // isAnimating = false;
+                    // document.getElementById('toggleAnimationButton').textContent = 'Resume';
+                }
+                return;
+            }
+
+            const steps = Math.min(params.growthSteps, activeGrowthPoints.length);
+
+            for (let i = 0; i < steps; i++) {
+                 if (crystalCount >= params.maxCrystals) break; // Check again inside loop
+
+                // Pick a random active growth point
+                const growthIndex = Math.floor(Math.random() * activeGrowthPoints.length);
+                const point = activeGrowthPoints[growthIndex];
+
+                // Remove the chosen point from the active list to prevent immediate re-use
+                activeGrowthPoints.splice(growthIndex, 1);
+
+                // Decide whether to branch or continue straight (or slightly deviated)
+                let newDirection;
+                if (Math.random() < params.branchProbability) {
+                    // Branching: Create a new direction significantly different
+                    newDirection = point.direction.clone();
+                    // Create a random rotation axis perpendicular to the current direction
+                    const randomAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+                    const rotationAxis = new THREE.Vector3().crossVectors(point.direction, randomAxis).normalize();
+                     if (rotationAxis.lengthSq() < 0.1) { // Handle cases where random axis is parallel
+                         rotationAxis.set(point.direction.y, -point.direction.x, 0).normalize(); // Use a simple perpendicular axis
+                     }
+
+                    const angle = THREE.MathUtils.degToRad(params.maxAngle * (0.2 + Math.random() * 0.8)); // Random angle up to max
+                    const rotation = new THREE.Quaternion().setFromAxisAngle(rotationAxis, angle);
+                    newDirection.applyQuaternion(rotation).normalize();
+
+                    // Optionally add the original point back to potentially grow straight later
+                     if (Math.random() < 0.3) { // Chance to keep the original growth point active
+                          activeGrowthPoints.push(point);
+                     }
+
+                } else {
+                    // Continue relatively straight with slight deviation
+                    newDirection = point.direction.clone();
+                    const slightAngle = THREE.MathUtils.degToRad((Math.random() - 0.5) * 10); // Max 5 degrees deviation
+                    const randomAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+                    const rotationAxis = new THREE.Vector3().crossVectors(point.direction, randomAxis).normalize();
+                     if (rotationAxis.lengthSq() < 0.1) {
+                         rotationAxis.set(point.direction.y, -point.direction.x, 0).normalize();
+                     }
+                    const rotation = new THREE.Quaternion().setFromAxisAngle(rotationAxis, slightAngle);
+                    newDirection.applyQuaternion(rotation).normalize();
+                }
+
+                // Add the new segment
+                addCrystalSegment(point.position, newDirection);
+            }
+        }
+
+
+        // Animation loop
+        function animate() {
+            if (!isAnimating && crystalCount < params.maxCrystals) { // Only request next frame if paused AND growth is not finished
+                 animationFrameId = requestAnimationFrame(animate);
+                 controls.update(); // Still update controls when paused
+                 renderer.render(scene, camera);
+                 return;
+            }
+
+            animationFrameId = requestAnimationFrame(animate);
+
+            growCrystals(); // Perform growth steps
+
+            controls.update(); // Update camera controls
+
+            // Optional: Add subtle rotation to the entire structure
+            // crystalGroup.rotation.y += 0.0005;
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Event Listeners & UI ---
+        function setupControls() {
+            const controlsMapping = [
+                { id: 'growthSteps', param: 'growthSteps', valueLabel: 'growthStepsValue', isInt: true },
+                { id: 'branchProbability', param: 'branchProbability', valueLabel: 'branchProbabilityValue', step: 0.05 },
+                { id: 'maxAngle', param: 'maxAngle', valueLabel: 'maxAngleValue', isInt: true, suffix: '°' },
+                { id: 'crystalLength', param: 'crystalLength', valueLabel: 'crystalLengthValue', step: 0.1 },
+                { id: 'crystalThickness', param: 'crystalThickness', valueLabel: 'crystalThicknessValue', step: 0.01 },
+                { id: 'maxCrystals', param: 'maxCrystals', valueLabel: 'maxCrystalsValue', isInt: true },
+                { id: 'materialColor', param: 'materialColor', type: 'color', target: crystalMaterial, property: 'color' },
+                { id: 'emissionColor', param: 'emissionColor', type: 'color', target: crystalMaterial, property: 'emissive' },
+                { id: 'shininess', param: 'shininess', valueLabel: 'shininessValue', target: crystalMaterial, property: 'shininess', isInt: true }
+            ];
+
+            controlsMapping.forEach(control => {
+                const element = document.getElementById(control.id);
+                if (!element) return;
+
+                // Set initial display value for sliders
+                if (control.valueLabel) {
+                    const label = document.getElementById(control.valueLabel);
+                    if (label) {
+                        label.textContent = element.value + (control.suffix || '');
+                    }
+                }
+
+                element.addEventListener('input', (e) => {
+                    let value;
+                    if (control.type === 'color') {
+                        value = e.target.value;
+                        if (control.target && control.property) {
+                            control.target[control.property].set(value);
+                        } else {
+                             params[control.param] = value; // Fallback if no direct target
+                        }
+                    } else {
+                        value = control.isInt ? parseInt(e.target.value) : parseFloat(e.target.value);
+                         if (control.target && control.property) {
+                             control.target[control.property] = value;
+                         } else {
+                             params[control.param] = value;
+                         }
+                    }
+
+                    // Update displayed value
+                    if (control.valueLabel) {
+                        const label = document.getElementById(control.valueLabel);
+                        if (label) {
+                            label.textContent = value + (control.suffix || '');
+                        }
+                    }
+                     crystalMaterial.needsUpdate = true; // Important for material changes
+                });
+            });
+
+            // Reset Button
+            document.getElementById('resetButton').addEventListener('click', resetGrowth);
+
+            // Toggle Animation Button
+            document.getElementById('toggleAnimationButton').addEventListener('click', () => {
+                isAnimating = !isAnimating;
+                document.getElementById('toggleAnimationButton').textContent = isAnimating ? 'Pause' : 'Resume';
+                if (isAnimating) {
+                    animate(); // Resume the loop if it was fully stopped
+                }
+                console.log(`Animation ${isAnimating ? 'resumed' : 'paused'}.`);
+            });
+        }
+
+
+        // --- Initialization ---
+        window.addEventListener('resize', onWindowResize);
+
+        // Delay init slightly to ensure DOM is ready
+        window.onload = () => {
+            initThree();
+            setupControls();
+        };
+
+    </script>
+</body>
+</html>

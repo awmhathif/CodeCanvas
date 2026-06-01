@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Incredible Visual Effects</title>
+    <style>
+        /* Reset styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styling */
+        body {
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Canvas styling */
+        #canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Controls panel styling */
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 100;
+            color: #fff;
+            width: 220px;
+        }
+
+        #controls h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .control-group input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        /* Button styling */
+        #resetButton {
+            width: 100%;
+            padding: 8px;
+            background: #1e90ff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        #resetButton:hover {
+            background: #1c86ee;
+        }
+
+        /* Glow effect styling */
+        .glow {
+            filter: drop-shadow(0 0 15px #fff);
+        }
+    </style>
+</head>
+<body>
+    <!-- Control Panel -->
+    <div id="controls">
+        <h2>Visual Effects Settings</h2>
+        <div class="control-group">
+            <label for="particleCount">Particle Count: <span id="particleCountVal">150</span></label>
+            <input type="range" id="particleCount" min="50" max="500" value="150">
+        </div>
+        <div class="control-group">
+            <label for="particleSpeed">Particle Speed: <span id="particleSpeedVal">3</span></label>
+            <input type="range" id="particleSpeed" min="1" max="10" value="3">
+        </div>
+        <div class="control-group">
+            <label for="particleSize">Particle Size: <span id="particleSizeVal">4</span></label>
+            <input type="range" id="particleSize" min="2" max="10" value="4">
+        </div>
+        <div class="control-group">
+            <label for="particleSpread">Particle Spread: <span id="particleSpreadVal">100</span></label>
+            <input type="range" id="particleSpread" min="50" max="300" value="100">
+        </div>
+        <div class="control-group">
+            <label for="effectIntensity">Effect Intensity: <span id="effectIntensityVal">5</span></label>
+            <input type="range" id="effectIntensity" min="1" max="10" value="5">
+        </div>
+        <div class="control-group">
+            <label for="gridEffect"><input type="checkbox" id="gridEffect"> Show Grid Effect</label>
+        </div>
+        <div class="control-group">
+            <label for="glowEffect"><input type="checkbox" id="glowEffect"> Enable Glow Effect</label>
+        </div>
+        <button id="resetButton">Reset Particles</button>
+    </div>
+
+    <!-- Canvas Element -->
+    <canvas id="canvas"></canvas>
+
+    <!-- JavaScript Code -->
+    <script>
+        /*****************************************************
+         * Incredible Visual Effects with Customizable Settings
+         * Developed using HTML, CSS, and JavaScript
+         * This code creates a dynamic particle system with
+         * multiple visual effects and interactive controls.
+         *****************************************************/
+
+        // Get canvas element and 2D drawing context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set initial canvas dimensions
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Settings object to store parameters for the visual effects
+        let settings = {
+            particleCount: 150,
+            particleSpeed: 3,
+            particleSize: 4,
+            particleSpread: 100,
+            effectIntensity: 5,
+        };
+
+        // Global variables for additional effects
+        let gridEnabled = false;
+        let glowEnabled = false;
+        let hueOffset = 0; // Global hue offset for dynamic color changes
+
+        // Update display values in the control panel
+        function updateControlDisplay() {
+            document.getElementById('particleCountVal').textContent = settings.particleCount;
+            document.getElementById('particleSpeedVal').textContent = settings.particleSpeed;
+            document.getElementById('particleSizeVal').textContent = settings.particleSize;
+            document.getElementById('particleSpreadVal').textContent = settings.particleSpread;
+            document.getElementById('effectIntensityVal').textContent = settings.effectIntensity;
+        }
+
+        updateControlDisplay();
+
+        // Particle class to represent each visual particle
+        class Particle {
+            constructor(x, y, angle, speed, size, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = size;
+                this.color = color;
+                this.life = 0;
+                this.maxLife = Math.random() * 80 + 60;
+            }
+
+            // Update the particle's position and properties
+            update() {
+                // Update position based on velocity
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Increment particle's life
+                this.life++;
+
+                // Apply gravity effect influenced by effectIntensity setting
+                this.vy += 0.02 * settings.effectIntensity;
+
+                // Slight random change in velocity for more natural movement
+                this.vx += (Math.random() - 0.5) * 0.05 * settings.effectIntensity;
+                this.vy += (Math.random() - 0.5) * 0.05 * settings.effectIntensity;
+            }
+
+            // Render the particle on the canvas
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // Array to store all particles
+        let particles = [];
+
+        // Function to initialize particles based on current settings
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < settings.particleCount; i++) {
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * settings.particleSpeed;
+                let size = Math.random() * (settings.particleSize - 1) + 1;
+                let x = canvas.width / 2 + (Math.random() - 0.5) * settings.particleSpread;
+                let y = canvas.height / 2 + (Math.random() - 0.5) * settings.particleSpread;
+                // Use dynamic hue with global offset for color variation
+                let hue = (Math.floor(Math.random() * 360) + hueOffset) % 360;
+                let color = 'hsla(' + hue + ', 100%, 50%, 0.8)';
+                particles.push(new Particle(x, y, angle, speed, size, color));
+            }
+        }
+
+        // Initialize particles
+        initParticles();
+
+        // Function to draw connecting lines between particles that are close to each other
+        function drawConnections() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let dx = particles[i].x - particles[j].x;
+                    let dy = particles[i].y - particles[j].y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 80) {
+                        let opacity = 1 - distance / 80;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = 'rgba(255, 255, 255, ' + opacity * 0.2 + ')';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        // Function to draw a subtle grid background for depth effect
+        function drawBackgroundGrid() {
+            let gridSize = 50;
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        // Main animation loop to update and render particles and effects
+        function animate() {
+            // Increase global hue offset for dynamic color shifting
+            hueOffset = (hueOffset + 0.1) % 360;
+
+            // Semi-transparent overlay for trailing effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Optionally draw background grid if enabled
+            if (gridEnabled) {
+                drawBackgroundGrid();
+            }
+
+            // Update and draw each particle
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw(ctx);
+
+                // Reset particle if its life exceeds maxLife or if it goes off-screen
+                if (particles[i].life > particles[i].maxLife || 
+                    particles[i].x < 0 || particles[i].x > canvas.width ||
+                    particles[i].y > canvas.height) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = Math.random() * settings.particleSpeed;
+                    particles[i].x = canvas.width / 2;
+                    particles[i].y = canvas.height / 2;
+                    particles[i].vx = Math.cos(angle) * speed;
+                    particles[i].vy = Math.sin(angle) * speed;
+                    particles[i].life = 0;
+                    particles[i].maxLife = Math.random() * 80 + 60;
+                }
+            }
+
+            // Draw connections between particles
+            drawConnections();
+
+            // Request next animation frame
+            requestAnimationFrame(animate);
+        }
+
+        // Start the animation loop
+        animate();
+
+        // Event listeners for control panel inputs
+        document.getElementById('particleCount').addEventListener('input', function() {
+            settings.particleCount = parseInt(this.value);
+            updateControlDisplay();
+            initParticles();
+        });
+
+        document.getElementById('particleSpeed').addEventListener('input', function() {
+            settings.particleSpeed = parseInt(this.value);
+            updateControlDisplay();
+        });
+
+        document.getElementById('particleSize').addEventListener('input', function() {
+            settings.particleSize = parseInt(this.value);
+            updateControlDisplay();
+        });
+
+        document.getElementById('particleSpread').addEventListener('input', function() {
+            settings.particleSpread = parseInt(this.value);
+            updateControlDisplay();
+            initParticles();
+        });
+
+        document.getElementById('effectIntensity').addEventListener('input', function() {
+            settings.effectIntensity = parseInt(this.value);
+            updateControlDisplay();
+        });
+
+        document.getElementById('gridEffect').addEventListener('change', function() {
+            gridEnabled = this.checked;
+        });
+
+        document.getElementById('glowEffect').addEventListener('change', function() {
+            glowEnabled = this.checked;
+            // Toggle glow effect on canvas using CSS class
+            if (glowEnabled) {
+                canvas.classList.add('glow');
+            } else {
+                canvas.classList.remove('glow');
+            }
+        });
+
+        // Reset button to reinitialize particles
+        document.getElementById('resetButton').addEventListener('click', function() {
+            initParticles();
+        });
+
+        // Add event listener for canvas click to add extra particles at click location
+        canvas.addEventListener('click', function(event) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            for (let i = 0; i < 20; i++) {
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * settings.particleSpeed;
+                let size = Math.random() * (settings.particleSize - 1) + 1;
+                let hue = (Math.floor(Math.random() * 360) + hueOffset) % 360;
+                let color = 'hsla(' + hue + ', 100%, 50%, 0.8)';
+                particles.push(new Particle(mouseX, mouseY, angle, speed, size, color));
+            }
+        });
+
+        // Additional Debugging: Log current settings to the console
+        console.log("Incredible Visual Effects Initialized with settings:", settings);
+
+        /*****************************************************
+         * End of Visual Effects Code
+         *****************************************************/
+    </script>
+    <!-- End of JavaScript Code -->
+
+    <!-- Additional Comments and Future Enhancements:
+         1. Consider adding multiple effect modes such as fireworks, rain, or bubbles.
+         2. Future versions could include audio synchronization for dynamic sound effects.
+         3. Additional UI controls can be implemented for more granular customization.
+         4. Optimization techniques could be applied for performance on low-end devices.
+         5. Responsive design considerations to support mobile and tablet views.
+         6. Further enhancements may include 3D effects using WebGL.
+         7. Experiment with different blending modes for unique visual aesthetics.
+         8. The code is modular enough to integrate with external libraries if needed.
+         9. Comments throughout the code explain the logic and flow for future maintainability.
+         10. The glow and grid effects are simple yet effective visual augmentations.
+    -->
+
+    <!-- End of Additional Comments -->
+</body>
+</html>

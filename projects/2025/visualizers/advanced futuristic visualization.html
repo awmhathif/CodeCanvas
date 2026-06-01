@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Futuristic Visualization</title>
+    <style>
+        /* Basic CSS reset and styling */
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #000000; /* Even darker background */
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block; /* Remove default inline spacing */
+            width: 100%;   /* Make canvas fill width */
+            height: 100%;  /* Make canvas fill height */
+        }
+        /* Simple overlay for info */
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(200, 200, 255, 0.7); /* Lighter text color */
+            font-size: 12px;
+            background-color: rgba(0, 0, 20, 0.4); /* Dark blueish tint */
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">Move mouse to interact | Advanced Visualization</div>
+
+    <script>
+        // --- Global Variables ---
+        let scene, camera, renderer;
+        let particles, particleGeometry, particleMaterial;
+        let centralObject, centralMaterial;
+        let particleCount = 20000; // Increased particle count
+        let noise; // Noise generator instance
+        const mousePosition = new THREE.Vector2(); // Use a Vector2 for mouse position
+        const mouseWorldPosition = new THREE.Vector3(); // For interaction in 3D space
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+        const clock = new THREE.Clock(); // Clock for animation timing
+
+        // --- Initialization ---
+        function init() {
+            // Create noise generator
+            noise = new SimplexNoise();
+
+            // Scene setup
+            scene = new THREE.Scene();
+            // scene.fog = new THREE.FogExp2(0x000005, 0.0015); // Slightly denser fog
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 3000); // Adjusted FOV and far plane
+            camera.position.z = 600; // Start further back
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000); // Black background
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // --- Central Object (Torus Knot) ---
+            const centralGeometry = new THREE.TorusKnotGeometry(80, 25, 150, 20); // Radius, tube radius, tubular segments, radial segments
+            centralMaterial = new THREE.MeshBasicMaterial({
+                color: 0x8800ff, // Bright purple
+                wireframe: true, // Use wireframe for a techy look
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending // Glow effect
+            });
+            centralObject = new THREE.Mesh(centralGeometry, centralMaterial);
+            scene.add(centralObject);
+
+            // --- Particle System ---
+            particleGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3); // Also used for noise offsets
+            const sizes = new Float32Array(particleCount);
+            const baseHues = new Float32Array(particleCount); // Store base hue for variation
+
+            const color = new THREE.Color();
+
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                // Initial position (spread out further)
+                positions[i3] = (Math.random() - 0.5) * 1500;
+                positions[i3 + 1] = (Math.random() - 0.5) * 1500;
+                positions[i3 + 2] = (Math.random() - 0.5) * 1500;
+
+                // Store random offsets for noise calculation
+                velocities[i3] = Math.random() * 10 - 5; // Store initial velocity/offset
+                velocities[i3 + 1] = Math.random() * 10 - 5;
+                velocities[i3 + 2] = Math.random() * 10 - 5;
+
+                // Store base hue (mostly blues and purples)
+                baseHues[i] = Math.random() * 0.3 + 0.55; // Hue range from ~blue (0.55) to ~magenta (0.85)
+                color.setHSL(baseHues[i], 1.0, 0.6);
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+
+                // Random size
+                sizes[i] = Math.random() * 4 + 1.5; // Size between 1.5 and 5.5
+            }
+
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+            particleGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            particleGeometry.setAttribute('baseHue', new THREE.BufferAttribute(baseHues, 1)); // Store base hue
+
+            // Particle Material Setup
+            particleMaterial = new THREE.PointsMaterial({
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.75,
+                depthWrite: false,
+                sizeAttenuation: true
+            });
+
+            // --- Custom Shader for Size and potentially opacity/softness ---
+            particleMaterial.onBeforeCompile = shader => {
+                // Add attributes and varyings
+                shader.vertexShader = `
+                    attribute float size;
+                    attribute float baseHue; // Receive base hue
+                    attribute vec3 velocity; // Using velocity attribute for offset/initial state
+                    varying float vHue; // Pass hue to fragment shader
+                    varying float vDistance; // Pass distance from center
+                    ${shader.vertexShader}
+                `.replace(
+                    `#include <color_vertex>`,
+                    `#include <color_vertex>
+                    vHue = baseHue; // Pass base hue
+                    vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+                    vDistance = length(worldPosition.xyz); // Calculate world distance from origin
+                    `
+                ).replace(
+                     // Modify gl_PointSize calculation
+                    `#include <begin_vertex>`,
+                    `#include <begin_vertex>
+                     transformed.xyz += velocity * 0.01; // Apply a tiny bit of initial velocity drift if needed
+                    `
+                ).replace(
+                    `gl_PointSize = size;`,
+                    `gl_PointSize = size * ( 400.0 / -mvPosition.z );` // Scale size by distance
+                );
+
+                shader.fragmentShader = `
+                    varying float vHue; // Receive hue
+                    varying float vDistance; // Receive distance
+                    uniform float time; // Add time uniform
+                    ${shader.fragmentShader}
+                `.replace(
+                    `#include <color_fragment>`,
+                    `#include <color_fragment>
+                    // Make particle circular and softer edge
+                    float dist = length( gl_PointCoord - vec2( 0.5, 0.5 ) );
+                    // if ( dist > 0.5 ) discard; // Hard edge
+                    float intensity = smoothstep(0.5, 0.2, dist); // Soft edge
+
+                    // Calculate final color based on varying hue + time shift
+                    vec3 finalColor;
+                    float currentHue = mod(vHue + time * 0.05, 1.0); // Shift hue over time
+                    finalColor = hsl2rgb(currentHue, 1.0, 0.6); // Convert HSL to RGB
+
+                    // Fade particles based on distance from center
+                    float fadeFactor = smoothstep(800.0, 500.0, vDistance); // Fade in towards center
+
+                    diffuseColor = vec4( finalColor, intensity * fadeFactor * 0.8 ); // Apply intensity, fade, and base opacity
+                    `
+                ).replace(
+                    `#include <common>`,
+                    `#include <common>
+                    uniform float time; // Declare time uniform
+
+                    // HSL to RGB Conversion function (standard implementation)
+                    vec3 hsl2rgb(float h, float s, float l) {
+                        vec3 rgb;
+                        if (s == 0.0) {
+                            rgb = vec3(l); // achromatic
+                        } else {
+                            auto q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
+                            auto p = 2.0 * l - q;
+                            h *= 6.0; // Convert hue to 0..6 range for calculation
+                            auto hueToRgb = [](float p, float q, float t) {
+                                if (t < 0.0) t += 1.0;
+                                if (t > 1.0) t -= 1.0;
+                                if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
+                                if (t < 1.0/2.0) return q;
+                                if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
+                                return p;
+                            };
+                            rgb.r = hueToRgb(p, q, h + 1.0/3.0);
+                            rgb.g = hueToRgb(p, q, h);
+                            rgb.b = hueToRgb(p, q, h - 1.0/3.0);
+                        }
+                        return rgb;
+                    }
+                    `
+                );
+                 // Add time uniform
+                 shader.uniforms.time = { value: 0.0 };
+                 particleMaterial.userData.shader = shader; // Store shader reference to update time
+            };
+
+
+            particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+
+            // --- Event Listeners ---
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('mousemove', onDocumentMouseMove, false);
+        }
+
+        // --- Event Handlers ---
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onDocumentMouseMove(event) {
+            // Normalize mouse position (-1 to 1)
+            mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate); // Request next frame
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+             // Update time uniform for shader
+            if (particleMaterial.userData.shader) {
+                particleMaterial.userData.shader.uniforms.time.value = time;
+            }
+
+            // --- Update Central Object ---
+            centralObject.rotation.x += 0.001;
+            centralObject.rotation.y += 0.002;
+            // Pulse scale slightly
+            const scalePulse = Math.sin(time * 0.5) * 0.05 + 1.0; // Gentle pulse between 0.95 and 1.05
+            centralObject.scale.set(scalePulse, scalePulse, scalePulse);
+            // Pulse opacity slightly
+            centralMaterial.opacity = Math.sin(time * 0.7) * 0.15 + 0.55; // Opacity between 0.4 and 0.7
+
+
+            // --- Update Particles ---
+            const positions = particleGeometry.attributes.position.array;
+            const velocities = particleGeometry.attributes.velocity.array;
+
+            // Calculate mouse position in world space (approximate plane)
+            // Unproject mouse coordinates into the 3D scene
+            const vector = new THREE.Vector3(mousePosition.x, mousePosition.y, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z; // Project onto z=0 plane (adjust if camera moves significantly)
+            mouseWorldPosition.copy(camera.position).add(dir.multiplyScalar(distance));
+
+
+            const noiseScale = 0.003; // Finer noise pattern
+            const noiseSpeed = 0.3;
+            const attractionStrength = 0.03; // How strongly particles are pulled to center
+            const mouseRepulsionStrength = 150; // How strongly mouse pushes particles
+            const mouseRepulsionRadiusSq = 100 * 100; // Radius of mouse influence (squared for efficiency)
+
+
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                const x = positions[i3];
+                const y = positions[i3 + 1];
+                const z = positions[i3 + 2];
+
+                // 1. Noise-based movement
+                const noiseOffsetX = velocities[i3]; // Use stored value as offset
+                const noiseOffsetY = velocities[i3 + 1];
+                const noiseOffsetZ = velocities[i3 + 2];
+                const nx = noise.noise3D(x * noiseScale + noiseOffsetX, y * noiseScale, z * noiseScale + time * noiseSpeed);
+                const ny = noise.noise3D(y * noiseScale, z * noiseScale + noiseOffsetY, x * noiseScale + time * noiseSpeed);
+                const nz = noise.noise3D(z * noiseScale + noiseOffsetZ, x * noiseScale, y * noiseScale + time * noiseSpeed);
+
+                velocities[i3] += nx * 0.05; // Accumulate noise force into velocity
+                velocities[i3 + 1] += ny * 0.05;
+                velocities[i3 + 2] += nz * 0.05;
+
+                // 2. Attraction to center (0,0,0)
+                const attractionFactor = -attractionStrength * Math.sqrt(x*x + y*y + z*z) * 0.01; // Weaker further out
+                velocities[i3] += x * attractionFactor;
+                velocities[i3 + 1] += y * attractionFactor;
+                velocities[i3 + 2] += z * attractionFactor;
+
+                // 3. Repulsion from mouse
+                const dx = x - mouseWorldPosition.x;
+                const dy = y - mouseWorldPosition.y;
+                const dz = z - mouseWorldPosition.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
+
+                if (distSq < mouseRepulsionRadiusSq && distSq > 1) { // Check if within radius and avoid division by zero
+                    const force = mouseRepulsionStrength / distSq; // Inverse square repulsion
+                    velocities[i3] += dx * force * delta; // Apply force scaled by delta time
+                    velocities[i3 + 1] += dy * force * delta;
+                    // velocities[i3 + 2] += dz * force * delta; // Optional: Repel in Z too
+                }
+
+
+                // Apply damping (friction) to velocity
+                velocities[i3] *= 0.97;
+                velocities[i3 + 1] *= 0.97;
+                velocities[i3 + 2] *= 0.97;
+
+                // Update position based on velocity
+                positions[i3] += velocities[i3];
+                positions[i3 + 1] += velocities[i3 + 1];
+                positions[i3 + 2] += velocities[i3 + 2];
+
+
+                 // Boundary check (simple wrap around) - adjust boundary size
+                const boundary = 1000;
+                 if (positions[i3] > boundary || positions[i3] < -boundary ||
+                     positions[i3+1] > boundary || positions[i3+1] < -boundary ||
+                     positions[i3+2] > boundary || positions[i3+2] < -boundary )
+                 {
+                     // Reset particle further out if it goes too far, maybe towards center
+                     const resetRadius = 800;
+                     const angle1 = Math.random() * Math.PI * 2;
+                     const angle2 = Math.random() * Math.PI * 2;
+                     positions[i3] = resetRadius * Math.sin(angle1) * Math.cos(angle2);
+                     positions[i3+1] = resetRadius * Math.sin(angle1) * Math.sin(angle2);
+                     positions[i3+2] = resetRadius * Math.cos(angle1);
+                     velocities[i3] = (Math.random() - 0.5) * 2; // Give small random velocity
+                     velocities[i3+1] = (Math.random() - 0.5) * 2;
+                     velocities[i3+2] = (Math.random() - 0.5) * 2;
+                 }
+            }
+
+            // Flag attributes for update
+            particleGeometry.attributes.position.needsUpdate = true;
+            particleGeometry.attributes.velocity.needsUpdate = true; // Velocity changes now
+            // Color attribute updated via shader uniform 'time', no need to flag CPU side
+
+
+            // --- Camera Movement ---
+            // Smoother camera follow mouse
+            camera.position.x += (mousePosition.x * 150 - camera.position.x) * 0.02; // Reduced influence
+            camera.position.y += (-mousePosition.y * 150 - camera.position.y) * 0.02;
+            camera.lookAt(scene.position); // Keep looking at the center
+
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+
+        // --- Start ---
+        window.onload = function() {
+            try {
+                init();
+                animate(); // Start the animation loop
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                const info = document.getElementById('info');
+                if (info) {
+                    info.textContent = "Error initializing WebGL. Your browser might not support it.";
+                    info.style.color = "red";
+                    info.style.backgroundColor = "black";
+                }
+                 // Display error in the container itself as fallback
+                const container = document.getElementById('container');
+                if (container) {
+                    container.innerHTML = `<p style="color: red; padding: 20px;">WebGL Initialization Error: ${error.message}. Please ensure your browser supports WebGL and hardware acceleration is enabled.</p>`;
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
+

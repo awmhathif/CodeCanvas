@@ -1,0 +1,2933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Music Visualizer Pro</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #14b8a6;
+            --bg-dark: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #252542;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #2d2d4a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gradient-1: linear-gradient(135deg, #6366f1, #ec4899);
+            --gradient-2: linear-gradient(135deg, #14b8a6, #6366f1);
+            --shadow: 0 4px 20px rgba(0,0,0,0.4);
+            --panel-width: 320px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #visualizerCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: var(--bg-dark);
+        }
+        
+        .ui-overlay {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: rgba(15, 15, 26, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text);
+        }
+        
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-icon:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--primary);
+        }
+        
+        .btn-icon.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Side Panels */
+        .side-panel {
+            width: var(--panel-width);
+            max-width: 90vw;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 20;
+        }
+        
+        .side-panel.right {
+            border-right: none;
+            border-left: 1px solid var(--border);
+        }
+        
+        .side-panel.collapsed {
+            transform: translateX(-100%);
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .side-panel.right.collapsed {
+            transform: translateX(100%);
+            left: auto;
+            right: 0;
+        }
+        
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        /* Center Area */
+        .center-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            pointer-events: none;
+            min-width: 0;
+        }
+        
+        .now-playing-card {
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            pointer-events: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .album-art-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+        }
+        
+        .album-art {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            object-fit: cover;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: var(--text-muted);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .album-art.playing {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 0 30px 10px rgba(99, 102, 241, 0.2); }
+        }
+        
+        .track-info h2 {
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-info p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        
+        /* Player Bar */
+        .player-bar {
+            background: rgba(15, 15, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            padding: 12px 20px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .time-display {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            min-width: 45px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-card);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-1);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .progress-bar:hover .progress-fill {
+            background: var(--secondary);
+        }
+        
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .right-controls {
+            justify-content: flex-end;
+        }
+        
+        .main-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--gradient-1);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .play-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+        }
+        
+        .play-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .control-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            background: var(--bg-card);
+            color: var(--primary);
+        }
+        
+        .control-btn.active {
+            color: var(--primary);
+        }
+        
+        .control-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Volume Control */
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .volume-slider, .slider {
+            -webkit-appearance: none;
+            background: var(--bg-card);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .volume-slider {
+            width: 100px;
+            height: 4px;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+        }
+        
+        .volume-slider::-webkit-slider-thumb, .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--gradient-1);
+        }
+        
+        .volume-slider::-webkit-slider-thumb:hover, .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Track List */
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .track-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .track-item.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-left: 3px solid var(--primary);
+        }
+        
+        .track-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        
+        .track-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .track-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .track-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-artist {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-duration {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        
+        .track-actions {
+            display: none;
+            gap: 4px;
+        }
+        
+        .track-item:hover .track-actions {
+            display: flex;
+        }
+        
+        .track-item:hover .track-duration {
+            display: none;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+            background: var(--bg-dark);
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: var(--bg-card);
+            color: var(--text);
+        }
+        
+        /* Section */
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Visualization Controls */
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .viz-option {
+            padding: 12px 8px;
+            background: var(--bg-dark);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .viz-option:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border);
+        }
+        
+        .viz-option.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .viz-option-icon {
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+        }
+        
+        .viz-option-name {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 16px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .slider-value {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        /* Color Picker */
+        .color-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.active {
+            border-color: white;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .drop-zone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .drop-zone-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        .drop-zone-text span {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        /* Search */
+        .search-box {
+            position: relative;
+            margin-bottom: 12px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+        
+        /* Playlist Card */
+        .playlist-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-dark);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        
+        .playlist-card:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .playlist-cover {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: var(--gradient-1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        
+        .playlist-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .playlist-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .playlist-count {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        /* Equalizer */
+        .eq-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 140px;
+            padding: 0 5px;
+            margin-bottom: 16px;
+        }
+        
+        .eq-band {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .eq-slider {
+            width: 6px;
+            height: 100px;
+            -webkit-appearance: none;
+            background: var(--bg-dark);
+            border-radius: 3px;
+            writing-mode: vertical-lr;
+            direction: rtl;
+        }
+        
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .eq-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        
+        .eq-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .eq-preset {
+            padding: 6px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .eq-preset:hover, .eq-preset.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .modal-close:hover {
+            color: var(--text);
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Toggle */
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-dark);
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        
+        .toggle input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+        
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Fullscreen Modes */
+        .fullscreen-mode .ui-overlay {
+            opacity: 0;
+        }
+        
+        .fullscreen-mode:hover .ui-overlay {
+            opacity: 1;
+        }
+        
+        .fullscreen-mode .fullscreen-hint {
+            display: block;
+        }
+        
+        /* Fullscreen Hint */
+        .fullscreen-hint {
+            position: fixed;
+            bottom: 50%;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 30px;
+            border-radius: 10px;
+            z-index: 5;
+            display: none;
+            pointer-events: none;
+            text-align: center;
+            animation: fadeOut 3s forwards;
+        }
+        
+        @keyframes fadeOut {
+            0%, 70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            padding: 12px 24px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            border: 1px solid var(--border);
+        }
+        
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 0;
+            min-width: 180px;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+        
+        .context-menu.show {
+            display: block;
+        }
+        
+        .context-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        
+        .context-menu-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .context-menu-item svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 6px 0;
+        }
+        
+        /* Rating Stars */
+        .rating {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .rating-star {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            transition: color 0.2s;
+        }
+        
+        .rating-star:hover,
+        .rating-star.active {
+            color: var(--warning);
+        }
+        
+        /* Spectrum Preview */
+        .spectrum-preview {
+            height: 60px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3px;
+            padding: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .spectrum-bar {
+            width: 6px;
+            background: var(--gradient-1);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+            min-height: 4px;
+        }
+        
+        /* Settings Sections */
+        .settings-section {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .settings-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Timer */
+        .timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 20px;
+            font-variant-numeric: tabular-nums;
+            color: var(--primary);
+        }
+        
+        .timer-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .timer-preset {
+            padding: 8px 16px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text);
+        }
+        
+        .timer-preset:hover, .timer-preset.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Shortcuts Grid */
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px 16px;
+        }
+        
+        .shortcut-key {
+            background: var(--bg-dark);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            text-align: center;
+            min-width: 60px;
+        }
+        
+        .shortcut-desc {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Hidden file input */
+        #fileInput {
+            display: none;
+        }
+        
+        /* Select styling */
+        select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .side-panel {
+                position: fixed;
+                top: 60px;
+                bottom: 0;
+                z-index: 50;
+                height: auto;
+            }
+            
+            .side-panel.left {
+                left: 0;
+            }
+            
+            .side-panel.right {
+                right: 0;
+                left: auto;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .logo-text {
+                display: none;
+            }
+            
+            .now-playing-card {
+                padding: 16px;
+            }
+            
+            .album-art-container {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .player-bar {
+                padding: 10px 12px;
+            }
+            
+            .volume-control {
+                display: none;
+            }
+            
+            .controls-row {
+                flex-wrap: wrap;
+            }
+            
+            .main-controls {
+                order: -1;
+                width: 100%;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+            
+            .left-controls, .right-controls {
+                flex: none;
+            }
+            
+            .side-panel {
+                top: 56px;
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .viz-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .eq-container {
+                height: 120px;
+            }
+            
+            .eq-slider {
+                height: 80px;
+            }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <canvas id="visualizerCanvas"></canvas>
+        
+        <div class="fullscreen-hint" id="fullscreenHint">
+            Hover to show controls • Press ESC or F to exit
+        </div>
+        
+        <div class="ui-overlay" id="uiOverlay">
+            <!-- Header -->
+            <header class="header">
+                <div class="logo">
+                    <div class="logo-icon">🎵</div>
+                    <span class="logo-text">VisualizerPro</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" id="leftPanelToggle" onclick="toggleLeftPanel()" title="Music Library (L)">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6z"/></svg>
+                    </button>
+                    <button class="btn-icon" id="rightPanelToggle" onclick="toggleRightPanel()" title="Visualizer Settings (V)">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="openModal('settingsModal')" title="Settings">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94c0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6s-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                    <button class="btn-icon" id="fullscreenBtn" onclick="toggleFullscreenMode()" title="Fullscreen Visual (F)">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Left Panel -->
+                <aside class="side-panel left" id="leftPanel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6z"/></svg>
+                            Music Library
+                        </span>
+                        <button class="btn-icon" onclick="toggleLeftPanel()" style="width:28px;height:28px;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41z"/></svg>
+                        </button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                            <div class="drop-zone-icon">📂</div>
+                            <p class="drop-zone-text">Drop music files here or <span>browse</span></p>
+                            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">
+                                MP3, WAV, OGG, FLAC, M4A, AAC, WebM
+                            </p>
+                        </div>
+                        <input type="file" id="fileInput" multiple accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.wma,.webm">
+                        
+                        <div class="search-box">
+                            <svg class="search-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5l-1.5 1.5l-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16A6.5 6.5 0 0 1 3 9.5A6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14S14 12 14 9.5S12 5 9.5 5z"/></svg>
+                            <input type="text" class="search-input" id="searchInput" placeholder="Search tracks...">
+                        </div>
+                        
+                        <div class="tabs">
+                            <button class="tab active" data-tab="tracks" onclick="switchLibraryTab('tracks', this)">Tracks</button>
+                            <button class="tab" data-tab="playlists" onclick="switchLibraryTab('playlists', this)">Playlists</button>
+                            <button class="tab" data-tab="favorites" onclick="switchLibraryTab('favorites', this)">Favorites</button>
+                        </div>
+                        
+                        <div class="tab-content active" id="tracksTab">
+                            <div class="track-list" id="trackList">
+                                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                                    <p style="font-size:2rem;margin-bottom:10px;">🎵</p>
+                                    <p>No tracks loaded</p>
+                                    <p style="font-size:0.85rem;margin-top:8px;">Upload music files to get started</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="playlistsTab">
+                            <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="openModal('createPlaylistModal')">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                                Create Playlist
+                            </button>
+                            <div id="playlistsList"></div>
+                        </div>
+                        
+                        <div class="tab-content" id="favoritesTab">
+                            <div class="track-list" id="favoritesList">
+                                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                                    <p style="font-size:2rem;margin-bottom:10px;">❤️</p>
+                                    <p>No favorites yet</p>
+                                    <p style="font-size:0.85rem;margin-top:8px;">Click the heart on tracks to add</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+                
+                <!-- Center Area -->
+                <div class="center-area">
+                    <div class="now-playing-card" id="nowPlayingCard">
+                        <div class="album-art-container">
+                            <div class="album-art" id="albumArt">🎵</div>
+                        </div>
+                        <div class="track-info">
+                            <h2 id="trackTitle">No Track Playing</h2>
+                            <p id="trackArtist">Upload music to start</p>
+                        </div>
+                        <div class="rating" style="justify-content:center;margin-top:12px;" id="trackRating">
+                            <span class="rating-star" onclick="setRating(1)">☆</span>
+                            <span class="rating-star" onclick="setRating(2)">☆</span>
+                            <span class="rating-star" onclick="setRating(3)">☆</span>
+                            <span class="rating-star" onclick="setRating(4)">☆</span>
+                            <span class="rating-star" onclick="setRating(5)">☆</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Panel -->
+                <aside class="side-panel right" id="rightPanel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M7.5 5.6L10 7L8.6 4.5L10 2L7.5 3.4L5 2l1.4 2.5L5 7l2.5-1.4zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14l-2.5 1.4zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5L22 2zm-7.63 5.29a.996.996 0 0 0-1.41 0L1.29 18.96a.996.996 0 0 0 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 0 0 0-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12l2.44-2.44l2.12 2.12l-2.44 2.44z"/></svg>
+                            Visualizer
+                        </span>
+                        <button class="btn-icon" onclick="toggleRightPanel()" style="width:28px;height:28px;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41z"/></svg>
+                        </button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="spectrum-preview" id="spectrumPreview">
+                            <div class="spectrum-bar" style="height:20%"></div>
+                            <div class="spectrum-bar" style="height:35%"></div>
+                            <div class="spectrum-bar" style="height:50%"></div>
+                            <div class="spectrum-bar" style="height:70%"></div>
+                            <div class="spectrum-bar" style="height:90%"></div>
+                            <div class="spectrum-bar" style="height:100%"></div>
+                            <div class="spectrum-bar" style="height:90%"></div>
+                            <div class="spectrum-bar" style="height:70%"></div>
+                            <div class="spectrum-bar" style="height:50%"></div>
+                            <div class="spectrum-bar" style="height:35%"></div>
+                            <div class="spectrum-bar" style="height:20%"></div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Visualization</span>
+                            </div>
+                            <div class="viz-grid" id="vizTypeGrid">
+                                <div class="viz-option active" data-viz="bars" onclick="setVisualization('bars')">
+                                    <div class="viz-option-icon">📊</div>
+                                    <div class="viz-option-name">Bars</div>
+                                </div>
+                                <div class="viz-option" data-viz="circular" onclick="setVisualization('circular')">
+                                    <div class="viz-option-icon">⭕</div>
+                                    <div class="viz-option-name">Circular</div>
+                                </div>
+                                <div class="viz-option" data-viz="waveform" onclick="setVisualization('waveform')">
+                                    <div class="viz-option-icon">〰️</div>
+                                    <div class="viz-option-name">Wave</div>
+                                </div>
+                                <div class="viz-option" data-viz="particles" onclick="setVisualization('particles')">
+                                    <div class="viz-option-icon">✨</div>
+                                    <div class="viz-option-name">Particles</div>
+                                </div>
+                                <div class="viz-option" data-viz="spectrum" onclick="setVisualization('spectrum')">
+                                    <div class="viz-option-icon">📈</div>
+                                    <div class="viz-option-name">Spectrum</div>
+                                </div>
+                                <div class="viz-option" data-viz="radial" onclick="setVisualization('radial')">
+                                    <div class="viz-option-icon">🎯</div>
+                                    <div class="viz-option-name">Radial</div>
+                                </div>
+                                <div class="viz-option" data-viz="galaxy" onclick="setVisualization('galaxy')">
+                                    <div class="viz-option-icon">🌌</div>
+                                    <div class="viz-option-name">Galaxy</div>
+                                </div>
+                                <div class="viz-option" data-viz="geometric" onclick="setVisualization('geometric')">
+                                    <div class="viz-option-icon">💠</div>
+                                    <div class="viz-option-name">Geometric</div>
+                                </div>
+                                <div class="viz-option" data-viz="pulse" onclick="setVisualization('pulse')">
+                                    <div class="viz-option-icon">💫</div>
+                                    <div class="viz-option-name">Pulse</div>
+                                </div>
+                                <div class="viz-option" data-viz="matrix" onclick="setVisualization('matrix')">
+                                    <div class="viz-option-icon">🖥️</div>
+                                    <div class="viz-option-name">Matrix</div>
+                                </div>
+                                <div class="viz-option" data-viz="fireworks" onclick="setVisualization('fireworks')">
+                                    <div class="viz-option-icon">🎆</div>
+                                    <div class="viz-option-name">Fireworks</div>
+                                </div>
+                                <div class="viz-option" data-viz="lines" onclick="setVisualization('lines')">
+                                    <div class="viz-option-icon">📉</div>
+                                    <div class="viz-option-name">Lines</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Colors</span>
+                            </div>
+                            <div class="color-options" id="colorOptions">
+                                <div class="color-option active" style="background:linear-gradient(135deg,#6366f1,#ec4899)" data-color="purple-pink" onclick="setColorTheme('purple-pink')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#14b8a6,#6366f1)" data-color="teal-purple" onclick="setColorTheme('teal-purple')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#f59e0b,#ef4444)" data-color="orange-red" onclick="setColorTheme('orange-red')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#22c55e,#14b8a6)" data-color="green-teal" onclick="setColorTheme('green-teal')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)" data-color="blue-cyan" onclick="setColorTheme('blue-cyan')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#ec4899,#f43f5e)" data-color="pink-rose" onclick="setColorTheme('pink-rose')"></div>
+                                <div class="color-option" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" data-color="rainbow" onclick="setColorTheme('rainbow')"></div>
+                                <div class="color-option" style="background:#ffffff" data-color="white" onclick="setColorTheme('white')"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Settings</span>
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Sensitivity</span>
+                                    <span class="slider-value" id="sensitivityValue">50%</span>
+                                </div>
+                                <input type="range" class="slider" id="sensitivitySlider" min="10" max="100" value="50" oninput="updateSensitivity(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Smoothing</span>
+                                    <span class="slider-value" id="smoothingValue">80%</span>
+                                </div>
+                                <input type="range" class="slider" id="smoothingSlider" min="0" max="99" value="80" oninput="updateSmoothing(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Trail Effect</span>
+                                    <span class="slider-value" id="bgOpacityValue">90%</span>
+                                </div>
+                                <input type="range" class="slider" id="bgOpacitySlider" min="10" max="100" value="90" oninput="updateBgOpacity(this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Equalizer</span>
+                            </div>
+                            <div class="eq-container" id="eqContainer">
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq60" min="-12" max="12" value="0" oninput="updateEQ(60, this.value)">
+                                    <span class="eq-label">60</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq170" min="-12" max="12" value="0" oninput="updateEQ(170, this.value)">
+                                    <span class="eq-label">170</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq310" min="-12" max="12" value="0" oninput="updateEQ(310, this.value)">
+                                    <span class="eq-label">310</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq600" min="-12" max="12" value="0" oninput="updateEQ(600, this.value)">
+                                    <span class="eq-label">600</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq1k" min="-12" max="12" value="0" oninput="updateEQ(1000, this.value)">
+                                    <span class="eq-label">1K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq3k" min="-12" max="12" value="0" oninput="updateEQ(3000, this.value)">
+                                    <span class="eq-label">3K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq6k" min="-12" max="12" value="0" oninput="updateEQ(6000, this.value)">
+                                    <span class="eq-label">6K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq12k" min="-12" max="12" value="0" oninput="updateEQ(12000, this.value)">
+                                    <span class="eq-label">12K</span>
+                                </div>
+                            </div>
+                            <div class="eq-presets">
+                                <button class="eq-preset active" onclick="setEQPreset('flat')">Flat</button>
+                                <button class="eq-preset" onclick="setEQPreset('rock')">Rock</button>
+                                <button class="eq-preset" onclick="setEQPreset('pop')">Pop</button>
+                                <button class="eq-preset" onclick="setEQPreset('jazz')">Jazz</button>
+                                <button class="eq-preset" onclick="setEQPreset('bass')">Bass+</button>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+            
+            <!-- Player Bar -->
+            <div class="player-bar" id="playerBar">
+                <div class="progress-container">
+                    <span class="time-display" id="currentTime">0:00</span>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="time-display" id="totalTime">0:00</span>
+                </div>
+                <div class="controls-row">
+                    <div class="left-controls">
+                        <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle (S)">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4L4 5.41l5.17 5.17l1.42-1.41zM14.5 4l2.04 2.04L4 18.59L5.41 20L17.96 7.46L20 9.5V4h-5.5zm.33 9.41l-1.41 1.41l3.13 3.13L14.5 20H20v-5.5l-2.04 2.04l-3.13-3.13z"/></svg>
+                        </button>
+                        <button class="control-btn" id="repeatBtn" onclick="toggleRepeat()" title="Repeat (R)">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 17H7v-3l-4 4l4 4v-3h12v-6h-2v4M7 7h10v3l4-4l-4-4v3H5v6h2V7z"/></svg>
+                        </button>
+                        <select id="playbackSpeed" onchange="changePlaybackSpeed(this.value)" title="Playback Speed">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                    <div class="main-controls">
+                        <button class="control-btn" onclick="previousTrack()" title="Previous (←)">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6V6m3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                        </button>
+                        <button class="play-btn" id="playBtn" onclick="togglePlay()" title="Play/Pause (Space)">
+                            <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button class="control-btn" onclick="nextTrack()" title="Next (→)">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 18h2V6h-2v12M6 18l8.5-6L6 6v12z"/></svg>
+                        </button>
+                    </div>
+                    <div class="right-controls">
+                        <button class="control-btn" onclick="openModal('sleepTimerModal')" title="Sleep Timer">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20c4.42 0 8-3.58 8-8s-3.58-8-8-8s-8 3.58-8 8s3.58 8 8 8m0-18c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m.5 4v6.5l5.3 3.1l-.8 1.3l-6-3.5V6h1.5z"/></svg>
+                        </button>
+                        <div class="volume-control">
+                            <button class="control-btn" id="muteBtn" onclick="toggleMute()" title="Mute (M)">
+                                <svg viewBox="0 0 24 24" fill="currentColor" id="volumeIcon"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02M3 9v6h4l5 5V4L7 9H3z"/></svg>
+                            </button>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80" oninput="changeVolume(this.value)" title="Volume">
+                        </div>
+                        <button class="control-btn" onclick="openModal('keyboardShortcutsModal')" title="Keyboard Shortcuts (?)">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 10h-2V8h2v2m0 4h-2v-2h2v2m-3-2h-2v2h2v-2m-6-2h2V8H9v2m1.5 6h5v-2h-5v2M7 14h2v-2H7v2m0-4h2V8H7v2m-1 6h2v-2H6v2M5 6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2H5z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Context Menu -->
+        <div class="context-menu" id="contextMenu">
+            <div class="context-menu-item" onclick="contextPlayNow()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Play Now
+            </div>
+            <div class="context-menu-item" onclick="contextPlayNext()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 18h2V6h-2v12M6 18l8.5-6L6 6v12z"/></svg>
+                Play Next
+            </div>
+            <div class="context-menu-item" onclick="contextAddToQueue()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6m0 4H3v2h12v-2M3 16h8v-2H3v2m11.5 4v-3.5H18v-2h-3.5V11h-2v3.5H9v2h3.5V20h2z"/></svg>
+                Add to Queue
+            </div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" onclick="contextToggleFavorite()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <span id="contextFavText">Add to Favorites</span>
+            </div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" onclick="contextShowInfo()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 9h-2V7h2v2m0 10h-2v-6h2v6m-1-15C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2z"/></svg>
+                Track Info
+            </div>
+            <div class="context-menu-item" style="color:var(--danger);" onclick="contextRemove()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z"/></svg>
+                Remove
+            </div>
+        </div>
+        
+        <div class="notification" id="notification"></div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Settings</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <div class="settings-section-title">Playback</div>
+                    <div class="toggle-group">
+                        <span>Auto-play next track</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="autoplayToggle" checked onchange="saveSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <span>Beat detection</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="beatToggle" checked onchange="saveSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <div class="settings-section-title">Data</div>
+                    <button class="btn btn-secondary" style="width:100%;" onclick="clearAllData()">
+                        Clear All Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="createPlaylistModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Playlist</h3>
+                <button class="modal-close" onclick="closeModal('createPlaylistModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Playlist Name</label>
+                    <input type="text" class="form-input" id="playlistNameInput" placeholder="My Playlist">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('createPlaylistModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="createPlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="sleepTimerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Sleep Timer</h3>
+                <button class="modal-close" onclick="closeModal('sleepTimerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="timer-display" id="timerDisplay">--:--</div>
+                <div class="timer-presets">
+                    <button class="timer-preset" onclick="setSleepTimer(5)">5m</button>
+                    <button class="timer-preset" onclick="setSleepTimer(10)">10m</button>
+                    <button class="timer-preset" onclick="setSleepTimer(15)">15m</button>
+                    <button class="timer-preset" onclick="setSleepTimer(30)">30m</button>
+                    <button class="timer-preset" onclick="setSleepTimer(60)">1h</button>
+                    <button class="timer-preset" onclick="setSleepTimer(90)">1.5h</button>
+                </div>
+                <button class="btn btn-secondary" style="width:100%;margin-top:16px;" onclick="cancelSleepTimer()">Cancel Timer</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="trackInfoModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Track Info</h3>
+                <button class="modal-close" onclick="closeModal('trackInfoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="text-align:center;margin-bottom:16px;">
+                    <div id="infoArt" style="width:120px;height:120px;margin:0 auto 16px;background:var(--bg-dark);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:3rem;">🎵</div>
+                    <h3 id="infoTitle">-</h3>
+                    <p id="infoArtist" style="color:var(--text-muted);">-</p>
+                </div>
+                <div class="settings-section">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Duration</span><br><span id="infoDuration">-</span></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Format</span><br><span id="infoFormat">-</span></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Size</span><br><span id="infoSize">-</span></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Plays</span><br><span id="infoPlays">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="keyboardShortcutsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Keyboard Shortcuts</h3>
+                <button class="modal-close" onclick="closeModal('keyboardShortcutsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcuts-grid">
+                    <span class="shortcut-key">Space</span><span class="shortcut-desc">Play / Pause</span>
+                    <span class="shortcut-key">← →</span><span class="shortcut-desc">Previous / Next Track</span>
+                    <span class="shortcut-key">↑ ↓</span><span class="shortcut-desc">Volume Up / Down</span>
+                    <span class="shortcut-key">M</span><span class="shortcut-desc">Mute / Unmute</span>
+                    <span class="shortcut-key">F</span><span class="shortcut-desc">Fullscreen Visual</span>
+                    <span class="shortcut-key">S</span><span class="shortcut-desc">Toggle Shuffle</span>
+                    <span class="shortcut-key">R</span><span class="shortcut-desc">Toggle Repeat</span>
+                    <span class="shortcut-key">L</span><span class="shortcut-desc">Toggle Library Panel</span>
+                    <span class="shortcut-key">V</span><span class="shortcut-desc">Toggle Visualizer Panel</span>
+                    <span class="shortcut-key">1-9</span><span class="shortcut-desc">Seek to 10%-90%</span>
+                    <span class="shortcut-key">Esc</span><span class="shortcut-desc">Exit Fullscreen / Close Modal</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== STATE ==========
+        const state = {
+            tracks: [],
+            playlists: [],
+            queue: [],
+            history: [],
+            currentTrackIndex: -1,
+            isPlaying: false,
+            isMuted: false,
+            volume: 80,
+            shuffle: false,
+            repeat: 'none',
+            visualization: 'bars',
+            colorTheme: 'purple-pink',
+            sensitivity: 50,
+            smoothing: 0.8,
+            bgOpacity: 90,
+            sleepTimer: null,
+            sleepTimerEnd: null,
+            contextTrackIndex: -1,
+            isFullscreen: false,
+            settings: {
+                autoplay: true,
+                beat: true
+            }
+        };
+
+        // ========== AUDIO ==========
+        let audioContext, analyser, gainNode, eqFilters = [];
+        const audio = new Audio();
+        audio.crossOrigin = 'anonymous';
+        
+        const eqFrequencies = [60, 170, 310, 600, 1000, 3000, 6000, 12000];
+        const eqPresets = {
+            flat: [0,0,0,0,0,0,0,0],
+            rock: [4,3,-2,-3,-1,2,4,5],
+            pop: [-1,2,4,4,2,-1,-1,-1],
+            jazz: [3,2,0,2,-2,-2,0,2],
+            bass: [6,5,4,2,0,-1,-2,-2]
+        };
+
+        function initAudio() {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = state.smoothing;
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = state.volume / 100;
+            
+            eqFrequencies.forEach((freq, i) => {
+                const filter = audioContext.createBiquadFilter();
+                filter.type = i === 0 ? 'lowshelf' : (i === eqFrequencies.length - 1 ? 'highshelf' : 'peaking');
+                filter.frequency.value = freq;
+                filter.Q.value = 1;
+                filter.gain.value = 0;
+                eqFilters.push(filter);
+            });
+            
+            const source = audioContext.createMediaElementSource(audio);
+            source.connect(eqFilters[0]);
+            for (let i = 0; i < eqFilters.length - 1; i++) {
+                eqFilters[i].connect(eqFilters[i + 1]);
+            }
+            eqFilters[eqFilters.length - 1].connect(gainNode);
+            gainNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+        }
+
+        // ========== CANVAS ==========
+        const canvas = document.getElementById('visualizerCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId, particles = [], matrixCols = [], fireworks = [];
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initMatrix();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const colors = {
+            'purple-pink': ['#6366f1','#a855f7','#ec4899'],
+            'teal-purple': ['#14b8a6','#6366f1','#a855f7'],
+            'orange-red': ['#f59e0b','#f97316','#ef4444'],
+            'green-teal': ['#22c55e','#14b8a6','#06b6d4'],
+            'blue-cyan': ['#3b82f6','#06b6d4','#22d3ee'],
+            'pink-rose': ['#ec4899','#f43f5e','#fb7185'],
+            'rainbow': ['#ef4444','#f59e0b','#22c55e','#06b6d4','#6366f1','#a855f7'],
+            'white': ['#ffffff','#e2e8f0','#cbd5e1']
+        };
+        
+        function getColors() { return colors[state.colorTheme] || colors['purple-pink']; }
+        
+        function gradient(x1,y1,x2,y2) {
+            const g = ctx.createLinearGradient(x1,y1,x2,y2);
+            const c = getColors();
+            c.forEach((col,i) => g.addColorStop(i/(c.length-1), col));
+            return g;
+        }
+        
+        function initMatrix() {
+            matrixCols = [];
+            const w = 20, cols = Math.floor(canvas.width / w);
+            for (let i = 0; i < cols; i++) {
+                matrixCols.push({ x: i*w, y: Math.random()*canvas.height, speed: 2+Math.random()*5, chars: [] });
+            }
+        }
+        
+        class Particle {
+            constructor(x,y,c) {
+                this.x=x; this.y=y; this.c=c;
+                this.vx=(Math.random()-0.5)*4; this.vy=(Math.random()-0.5)*4;
+                this.life=1; this.decay=0.01+Math.random()*0.02; this.size=2+Math.random()*4;
+            }
+            update() { this.x+=this.vx; this.y+=this.vy; this.life-=this.decay; this.size*=0.99; }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+                ctx.fillStyle = this.c + Math.floor(this.life*255).toString(16).padStart(2,'0');
+                ctx.fill();
+            }
+        }
+        
+        class Firework {
+            constructor(x,y) {
+                this.particles = [];
+                const c = getColors()[Math.floor(Math.random()*getColors().length)];
+                for (let i=0; i<50; i++) {
+                    const a = (Math.PI*2*i)/50, s = 2+Math.random()*3;
+                    this.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,c,size:2+Math.random()*2});
+                }
+            }
+            update() {
+                this.particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life-=0.02; p.size*=0.98; });
+                this.particles = this.particles.filter(p => p.life > 0);
+            }
+            draw() {
+                this.particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+                    ctx.fillStyle = p.c + Math.floor(p.life*255).toString(16).padStart(2,'0');
+                    ctx.fill();
+                });
+            }
+        }
+
+        function visualize() {
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            state.visualization === 'waveform' ? analyser.getByteTimeDomainData(data) : analyser.getByteFrequencyData(data);
+            
+            ctx.fillStyle = `rgba(15,15,26,${state.bgOpacity/100})`;
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            
+            const bass = Array.from(data.slice(0,10)).reduce((a,b)=>a+b,0)/10;
+            const beat = bass > 180 && state.settings.beat;
+            
+            switch(state.visualization) {
+                case 'bars': drawBars(data,beat); break;
+                case 'circular': drawCircular(data,beat); break;
+                case 'waveform': drawWave(data); break;
+                case 'particles': drawParticles(data,beat); break;
+                case 'spectrum': drawSpectrum(data); break;
+                case 'radial': drawRadial(data,beat); break;
+                case 'galaxy': drawGalaxy(data,beat); break;
+                case 'geometric': drawGeometric(data,beat); break;
+                case 'pulse': drawPulse(data,beat); break;
+                case 'matrix': drawMatrix(data); break;
+                case 'fireworks': drawFireworks(data,beat); break;
+                case 'lines': drawLines(data); break;
+            }
+            
+            updateSpectrum(data);
+            animationId = requestAnimationFrame(visualize);
+        }
+        
+        function drawBars(data,beat) {
+            const n=64, w=canvas.width/n, s=state.sensitivity/50;
+            for (let i=0; i<n; i++) {
+                const v = data[Math.floor(i*data.length/n)]*s;
+                const h = (v/255)*canvas.height*0.8;
+                const x = i*w, y = canvas.height-h;
+                ctx.fillStyle = gradient(x,canvas.height,x,y);
+                ctx.fillRect(x+2,y,(w-4)*(beat?1.1:1),h);
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(x+2,canvas.height,w-4,-h*0.3);
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        function drawCircular(data,beat) {
+            const cx=canvas.width/2, cy=canvas.height/2, r=Math.min(canvas.width,canvas.height)*0.25, s=state.sensitivity/50, c=getColors();
+            const scale = beat ? 1.15 : 1;
+            for (let i=0; i<180; i++) {
+                const a = (i/180)*Math.PI*2;
+                const v = data[Math.floor(i*data.length/180)]*s;
+                const h = (v/255)*r*scale;
+                ctx.strokeStyle = c[i%c.length];
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+                ctx.lineTo(cx+Math.cos(a)*(r+h), cy+Math.sin(a)*(r+h));
+                ctx.stroke();
+            }
+            const g = ctx.createRadialGradient(cx,cy,0,cx,cy,r*0.8);
+            c.forEach((col,i) => g.addColorStop(i/c.length, col+'40'));
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(cx,cy,r*0.8*scale,0,Math.PI*2);
+            ctx.fill();
+        }
+        
+        function drawWave(data) {
+            const s = state.sensitivity/50;
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = gradient(0,0,canvas.width,0);
+            ctx.beginPath();
+            const sw = canvas.width/data.length;
+            for (let i=0; i<data.length; i++) {
+                const v = data[i]/128, y = (v*canvas.height/2)*s;
+                i===0 ? ctx.moveTo(i*sw,y) : ctx.lineTo(i*sw,y);
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            for (let i=0; i<data.length; i++) {
+                const v = data[i]/128, y = canvas.height-(v*canvas.height/2)*s;
+                i===0 ? ctx.moveTo(i*sw,y) : ctx.lineTo(i*sw,y);
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawParticles(data,beat) {
+            const c = getColors(), s = state.sensitivity/50, bass = data[0]*s;
+            if (beat || Math.random() < bass/500) {
+                particles.push(new Particle(canvas.width/2+(Math.random()-0.5)*200, canvas.height/2+(Math.random()-0.5)*200, c[Math.floor(Math.random()*c.length)]));
+            }
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => {
+                p.update();
+                const f = data[Math.floor(Math.random()*data.length)]/255;
+                p.vx += (Math.random()-0.5)*f*2;
+                p.vy += (Math.random()-0.5)*f*2;
+                p.draw();
+            });
+            if (particles.length > 500) particles = particles.slice(-500);
+        }
+        
+        function drawSpectrum(data) {
+            const s=state.sensitivity/50, n=128, w=canvas.width/n;
+            ctx.beginPath();
+            ctx.moveTo(0,canvas.height);
+            for (let i=0; i<n; i++) {
+                const v = data[Math.floor(i*data.length/n)]*s;
+                const h = (v/255)*canvas.height*0.8;
+                ctx.lineTo(i*w, canvas.height-h);
+            }
+            ctx.lineTo(canvas.width,canvas.height);
+            ctx.closePath();
+            ctx.fillStyle = gradient(0,0,0,canvas.height);
+            ctx.globalAlpha = 0.7;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = getColors()[0];
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        function drawRadial(data,beat) {
+            const cx=canvas.width/2, cy=canvas.height/2, s=state.sensitivity/50, c=getColors(), mr=Math.min(canvas.width,canvas.height)*0.4;
+            for (let r=0; r<8; r++) {
+                const rr = (mr/8)*(r+1)*(beat?1.1:1);
+                const v = data[Math.floor((r/8)*data.length)]*s;
+                ctx.strokeStyle = c[r%c.length] + Math.floor((v/255)*200).toString(16).padStart(2,'0');
+                ctx.lineWidth = 3+(v/255)*5;
+                ctx.beginPath();
+                ctx.arc(cx,cy,rr+(v/255)*50,0,Math.PI*2);
+                ctx.stroke();
+            }
+            const t = Date.now()/1000;
+            for (let i=0; i<36; i++) {
+                const a = (i/36)*Math.PI*2+t;
+                const v = data[Math.floor((i/36)*data.length)]*s;
+                const l = mr*0.3+(v/255)*mr*0.7;
+                ctx.strokeStyle = c[i%c.length];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx,cy);
+                ctx.lineTo(cx+Math.cos(a)*l, cy+Math.sin(a)*l);
+                ctx.stroke();
+            }
+        }
+        
+        function drawGalaxy(data,beat) {
+            const cx=canvas.width/2, cy=canvas.height/2, s=state.sensitivity/50, c=getColors(), t=Date.now()/2000;
+            for (let arm=0; arm<4; arm++) {
+                const off = (arm/4)*Math.PI*2;
+                for (let i=0; i<100; i++) {
+                    const p = i/100;
+                    const v = data[Math.floor(p*data.length)]*s;
+                    const a = off + p*Math.PI*4 + t;
+                    const r = p*Math.min(canvas.width,canvas.height)*0.4;
+                    const w = Math.sin(p*10+t*2)*20*(v/255);
+                    const x = cx+Math.cos(a)*(r+w), y = cy+Math.sin(a)*(r+w);
+                    const sz = 2+(v/255)*4*(1-p);
+                    ctx.beginPath();
+                    ctx.arc(x,y,sz,0,Math.PI*2);
+                    ctx.fillStyle = c[arm%c.length] + Math.floor((1-p)*200).toString(16).padStart(2,'0');
+                    ctx.fill();
+                }
+            }
+            const bass = data[0]*s;
+            const gr = 30+(bass/255)*50*(beat?1.3:1);
+            const g = ctx.createRadialGradient(cx,cy,0,cx,cy,gr);
+            g.addColorStop(0, c[0]);
+            g.addColorStop(0.5, c[1]+'80');
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(cx,cy,gr,0,Math.PI*2);
+            ctx.fill();
+        }
+        
+        function drawGeometric(data,beat) {
+            const cx=canvas.width/2, cy=canvas.height/2, s=state.sensitivity/50, c=getColors(), t=Date.now()/1000;
+            for (let sh=0; sh<6; sh++) {
+                const v = data[Math.floor((sh/6)*data.length)]*s;
+                const sides = 3+sh, r = 50+sh*40+(v/255)*60*(beat?1.2:1), rot = t*(0.5-sh*0.1);
+                ctx.strokeStyle = c[sh%c.length];
+                ctx.lineWidth = 2+(v/255)*3;
+                ctx.beginPath();
+                for (let i=0; i<=sides; i++) {
+                    const a = (i/sides)*Math.PI*2+rot;
+                    const x = cx+Math.cos(a)*r, y = cy+Math.sin(a)*r;
+                    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+        }
+        
+        function drawPulse(data,beat) {
+            const cx=canvas.width/2, cy=canvas.height/2, s=state.sensitivity/50, c=getColors(), bass=data[0]*s;
+            for (let i=0; i<8; i++) {
+                const p = i/8;
+                const br = p*Math.min(canvas.width,canvas.height)*0.4;
+                const po = (bass/255)*50*(1-p)*(beat?1.5:1);
+                ctx.strokeStyle = c[i%c.length] + Math.floor((1-p)*150).toString(16).padStart(2,'0');
+                ctx.lineWidth = 3+(1-p)*5;
+                ctx.beginPath();
+                ctx.arc(cx,cy,br+po,0,Math.PI*2);
+                ctx.stroke();
+            }
+            const cr = 20+(bass/255)*80*(beat?1.5:1);
+            const g = ctx.createRadialGradient(cx,cy,0,cx,cy,cr);
+            g.addColorStop(0, c[0]);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(cx,cy,cr,0,Math.PI*2);
+            ctx.fill();
+        }
+        
+        function drawMatrix(data) {
+            const s=state.sensitivity/50, c=getColors(), chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%';
+            ctx.font = '14px monospace';
+            matrixCols.forEach((col,i) => {
+                const v = data[Math.floor((i/matrixCols.length)*data.length)]*s;
+                col.speed = 2+(v/255)*8;
+                col.y += col.speed;
+                if (col.y > canvas.height) { col.y = 0; col.chars = []; }
+                const cc = Math.floor(col.y/20);
+                while (col.chars.length < cc) col.chars.push(chars[Math.floor(Math.random()*chars.length)]);
+                col.chars.forEach((ch,j) => {
+                    const y = j*20, a = 1-(col.y-y)/canvas.height;
+                    ctx.fillStyle = j===col.chars.length-1 ? '#fff' : c[j%c.length] + Math.floor(a*200).toString(16).padStart(2,'0');
+                    ctx.fillText(ch, col.x, y);
+                });
+            });
+        }
+        
+        function drawFireworks(data,beat) {
+            const s=state.sensitivity/50, bass=data[0]*s;
+            if (beat || (bass>200 && Math.random()<0.3)) {
+                fireworks.push(new Firework(Math.random()*canvas.width, Math.random()*canvas.height*0.6));
+            }
+            fireworks = fireworks.filter(f => f.particles.length > 0);
+            fireworks.forEach(f => { f.update(); f.draw(); });
+            if (fireworks.length > 20) fireworks = fireworks.slice(-20);
+        }
+        
+        function drawLines(data) {
+            const s=state.sensitivity/50, c=getColors();
+            for (let l=0; l<32; l++) {
+                const y = (canvas.height/32)*l;
+                ctx.beginPath();
+                ctx.moveTo(0,y);
+                for (let i=0; i<data.length; i+=4) {
+                    const x = (i/data.length)*canvas.width;
+                    const v = data[i]*s;
+                    ctx.lineTo(x, y+(v/255)*40*Math.sin(l*0.5));
+                }
+                ctx.strokeStyle = c[l%c.length]+'80';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+        
+        function updateSpectrum(data) {
+            const bars = document.querySelectorAll('#spectrumPreview .spectrum-bar');
+            const step = Math.floor(data.length/bars.length);
+            bars.forEach((bar,i) => {
+                const v = data[i*step];
+                bar.style.height = (20+(v/255)*80)+'%';
+            });
+        }
+
+        // ========== FILE HANDLING ==========
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', e => handleFiles(e.target.files));
+        
+        async function handleFiles(files) {
+            const exts = ['mp3','wav','ogg','flac','m4a','aac','wma','webm'];
+            let added = 0;
+            for (const f of files) {
+                const ext = f.name.split('.').pop().toLowerCase();
+                if (exts.includes(ext)) { await addTrack(f); added++; }
+            }
+            renderTracks();
+            saveData();
+            notify(`Added ${added} track(s)`);
+        }
+        
+        function addTrack(file) {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const track = {
+                        id: Date.now()+Math.random(),
+                        name: file.name.replace(/\.[^/.]+$/,''),
+                        artist: 'Unknown Artist',
+                        duration: 0,
+                        size: file.size,
+                        format: file.name.split('.').pop().toUpperCase(),
+                        data: e.target.result,
+                        rating: 0,
+                        playCount: 0,
+                        favorite: false
+                    };
+                    const tmp = new Audio(e.target.result);
+                    tmp.addEventListener('loadedmetadata', () => { track.duration = tmp.duration; state.tracks.push(track); resolve(); });
+                    tmp.addEventListener('error', () => { state.tracks.push(track); resolve(); });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ========== RENDERING ==========
+        function renderTracks() {
+            const list = document.getElementById('trackList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = state.tracks.filter(t => t.name.toLowerCase().includes(search) || t.artist.toLowerCase().includes(search));
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                    <p style="font-size:2rem;margin-bottom:10px;">🎵</p>
+                    <p>${state.tracks.length === 0 ? 'No tracks loaded' : 'No matches found'}</p>
+                    <p style="font-size:0.85rem;margin-top:8px;">${state.tracks.length === 0 ? 'Upload music files to get started' : 'Try a different search'}</p>
+                </div>`;
+                return;
+            }
+            
+            list.innerHTML = filtered.map(t => {
+                const idx = state.tracks.indexOf(t);
+                const active = idx === state.currentTrackIndex;
+                return `<div class="track-item ${active?'active':''}" onclick="playTrack(${idx})" oncontextmenu="showContext(event,${idx})">
+                    <div class="track-thumb">🎵</div>
+                    <div class="track-details">
+                        <div class="track-name">${t.name}</div>
+                        <div class="track-artist">${t.artist}</div>
+                    </div>
+                    <span class="track-duration">${formatTime(t.duration)}</span>
+                    <div class="track-actions">
+                        <button class="btn-icon" style="width:28px;height:28px;" onclick="event.stopPropagation();toggleFavorite(${idx})">${t.favorite?'❤️':'🤍'}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        
+        function renderFavorites() {
+            const list = document.getElementById('favoritesList');
+            const favs = state.tracks.filter(t => t.favorite);
+            if (favs.length === 0) {
+                list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                    <p style="font-size:2rem;margin-bottom:10px;">❤️</p>
+                    <p>No favorites yet</p>
+                </div>`;
+                return;
+            }
+            list.innerHTML = favs.map(t => {
+                const idx = state.tracks.indexOf(t);
+                return `<div class="track-item ${idx===state.currentTrackIndex?'active':''}" onclick="playTrack(${idx})">
+                    <div class="track-thumb">🎵</div>
+                    <div class="track-details">
+                        <div class="track-name">${t.name}</div>
+                        <div class="track-artist">${t.artist}</div>
+                    </div>
+                    <span class="track-duration">${formatTime(t.duration)}</span>
+                </div>`;
+            }).join('');
+        }
+        
+        function renderPlaylists() {
+            const list = document.getElementById('playlistsList');
+            if (state.playlists.length === 0) {
+                list.innerHTML = `<div style="text-align:center;padding:30px 20px;color:var(--text-muted);">No playlists</div>`;
+                return;
+            }
+            list.innerHTML = state.playlists.map((p,i) => `
+                <div class="playlist-card" onclick="playPlaylist(${i})">
+                    <div class="playlist-cover">📋</div>
+                    <div class="playlist-info">
+                        <div class="playlist-name">${p.name}</div>
+                        <div class="playlist-count">${p.tracks.length} tracks</div>
+                    </div>
+                    <button class="btn-icon" style="width:28px;height:28px;" onclick="event.stopPropagation();deletePlaylist(${i})">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        // ========== PLAYBACK ==========
+        function playTrack(idx) {
+            if (idx < 0 || idx >= state.tracks.length) return;
+            initAudio();
+            const track = state.tracks[idx];
+            state.currentTrackIndex = idx;
+            audio.src = track.data;
+            audio.play().then(() => {
+                state.isPlaying = true;
+                updatePlayBtn();
+                updateNowPlaying();
+                track.playCount++;
+                if (!state.history.includes(idx)) { state.history.push(idx); if(state.history.length>50)state.history.shift(); }
+                saveData();
+                renderTracks();
+            }).catch(e => { console.error(e); notify('Error playing track'); });
+            if (audioContext?.state === 'suspended') audioContext.resume();
+            if (!animationId) visualize();
+        }
+        
+        function togglePlay() {
+            if (!state.tracks.length) { notify('No tracks loaded'); return; }
+            initAudio();
+            if (state.currentTrackIndex === -1) { playTrack(0); return; }
+            if (state.isPlaying) { audio.pause(); state.isPlaying = false; }
+            else { audio.play(); state.isPlaying = true; if(audioContext?.state==='suspended')audioContext.resume(); }
+            updatePlayBtn();
+        }
+        
+        function nextTrack() {
+            if (!state.tracks.length) return;
+            let next = state.shuffle ? Math.floor(Math.random()*state.tracks.length) : (state.currentTrackIndex+1)%state.tracks.length;
+            if (state.queue.length) next = state.queue.shift();
+            playTrack(next);
+        }
+        
+        function previousTrack() {
+            if (!state.tracks.length) return;
+            if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+            let prev = state.history.length > 1 ? (state.history.pop(), state.history[state.history.length-1]) : (state.currentTrackIndex-1+state.tracks.length)%state.tracks.length;
+            playTrack(prev);
+        }
+        
+        function changeVolume(v) {
+            state.volume = +v;
+            audio.volume = v/100;
+            if (gainNode) gainNode.gain.value = v/100;
+            state.isMuted = v === 0;
+            updateVolumeIcon();
+            saveData();
+        }
+        
+        function toggleMute() {
+            state.isMuted = !state.isMuted;
+            audio.muted = state.isMuted;
+            updateVolumeIcon();
+        }
+        
+        function changePlaybackSpeed(s) { audio.playbackRate = +s; }
+        
+        function toggleShuffle() {
+            state.shuffle = !state.shuffle;
+            document.getElementById('shuffleBtn').classList.toggle('active', state.shuffle);
+            notify(state.shuffle ? 'Shuffle On' : 'Shuffle Off');
+            saveData();
+        }
+        
+        function toggleRepeat() {
+            const modes = ['none','all','one'];
+            state.repeat = modes[(modes.indexOf(state.repeat)+1)%3];
+            document.getElementById('repeatBtn').classList.toggle('active', state.repeat !== 'none');
+            notify({none:'Repeat Off',all:'Repeat All',one:'Repeat One'}[state.repeat]);
+            saveData();
+        }
+        
+        function updatePlayBtn() {
+            const icon = document.getElementById('playIcon');
+            const art = document.getElementById('albumArt');
+            icon.innerHTML = state.isPlaying ? '<path d="M14 19h4V5h-4v14zm-8 0h4V5H6v14z"/>' : '<path d="M8 5v14l11-7z"/>';
+            art.classList.toggle('playing', state.isPlaying);
+        }
+        
+        function updateNowPlaying() {
+            const t = state.tracks[state.currentTrackIndex];
+            if (!t) return;
+            document.getElementById('trackTitle').textContent = t.name;
+            document.getElementById('trackArtist').textContent = t.artist;
+            document.getElementById('albumArt').innerHTML = '🎵';
+            updateRating(t.rating);
+            document.title = `${t.name} - VisualizerPro`;
+        }
+        
+        function updateRating(r) {
+            document.querySelectorAll('#trackRating .rating-star').forEach((s,i) => {
+                s.textContent = i < r ? '★' : '☆';
+                s.classList.toggle('active', i < r);
+            });
+        }
+        
+        function setRating(r) {
+            if (state.currentTrackIndex === -1) return;
+            state.tracks[state.currentTrackIndex].rating = r;
+            updateRating(r);
+            saveData();
+        }
+        
+        function updateVolumeIcon() {
+            const icon = document.getElementById('volumeIcon');
+            const v = state.isMuted ? 0 : state.volume;
+            if (v === 0) icon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27L7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21L21 19.73l-9-9L4.27 3zM12 4L9.91 6.09L12 8.18V4z"/>';
+            else if (v < 50) icon.innerHTML = '<path d="M7 9v6h4l5 5V4l-5 5H7z"/>';
+            else icon.innerHTML = '<path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02M3 9v6h4l5 5V4L7 9H3z"/>';
+        }
+        
+        function formatTime(s) {
+            if (!s || isNaN(s)) return '0:00';
+            return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+        }
+        
+        function formatSize(b) {
+            if (b < 1024) return b+' B';
+            if (b < 1024*1024) return (b/1024).toFixed(1)+' KB';
+            return (b/1024/1024).toFixed(1)+' MB';
+        }
+        
+        audio.addEventListener('timeupdate', () => {
+            const c = audio.currentTime, d = audio.duration || 0;
+            document.getElementById('currentTime').textContent = formatTime(c);
+            document.getElementById('totalTime').textContent = formatTime(d);
+            document.getElementById('progressFill').style.width = (c/d*100)+'%';
+        });
+        
+        audio.addEventListener('ended', () => {
+            if (state.repeat === 'one') { audio.currentTime = 0; audio.play(); }
+            else if (state.repeat === 'all' || state.settings.autoplay) nextTrack();
+            else { state.isPlaying = false; updatePlayBtn(); }
+        });
+        
+        document.getElementById('progressBar').addEventListener('click', e => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+        });
+
+        // ========== VISUALIZATION CONTROLS ==========
+        function setVisualization(type) {
+            state.visualization = type;
+            document.querySelectorAll('.viz-option').forEach(o => o.classList.toggle('active', o.dataset.viz === type));
+            saveData();
+        }
+        
+        function setColorTheme(theme) {
+            state.colorTheme = theme;
+            document.querySelectorAll('.color-option').forEach(o => o.classList.toggle('active', o.dataset.color === theme));
+            saveData();
+        }
+        
+        function updateSensitivity(v) { state.sensitivity = +v; document.getElementById('sensitivityValue').textContent = v+'%'; saveData(); }
+        function updateSmoothing(v) { state.smoothing = v/100; if(analyser)analyser.smoothingTimeConstant = state.smoothing; document.getElementById('smoothingValue').textContent = v+'%'; saveData(); }
+        function updateBgOpacity(v) { state.bgOpacity = +v; document.getElementById('bgOpacityValue').textContent = v+'%'; saveData(); }
+        
+        function updateEQ(freq, val) {
+            const idx = eqFrequencies.indexOf(freq);
+            if (idx !== -1 && eqFilters[idx]) eqFilters[idx].gain.value = +val;
+        }
+        
+        function setEQPreset(preset) {
+            const vals = eqPresets[preset];
+            if (!vals) return;
+            document.querySelectorAll('.eq-preset').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === preset || (preset==='bass' && b.textContent==='Bass+')));
+            const ids = ['eq60','eq170','eq310','eq600','eq1k','eq3k','eq6k','eq12k'];
+            vals.forEach((v,i) => { const s = document.getElementById(ids[i]); if(s){s.value=v; updateEQ(eqFrequencies[i],v);} });
+            notify('EQ: '+preset.charAt(0).toUpperCase()+preset.slice(1));
+        }
+
+        // ========== PANELS ==========
+        function toggleLeftPanel() {
+            const panel = document.getElementById('leftPanel');
+            const btn = document.getElementById('leftPanelToggle');
+            panel.classList.toggle('collapsed');
+            btn.classList.toggle('active', !panel.classList.contains('collapsed'));
+        }
+        
+        function toggleRightPanel() {
+            const panel = document.getElementById('rightPanel');
+            const btn = document.getElementById('rightPanelToggle');
+            panel.classList.toggle('collapsed');
+            btn.classList.toggle('active', !panel.classList.contains('collapsed'));
+        }
+        
+        function toggleFullscreenMode() {
+            state.isFullscreen = !state.isFullscreen;
+            const container = document.getElementById('appContainer');
+            const btn = document.getElementById('fullscreenBtn');
+            
+            container.classList.toggle('fullscreen-mode', state.isFullscreen);
+            btn.classList.toggle('active', state.isFullscreen);
+            
+            if (state.isFullscreen) {
+                document.getElementById('fullscreenHint').style.display = 'block';
+                setTimeout(() => { document.getElementById('fullscreenHint').style.display = 'none'; }, 3000);
+            }
+        }
+        
+        function switchLibraryTab(tab, btn) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(tab+'Tab').classList.add('active');
+            if (tab === 'playlists') renderPlaylists();
+            if (tab === 'favorites') renderFavorites();
+        }
+        
+        document.getElementById('searchInput').addEventListener('input', renderTracks);
+
+        // ========== PLAYLISTS ==========
+        function createPlaylist() {
+            const name = document.getElementById('playlistNameInput').value.trim();
+            if (!name) { notify('Enter a name'); return; }
+            state.playlists.push({ id: Date.now(), name, tracks: [] });
+            closeModal('createPlaylistModal');
+            renderPlaylists();
+            saveData();
+            notify('Playlist created');
+            document.getElementById('playlistNameInput').value = '';
+        }
+        
+        function deletePlaylist(i) {
+            if (confirm('Delete playlist?')) {
+                state.playlists.splice(i,1);
+                renderPlaylists();
+                saveData();
+                notify('Playlist deleted');
+            }
+        }
+        
+        function playPlaylist(i) {
+            const p = state.playlists[i];
+            if (p.tracks.length > 0) {
+                playTrack(p.tracks[0]);
+                notify(`Playing: ${p.name}`);
+            } else {
+                notify('Playlist is empty');
+            }
+        }
+        
+        function toggleFavorite(idx) {
+            state.tracks[idx].favorite = !state.tracks[idx].favorite;
+            renderTracks();
+            renderFavorites();
+            saveData();
+            notify(state.tracks[idx].favorite ? 'Added to favorites' : 'Removed from favorites');
+        }
+
+        // ========== CONTEXT MENU ==========
+        function showContext(e, idx) {
+            e.preventDefault();
+            e.stopPropagation();
+            state.contextTrackIndex = idx;
+            const menu = document.getElementById('contextMenu');
+            const track = state.tracks[idx];
+            document.getElementById('contextFavText').textContent = track.favorite ? 'Remove from Favorites' : 'Add to Favorites';
+            menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+            menu.style.top = Math.min(e.clientY, window.innerHeight - 300) + 'px';
+            menu.classList.add('show');
+            setTimeout(() => document.addEventListener('click', hideContext), 0);
+        }
+        
+        function hideContext() {
+            document.getElementById('contextMenu').classList.remove('show');
+            document.removeEventListener('click', hideContext);
+        }
+        
+        function contextPlayNow() { playTrack(state.contextTrackIndex); hideContext(); }
+        function contextPlayNext() { state.queue.unshift(state.contextTrackIndex); notify('Playing next'); hideContext(); }
+        function contextAddToQueue() { state.queue.push(state.contextTrackIndex); notify('Added to queue'); hideContext(); }
+        function contextToggleFavorite() { toggleFavorite(state.contextTrackIndex); hideContext(); }
+        
+        function contextShowInfo() {
+            const t = state.tracks[state.contextTrackIndex];
+            document.getElementById('infoTitle').textContent = t.name;
+            document.getElementById('infoArtist').textContent = t.artist;
+            document.getElementById('infoDuration').textContent = formatTime(t.duration);
+            document.getElementById('infoFormat').textContent = t.format;
+            document.getElementById('infoSize').textContent = formatSize(t.size);
+            document.getElementById('infoPlays').textContent = t.playCount;
+            openModal('trackInfoModal');
+            hideContext();
+        }
+        
+        function contextRemove() {
+            if (confirm('Remove this track?')) {
+                const name = state.tracks[state.contextTrackIndex].name;
+                state.tracks.splice(state.contextTrackIndex, 1);
+                if (state.currentTrackIndex === state.contextTrackIndex) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    state.isPlaying = false;
+                    state.currentTrackIndex = -1;
+                    updatePlayBtn();
+                    document.getElementById('trackTitle').textContent = 'No Track Playing';
+                    document.getElementById('trackArtist').textContent = 'Upload music to start';
+                } else if (state.currentTrackIndex > state.contextTrackIndex) {
+                    state.currentTrackIndex--;
+                }
+                renderTracks();
+                saveData();
+                notify(`Removed: ${name}`);
+            }
+            hideContext();
+        }
+
+        // ========== SLEEP TIMER ==========
+        function setSleepTimer(mins) {
+            if (state.sleepTimer) clearInterval(state.sleepTimer);
+            state.sleepTimerEnd = Date.now() + mins * 60000;
+            document.querySelectorAll('.timer-preset').forEach(b => b.classList.toggle('active', b.textContent.includes(mins)));
+            state.sleepTimer = setInterval(updateTimer, 1000);
+            updateTimer();
+            notify(`Sleep timer: ${mins} min`);
+        }
+        
+        function updateTimer() {
+            if (!state.sleepTimerEnd) return;
+            const rem = state.sleepTimerEnd - Date.now();
+            if (rem <= 0) {
+                cancelSleepTimer();
+                audio.pause();
+                state.isPlaying = false;
+                updatePlayBtn();
+                notify('Sleep timer ended');
+                return;
+            }
+            const m = Math.floor(rem / 60000), s = Math.floor((rem % 60000) / 1000);
+            document.getElementById('timerDisplay').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+        
+        function cancelSleepTimer() {
+            if (state.sleepTimer) { clearInterval(state.sleepTimer); state.sleepTimer = null; }
+            state.sleepTimerEnd = null;
+            document.getElementById('timerDisplay').textContent = '--:--';
+            document.querySelectorAll('.timer-preset').forEach(b => b.classList.remove('active'));
+            notify('Timer cancelled');
+        }
+
+        // ========== MODALS ==========
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+            m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+        });
+
+        // ========== NOTIFICATIONS ==========
+        function notify(msg) {
+            const n = document.getElementById('notification');
+            n.textContent = msg;
+            n.classList.add('show');
+            setTimeout(() => n.classList.remove('show'), 2500);
+        }
+
+        // ========== STORAGE ==========
+        function saveData() {
+            try {
+                localStorage.setItem('vizPro', JSON.stringify({
+                    playlists: state.playlists,
+                    visualization: state.visualization,
+                    colorTheme: state.colorTheme,
+                    sensitivity: state.sensitivity,
+                    smoothing: state.smoothing,
+                    bgOpacity: state.bgOpacity,
+                    volume: state.volume,
+                    shuffle: state.shuffle,
+                    repeat: state.repeat,
+                    settings: state.settings
+                }));
+            } catch (e) { console.warn('Save error:', e); }
+        }
+        
+        function loadData() {
+            try {
+                const d = JSON.parse(localStorage.getItem('vizPro'));
+                if (d) {
+                    if (d.playlists) state.playlists = d.playlists;
+                    if (d.visualization) state.visualization = d.visualization;
+                    if (d.colorTheme) state.colorTheme = d.colorTheme;
+                    if (d.sensitivity !== undefined) state.sensitivity = d.sensitivity;
+                    if (d.smoothing !== undefined) state.smoothing = d.smoothing;
+                    if (d.bgOpacity !== undefined) state.bgOpacity = d.bgOpacity;
+                    if (d.volume !== undefined) state.volume = d.volume;
+                    if (d.shuffle) state.shuffle = d.shuffle;
+                    if (d.repeat) state.repeat = d.repeat;
+                    if (d.settings) Object.assign(state.settings, d.settings);
+                    
+                    // Apply loaded settings to UI
+                    setVisualization(state.visualization);
+                    setColorTheme(state.colorTheme);
+                    document.getElementById('sensitivitySlider').value = state.sensitivity;
+                    document.getElementById('sensitivityValue').textContent = state.sensitivity + '%';
+                    document.getElementById('smoothingSlider').value = state.smoothing * 100;
+                    document.getElementById('smoothingValue').textContent = Math.round(state.smoothing * 100) + '%';
+                    document.getElementById('bgOpacitySlider').value = state.bgOpacity;
+                    document.getElementById('bgOpacityValue').textContent = state.bgOpacity + '%';
+                    document.getElementById('volumeSlider').value = state.volume;
+                    changeVolume(state.volume);
+                    if (state.shuffle) document.getElementById('shuffleBtn').classList.add('active');
+                    if (state.repeat !== 'none') document.getElementById('repeatBtn').classList.add('active');
+                    document.getElementById('autoplayToggle').checked = state.settings.autoplay;
+                    document.getElementById('beatToggle').checked = state.settings.beat;
+                }
+            } catch (e) { console.warn('Load error:', e); }
+        }
+        
+        function saveSettings() {
+            state.settings.autoplay = document.getElementById('autoplayToggle').checked;
+            state.settings.beat = document.getElementById('beatToggle').checked;
+            saveData();
+        }
+        
+        function clearAllData() {
+            if (confirm('Clear all data? This cannot be undone.')) {
+                localStorage.removeItem('vizPro');
+                location.reload();
+            }
+        }
+
+        // ========== KEYBOARD SHORTCUTS ==========
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowRight':
+                    e.shiftKey ? (audio.currentTime = Math.min(audio.currentTime + 10, audio.duration)) : nextTrack();
+                    break;
+                case 'ArrowLeft':
+                    e.shiftKey ? (audio.currentTime = Math.max(audio.currentTime - 10, 0)) : previousTrack();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    changeVolume(Math.min(state.volume + 5, 100));
+                    document.getElementById('volumeSlider').value = state.volume;
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    changeVolume(Math.max(state.volume - 5, 0));
+                    document.getElementById('volumeSlider').value = state.volume;
+                    break;
+                case 'KeyM':
+                    toggleMute();
+                    break;
+                case 'KeyF':
+                    toggleFullscreenMode();
+                    break;
+                case 'KeyS':
+                    if (!e.ctrlKey) toggleShuffle();
+                    break;
+                case 'KeyR':
+                    toggleRepeat();
+                    break;
+                case 'KeyL':
+                    toggleLeftPanel();
+                    break;
+                case 'KeyV':
+                    toggleRightPanel();
+                    break;
+                case 'Escape':
+                    if (state.isFullscreen) toggleFullscreenMode();
+                    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+                    hideContext();
+                    break;
+                case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
+                case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': case 'Digit9':
+                    if (audio.duration) audio.currentTime = (parseInt(e.code.replace('Digit', '')) / 10) * audio.duration;
+                    break;
+            }
+        });
+
+        // ========== MEDIA SESSION ==========
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', togglePlay);
+            navigator.mediaSession.setActionHandler('pause', togglePlay);
+            navigator.mediaSession.setActionHandler('previoustrack', previousTrack);
+            navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+            navigator.mediaSession.setActionHandler('seekbackward', () => { audio.currentTime = Math.max(audio.currentTime - 10, 0); });
+            navigator.mediaSession.setActionHandler('seekforward', () => { audio.currentTime = Math.min(audio.currentTime + 10, audio.duration); });
+        }
+
+        // ========== RESPONSIVE ==========
+        function handleResize() {
+            if (window.innerWidth < 768) {
+                document.getElementById('leftPanel').classList.add('collapsed');
+                document.getElementById('rightPanel').classList.add('collapsed');
+            }
+        }
+        window.addEventListener('resize', handleResize);
+
+        // ========== INIT ==========
+        function init() {
+            loadData();
+            renderTracks();
+            renderPlaylists();
+            handleResize();
+            
+            // Start visualization
+            initAudio();
+            visualize();
+            
+            // Visibility handling
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                } else if (!document.hidden && !animationId) {
+                    visualize();
+                }
+            });
+            
+            console.log('🎵 VisualizerPro Ready');
+        }
+        
+        init();
+    </script>
+</body>
+</html>

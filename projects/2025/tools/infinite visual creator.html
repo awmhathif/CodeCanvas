@@ -1,0 +1,1253 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Visual Creator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+        }
+
+        #visualCanvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .controls {
+            width: 350px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-left: 2px solid #0f3460;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .control-group h3 {
+            margin-bottom: 15px;
+            color: #64ffda;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-item {
+            margin-bottom: 12px;
+        }
+
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #b0bec5;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #263238;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(45deg, #64ffda, #00bcd4);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(100, 255, 218, 0.3);
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px;
+            background: #263238;
+            color: #fff;
+            border: 1px solid #37474f;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #00bcd4, #64ffda);
+            border: none;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(100, 255, 218, 0.3);
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .preset-btn {
+            padding: 8px;
+            font-size: 12px;
+            background: rgba(100, 255, 218, 0.1);
+            border: 1px solid #64ffda;
+        }
+
+        .recording-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .record-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .record-btn.recording {
+            background: #f44336;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .stats {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .audio-visualizer {
+            width: 100%;
+            height: 60px;
+            background: #263238;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-container">
+            <canvas id="visualCanvas"></canvas>
+            <div class="recording-controls">
+                <button id="recordBtn" class="record-btn" title="Record">🔴</button>
+                <button id="downloadBtn" class="record-btn" title="Download">💾</button>
+            </div>
+            <div class="stats" id="stats">
+                FPS: 0<br>
+                Particles: 0<br>
+                Mode: None
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>🎨 Visual Mode</h3>
+                <select id="visualMode">
+                    <option value="particles">Particle System</option>
+                    <option value="fractals">Fractal Generator</option>
+                    <option value="waves">Wave Patterns</option>
+                    <option value="geometry">3D Geometry</option>
+                    <option value="plasma">Plasma Effects</option>
+                    <option value="stars">Starfield</option>
+                    <option value="mandala">Mandala Patterns</option>
+                    <option value="fluid">Fluid Simulation</option>
+                    <option value="aurora">Aurora Borealis</option>
+                    <option value="matrix">Matrix Rain</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <h3>🎵 Audio</h3>
+                <div class="control-item">
+                    <label>Audio Input</label>
+                    <button id="audioToggle">Enable Microphone</button>
+                </div>
+                <div class="control-item">
+                    <label>Background Music</label>
+                    <select id="backgroundMusic">
+                        <option value="none">None</option>
+                        <option value="ambient">Ambient</option>
+                        <option value="meditation">Meditation</option>
+                        <option value="electronic">Electronic</option>
+                    </select>
+                </div>
+                <canvas id="audioVisualizer" class="audio-visualizer"></canvas>
+            </div>
+
+            <div class="control-group">
+                <h3>🌈 Colors</h3>
+                <div class="control-item">
+                    <label>Primary Color</label>
+                    <input type="color" id="primaryColor" value="#64ffda">
+                </div>
+                <div class="control-item">
+                    <label>Secondary Color</label>
+                    <input type="color" id="secondaryColor" value="#ff6b6b">
+                </div>
+                <div class="control-item">
+                    <label>Color Speed</label>
+                    <input type="range" id="colorSpeed" min="0" max="100" value="50">
+                </div>
+                <div class="control-item">
+                    <label>Rainbow Mode</label>
+                    <button id="rainbowToggle">OFF</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>✨ Effects</h3>
+                <div class="control-item">
+                    <label>Speed</label>
+                    <input type="range" id="speed" min="1" max="200" value="50">
+                </div>
+                <div class="control-item">
+                    <label>Size</label>
+                    <input type="range" id="size" min="1" max="100" value="25">
+                </div>
+                <div class="control-item">
+                    <label>Intensity</label>
+                    <input type="range" id="intensity" min="1" max="100" value="50">
+                </div>
+                <div class="control-item">
+                    <label>Glow Effect</label>
+                    <input type="range" id="glow" min="0" max="50" value="10">
+                </div>
+                <div class="control-item">
+                    <label>Trail Length</label>
+                    <input type="range" id="trail" min="0" max="100" value="20">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>🎛️ Advanced</h3>
+                <div class="control-item">
+                    <label>Physics</label>
+                    <button id="physicsToggle">ON</button>
+                </div>
+                <div class="control-item">
+                    <label>3D Depth</label>
+                    <input type="range" id="depth" min="0" max="100" value="30">
+                </div>
+                <div class="control-item">
+                    <label>Rotation</label>
+                    <input type="range" id="rotation" min="0" max="360" value="0">
+                </div>
+                <div class="control-item">
+                    <label>Zoom</label>
+                    <input type="range" id="zoom" min="10" max="500" value="100">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>🎭 Presets</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn" data-preset="cosmic">Cosmic</button>
+                    <button class="preset-btn" data-preset="peaceful">Peaceful</button>
+                    <button class="preset-btn" data-preset="energetic">Energetic</button>
+                    <button class="preset-btn" data-preset="mystical">Mystical</button>
+                    <button class="preset-btn" data-preset="futuristic">Futuristic</button>
+                    <button class="preset-btn" data-preset="organic">Organic</button>
+                    <button class="preset-btn" data-preset="geometric">Geometric</button>
+                    <button class="preset-btn" data-preset="dreamy">Dreamy</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>💾 Controls</h3>
+                <button id="randomizeBtn">🎲 Randomize All</button>
+                <button id="resetBtn">🔄 Reset</button>
+                <button id="fullscreenBtn">⛶ Fullscreen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class InfiniteVisualCreator {
+            constructor() {
+                this.canvas = document.getElementById('visualCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.audioCanvas = document.getElementById('audioVisualizer');
+                this.audioCtx = this.audioCanvas.getContext('2d');
+                
+                this.width = 0;
+                this.height = 0;
+                this.animationId = null;
+                this.particles = [];
+                this.time = 0;
+                this.fps = 0;
+                this.lastTime = 0;
+                this.frameCount = 0;
+                
+                // Audio setup
+                this.audioContext = null;
+                this.analyzer = null;
+                this.microphone = null;
+                this.audioData = new Uint8Array(256);
+                this.audioEnabled = false;
+                
+                // Recording setup
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                this.isRecording = false;
+                
+                // Visual parameters
+                this.params = {
+                    mode: 'particles',
+                    primaryColor: '#64ffda',
+                    secondaryColor: '#ff6b6b',
+                    speed: 50,
+                    size: 25,
+                    intensity: 50,
+                    glow: 10,
+                    trail: 20,
+                    colorSpeed: 50,
+                    depth: 30,
+                    rotation: 0,
+                    zoom: 100,
+                    rainbow: false,
+                    physics: true
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupCanvas();
+                this.setupControls();
+                this.setupAudio();
+                this.setupRecording();
+                this.createParticles();
+                this.animate();
+                
+                window.addEventListener('resize', () => this.setupCanvas());
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouse(e));
+                this.canvas.addEventListener('click', (e) => this.handleClick(e));
+            }
+            
+            setupCanvas() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.width = rect.width;
+                this.height = rect.height;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                
+                this.audioCanvas.width = this.audioCanvas.offsetWidth;
+                this.audioCanvas.height = this.audioCanvas.offsetHeight;
+            }
+            
+            setupControls() {
+                // Visual mode
+                document.getElementById('visualMode').addEventListener('change', (e) => {
+                    this.params.mode = e.target.value;
+                    this.createParticles();
+                });
+                
+                // Color controls
+                document.getElementById('primaryColor').addEventListener('input', (e) => {
+                    this.params.primaryColor = e.target.value;
+                });
+                
+                document.getElementById('secondaryColor').addEventListener('input', (e) => {
+                    this.params.secondaryColor = e.target.value;
+                });
+                
+                // Range controls
+                ['speed', 'size', 'intensity', 'glow', 'trail', 'colorSpeed', 'depth', 'rotation', 'zoom'].forEach(param => {
+                    document.getElementById(param).addEventListener('input', (e) => {
+                        this.params[param] = parseInt(e.target.value);
+                    });
+                });
+                
+                // Toggle controls
+                document.getElementById('rainbowToggle').addEventListener('click', (e) => {
+                    this.params.rainbow = !this.params.rainbow;
+                    e.target.textContent = this.params.rainbow ? 'ON' : 'OFF';
+                });
+                
+                document.getElementById('physicsToggle').addEventListener('click', (e) => {
+                    this.params.physics = !this.params.physics;
+                    e.target.textContent = this.params.physics ? 'ON' : 'OFF';
+                });
+                
+                // Preset buttons
+                document.querySelectorAll('.preset-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.loadPreset(btn.dataset.preset);
+                    });
+                });
+                
+                // Control buttons
+                document.getElementById('randomizeBtn').addEventListener('click', () => this.randomizeAll());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+                document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+            }
+            
+            setupAudio() {
+                document.getElementById('audioToggle').addEventListener('click', async () => {
+                    if (!this.audioEnabled) {
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            this.analyzer = this.audioContext.createAnalyser();
+                            this.microphone = this.audioContext.createMediaStreamSource(stream);
+                            this.microphone.connect(this.analyzer);
+                            this.analyzer.fftSize = 512;
+                            this.audioData = new Uint8Array(this.analyzer.frequencyBinCount);
+                            this.audioEnabled = true;
+                            document.getElementById('audioToggle').textContent = 'Disable Microphone';
+                        } catch (err) {
+                            console.error('Audio access denied:', err);
+                        }
+                    } else {
+                        if (this.microphone) {
+                            this.microphone.disconnect();
+                            this.audioContext.close();
+                            this.audioEnabled = false;
+                            document.getElementById('audioToggle').textContent = 'Enable Microphone';
+                        }
+                    }
+                });
+            }
+            
+            setupRecording() {
+                document.getElementById('recordBtn').addEventListener('click', () => {
+                    if (!this.isRecording) {
+                        this.startRecording();
+                    } else {
+                        this.stopRecording();
+                    }
+                });
+                
+                document.getElementById('downloadBtn').addEventListener('click', () => {
+                    this.downloadRecording();
+                });
+            }
+            
+            startRecording() {
+                const stream = this.canvas.captureStream(60);
+                this.mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm;codecs=vp9'
+                });
+                
+                this.recordedChunks = [];
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.recordedChunks.push(event.data);
+                    }
+                };
+                
+                this.mediaRecorder.start();
+                this.isRecording = true;
+                document.getElementById('recordBtn').classList.add('recording');
+                document.getElementById('recordBtn').textContent = '⏹️';
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    document.getElementById('recordBtn').classList.remove('recording');
+                    document.getElementById('recordBtn').textContent = '🔴';
+                }
+            }
+            
+            downloadRecording() {
+                if (this.recordedChunks.length > 0) {
+                    const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `visual-creation-${Date.now()}.webm`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }
+            }
+            
+            createParticles() {
+                this.particles = [];
+                const count = Math.floor(this.params.intensity * 5);
+                
+                for (let i = 0; i < count; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        z: Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        vz: (Math.random() - 0.5) * 2,
+                        size: Math.random() * this.params.size + 1,
+                        life: 1,
+                        hue: Math.random() * 360,
+                        angle: Math.random() * Math.PI * 2,
+                        speed: Math.random() * this.params.speed / 10
+                    });
+                }
+            }
+            
+            handleMouse(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Add particles at mouse position
+                for (let i = 0; i < 5; i++) {
+                    this.particles.push({
+                        x: mouseX + (Math.random() - 0.5) * 20,
+                        y: mouseY + (Math.random() - 0.5) * 20,
+                        z: Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 5,
+                        vz: (Math.random() - 0.5) * 5,
+                        size: Math.random() * this.params.size + 1,
+                        life: 1,
+                        hue: Math.random() * 360,
+                        angle: Math.random() * Math.PI * 2,
+                        speed: Math.random() * this.params.speed / 10
+                    });
+                }
+            }
+            
+            handleClick(e) {
+                this.randomizeColors();
+            }
+            
+            animate() {
+                const currentTime = performance.now();
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                
+                // Calculate FPS
+                this.frameCount++;
+                if (this.frameCount % 60 === 0) {
+                    this.fps = Math.round(1000 / deltaTime);
+                }
+                
+                this.time += deltaTime * 0.001;
+                
+                // Clear canvas with trail effect
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${1 - this.params.trail / 100})`;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                // Get audio data
+                if (this.audioEnabled && this.analyzer) {
+                    this.analyzer.getByteFrequencyData(this.audioData);
+                    this.drawAudioVisualizer();
+                }
+                
+                // Render based on mode
+                switch (this.params.mode) {
+                    case 'particles':
+                        this.renderParticles();
+                        break;
+                    case 'fractals':
+                        this.renderFractals();
+                        break;
+                    case 'waves':
+                        this.renderWaves();
+                        break;
+                    case 'geometry':
+                        this.renderGeometry();
+                        break;
+                    case 'plasma':
+                        this.renderPlasma();
+                        break;
+                    case 'stars':
+                        this.renderStars();
+                        break;
+                    case 'mandala':
+                        this.renderMandala();
+                        break;
+                    case 'fluid':
+                        this.renderFluid();
+                        break;
+                    case 'aurora':
+                        this.renderAurora();
+                        break;
+                    case 'matrix':
+                        this.renderMatrix();
+                        break;
+                }
+                
+                this.updateStats();
+                this.animationId = requestAnimationFrame(() => this.animate());
+            }
+            
+            renderParticles() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    
+                    // Update particle physics
+                    if (this.params.physics) {
+                        const audioInfluence = this.audioEnabled ? this.getAudioAverage() / 128 : 1;
+                        p.vx += (Math.random() - 0.5) * 0.1 * audioInfluence;
+                        p.vy += (Math.random() - 0.5) * 0.1 * audioInfluence;
+                        p.x += p.vx * this.params.speed / 50;
+                        p.y += p.vy * this.params.speed / 50;
+                        p.z += p.vz;
+                        p.angle += p.speed;
+                    } else {
+                        p.x += Math.cos(this.time + p.angle) * this.params.speed / 10;
+                        p.y += Math.sin(this.time + p.angle) * this.params.speed / 10;
+                    }
+                    
+                    // Wrap around screen
+                    if (p.x < 0) p.x = this.width;
+                    if (p.x > this.width) p.x = 0;
+                    if (p.y < 0) p.y = this.height;
+                    if (p.y > this.height) p.y = 0;
+                    
+                    // Apply 3D perspective
+                    const scale = 1 + (p.z / 100) * (this.params.depth / 50);
+                    const size = p.size * scale * (this.params.zoom / 100);
+                    
+                    // Color calculation
+                    let color;
+                    if (this.params.rainbow) {
+                        const hue = (p.hue + this.time * this.params.colorSpeed) % 360;
+                        color = `hsl(${hue}, 70%, 60%)`;
+                    } else {
+                        color = this.interpolateColors(this.params.primaryColor, this.params.secondaryColor, Math.sin(this.time + p.angle) * 0.5 + 0.5);
+                    }
+                    
+                    // Draw particle with glow
+                    this.ctx.save();
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    this.ctx.shadowBlur = this.params.glow;
+                    this.ctx.shadowColor = color;
+                    this.ctx.fillStyle = color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // Remove old particles
+                    p.life -= 0.005;
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+                
+                // Add new particles
+                while (this.particles.length < this.params.intensity * 5) {
+                    this.particles.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        z: Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        vz: (Math.random() - 0.5) * 2,
+                        size: Math.random() * this.params.size + 1,
+                        life: 1,
+                        hue: Math.random() * 360,
+                        angle: Math.random() * Math.PI * 2,
+                        speed: Math.random() * this.params.speed / 10
+                    });
+                }
+            }
+            
+            renderFractals() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const zoom = this.params.zoom / 100;
+                
+                for (let x = 0; x < this.width; x += 4) {
+                    for (let y = 0; y < this.height; y += 4) {
+                        const zx = (x - centerX) / (100 * zoom) + Math.cos(this.time) * 0.5;
+                        const zy = (y - centerY) / (100 * zoom) + Math.sin(this.time) * 0.5;
+                        
+                        let i = 0;
+                        let cx = zx, cy = zy;
+                        
+                        while (i < 50 && cx * cx + cy * cy < 4) {
+                            const temp = cx * cx - cy * cy + zx;
+                            cy = 2 * cx * cy + zy;
+                            cx = temp;
+                            i++;
+                        }
+                        
+                        const hue = (i * 10 + this.time * this.params.colorSpeed) % 360;
+                        const color = this.params.rainbow ? 
+                            `hsl(${hue}, 70%, ${50 + i}%)` : 
+                            this.interpolateColors(this.params.primaryColor, this.params.secondaryColor, i / 50);
+                        
+                        this.ctx.fillStyle = color;
+                        this.ctx.fillRect(x, y, 4, 4);
+                    }
+                }
+            }
+            
+            renderWaves() {
+                const amplitude = this.params.size * 2;
+                const frequency = this.params.speed / 1000;
+                const audioInfluence = this.audioEnabled ? this.getAudioAverage() / 128 : 1;
+                
+                this.ctx.strokeStyle = this.params.primaryColor;
+                this.ctx.lineWidth = 3;
+                this.ctx.globalCompositeOperation = 'lighter';
+                
+                for (let layer = 0; layer < 5; layer++) {
+                    this.ctx.beginPath();
+                    
+                    for (let x = 0; x < this.width; x += 2) {
+                        const y1 = this.height / 2 + Math.sin(x * frequency + this.time + layer) * amplitude * audioInfluence;
+                        const y2 = this.height / 2 + Math.cos(x * frequency * 1.5 + this.time + layer) * amplitude * 0.5 * audioInfluence;
+                        const y = (y1 + y2) / 2;
+                        
+                        if (x === 0) {
+                            this.ctx.moveTo(x, y);
+                        } else {
+                            this.ctx.lineTo(x, y);
+                        }
+                    }
+                    
+                    const hue = (layer * 60 + this.time * this.params.colorSpeed) % 360;
+                    this.ctx.strokeStyle = this.params.rainbow ? 
+                        `hsl(${hue}, 70%, 60%)` : 
+                        this.interpolateColors(this.params.primaryColor, this.params.secondaryColor, layer / 5);
+                    
+                    this.ctx.stroke();
+                }
+            }
+            
+            renderGeometry() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const audioInfluence = this.audioEnabled ? this.getAudioAverage() / 128 : 1;
+                
+                this.ctx.save();
+                this.ctx.translate(centerX, centerY);
+                this.ctx.rotate(this.time * this.params.speed / 100);
+                
+                for (let i = 0; i < 6; i++) {
+                    this.ctx.save();
+                    this.ctx.rotate((Math.PI * 2 / 6) * i);
+                    
+                    const size = this.params.size * 5 * audioInfluence;
+                    const hue = (i * 60 + this.time * this.params.colorSpeed) % 360;
+                    
+                    this.ctx.strokeStyle = this.params.rainbow ? 
+                        `hsl(${hue}, 70%, 60%)` : 
+                        this.interpolateColors(this.params.primaryColor, this.params.secondaryColor, i / 6);
+                    
+                    this.ctx.lineWidth = 2;
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    this.ctx.shadowBlur = this.params.glow;
+                    this.ctx.shadowColor = this.ctx.strokeStyle;
+                    
+                    // Draw cube
+                    this.ctx.beginPath();
+                    this.ctx.rect(-size/2, -size/2, size, size);
+                    this.ctx.stroke();
+                    
+                    this.ctx.restore();
+                }
+                
+                this.ctx.restore();
+            }
+            
+            renderPlasma() {
+                const imageData = this.ctx.createImageData(this.width, this.height);
+                const data = imageData.data;
+                
+                for (let x = 0; x < this.width; x += 2) {
+                    for (let y = 0; y < this.height; y += 2) {
+                        const value = Math.sin(x / 50 + this.time) + 
+                                     Math.sin(y / 50 + this.time) + 
+                                     Math.sin((x + y) / 50 + this.time) + 
+                                     Math.sin(Math.sqrt(x * x + y * y) / 50 + this.time);
+                        
+                        const index = (y * this.width + x) * 4;
+                        const hue = (value * 50 + this.time * this.params.colorSpeed) % 360;
+                        const rgb = this.hslToRgb(hue, 70, 60);
+                        
+                        data[index] = rgb[0];     // R
+                        data[index + 1] = rgb[1]; // G
+                        data[index + 2] = rgb[2]; // B
+                        data[index + 3] = 255;    // A
+                    }
+                }
+                
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+            
+            renderStars() {
+                if (!this.stars) {
+                    this.stars = Array.from({length: 200}, () => ({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        z: Math.random() * 1000,
+                        speed: Math.random() * 0.5 + 0.1
+                    }));
+                }
+                
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                
+                this.stars.forEach(star => {
+                    star.z -= star.speed * this.params.speed;
+                    
+                    if (star.z <= 0) {
+                        star.x = Math.random() * this.width;
+                        star.y = Math.random() * this.height;
+                        star.z = 1000;
+                    }
+                    
+                    const x = (star.x - centerX) * (1000 / star.z) + centerX;
+                    const y = (star.y - centerY) * (1000 / star.z) + centerY;
+                    const size = Math.max(0, (1000 - star.z) / 1000 * this.params.size);
+                    
+                    if (x >= 0 && x <= this.width && y >= 0 && y <= this.height) {
+                        this.ctx.fillStyle = this.params.primaryColor;
+                        this.ctx.shadowBlur = this.params.glow;
+                        this.ctx.shadowColor = this.params.primaryColor;
+                        this.ctx.fillRect(x - size/2, y - size/2, size, size);
+                    }
+                });
+            }
+            
+            renderMandala() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const radius = Math.min(this.width, this.height) / 4 * (this.params.zoom / 100);
+                
+                this.ctx.save();
+                this.ctx.translate(centerX, centerY);
+                this.ctx.rotate(this.time * this.params.speed / 100);
+                
+                const petals = 12;
+                for (let i = 0; i < petals; i++) {
+                    this.ctx.save();
+                    this.ctx.rotate((Math.PI * 2 / petals) * i);
+                    
+                    const hue = (i * 30 + this.time * this.params.colorSpeed) % 360;
+                    this.ctx.strokeStyle = this.params.rainbow ? 
+                        `hsl(${hue}, 70%, 60%)` : 
+                        this.interpolateColors(this.params.primaryColor, this.params.secondaryColor, i / petals);
+                    
+                    this.ctx.lineWidth = 2;
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    this.ctx.shadowBlur = this.params.glow;
+                    this.ctx.shadowColor = this.ctx.strokeStyle;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, radius/2, radius/3, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    
+                    this.ctx.restore();
+                }
+                
+                this.ctx.restore();
+            }
+            
+            renderFluid() {
+                const gridSize = 20;
+                const audioInfluence = this.audioEnabled ? this.getAudioAverage() / 128 : 1;
+                
+                for (let x = 0; x < this.width; x += gridSize) {
+                    for (let y = 0; y < this.height; y += gridSize) {
+                        const flow = Math.sin(x / 50 + this.time) * Math.cos(y / 50 + this.time) * audioInfluence;
+                        const hue = (flow * 180 + this.time * this.params.colorSpeed) % 360;
+                        
+                        this.ctx.fillStyle = this.params.rainbow ? 
+                            `hsla(${hue}, 70%, 60%, 0.1)` : 
+                            this.hexToRgba(this.params.primaryColor, 0.1);
+                        
+                        this.ctx.fillRect(x, y, gridSize, gridSize);
+                        
+                        // Add flow lines
+                        this.ctx.strokeStyle = this.ctx.fillStyle;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x + gridSize/2, y + gridSize/2);
+                        this.ctx.lineTo(x + gridSize/2 + flow * 10, y + gridSize/2 + flow * 10);
+                        this.ctx.stroke();
+                    }
+                }
+            }
+            
+            renderAurora() {
+                const audioInfluence = this.audioEnabled ? this.getAudioAverage() / 128 : 1;
+                
+                this.ctx.globalCompositeOperation = 'lighter';
+                
+                for (let layer = 0; layer < 3; layer++) {
+                    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+                    const hue1 = (layer * 120 + this.time * this.params.colorSpeed) % 360;
+                    const hue2 = (hue1 + 60) % 360;
+                    
+                    gradient.addColorStop(0, `hsla(${hue1}, 70%, 60%, 0.1)`);
+                    gradient.addColorStop(0.5, `hsla(${hue2}, 70%, 60%, 0.3)`);
+                    gradient.addColorStop(1, `hsla(${hue1}, 70%, 60%, 0.1)`);
+                    
+                    this.ctx.fillStyle = gradient;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, this.height);
+                    
+                    for (let x = 0; x <= this.width; x += 10) {
+                        const y = this.height - (Math.sin(x / 100 + this.time + layer) * 100 * audioInfluence + 150);
+                        this.ctx.lineTo(x, y);
+                    }
+                    
+                    this.ctx.lineTo(this.width, this.height);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                }
+            }
+            
+            renderMatrix() {
+                if (!this.matrixChars) {
+                    this.matrixChars = [];
+                    const cols = Math.floor(this.width / 20);
+                    for (let i = 0; i < cols; i++) {
+                        this.matrixChars[i] = {
+                            y: Math.random() * this.height,
+                            speed: Math.random() * this.params.speed / 5 + 1
+                        };
+                    }
+                }
+                
+                this.ctx.font = '16px monospace';
+                this.ctx.globalCompositeOperation = 'lighter';
+                
+                this.matrixChars.forEach((char, i) => {
+                    const x = i * 20;
+                    char.y += char.speed;
+                    
+                    if (char.y > this.height) {
+                        char.y = -20;
+                        char.speed = Math.random() * this.params.speed / 5 + 1;
+                    }
+                    
+                    const text = String.fromCharCode(0x30A0 + Math.random() * 96);
+                    const hue = (char.y / this.height * 120 + this.time * this.params.colorSpeed) % 360;
+                    
+                    this.ctx.fillStyle = this.params.rainbow ? 
+                        `hsl(${hue}, 70%, 60%)` : 
+                        this.params.primaryColor;
+                    
+                    this.ctx.shadowBlur = this.params.glow;
+                    this.ctx.shadowColor = this.ctx.fillStyle;
+                    this.ctx.fillText(text, x, char.y);
+                });
+            }
+            
+            drawAudioVisualizer() {
+                if (!this.audioEnabled) return;
+                
+                this.audioCtx.clearRect(0, 0, this.audioCanvas.width, this.audioCanvas.height);
+                this.audioCtx.fillStyle = '#263238';
+                this.audioCtx.fillRect(0, 0, this.audioCanvas.width, this.audioCanvas.height);
+                
+                const barWidth = this.audioCanvas.width / this.audioData.length;
+                
+                for (let i = 0; i < this.audioData.length; i++) {
+                    const barHeight = (this.audioData[i] / 255) * this.audioCanvas.height;
+                    const hue = (i / this.audioData.length * 360 + this.time * this.params.colorSpeed) % 360;
+                    
+                    this.audioCtx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+                    this.audioCtx.fillRect(i * barWidth, this.audioCanvas.height - barHeight, barWidth - 1, barHeight);
+                }
+            }
+            
+            getAudioAverage() {
+                if (!this.audioEnabled) return 64;
+                let sum = 0;
+                for (let i = 0; i < this.audioData.length; i++) {
+                    sum += this.audioData[i];
+                }
+                return sum / this.audioData.length;
+            }
+            
+            loadPreset(preset) {
+                const presets = {
+                    cosmic: {
+                        mode: 'particles',
+                        primaryColor: '#8A2BE2',
+                        secondaryColor: '#00CED1',
+                        speed: 30,
+                        size: 15,
+                        intensity: 80,
+                        glow: 20,
+                        rainbow: true
+                    },
+                    peaceful: {
+                        mode: 'waves',
+                        primaryColor: '#87CEEB',
+                        secondaryColor: '#98FB98',
+                        speed: 10,
+                        size: 20,
+                        intensity: 30,
+                        glow: 5
+                    },
+                    energetic: {
+                        mode: 'geometry',
+                        primaryColor: '#FF4500',
+                        secondaryColor: '#FFD700',
+                        speed: 80,
+                        size: 40,
+                        intensity: 90,
+                        glow: 30,
+                        rainbow: true
+                    },
+                    mystical: {
+                        mode: 'mandala',
+                        primaryColor: '#9370DB',
+                        secondaryColor: '#FF69B4',
+                        speed: 25,
+                        size: 35,
+                        intensity: 60,
+                        glow: 15
+                    },
+                    futuristic: {
+                        mode: 'matrix',
+                        primaryColor: '#00FF00',
+                        secondaryColor: '#00FFFF',
+                        speed: 50,
+                        size: 20,
+                        intensity: 70,
+                        glow: 25
+                    },
+                    organic: {
+                        mode: 'fluid',
+                        primaryColor: '#228B22',
+                        secondaryColor: '#32CD32',
+                        speed: 20,
+                        size: 25,
+                        intensity: 40,
+                        glow: 10
+                    },
+                    geometric: {
+                        mode: 'fractals',
+                        primaryColor: '#FF1493',
+                        secondaryColor: '#00BFFF',
+                        speed: 15,
+                        size: 30,
+                        intensity: 50,
+                        glow: 12
+                    },
+                    dreamy: {
+                        mode: 'aurora',
+                        primaryColor: '#FFB6C1',
+                        secondaryColor: '#E0E6FF',
+                        speed: 12,
+                        size: 25,
+                        intensity: 35,
+                        glow: 8
+                    }
+                };
+                
+                if (presets[preset]) {
+                    Object.assign(this.params, presets[preset]);
+                    this.updateControlsFromParams();
+                    this.createParticles();
+                }
+            }
+            
+            updateControlsFromParams() {
+                document.getElementById('visualMode').value = this.params.mode;
+                document.getElementById('primaryColor').value = this.params.primaryColor;
+                document.getElementById('secondaryColor').value = this.params.secondaryColor;
+                document.getElementById('speed').value = this.params.speed;
+                document.getElementById('size').value = this.params.size;
+                document.getElementById('intensity').value = this.params.intensity;
+                document.getElementById('glow').value = this.params.glow;
+                document.getElementById('trail').value = this.params.trail;
+                document.getElementById('colorSpeed').value = this.params.colorSpeed;
+                document.getElementById('depth').value = this.params.depth;
+                document.getElementById('rotation').value = this.params.rotation;
+                document.getElementById('zoom').value = this.params.zoom;
+                document.getElementById('rainbowToggle').textContent = this.params.rainbow ? 'ON' : 'OFF';
+                document.getElementById('physicsToggle').textContent = this.params.physics ? 'ON' : 'OFF';
+            }
+            
+            randomizeAll() {
+                this.params.speed = Math.random() * 100;
+                this.params.size = Math.random() * 50 + 10;
+                this.params.intensity = Math.random() * 100;
+                this.params.glow = Math.random() * 50;
+                this.params.trail = Math.random() * 100;
+                this.params.colorSpeed = Math.random() * 100;
+                this.params.depth = Math.random() * 100;
+                this.params.rotation = Math.random() * 360;
+                this.params.zoom = Math.random() * 200 + 50;
+                this.params.rainbow = Math.random() > 0.5;
+                this.randomizeColors();
+                this.updateControlsFromParams();
+                this.createParticles();
+            }
+            
+            randomizeColors() {
+                this.params.primaryColor = this.getRandomColor();
+                this.params.secondaryColor = this.getRandomColor();
+                this.updateControlsFromParams();
+            }
+            
+            getRandomColor() {
+                const hue = Math.random() * 360;
+                return `hsl(${hue}, 70%, 60%)`;
+            }
+            
+            reset() {
+                this.params = {
+                    mode: 'particles',
+                    primaryColor: '#64ffda',
+                    secondaryColor: '#ff6b6b',
+                    speed: 50,
+                    size: 25,
+                    intensity: 50,
+                    glow: 10,
+                    trail: 20,
+                    colorSpeed: 50,
+                    depth: 30,
+                    rotation: 0,
+                    zoom: 100,
+                    rainbow: false,
+                    physics: true
+                };
+                this.updateControlsFromParams();
+                this.createParticles();
+            }
+            
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+            
+            updateStats() {
+                document.getElementById('stats').innerHTML = `
+                    FPS: ${this.fps}<br>
+                    Particles: ${this.particles.length}<br>
+                    Mode: ${this.params.mode}<br>
+                    Recording: ${this.isRecording ? 'ON' : 'OFF'}
+                `;
+            }
+            
+            // Utility functions
+            interpolateColors(color1, color2, factor) {
+                const rgb1 = this.hexToRgb(color1);
+                const rgb2 = this.hexToRgb(color2);
+                
+                const r = Math.round(rgb1[0] + (rgb2[0] - rgb1[0]) * factor);
+                const g = Math.round(rgb1[1] + (rgb2[1] - rgb1[1]) * factor);
+                const b = Math.round(rgb1[2] + (rgb2[2] - rgb1[2]) * factor);
+                
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? [
+                    parseInt(result[1], 16),
+                    parseInt(result[2], 16),
+                    parseInt(result[3], 16)
+                ] : [0, 0, 0];
+            }
+            
+            hexToRgba(hex, alpha) {
+                const rgb = this.hexToRgb(hex);
+                return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+            }
+            
+            hslToRgb(h, s, l) {
+                h /= 360;
+                s /= 100;
+                l /= 100;
+                
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                
+                return [
+                    Math.round(hue2rgb(p, q, h + 1/3) * 255),
+                    Math.round(hue2rgb(p, q, h) * 255),
+                    Math.round(hue2rgb(p, q, h - 1/3) * 255)
+                ];
+            }
+        }
+        
+        // Initialize the application
+        window.addEventListener('DOMContentLoaded', () => {
+            new InfiniteVisualCreator();
+        });
+    </script>
+
+
+</body></html>

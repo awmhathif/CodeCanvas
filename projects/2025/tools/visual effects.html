@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Effects</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            background: #000;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 2;
+            color: white;
+            width: 250px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="controls">
+        <div class="control-group">
+            <label>Effect Type:</label>
+            <select id="effectType">
+                <option value="particles">Particles</option>
+                <option value="stars">Stars</option>
+                <option value="matrix">Matrix</option>
+                <option value="waves">Waves</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Speed: <span id="speedValue">5</span></label>
+            <input type="range" id="speed" min="1" max="10" value="5">
+        </div>
+        <div class="control-group">
+            <label>Particle Count: <span id="countValue">100</span></label>
+            <input type="range" id="count" min="50" max="500" value="100">
+        </div>
+        <div class="control-group">
+            <label>Size: <span id="sizeValue">3</span></label>
+            <input type="range" id="size" min="1" max="10" value="3">
+        </div>
+        <div class="control-group">
+            <label>Color:</label>
+            <button onclick="setColor('#00ff00')">Green</button>
+            <button onclick="setColor('#ff0000')">Red</button>
+            <button onclick="setColor('#0000ff')">Blue</button>
+            <button onclick="setColor('#ffffff')">White</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Settings
+        let settings = {
+            effectType: 'particles',
+            speed: 5,
+            count: 100,
+            size: 3,
+            color: '#00ff00'
+        };
+
+        // Particles array
+        let particles = [];
+
+        // Matrix characters
+        const matrixChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*";
+
+        // Create particles
+        function createParticles() {
+            particles = [];
+            for (let i = 0; i < settings.count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: (Math.random() + 0.5) * settings.speed,
+                    size: Math.random() * settings.size + 1,
+                    char: matrixChars[Math.floor(Math.random() * matrixChars.length)]
+                });
+            }
+        }
+
+        // Update particles
+        function updateParticles() {
+            for (let p of particles) {
+                switch(settings.effectType) {
+                    case 'particles':
+                        p.y += p.speed;
+                        if (p.y > canvas.height) {
+                            p.y = 0;
+                            p.x = Math.random() * canvas.width;
+                        }
+                        break;
+                    case 'stars':
+                        p.x += p.speed;
+                        if (p.x > canvas.width) {
+                            p.x = 0;
+                            p.y = Math.random() * canvas.height;
+                        }
+                        break;
+                    case 'matrix':
+                        p.y += p.speed * 2;
+                        if (p.y > canvas.height) {
+                            p.y = 0;
+                            p.x = Math.random() * canvas.width;
+                            p.char = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+                        }
+                        break;
+                    case 'waves':
+                        p.x += p.speed;
+                        p.y = canvas.height/2 + Math.sin(p.x/50) * 50;
+                        if (p.x > canvas.width) {
+                            p.x = 0;
+                        }
+                        break;
+                }
+            }
+        }
+
+        // Draw particles
+        function drawParticles() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = settings.color;
+            for (let p of particles) {
+                if (settings.effectType === 'matrix') {
+                    ctx.font = p.size * 3 + 'px monospace';
+                    ctx.fillText(p.char, p.x, p.y);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            updateParticles();
+            drawParticles();
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        createParticles();
+        animate();
+
+        // Event listeners for controls
+        document.getElementById('effectType').addEventListener('change', (e) => {
+            settings.effectType = e.target.value;
+            createParticles();
+        });
+
+        document.getElementById('speed').addEventListener('input', (e) => {
+            settings.speed = parseInt(e.target.value);
+            document.getElementById('speedValue').textContent = settings.speed;
+            createParticles();
+        });
+
+        document.getElementById('count').addEventListener('input', (e) => {
+            settings.count = parseInt(e.target.value);
+            document.getElementById('countValue').textContent = settings.count;
+            createParticles();
+        });
+
+        document.getElementById('size').addEventListener('input', (e) => {
+            settings.size = parseInt(e.target.value);
+            document.getElementById('sizeValue').textContent = settings.size;
+            createParticles();
+        });
+
+        function setColor(color) {
+            settings.color = color;
+        }
+
+        // Mouse interaction
+        let mouse = { x: 0, y: 0 };
+        canvas.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            
+            // Create some particles at mouse position
+            if (settings.effectType !== 'waves') {
+                for (let i = 0; i < 3; i++) {
+                    particles.push({
+                        x: mouse.x,
+                        y: mouse.y,
+                        speed: (Math.random() + 0.5) * settings.speed,
+                        size: Math.random() * settings.size + 1,
+                        char: matrixChars[Math.floor(Math.random() * matrixChars.length)]
+                    });
+                }
+                
+                // Remove excess particles
+                if (particles.length > settings.count) {
+                    particles = particles.slice(-settings.count);
+                }
+            }
+        });
+
+        // Add touch support
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            mouse.x = touch.clientX;
+            mouse.y = touch.clientY;
+        });
+    </script>
+</body>
+</html>

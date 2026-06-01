@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum Energy Field</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    canvas {
+      display: block;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: monospace;
+      font-size: 12px;
+      user-select: none;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.7s;
+    }
+    .controls.fade {
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls" id="controls">
+    MOVE MOUSE to interact | CLICK to create energy waves | SCROLL to adjust complexity | SPACEBAR to change mode
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // Global variables
+    let scene, camera, renderer;
+    let energyField, energyPoints = [];
+    let waveSystem, waves = [];
+    let particleSystem;
+    let raycaster, mouse;
+    let clock = new THREE.Clock();
+    let mouseX = 0, mouseY = 0;
+    let currentMode = 0;
+    let modes = ['quantumField', 'energyWaves', 'particleVortex'];
+    let complexity = 0.5;
+    let colorSchemes = [
+      { primary: 0x00ff88, secondary: 0x0088ff, accent: 0xff00ff },
+      { primary: 0xff5500, secondary: 0xffcc00, accent: 0x0044ff },
+      { primary: 0xff0066, secondary: 0x9900ff, accent: 0x00ffcc }
+    ];
+    let currentColorScheme = 0;
+    
+    class EnergyPoint {
+      constructor(position, size) {
+        this.position = position;
+        this.originalPosition = position.clone();
+        this.size = size;
+        this.phase = Math.random() * Math.PI * 2;
+        this.speed = 0.5 + Math.random() * 1.5;
+        this.amplitude = 0.2 + Math.random() * 0.8;
+        
+        // Create the visual representation
+        const geometry = new THREE.SphereGeometry(size, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+          color: getColorScheme().primary,
+          transparent: true,
+          opacity: 0.7
+        });
+        
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.copy(position);
+        
+        // Add glow effect
+        const glowGeometry = new THREE.SphereGeometry(size * 2, 16, 16);
+        const glowMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            glowColor: { value: new THREE.Color(getColorScheme().primary) }
+          },
+          vertexShader: `
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            void main() {
+              vPosition = position;
+              vNormal = normalize(normalMatrix * normal);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform vec3 glowColor;
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            void main() {
+              float intensity = pow(0.7 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+              gl_FragColor = vec4(glowColor, 1.0) * intensity;
+            }
+          `,
+          side: THREE.BackSide,
+          blending: THREE.AdditiveBlending,
+          transparent: true
+        });
+        
+        this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        this.glow.position.copy(position);
+        
+        scene.add(this.mesh);
+        scene.add(this.glow);
+      }
+      
+      update(time, mouseInfluence = new THREE.Vector3()) {
+        // Calculate the new position with sine wave motion
+        const offset = Math.sin(time * this.speed + this.phase) * this.amplitude;
+        
+        // Add mouse influence
+        const distanceToMouse = this.originalPosition.distanceTo(mouseInfluence);
+        const mouseStrength = Math.max(0, 1 - distanceToMouse / 10);
+        const mouseVector = new THREE.Vector3()
+          .subVectors(this.originalPosition, mouseInfluence)
+          .normalize()
+          .multiplyScalar(mouseStrength * 2);
+        
+        // Update position with both wave motion and mouse influence
+        this.position.copy(this.originalPosition)
+          .add(new THREE.Vector3(0, offset, 0))
+          .add(mouseVector);
+        
+        this.mesh.position.copy(this.position);
+        this.glow.position.copy(this.position);
+        
+        // Pulse the glow based on time
+        const pulseFactor = 1 + Math.sin(time * 2 + this.phase) * 0.2;
+        this.glow.scale.set(pulseFactor, pulseFactor, pulseFactor);
+        
+        // Update colors
+        const currentColor = getColorScheme().primary;
+        const pulseColor = new THREE.Color(currentColor).lerp(
+          new THREE.Color(getColorScheme().accent), 
+          Math.sin(time * 3 + this.phase) * 0.5 + 0.5
+        );
+        
+        this.mesh.material.color = pulseColor;
+        this.glow.material.uniforms.glowColor.value = pulseColor;
+      }
+    }
+    
+    class EnergyWave {
+      constructor(position, color) {
+        this.position = position.clone();
+        this.radius = 0.1;
+        this.maxRadius = 25;
+        this.speed = 3 + Math.random() * 2;
+        this.birth = clock.getElapsedTime();
+        this.lifetime = 3 + Math.random() * 2;
+        this.color = color || getColorScheme().secondary;
+        
+        // Create ring geometry
+        const geometry = new THREE.RingGeometry(this.radius, this.radius + 0.2, 32);
+        const material = new THREE.MeshBasicMaterial({
+          color: this.color,
+          transparent: true,
+          opacity: 1.0,
+          side: THREE.DoubleSide
+        });
+        
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.copy(position);
+        // Orient the ring to be horizontal
+        this.mesh.rotation.x = Math.PI / 2;
+        
+        scene.add(this.mesh);
+      }
+      
+      update(time) {
+        const age = time - this.birth;
+        const lifePercent = age / this.lifetime;
+        
+        if (lifePercent >= 1) {
+          // Wave is dead, remove it
+          scene.remove(this.mesh);
+          return false;
+        }
+        
+        // Expand the radius
+        this.radius += this.speed * (1 - lifePercent) * 0.1;
+        
+        // Update geometry
+        this.mesh.geometry.dispose();
+        this.mesh.geometry = new THREE.RingGeometry(
+          this.radius, 
+          this.radius + 0.1 + (1 - lifePercent) * 0.3, 
+          32
+        );
+        
+        // Fade out
+        this.mesh.material.opacity = 1 - lifePercent;
+        
+        return true;
+      }
+    }
+    
+    function getColorScheme() {
+      return colorSchemes[currentColorScheme];
+    }
+    
+    function init() {
+      // Create scene
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x000000, 0.01);
+      
+      // Create camera
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 30;
+      
+      // Create renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      document.body.appendChild(renderer.domElement);
+      
+      // Setup raycaster for interaction
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      
+      // Create energy field container
+      energyField = new THREE.Object3D();
+      scene.add(energyField);
+      
+      // Create wave system container
+      waveSystem = new THREE.Object3D();
+      scene.add(waveSystem);
+      
+      // Initialize quantum field mode
+      initQuantumField();
+      
+      // Create background particles
+      createBackgroundParticles();
+      
+      // Event listeners
+      window.addEventListener('resize', onWindowResize);
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('click', onMouseClick);
+      document.addEventListener('wheel', onMouseWheel);
+      document.addEventListener('keydown', onKeyDown);
+      
+      // Hide controls after 5 seconds
+      setTimeout(() => {
+        document.getElementById('controls').classList.add('fade');
+      }, 5000);
+      
+      // Start animation loop
+      animate();
+    }
+    
+    function initQuantumField() {
+      // Clear any existing points
+      energyPoints.forEach(point => {
+        scene.remove(point.mesh);
+        scene.remove(point.glow);
+      });
+      energyPoints = [];
+      
+      // Number of points based on complexity
+      const pointCount = Math.floor(50 + complexity * 150);
+      const fieldSize = 20;
+      
+      for (let i = 0; i < pointCount; i++) {
+        // Create points in a disc shape on the XZ plane
+        const radius = Math.random() * fieldSize;
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = (Math.random() - 0.5) * 5; // Some variation in height
+        
+        const position = new THREE.Vector3(x, y, z);
+        const size = 0.05 + Math.random() * 0.2;
+        
+        const point = new EnergyPoint(position, size);
+        energyPoints.push(point);
+      }
+    }
+    
+    function createBackgroundParticles() {
+      // Create particle system for background
+      const particleCount = 2000;
+      const particles = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+      const sizes = new Float32Array(particleCount);
+      
+      const color = new THREE.Color();
+      
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        
+        // Position particles in a sphere
+        const radius = 50 + Math.random() * 950;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        
+        positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i3 + 2] = radius * Math.cos(phi);
+        
+        // Vary sizes
+        sizes[i] = 0.5 + Math.random() * 1.5;
+        
+        // Create colors with slight variations
+        color.setHSL(0.6 + Math.random() * 0.1, 0.8, 0.6 + Math.random() * 0.2);
+        colors[i3] = color.r;
+        colors[i3 + 1] = color.g;
+        colors[i3 + 2] = color.b;
+      }
+      
+      particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      particles.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+      
+      // Custom shader for stars
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 }
+        },
+        vertexShader: `
+          attribute float size;
+          attribute vec3 color;
+          varying vec3 vColor;
+          uniform float time;
+          void main() {
+            vColor = color;
+            // Simple pulsing effect
+            float pulse = sin(time * 0.3 + position.x * 0.01 + position.y * 0.01 + position.z * 0.01) * 0.1 + 0.9;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * pulse * (300.0 / length(mvPosition.xyz));
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          void main() {
+            // Make particles circular with soft edges
+            vec2 xy = gl_PointCoord.xy - vec2(0.5);
+            float radius = length(xy);
+            float alpha = smoothstep(0.5, 0.4, radius);
+            gl_FragColor = vec4(vColor, alpha);
+          }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthTest: false
+      });
+      
+      particleSystem = new THREE.Points(particles, material);
+      scene.add(particleSystem);
+    }
+    
+    function createEnergyWave(position) {
+      // Create multiple rings with different speeds and colors
+      const waveCount = 3;
+      const baseColor = getColorScheme().secondary;
+      const color = new THREE.Color(baseColor);
+      
+      for (let i = 0; i < waveCount; i++) {
+        // Vary color slightly
+        const colorHSL = {};
+        color.getHSL(colorHSL);
+        colorHSL.h += (Math.random() - 0.5) * 0.1;
+        color.setHSL(colorHSL.h, colorHSL.s, colorHSL.l);
+        
+        const wave = new EnergyWave(position, color.getHex());
+        waves.push(wave);
+      }
+    }
+    
+    function createParticleVortex() {
+      // Implement in the future
+    }
+    
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    function onMouseMove(event) {
+      // Update mouse coordinates for raycasting
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      // Store raw mouse position for camera movement
+      mouseX = mouse.x;
+      mouseY = mouse.y;
+    }
+    
+    function onMouseClick(event) {
+      // Create a wave at the clicked position
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      // Raycast to find the intersection point
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Create a plane at y=0 to intersect with
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const intersectionPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, intersectionPoint);
+      
+      // Create waves at the intersection point
+      createEnergyWave(intersectionPoint);
+      
+      // Change color scheme
+      currentColorScheme = (currentColorScheme + 1) % colorSchemes.length;
+    }
+    
+    function onMouseWheel(event) {
+      // Adjust complexity
+      complexity = Math.max(0.1, Math.min(1.0, complexity + event.deltaY * -0.001));
+      
+      // Reinitialize quantum field with new complexity
+      if (currentMode === 0) {
+        initQuantumField();
+      }
+    }
+    
+    function onKeyDown(event) {
+      // Change mode on spacebar
+      if (event.keyCode === 32) {
+        currentMode = (currentMode + 1) % modes.length;
+        
+        // Reinitialize based on new mode
+        if (modes[currentMode] === 'quantumField') {
+          initQuantumField();
+        }
+      }
+    }
+    
+    function getMouseInfluencePosition() {
+      // Create a Vector3 representing the mouse position in 3D space
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Create a plane at y=0 to intersect with
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const intersectionPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, intersectionPoint);
+      
+      return intersectionPoint;
+    }
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const time = clock.getElapsedTime();
+      
+      // Gentle camera movement based on mouse
+      camera.position.x += (mouseX * 10 - camera.position.x) * 0.05;
+      camera.position.y += (-mouseY * 5 - camera.position.y) * 0.05;
+      camera.lookAt(scene.position);
+      
+      // Update particles
+      if (particleSystem) {
+        particleSystem.material.uniforms.time.value = time;
+      }
+      
+      // Get mouse influence position
+      const mouseInfluence = getMouseInfluencePosition();
+      
+      // Update energy points
+      energyPoints.forEach(point => {
+        point.update(time, mouseInfluence);
+      });
+      
+      // Update waves and remove dead ones
+      waves = waves.filter(wave => wave.update(time));
+      
+      // Quantum field visualization
+      if (modes[currentMode] === 'quantumField') {
+        // Add some automatic waves occasionally
+        if (Math.random() < 0.01) {
+          const radius = Math.random() * 15;
+          const angle = Math.random() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          createEnergyWave(new THREE.Vector3(x, 0, z));
+        }
+      }
+      
+      renderer.render(scene, camera);
+    }
+    
+    // Start the visualization
+    init();
+  </script>
+</body>
+</html>

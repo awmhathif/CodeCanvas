@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Ping Pong Championship</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:#fff}
+canvas{display:block;position:fixed;top:0;left:0}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+.panel{pointer-events:auto;backdrop-filter:blur(12px)}
+#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);pointer-events:auto;z-index:100}
+#menu.hidden{display:none}
+#menu h1{font-size:clamp(28px,6vw,72px);background:linear-gradient(135deg,#00f0ff,#ff00e0,#ffe000);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;font-weight:900;letter-spacing:2px;text-shadow:0 0 40px rgba(0,240,255,0.3)}
+#menu .sub{color:#8af;font-size:clamp(10px,2vw,16px);margin-bottom:30px;letter-spacing:4px}
+.menu-section{display:flex;flex-direction:column;align-items:center;gap:8px;margin:6px 0}
+.menu-section h3{color:#6af;font-size:12px;letter-spacing:3px;margin-bottom:4px}
+.mbtn{background:linear-gradient(135deg,rgba(0,100,255,0.15),rgba(0,200,255,0.08));border:1px solid rgba(0,180,255,0.3);color:#adf;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit;transition:all 0.3s;min-width:220px;text-align:center;letter-spacing:1px}
+.mbtn:hover{background:linear-gradient(135deg,rgba(0,150,255,0.3),rgba(0,200,255,0.15));color:#fff;border-color:rgba(0,200,255,0.6);transform:scale(1.03);box-shadow:0 0 20px rgba(0,150,255,0.2)}
+.mbtn.sel{background:linear-gradient(135deg,rgba(0,180,255,0.3),rgba(100,0,255,0.2));border-color:#0af;color:#fff}
+.mbtn-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.mbtn-sm{padding:7px 16px;font-size:11px;min-width:auto}
+#hud{position:absolute;top:0;left:0;width:100%;padding:10px 20px;display:flex;justify-content:space-between;align-items:flex-start}
+#hud.hidden{display:none}
+.hud-score{background:rgba(0,0,0,0.6);border:1px solid rgba(100,180,255,0.2);border-radius:10px;padding:10px 20px;text-align:center;backdrop-filter:blur(8px)}
+.hud-score .name{font-size:11px;color:#8af;letter-spacing:2px}
+.hud-score .score{font-size:36px;font-weight:900;background:linear-gradient(135deg,#0ef,#f0e);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hud-score .details{font-size:10px;color:#68a;margin-top:2px}
+#hud-center{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);border:1px solid rgba(100,180,255,0.2);border-radius:10px;padding:8px 20px;text-align:center;backdrop-filter:blur(8px)}
+#hud-center .rally{font-size:10px;color:#6af;letter-spacing:2px}
+#hud-center .speed{font-size:18px;color:#0ef;font-weight:700}
+#hud-center .info{font-size:9px;color:#468}
+#hud-bottom{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
+.hud-btn{background:rgba(0,0,0,0.5);border:1px solid rgba(100,180,255,0.2);border-radius:6px;padding:6px 14px;cursor:pointer;pointer-events:auto;font-size:10px;color:#8af;font-family:inherit}
+.hud-btn:hover{background:rgba(0,100,255,0.2);color:#fff}
+#toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(24px,5vw,48px);font-weight:900;color:#fff;text-shadow:0 0 30px rgba(0,200,255,0.8);opacity:0;transition:opacity 0.3s;pointer-events:none}
+#toast.show{opacity:1}
+#powerbar{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);width:200px;height:6px;background:rgba(0,0,0,0.5);border-radius:3px;border:1px solid rgba(100,180,255,0.2);overflow:hidden}
+#powerbar .fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#ff0,#f00);border-radius:3px;transition:width 0.05s}
+#stats-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,10,0.92);border:1px solid rgba(0,180,255,0.3);border-radius:16px;padding:30px 40px;min-width:350px;text-align:center;display:none;pointer-events:auto;backdrop-filter:blur(16px)}
+#stats-overlay h2{font-size:24px;background:linear-gradient(135deg,#0ef,#f0e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:15px}
+#stats-overlay .stat-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(100,180,255,0.1);font-size:13px}
+#stats-overlay .stat-row .label{color:#68a}
+#stats-overlay .stat-row .value{color:#adf;font-weight:700}
+#settings-panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,10,0.94);border:1px solid rgba(0,180,255,0.3);border-radius:16px;padding:25px 35px;min-width:400px;display:none;pointer-events:auto;backdrop-filter:blur(16px);max-height:80vh;overflow-y:auto}
+#settings-panel h2{font-size:20px;color:#6af;margin-bottom:15px;text-align:center;letter-spacing:2px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(100,180,255,0.08)}
+.setting-row label{color:#8ab;font-size:12px}
+.setting-row input[type=range]{width:120px;accent-color:#0af}
+.setting-row select{background:rgba(0,20,40,0.8);border:1px solid rgba(0,180,255,0.3);color:#adf;padding:4px 8px;border-radius:4px;font-family:inherit}
+.setting-row .val{color:#0ef;font-size:11px;min-width:40px;text-align:right}
+#mobile-controls{position:absolute;bottom:80px;left:0;width:100%;display:none;justify-content:space-between;padding:0 20px;pointer-events:none}
+.touch-zone{width:120px;height:120px;border-radius:50%;background:rgba(0,100,255,0.1);border:2px solid rgba(0,180,255,0.2);pointer-events:auto;display:flex;align-items:center;justify-content:center;color:#4af;font-size:10px}
+@media(max-width:768px){
+  #mobile-controls{display:flex}
+  .mbtn{padding:8px 20px;font-size:12px;min-width:180px}
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.pulse{animation:pulse 1.5s infinite}
+</style>
+</head>
+<body>
+<canvas id="gc"></canvas>
+<div id="ui">
+<div id="menu">
+<h1>PING PONG 3D</h1>
+<div class="sub">CHAMPIONSHIP EDITION</div>
+<div class="menu-section">
+<h3>GAME MODE</h3>
+<div class="mbtn-row">
+<button class="mbtn mbtn-sm sel" onclick="G.setMode('quick')">Quick Match</button>
+<button class="mbtn mbtn-sm" onclick="G.setMode('tournament')">Tournament</button>
+<button class="mbtn mbtn-sm" onclick="G.setMode('practice')">Practice</button>
+<button class="mbtn mbtn-sm" onclick="G.setMode('survival')">Survival</button>
+<button class="mbtn mbtn-sm" onclick="G.setMode('timeattack')">Time Attack</button>
+</div>
+</div>
+<div class="menu-section">
+<h3>DIFFICULTY</h3>
+<div class="mbtn-row">
+<button class="mbtn mbtn-sm" onclick="G.setDiff(0)">Easy</button>
+<button class="mbtn mbtn-sm sel" onclick="G.setDiff(1)">Medium</button>
+<button class="mbtn mbtn-sm" onclick="G.setDiff(2)">Hard</button>
+<button class="mbtn mbtn-sm" onclick="G.setDiff(3)">Expert</button>
+</div>
+</div>
+<div class="menu-section">
+<h3>ARENA</h3>
+<div class="mbtn-row">
+<button class="mbtn mbtn-sm sel" onclick="G.setArena(0)">Classic</button>
+<button class="mbtn mbtn-sm" onclick="G.setArena(1)">Neon</button>
+<button class="mbtn mbtn-sm" onclick="G.setArena(2)">Stadium</button>
+<button class="mbtn mbtn-sm" onclick="G.setArena(3)">Space</button>
+<button class="mbtn mbtn-sm" onclick="G.setArena(4)">Beach</button>
+<button class="mbtn mbtn-sm" onclick="G.setArena(5)">Ice</button>
+</div>
+</div>
+<div class="menu-section">
+<h3>CAMERA</h3>
+<div class="mbtn-row">
+<button class="mbtn mbtn-sm sel" onclick="G.setCam(0)">Dynamic</button>
+<button class="mbtn mbtn-sm" onclick="G.setCam(1)">Side</button>
+<button class="mbtn mbtn-sm" onclick="G.setCam(2)">Top</button>
+<button class="mbtn mbtn-sm" onclick="G.setCam(3)">First Person</button>
+<button class="mbtn mbtn-sm" onclick="G.setCam(4)">Cinematic</button>
+</div>
+</div>
+<div style="margin-top:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+<button class="mbtn" onclick="G.start()" style="background:linear-gradient(135deg,rgba(0,200,100,0.2),rgba(0,255,150,0.1));border-color:rgba(0,255,150,0.4);color:#0fa">▶ START GAME</button>
+<button class="mbtn" onclick="G.showSettings()">⚙ Settings</button>
+<button class="mbtn" onclick="G.showCustomize()">🎨 Customize</button>
+</div>
+<div style="margin-top:20px;font-size:10px;color:#345;letter-spacing:1px">WASD/Mouse to move paddle · Space to serve · Click for power shots</div>
+</div>
+
+<div id="hud" class="hidden">
+<div class="hud-score" id="p1-hud"><div class="name">PLAYER</div><div class="score" id="p1-score">0</div><div class="details" id="p1-details">Games: 0</div></div>
+<div class="hud-score" id="p2-hud"><div class="name" id="p2-name">AI</div><div class="score" id="p2-score">0</div><div class="details" id="p2-details">Games: 0</div></div>
+</div>
+<div id="hud-center" class="hidden"><div class="rally" id="rally-count">RALLY: 0</div><div class="speed" id="ball-speed">0 km/h</div><div class="info" id="spin-info">No Spin</div></div>
+<div id="toast"></div>
+<div id="powerbar" style="display:none"><div class="fill" id="power-fill"></div></div>
+<div id="hud-bottom" class="hidden">
+<button class="hud-btn" onclick="G.pause()">⏸ Pause</button>
+<button class="hud-btn" onclick="G.toggleCam()">📷 Camera</button>
+<button class="hud-btn" onclick="G.showMatchStats()">📊 Stats</button>
+<button class="hud-btn" onclick="G.slowMo()">🐌 Slow-Mo</button>
+</div>
+<div id="stats-overlay"></div>
+<div id="settings-panel">
+<h2>⚙ SETTINGS</h2>
+<div class="setting-row"><label>Ball Speed</label><input type="range" min="1" max="10" value="5" oninput="G.cfg.ballSpeedMult=this.value/5;this.nextElementSibling.textContent=this.value"><span class="val">5</span></div>
+<div class="setting-row"><label>Gravity</label><input type="range" min="1" max="20" value="10" oninput="G.cfg.gravity=this.value*0.98;this.nextElementSibling.textContent=this.value"><span class="val">10</span></div>
+<div class="setting-row"><label>Air Resistance</label><input type="range" min="0" max="10" value="3" oninput="G.cfg.airRes=this.value/100;this.nextElementSibling.textContent=this.value"><span class="val">3</span></div>
+<div class="setting-row"><label>Points to Win</label><input type="range" min="5" max="21" value="11" oninput="G.cfg.pointsToWin=+this.value;this.nextElementSibling.textContent=this.value"><span class="val">11</span></div>
+<div class="setting-row"><label>Spin Sensitivity</label><input type="range" min="1" max="10" value="5" oninput="G.cfg.spinMult=this.value/5;this.nextElementSibling.textContent=this.value"><span class="val">5</span></div>
+<div class="setting-row"><label>Table Friction</label><input type="range" min="1" max="10" value="5" oninput="G.cfg.tableFriction=this.value/10;this.nextElementSibling.textContent=this.value"><span class="val">5</span></div>
+<div class="setting-row"><label>Net Height</label><input type="range" min="5" max="20" value="10" oninput="G.cfg.netHeightMult=this.value/10;this.nextElementSibling.textContent=this.value"><span class="val">10</span></div>
+<div class="setting-row"><label>Show Trajectory</label><select onchange="G.cfg.showTrajectory=this.value==='1'"><option value="0">Off</option><option value="1">On</option></select></div>
+<div class="setting-row"><label>Particles</label><select onchange="G.cfg.particles=this.value"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="off">Off</option></select></div>
+<div style="text-align:center;margin-top:15px"><button class="mbtn" onclick="G.hideSettings()">✓ Done</button></div>
+</div>
+<div id="mobile-controls">
+<div class="touch-zone" id="touch-left">MOVE</div>
+<div class="touch-zone" id="touch-right">SPIN</div>
+</div>
+</div>
+<script>
+"use strict";
+const cv=document.getElementById('gc'),gl=cv.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
+if(!gl){document.body.innerHTML='<h1 style="color:red;padding:40px">WebGL2 Required</h1>';throw 0;}
+let W,H,DPR;
+function rsz(){DPR=Math.min(devicePixelRatio,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;gl.viewport(0,0,cv.width,cv.height)}
+rsz();addEventListener('resize',rsz);
+const PI=Math.PI,TAU=PI*2,sin=Math.sin,cos=Math.cos,abs=Math.abs,sqrt=Math.sqrt,pow=Math.pow,min=Math.min,max=Math.max,floor=Math.floor,ceil=Math.ceil,round=Math.round,atan2=Math.atan2,sign=Math.sign,clamp=(v,a,b)=>max(a,min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,rand=(a=0,b=1)=>a+Math.random()*(b-a),randInt=(a,b)=>floor(rand(a,b+1));
+class V3{constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z}set(x,y,z){this.x=x;this.y=y;this.z=z;return this}copy(v){this.x=v.x;this.y=v.y;this.z=v.z;return this}clone(){return new V3(this.x,this.y,this.z)}add(v){return new V3(this.x+v.x,this.y+v.y,this.z+v.z)}sub(v){return new V3(this.x-v.x,this.y-v.y,this.z-v.z)}mul(s){return new V3(this.x*s,this.y*s,this.z*s)}div(s){return this.mul(1/s)}dot(v){return this.x*v.x+this.y*v.y+this.z*v.z}cross(v){return new V3(this.y*v.z-this.z*v.y,this.z*v.x-this.x*v.z,this.x*v.y-this.y*v.x)}len(){return sqrt(this.x*this.x+this.y*this.y+this.z*this.z)}lenSq(){return this.x*this.x+this.y*this.y+this.z*this.z}norm(){const l=this.len();return l>0?this.mul(1/l):new V3}addTo(v){this.x+=v.x;this.y+=v.y;this.z+=v.z;return this}subTo(v){this.x-=v.x;this.y-=v.y;this.z-=v.z;return this}mulTo(s){this.x*=s;this.y*=s;this.z*=s;return this}dist(v){return this.sub(v).len()}reflect(n){const d=this.dot(n)*2;return this.sub(n.mul(d))}}
+class M4{constructor(){this.m=new Float32Array(16);this.identity()}identity(){this.m.fill(0);this.m[0]=this.m[5]=this.m[10]=this.m[15]=1;return this}perspective(fov,a,n,f){const t=1/Math.tan(fov/2),nf=1/(n-f),m=this.m;m.fill(0);m[0]=t/a;m[5]=t;m[10]=(f+n)*nf;m[11]=-1;m[14]=2*f*n*nf;return this}lookAt(e,c,u){const z=e.sub(c).norm(),x=u.cross(z).norm(),y=z.cross(x),m=this.m;m[0]=x.x;m[1]=y.x;m[2]=z.x;m[3]=0;m[4]=x.y;m[5]=y.y;m[6]=z.y;m[7]=0;m[8]=x.z;m[9]=y.z;m[10]=z.z;m[11]=0;m[12]=-x.dot(e);m[13]=-y.dot(e);m[14]=-z.dot(e);m[15]=1;return this}mul(b){const a=this.m,c=b.m,r=new Float32Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){r[j*4+i]=a[i]*c[j*4]+a[4+i]*c[j*4+1]+a[8+i]*c[j*4+2]+a[12+i]*c[j*4+3]}const o=new M4();o.m=r;return o}translate(x,y,z){const t=new M4();t.m[12]=x;t.m[13]=y;t.m[14]=z;return this.mul(t)}scale(x,y,z){const s=new M4();s.m[0]=x;s.m[5]=y;s.m[10]=z;return this.mul(s)}rotateY(a){const c=cos(a),s=sin(a),r=new M4();r.m[0]=c;r.m[2]=s;r.m[8]=-s;r.m[10]=c;return this.mul(r)}rotateX(a){const c=cos(a),s=sin(a),r=new M4();r.m[5]=c;r.m[6]=s;r.m[9]=-s;r.m[10]=c;return this.mul(r)}}
+function mkShader(src,type){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));return null}return s}
+function mkProg(vs,fs){const p=gl.createProgram();gl.attachShader(p,mkShader(vs,gl.VERTEX_SHADER));gl.attachShader(p,mkShader(fs,gl.FRAGMENT_SHADER));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(p));return p}
+function getUnis(p,names){const u={};names.forEach(n=>u[n]=gl.getUniformLocation(p,n));return u}
+const VS=`#version 300 es
+precision highp float;
+in vec3 aPos;
+in vec3 aNorm;
+in vec2 aUV;
+in vec4 aCol;
+uniform mat4 uProj,uView,uModel;
+uniform mat4 uShadowMat;
+out vec3 vPos,vNorm,vWorldPos;
+out vec2 vUV;
+out vec4 vCol,vShadowCoord;
+void main(){
+  vec4 world=uModel*vec4(aPos,1.0);
+  vWorldPos=world.xyz;
+  vPos=(uView*world).xyz;
+  vNorm=mat3(uModel)*aNorm;
+  vUV=aUV;
+  vCol=aCol;
+  vShadowCoord=uShadowMat*world;
+  gl_Position=uProj*uView*world;
+  gl_PointSize=max(2.0,8.0/gl_Position.w);
+}`;
+const FS=`#version 300 es
+precision highp float;
+in vec3 vPos,vNorm,vWorldPos;
+in vec2 vUV;
+in vec4 vCol;
+in vec4 vShadowCoord;
+uniform vec3 uLightDir,uLightCol,uAmbient,uCamPos;
+uniform vec4 uColor;
+uniform float uMetallic,uRoughness,uEmissive;
+uniform int uTexMode;
+uniform sampler2D uShadowMap;
+uniform float uTime;
+uniform int uArena;
+out vec4 fragColor;
+float grid(vec2 p,float s){vec2 g=abs(fract(p*s-0.5)-0.5)/fwidth(p*s);return 1.0-min(min(g.x,g.y),1.0);}
+vec3 checkerboard(vec2 p,float s){float c=mod(floor(p.x*s)+floor(p.y*s),2.0);return mix(vec3(0.04,0.25,0.08),vec3(0.02,0.15,0.04),c);}
+float shadowCalc(){vec3 sc=vShadowCoord.xyz/vShadowCoord.w*0.5+0.5;if(sc.z>1.0)return 1.0;float d=texture(uShadowMap,sc.xy).r;float bias=0.005;float shadow=0.0;vec2 ts=1.0/vec2(1024.0);for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){float pcf=texture(uShadowMap,sc.xy+vec2(x,y)*ts).r;shadow+=sc.z-bias>pcf?0.0:1.0;}return shadow/9.0;}
+vec3 getTableColor(vec2 uv){
+  if(uArena==0)return checkerboard(uv,4.0)*1.3;
+  if(uArena==1){float n=sin(uv.x*30.0+uTime*2.0)*sin(uv.y*30.0+uTime*1.5);return mix(vec3(0.0,0.05,0.1),vec3(0.0,0.8,1.0),n*0.3+0.3)*0.5;}
+  if(uArena==2)return checkerboard(uv,4.0)*vec3(0.3,0.5,1.0)*1.5;
+  if(uArena==3){float s=sin(uv.x*20.0)*cos(uv.y*20.0)*0.5+0.5;return mix(vec3(0.05,0.0,0.1),vec3(0.3,0.0,0.5),s)*0.8;}
+  if(uArena==4)return mix(vec3(0.6,0.5,0.3),vec3(0.4,0.35,0.2),grid(uv,2.0))*0.8;
+  if(uArena==5)return mix(vec3(0.5,0.7,0.9),vec3(0.8,0.9,1.0),grid(uv,3.0))*0.7;
+  return checkerboard(uv,4.0);
+}
+void main(){
+  vec3 N=normalize(vNorm);
+  vec3 V=normalize(uCamPos-vWorldPos);
+  vec3 L=normalize(uLightDir);
+  vec3 H=normalize(L+V);
+  float NdL=max(dot(N,L),0.0);
+  float NdH=max(dot(N,H),0.0);
+  float spec=pow(NdH,mix(8.0,128.0,1.0-uRoughness));
+  vec3 baseCol=uColor.rgb*vCol.rgb;
+  if(uTexMode==1)baseCol=getTableColor(vUV);
+  if(uTexMode==2){float ln=grid(vUV,8.0);baseCol=mix(baseCol,vec3(1.0),ln*0.15);}
+  float sh=shadowCalc();
+  vec3 diffuse=baseCol*NdL*uLightCol*sh;
+  vec3 ambient=baseCol*uAmbient;
+  vec3 specular=uLightCol*spec*mix(0.3,1.0,uMetallic)*sh;
+  vec3 fresnel=vec3(pow(1.0-max(dot(N,V),0.0),3.0))*0.15;
+  vec3 emissiveCol=baseCol*uEmissive;
+  vec3 col=ambient+diffuse+specular+fresnel+emissiveCol;
+  col=col/(col+vec3(1.0));
+  col=pow(col,vec3(1.0/2.2));
+  fragColor=vec4(col,uColor.a*vCol.a);
+}`;
+const shadowVS=`#version 300 es
+precision highp float;
+in vec3 aPos;
+uniform mat4 uProj,uView,uModel;
+void main(){gl_Position=uProj*uView*uModel*vec4(aPos,1.0);}`;
+const shadowFS=`#version 300 es
+precision highp float;
+out vec4 fragColor;
+void main(){fragColor=vec4(gl_FragCoord.z,0.0,0.0,1.0);}`;
+const partVS=`#version 300 es
+precision highp float;
+in vec3 aPos;
+in vec4 aCol;
+uniform mat4 uProj,uView;
+out vec4 vCol;
+void main(){
+  vCol=aCol;
+  vec4 vp=uView*vec4(aPos,1.0);
+  gl_Position=uProj*vp;
+  gl_PointSize=clamp(aCol.a*80.0/max(-vp.z,0.1),1.0,40.0);
+}`;
+const partFS=`#version 300 es
+precision highp float;
+in vec4 vCol;
+out vec4 fragColor;
+void main(){
+  float r=length(gl_PointCoord-0.5)*2.0;
+  float a=exp(-r*r*3.0);
+  fragColor=vec4(vCol.rgb,a*vCol.a);
+  if(fragColor.a<0.01)discard;
+}`;
+const prog1=mkProg(VS,FS),u1=getUnis(prog1,['uProj','uView','uModel','uLightDir','uLightCol','uAmbient','uCamPos','uColor','uMetallic','uRoughness','uEmissive','uTexMode','uShadowMat','uShadowMap','uTime','uArena']);
+const progSh=mkProg(shadowVS,shadowFS),uSh=getUnis(progSh,['uProj','uView','uModel']);
+const progPt=mkProg(partVS,partFS),uPt=getUnis(progPt,['uProj','uView']);
+function mkMesh(verts,norms,uvs,cols,indices){
+  const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+  const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(verts),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  if(norms){const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(norms),gl.STATIC_DRAW);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0)}
+  if(uvs){const ub=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ub);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(uvs),gl.STATIC_DRAW);gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,2,gl.FLOAT,false,0,0)}
+  if(cols){const cb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(cols),gl.STATIC_DRAW);gl.enableVertexAttribArray(3);gl.vertexAttribPointer(3,4,gl.FLOAT,false,0,0)}
+  let ib=null,ic=0;
+  if(indices){ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);ic=indices.length}
+  else ic=verts.length/3;
+  gl.bindVertexArray(null);
+  return{vao,count:ic,indexed:!!indices}
+}
+function mkBox(w,h,d){
+  const hw=w/2,hh=h/2,hd=d/2;
+  const v=[],n=[],u=[],idx=[];
+  const faces=[[0,1,2,3,0,0,1],[4,5,6,7,0,0,-1],[0,3,7,4,0,1,0],[1,2,6,5,0,-1,0],[0,1,5,4,-1,0,0],[3,2,6,7,1,0,0]];
+  const corners=[[-hw,-hh,hd],[hw,-hh,hd],[hw,hh,hd],[-hw,hh,hd],[-hw,-hh,-hd],[hw,-hh,-hd],[hw,hh,-hd],[-hw,hh,-hd]];
+  const uvCoords=[[0,0],[1,0],[1,1],[0,1]];
+  let vi=0;
+  for(const f of faces){
+    for(let i=0;i<4;i++){const c=corners[f[i]];v.push(c[0],c[1],c[2]);n.push(f[4],f[5],f[6]);u.push(uvCoords[i][0],uvCoords[i][1])}
+    idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3);vi+=4;
+  }
+  const cols=[];for(let i=0;i<v.length/3;i++)cols.push(1,1,1,1);
+  return mkMesh(v,n,u,cols,idx);
+}
+function mkSphere(r,seg,ring){
+  const v=[],n=[],u=[],idx=[],cols=[];
+  for(let j=0;j<=ring;j++){
+    const phi=j*PI/ring;const sp=sin(phi),cp=cos(phi);
+    for(let i=0;i<=seg;i++){
+      const theta=i*TAU/seg;const st=sin(theta),ct=cos(theta);
+      const nx=sp*ct,ny=cp,nz=sp*st;
+      v.push(r*nx,r*ny,r*nz);n.push(nx,ny,nz);u.push(i/seg,j/ring);cols.push(1,1,1,1);
+    }
+  }
+  for(let j=0;j<ring;j++)for(let i=0;i<seg;i++){
+    const a=j*(seg+1)+i,b=a+seg+1;
+    idx.push(a,b,a+1,b,b+1,a+1);
+  }
+  return mkMesh(v,n,u,cols,idx);
+}
+function mkCylinder(r,h,seg){
+  const v=[],n=[],u=[],idx=[],cols=[];
+  for(let i=0;i<=seg;i++){
+    const a=i*TAU/seg,c=cos(a),s=sin(a);
+    v.push(r*c,h/2,r*s);n.push(c,0,s);u.push(i/seg,0);cols.push(1,1,1,1);
+    v.push(r*c,-h/2,r*s);n.push(c,0,s);u.push(i/seg,1);cols.push(1,1,1,1);
+  }
+  for(let i=0;i<seg;i++){const a=i*2;idx.push(a,a+1,a+2,a+1,a+3,a+2)}
+  return mkMesh(v,n,u,cols,idx);
+}
+function mkPlane(w,d,sx=1,sz=1){
+  const v=[],n=[],u=[],idx=[],cols=[];
+  for(let j=0;j<=sz;j++)for(let i=0;i<=sx;i++){
+    v.push((i/sx-0.5)*w,0,(j/sz-0.5)*d);n.push(0,1,0);u.push(i/sx,j/sz);cols.push(1,1,1,1);
+  }
+  for(let j=0;j<sz;j++)for(let i=0;i<sx;i++){
+    const a=j*(sx+1)+i;idx.push(a,a+sx+1,a+1,a+1,a+sx+1,a+sx+2);
+  }
+  return mkMesh(v,n,u,cols,idx);
+}
+const meshBox=mkBox(1,1,1),meshSphere=mkSphere(1,24,16),meshCyl=mkCylinder(1,1,24),meshPlane=mkPlane(1,1,4,4);
+const meshPaddle=(function(){
+  const v=[],n=[],u=[],idx=[],cols=[];
+  const seg=32,r=0.75,th=0.08;
+  for(let i=0;i<=seg;i++){
+    const a=i*TAU/seg,c=cos(a),s=sin(a);
+    v.push(r*c,th/2,r*s);n.push(0,1,0);u.push(c*0.5+0.5,s*0.5+0.5);cols.push(1,1,1,1);
+    v.push(r*c,-th/2,r*s);n.push(0,-1,0);u.push(c*0.5+0.5,s*0.5+0.5);cols.push(1,1,1,1);
+  }
+  v.push(0,th/2,0);n.push(0,1,0);u.push(0.5,0.5);cols.push(1,1,1,1);
+  v.push(0,-th/2,0);n.push(0,-1,0);u.push(0.5,0.5);cols.push(1,1,1,1);
+  const tc=(seg+1)*2,bc=tc+1;
+  for(let i=0;i<seg;i++){
+    idx.push(tc,i*2,(i+1)*2);
+    idx.push(bc,(i+1)*2+1,i*2+1);
+    idx.push(i*2,i*2+1,(i+1)*2);
+    idx.push(i*2+1,(i+1)*2+1,(i+1)*2);
+  }
+  const hv=v.length/3;
+  const hw=0.08,hh=0.5,hd=0.04;
+  const hx=0,hy=0,hz=-r-hh/2;
+  const bv=[[hw,hd,hh],[-hw,hd,hh],[-hw,-hd,hh],[hw,-hd,hh],[hw,hd,0],[-hw,hd,0],[-hw,-hd,0],[hw,-hd,0]];
+  const bf=[[0,1,2,3,0,0,1],[4,5,6,7,0,0,-1],[0,3,7,4,1,0,0],[1,2,6,5,-1,0,0],[0,1,5,4,0,1,0],[3,2,6,7,0,-1,0]];
+  let vi2=hv;
+  for(const f of bf){
+    for(let i=0;i<4;i++){
+      const c=bv[f[i]];v.push(c[0]+hx,c[1]+hy,c[2]+hz);n.push(f[4],f[5],f[6]);u.push(0,0);cols.push(0.4,0.25,0.15,1);
+    }
+    idx.push(vi2,vi2+1,vi2+2,vi2,vi2+2,vi2+3);vi2+=4;
+  }
+  return mkMesh(v,n,u,cols,idx);
+})();
+let shadowFBO,shadowTex;
+function initShadow(){
+  const sz=1024;
+  shadowTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,shadowTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT32F,sz,sz,0,gl.DEPTH_COMPONENT,gl.FLOAT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  shadowFBO=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFBO);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,shadowTex,0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+}
+initShadow();
+const MAX_PARTS=5000;
+const partPos=new Float32Array(MAX_PARTS*3),partCol=new Float32Array(MAX_PARTS*4);
+const partVel=new Float32Array(MAX_PARTS*3),partLife=new Float32Array(MAX_PARTS);
+let partCount=0;
+const partVAO=gl.createVertexArray();gl.bindVertexArray(partVAO);
+const partPosBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferData(gl.ARRAY_BUFFER,partPos,gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+const partColBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferData(gl.ARRAY_BUFFER,partCol,gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,4,gl.FLOAT,false,0,0);
+gl.bindVertexArray(null);
+function emitParts(pos,vel,col,count,spread,life){
+  for(let i=0;i<count&&partCount<MAX_PARTS;i++){
+    const pi=partCount++;const i3=pi*3,i4=pi*4;
+    partPos[i3]=pos.x+(Math.random()-0.5)*spread;
+    partPos[i3+1]=pos.y+(Math.random()-0.5)*spread;
+    partPos[i3+2]=pos.z+(Math.random()-0.5)*spread;
+    partVel[i3]=vel.x+(Math.random()-0.5)*spread*2;
+    partVel[i3+1]=vel.y+Math.random()*spread*2;
+    partVel[i3+2]=vel.z+(Math.random()-0.5)*spread*2;
+    partCol[i4]=col[0];partCol[i4+1]=col[1];partCol[i4+2]=col[2];partCol[i4+3]=1;
+    partLife[pi]=life||1;
+  }
+}
+function updateParts(dt){
+  for(let i=partCount-1;i>=0;i--){
+    const i3=i*3;
+    partVel[i3+1]-=9.8*dt;
+    partPos[i3]+=partVel[i3]*dt;
+    partPos[i3+1]+=partVel[i3+1]*dt;
+    partPos[i3+2]+=partVel[i3+2]*dt;
+    partLife[i]-=dt;
+    partCol[i*4+3]=max(0,partLife[i]);
+    if(partLife[i]<=0){
+      const last=partCount-1;
+      if(i<last){
+        for(let j=0;j<3;j++){partPos[i3+j]=partPos[last*3+j];partVel[i3+j]=partVel[last*3+j]}
+        for(let j=0;j<4;j++)partCol[i*4+j]=partCol[last*4+j];
+        partLife[i]=partLife[last];
+      }
+      partCount--;
+    }
+  }
+}
+const TW=2.74,TH=0.05,TD=1.525,NH=0.1525,NW=TW+0.3;
+const BALL_R=0.02,PADDLE_R=0.075,PADDLE_TH=0.01;
+const ball={pos:new V3(0,0.5,0),vel:new V3(0,0,0),spin:new V3(0,0,0),r:BALL_R,trail:[],active:false,serving:true,server:1,lastHit:0,bounceCount:0,inPlay:false};
+const paddles=[
+  {pos:new V3(0,TH+0.05,-TD/2-0.15),vel:new V3(0,0,0),targetPos:new V3(0,TH+0.05,-TD/2-0.15),r:PADDLE_R,angle:0,tilt:0,swingPower:0,swinging:false},
+  {pos:new V3(0,TH+0.05,TD/2+0.15),vel:new V3(0,0,0),targetPos:new V3(0,TH+0.05,TD/2+0.15),r:PADDLE_R,angle:0,tilt:0,swingPower:0,swinging:false}
+];
+const input={mx:0,my:0,keys:{},mouseDown:false,mouseBtn:0,dx:0,dy:0};
+addEventListener('mousemove',e=>{
+  input.dx=e.movementX||0;input.dy=e.movementY||0;
+  input.mx=e.clientX/W*2-1;input.my=-(e.clientY/H*2-1);
+});
+addEventListener('mousedown',e=>{input.mouseDown=true;input.mouseBtn=e.button});
+addEventListener('mouseup',()=>{input.mouseDown=false});
+addEventListener('keydown',e=>{input.keys[e.code]=true});
+addEventListener('keyup',e=>{input.keys[e.code]=false});
+addEventListener('touchstart',e=>{
+  const t=e.touches[0];input.mx=t.clientX/W*2-1;input.my=-(t.clientY/H*2-1);input.mouseDown=true;
+},{passive:true});
+addEventListener('touchmove',e=>{
+  const t=e.touches[0];input.mx=t.clientX/W*2-1;input.my=-(t.clientY/H*2-1);
+},{passive:true});
+addEventListener('touchend',()=>{input.mouseDown=false},{passive:true});
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function playSound(freq,dur,vol=0.3,type='sine'){
+  try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.connect(g);g.connect(audioCtx.destination);
+  o.frequency.value=freq;o.type=type;
+  g.gain.setValueAtTime(vol,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  o.start();o.stop(audioCtx.currentTime+dur);}catch(e){}
+}
+function hitSound(){playSound(800+rand(0,400),0.08,0.2,'square')}
+function bounceSound(){playSound(400+rand(0,200),0.1,0.15,'triangle')}
+function netSound(){playSound(200,0.15,0.1,'sawtooth')}
+function scoreSound(win){playSound(win?523:262,0.3,0.2,'sine');if(win)setTimeout(()=>playSound(659,0.3,0.2),100)}
+function showToast(msg,dur=1500){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+const G={
+  state:'menu',mode:'quick',diff:1,arena:0,camMode:0,
+  scores:[0,0],games:[0,0],rallyCount:0,longestRally:0,
+  totalRallies:0,totalPoints:0,aces:0,winners:0,
+  matchTime:0,slowMoTimer:0,slowMoActive:false,
+  serving:true,serverSide:1,
+  cfg:{
+    ballSpeedMult:1,gravity:9.8,airRes:0.03,pointsToWin:11,
+    spinMult:1,tableFriction:0.5,netHeightMult:1,
+    showTrajectory:false,particles:'high'
+  },
+  diffSettings:[
+    {speed:0.6,accuracy:0.4,react:0.08,predict:0.3,name:'Easy'},
+    {speed:0.8,accuracy:0.6,react:0.05,predict:0.5,name:'Medium'},
+    {speed:1.0,accuracy:0.8,react:0.03,predict:0.7,name:'Hard'},
+    {speed:1.2,accuracy:0.95,react:0.015,predict:0.9,name:'Expert'}
+  ],
+  arenaColors:[
+    {table:[0.05,0.3,0.1],floor:[0.15,0.15,0.18],ambient:[0.15,0.14,0.13],light:[1,0.95,0.9],bg:[0.02,0.02,0.04]},
+    {table:[0.05,0.08,0.15],floor:[0.02,0.02,0.05],ambient:[0.05,0.1,0.2],light:[0.5,0.8,1],bg:[0.01,0.01,0.03]},
+    {table:[0.1,0.15,0.3],floor:[0.2,0.18,0.15],ambient:[0.2,0.18,0.15],light:[1,0.98,0.95],bg:[0.05,0.04,0.03]},
+    {table:[0.1,0.02,0.15],floor:[0.01,0.01,0.02],ambient:[0.05,0.02,0.1],light:[0.6,0.4,1],bg:[0.0,0.0,0.02]},
+    {table:[0.2,0.3,0.1],floor:[0.5,0.45,0.3],ambient:[0.3,0.28,0.2],light:[1,0.95,0.85],bg:[0.3,0.5,0.7]},
+    {table:[0.15,0.25,0.35],floor:[0.4,0.5,0.6],ambient:[0.2,0.25,0.3],light:[0.8,0.9,1],bg:[0.1,0.15,0.2]}
+  ],
+  setMode(m){
+    this.mode=m;
+    document.querySelectorAll('.menu-section:nth-child(1) .mbtn-sm').forEach(b=>b.classList.remove('sel'));
+    document.querySelector(`.menu-section:nth-child(1) .mbtn-sm[onclick*="${m}"]`).classList.add('sel');
+  },
+  setDiff(d){
+    this.diff=d;
+    document.querySelectorAll('.menu-section:nth-child(2) .mbtn-sm').forEach(b=>b.classList.remove('sel'));
+    document.querySelectorAll('.menu-section:nth-child(2) .mbtn-sm')[d].classList.add('sel');
+  },
+  setArena(a){
+    this.arena=a;
+    document.querySelectorAll('.menu-section:nth-child(3) .mbtn-sm').forEach(b=>b.classList.remove('sel'));
+    document.querySelectorAll('.menu-section:nth-child(3) .mbtn-sm')[a].classList.add('sel');
+  },
+  setCam(c){
+    this.camMode=c;
+    document.querySelectorAll('.menu-section:nth-child(4) .mbtn-sm').forEach(b=>b.classList.remove('sel'));
+    document.querySelectorAll('.menu-section:nth-child(4) .mbtn-sm')[c].classList.add('sel');
+  },
+  start(){
+    this.state='playing';this.scores=[0,0];this.games=[0,0];
+    this.rallyCount=0;this.longestRally=0;this.totalRallies=0;this.totalPoints=0;
+    this.aces=0;this.winners=0;this.matchTime=0;
+    this.serving=true;this.serverSide=1;
+    document.getElementById('menu').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('hud-center').classList.remove('hidden');
+    document.getElementById('hud-bottom').classList.remove('hidden');
+    this.resetBall(1);
+    showToast('MATCH START!');
+    try{audioCtx.resume()}catch(e){}
+  },
+  resetBall(server){
+    ball.pos.set(0, TH+0.3, server===1 ? -TD/4 : TD/4);
+    ball.vel.set(0,0,0);ball.spin.set(0,0,0);
+    ball.active=false;ball.serving=true;ball.server=server;
+    ball.lastHit=0;ball.bounceCount=0;ball.inPlay=false;ball.trail=[];
+    paddles[0].pos.set(0,TH+0.05,-TD/2-0.15);
+    paddles[1].pos.set(0,TH+0.05,TD/2+0.15);
+  },
+  scorePoint(winner){
+    this.scores[winner]++;this.totalPoints++;
+    if(this.rallyCount>this.longestRally)this.longestRally=this.rallyCount;
+    this.totalRallies+=this.rallyCount;
+    scoreSound(winner===0);
+    if(this.rallyCount<=1&&winner===this.serverSide-1)this.aces++;
+    showToast(winner===0?'POINT - Player!':'POINT - Opponent!');
+    this.updateHUD();
+    if(this.scores[winner]>=this.cfg.pointsToWin&&this.scores[winner]-this.scores[1-winner]>=2){
+      this.games[winner]++;
+      showToast(winner===0?'YOU WIN THE GAME!':'GAME OVER - AI Wins',3000);
+      setTimeout(()=>{this.scores=[0,0];this.serverSide=this.serverSide===1?2:1;this.updateHUD()},2000);
+    }
+    this.rallyCount=0;
+    const nextServer=(this.totalPoints%2===0)?1:2;
+    setTimeout(()=>this.resetBall(nextServer),1200);
+  },
+  serve(){
+    if(!ball.serving)return;
+    ball.serving=false;ball.active=true;ball.inPlay=true;
+    const dir=ball.server===1?1:-1;
+    const speed=3*this.cfg.ballSpeedMult;
+    ball.vel.set((Math.random()-0.5)*0.5, 2.5, dir*speed);
+    ball.spin.set(0,0,0);
+    hitSound();
+    emitParts(ball.pos.clone(),ball.vel.mul(0.3),[1,0.8,0.3],8,0.02,0.5);
+  },
+  pause(){
+    if(this.state==='playing'){this.state='paused';showToast('PAUSED')}
+    else if(this.state==='paused'){this.state='playing';showToast('GO!')}
+  },
+  toggleCam(){this.camMode=(this.camMode+1)%5},
+  showMatchStats(){
+    const el=document.getElementById('stats-overlay');
+    const avgRally=this.totalPoints>0?(this.totalRallies/this.totalPoints).toFixed(1):0;
+    el.innerHTML=`<h2>MATCH STATISTICS</h2>
+    <div class="stat-row"><span class="label">Score</span><span class="value">${this.scores[0]} - ${this.scores[1]}</span></div>
+    <div class="stat-row"><span class="label">Games Won</span><span class="value">${this.games[0]} - ${this.games[1]}</span></div>
+    <div class="stat-row"><span class="label">Total Points</span><span class="value">${this.totalPoints}</span></div>
+    <div class="stat-row"><span class="label">Longest Rally</span><span class="value">${this.longestRally}</span></div>
+    <div class="stat-row"><span class="label">Avg Rally</span><span class="value">${avgRally}</span></div>
+    <div class="stat-row"><span class="label">Aces</span><span class="value">${this.aces}</span></div>
+    <div class="stat-row"><span class="label">Match Time</span><span class="value">${floor(this.matchTime/60)}:${('0'+floor(this.matchTime%60)).slice(-2)}</span></div>
+    <div style="text-align:center;margin-top:15px"><button class="mbtn" onclick="document.getElementById('stats-overlay').style.display='none'">Close</button></div>`;
+    el.style.display='block';
+  },
+  slowMo(){this.slowMoActive=!this.slowMoActive;this.slowMoTimer=this.slowMoActive?3:0},
+  showSettings(){document.getElementById('settings-panel').style.display='block'},
+  hideSettings(){document.getElementById('settings-panel').style.display='none'},
+  showCustomize(){showToast('🎨 Customize coming soon!',1500)},
+  updateHUD(){
+    document.getElementById('p1-score').textContent=this.scores[0];
+    document.getElementById('p2-score').textContent=this.scores[1];
+    document.getElementById('p1-details').textContent=`Games: ${this.games[0]}`;
+    document.getElementById('p2-details').textContent=`Games: ${this.games[1]}`;
+    document.getElementById('p2-name').textContent=this.diffSettings[this.diff].name+' AI';
+    document.getElementById('rally-count').textContent='RALLY: '+this.rallyCount;
+    const speed=(ball.vel.len()*100).toFixed(0);
+    document.getElementById('ball-speed').textContent=speed+' km/h';
+    let spinType='No Spin';
+    const sl=ball.spin.len();
+    if(sl>0.5){
+      if(abs(ball.spin.x)>abs(ball.spin.y)&&abs(ball.spin.x)>abs(ball.spin.z))spinType=ball.spin.x>0?'Topspin':'Backspin';
+      else if(abs(ball.spin.y)>abs(ball.spin.z))spinType=ball.spin.y>0?'Left Sidespin':'Right Sidespin';
+      else spinType='Gyrospin';
+    }
+    document.getElementById('spin-info').textContent=spinType+' ('+sl.toFixed(1)+')';
+  }
+};
+function updatePhysics(dt){
+  if(G.state!=='playing')return;
+  G.matchTime+=dt;
+  const grav=G.cfg.gravity;
+  const airRes=G.cfg.airRes;
+  const spinMult=G.cfg.spinMult;
+  if(ball.serving){
+    ball.pos.set(paddles[ball.server-1].pos.x, TH+0.2, paddles[ball.server-1].pos.z+(ball.server===1?0.1:-0.1));
+    if(input.keys['Space']||input.keys['KeyW']||(input.mouseDown&&ball.server===1)){G.serve()}
+    return;
+  }
+  if(!ball.active)return;
+  ball.vel.y-=grav*dt;
+  const magnusForce=ball.spin.cross(ball.vel).mul(0.0003*spinMult);
+  ball.vel.addTo(magnusForce);
+  const speed=ball.vel.len();
+  if(speed>0.01){
+    const drag=ball.vel.norm().mul(-airRes*speed*speed*dt);
+    ball.vel.addTo(drag);
+  }
+  ball.spin.mulTo(0.998);
+  ball.pos.addTo(ball.vel.mul(dt));
+  ball.trail.push(ball.pos.clone());
+  if(ball.trail.length>60)ball.trail.shift();
+  const tableTop=TH;
+  if(ball.pos.y-ball.r<=tableTop&&ball.vel.y<0){
+    if(abs(ball.pos.x)<TW/2&&abs(ball.pos.z)<TD/2){
+      ball.pos.y=tableTop+ball.r;
+      ball.vel.y*=-0.85;
+      ball.vel.x*=(1-G.cfg.tableFriction*0.1);
+      ball.vel.z*=(1-G.cfg.tableFriction*0.1);
+      const spinEffect=ball.spin.mul(0.02*spinMult);
+      ball.vel.x+=spinEffect.x;
+      ball.vel.z+=spinEffect.z;
+      ball.bounceCount++;
+      bounceSound();
+      emitParts(ball.pos.clone(),new V3(0,1,0),[1,1,0.5],5,0.02,0.4);
+      if(ball.bounceCount>1&&ball.inPlay){
+        const side=ball.pos.z<0?0:1;
+        const scorer=side===0?1:0;
+        G.scorePoint(scorer);
+        ball.active=false;return;
+      }
+    } else {
+      const scorer=ball.pos.z<0?1:0;
+      G.scorePoint(scorer);
+      ball.active=false;return;
+    }
+  }
+  if(ball.pos.y-ball.r<-0.5){
+    const scorer=ball.pos.z<0?1:0;
+    G.scorePoint(scorer);
+    ball.active=false;return;
+  }
+  const netZ=0,netTop=tableTop+NH*G.cfg.netHeightMult;
+  if(abs(ball.pos.z)<0.03&&ball.pos.y<netTop&&ball.pos.y>tableTop&&abs(ball.pos.x)<NW/2){
+    if(ball.vel.z>0&&ball.pos.z<0||ball.vel.z<0&&ball.pos.z>0){
+      if(ball.pos.y>netTop-0.02){
+        ball.vel.y=abs(ball.vel.y)*0.5;ball.pos.y=netTop+ball.r;
+        ball.vel.z*=0.3;
+      } else {
+        ball.vel.z*=-0.3;ball.vel.y*=0.5;
+        netSound();
+        emitParts(ball.pos.clone(),new V3(0,0.5,0),[0.8,0.8,0.8],10,0.05,0.5);
+        const scorer=ball.pos.z<0?1:0;
+        setTimeout(()=>{if(ball.active){G.scorePoint(scorer);ball.active=false}},500);
+      }
+    }
+  }
+  if(abs(ball.pos.x)>TW*2||abs(ball.pos.z)>TD*3||ball.pos.y<-2){
+    const scorer=ball.pos.z<0?1:0;G.scorePoint(scorer);ball.active=false;return;
+  }
+  for(let pi=0;pi<2;pi++){
+    const p=paddles[pi];
+    const diff=ball.pos.sub(p.pos);
+    const dist=diff.len();
+    if(dist<p.r+ball.r+0.02){
+      const expectedDir=pi===0?1:-1;
+      if(ball.vel.z*expectedDir<0||abs(ball.vel.z)<0.5){
+        const normal=diff.norm();
+        const relVel=ball.vel.dot(normal);
+        if(relVel<0||dist<p.r+ball.r){
+          ball.vel=ball.vel.sub(normal.mul(relVel*2));
+          const paddleSpeed=p.vel.len();
+          const power=1+paddleSpeed*2;
+          ball.vel.mulTo(power*0.8);
+          ball.vel.z=abs(ball.vel.z)*expectedDir;
+          const offsetX=(ball.pos.x-p.pos.x)/p.r;
+          const offsetY=(ball.pos.y-p.pos.y)/0.1;
+          ball.spin.set(
+            -offsetY*5*spinMult,
+            offsetX*3*spinMult,
+            (pi===0?1:-1)*2*spinMult
+          );
+          if(input.keys['ShiftLeft']||input.keys['ShiftRight']){
+            ball.spin.mulTo(2);
+          }
+          ball.vel.x+=offsetX*1.5;
+          ball.vel.y=max(ball.vel.y,0.5+abs(offsetY)*2);
+          const maxSpeed=8*G.cfg.ballSpeedMult;
+          if(ball.vel.len()>maxSpeed)ball.vel=ball.vel.norm().mul(maxSpeed);
+          ball.lastHit=pi;ball.bounceCount=0;ball.inPlay=true;
+          G.rallyCount++;
+          hitSound();
+          const hitCol=pi===0?[0.3,0.8,1]:[1,0.3,0.3];
+          emitParts(ball.pos.clone(),ball.vel.mul(0.2),hitCol,12,0.03,0.6);
+          if(paddleSpeed>2)emitParts(ball.pos.clone(),ball.vel.mul(0.5),[1,1,0.3],20,0.04,0.8);
+        }
+      }
+    }
+  }
+  G.updateHUD();
+}
+function updatePlayerPaddle(dt){
+  const p=paddles[0];
+  const targetX=clamp(input.mx*TW/2,-TW/2+0.1,TW/2-0.1);
+  const targetY=clamp(TH+0.05+input.my*0.3,TH+0.02,TH+0.4);
+  const targetZ=-TD/2-0.15+clamp((input.my+0.5)*0.2,-0.1,0.15);
+  const oldPos=p.pos.clone();
+  p.pos.x=lerp(p.pos.x,targetX,min(1,dt*20));
+  p.pos.y=lerp(p.pos.y,targetY,min(1,dt*15));
+  p.pos.z=lerp(p.pos.z,targetZ,min(1,dt*15));
+  if(input.keys['KeyA'])p.pos.x-=2*dt;
+  if(input.keys['KeyD'])p.pos.x+=2*dt;
+  if(input.keys['KeyW'])p.pos.z+=1.5*dt;
+  if(input.keys['KeyS'])p.pos.z-=1.5*dt;
+  p.pos.x=clamp(p.pos.x,-TW/2,TW/2);
+  p.pos.z=clamp(p.pos.z,-TD/2-0.3,-TD/2+0.05);
+  p.vel=p.pos.sub(oldPos).div(max(dt,0.001));
+  p.angle=lerp(p.angle,-input.dx*0.01,0.1);
+  p.tilt=lerp(p.tilt,input.dy*0.005,0.1);
+}
+function updateAI(dt){
+  const p=paddles[1];const ds=G.diffSettings[G.diff];
+  let targetX=0,targetY=TH+0.05,targetZ=TD/2+0.15;
+  if(ball.active&&!ball.serving){
+    const bz=ball.pos.z,bvz=ball.vel.z;
+    if(bvz>0){
+      const timeToArrive=max(0,(TD/2-bz)/max(bvz,0.1));
+      const predictX=ball.pos.x+ball.vel.x*timeToArrive*ds.predict;
+      const predictY=ball.pos.y+ball.vel.y*timeToArrive-0.5*G.cfg.gravity*timeToArrive*timeToArrive;
+      targetX=predictX+(Math.random()-0.5)*0.1*(1-ds.accuracy);
+      targetY=max(TH+0.02,predictY)+(Math.random()-0.5)*0.05*(1-ds.accuracy);
+      targetZ=TD/2+0.05;
+    } else {
+      targetX=0+(Math.random()-0.5)*0.3;
+      targetZ=TD/2+0.15;
+    }
+  } else if(ball.serving&&ball.server===2){
+    if(Math.random()<0.02)G.serve();
+  }
+  targetX=clamp(targetX,-TW/2+0.1,TW/2-0.1);
+  const speed=ds.speed*5;
+  const oldPos=p.pos.clone();
+  p.pos.x=lerp(p.pos.x,targetX,min(1,dt*speed*(1+ds.react*10)));
+  p.pos.y=lerp(p.pos.y,targetY,min(1,dt*speed));
+  p.pos.z=lerp(p.pos.z,targetZ,min(1,dt*speed));
+  p.pos.x=clamp(p.pos.x,-TW/2,TW/2);
+  p.pos.z=clamp(p.pos.z,TD/2-0.05,TD/2+0.3);
+  p.vel=p.pos.sub(oldPos).div(max(dt,0.001));
+}
+function getCameraMatrices(){
+  const proj=new M4().perspective(PI/3,W/H,0.01,100);
+  let eye,target,up=new V3(0,1,0);
+  const bp=ball.pos;
+  switch(G.camMode){
+    case 0:
+      eye=new V3(lerp(0,bp.x*0.3,0.5),1.5+abs(bp.y)*0.3,-TD/2-1.2);
+      target=new V3(bp.x*0.3,TH+0.1,0);break;
+    case 1:
+      eye=new V3(TW/2+1.5,1.2,0);target=new V3(0,TH+0.1,0);break;
+    case 2:
+      eye=new V3(0,3.5,0.01);target=new V3(0,0,0);break;
+    case 3:
+      eye=paddles[0].pos.add(new V3(0,0.15,-0.05));target=new V3(bp.x,bp.y,bp.z);break;
+    case 4:{
+      const t=G.matchTime*0.15;
+      eye=new V3(cos(t)*2.5,1.2+sin(t*0.7)*0.5,sin(t)*2.5);
+      target=new V3(0,TH+0.1,0);break;
+    }
+    default:eye=new V3(0,1.5,-2);target=new V3(0,TH,0);
+  }
+  const view=new M4().lookAt(eye,target,up);
+  return{proj,view,eye};
+}
+function drawMesh(mesh,model,color,metallic=0,roughness=0.5,emissive=0,texMode=0){
+  gl.uniformMatrix4fv(u1.uModel,false,model.m);
+  gl.uniform4f(u1.uColor,color[0],color[1],color[2],color[3]||1);
+  gl.uniform1f(u1.uMetallic,metallic);
+  gl.uniform1f(u1.uRoughness,roughness);
+  gl.uniform1f(u1.uEmissive,emissive);
+  gl.uniform1i(u1.uTexMode,texMode);
+  gl.bindVertexArray(mesh.vao);
+  if(mesh.indexed)gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+  else gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+}
+function drawShadowMesh(mesh,model){
+  gl.uniformMatrix4fv(uSh.uModel,false,model.m);
+  gl.bindVertexArray(mesh.vao);
+  if(mesh.indexed)gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+  else gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+}
+function drawScene(cam,shadowPass){
+  const ac=G.arenaColors[G.arena];
+  const tableModel=new M4().translate(0,TH/2,0).scale(TW,TH,TD);
+  const legPositions=[[-TW/2+0.1,0,-TD/2+0.1],[TW/2-0.1,0,-TD/2+0.1],[-TW/2+0.1,0,TD/2-0.1],[TW/2-0.1,0,TD/2-0.1]];
+  const netModel=new M4().translate(0,TH+NH*G.cfg.netHeightMult/2,0).scale(NW,NH*G.cfg.netHeightMult,0.005);
+  const floorModel=new M4().translate(0,-0.01,0).scale(12,0.02,8);
+  const ballModel=new M4().translate(ball.pos.x,ball.pos.y,ball.pos.z).scale(ball.r,ball.r,ball.r);
+  const p1Model=new M4().translate(paddles[0].pos.x,paddles[0].pos.y,paddles[0].pos.z).rotateX(paddles[0].tilt).rotateY(paddles[0].angle).scale(1,1,1);
+  const p2Model=new M4().translate(paddles[1].pos.x,paddles[1].pos.y,paddles[1].pos.z).rotateY(PI).scale(1,1,1);
+  if(shadowPass){
+    drawShadowMesh(meshBox,tableModel);
+    for(const lp of legPositions){
+      drawShadowMesh(meshBox,new M4().translate(lp[0],TH/2-0.38,lp[2]).scale(0.04,0.76,0.04));
+    }
+    drawShadowMesh(meshSphere,ballModel);
+    drawShadowMesh(meshPaddle,p1Model);
+    drawShadowMesh(meshPaddle,p2Model);
+    return;
+  }
+  drawMesh(meshPlane,floorModel,ac.floor,0,0.8,0,2);
+  drawMesh(meshBox,tableModel,ac.table,0.1,0.3,0,1);
+  for(const lp of legPositions){
+    drawMesh(meshBox,new M4().translate(lp[0],TH/2-0.38,lp[2]).scale(0.04,0.76,0.04),[0.3,0.2,0.1,1],0,0.7);
+  }
+  drawMesh(meshBox,netModel,[0.9,0.9,0.9,0.5],0.3,0.4);
+  const netPostL=new M4().translate(-NW/2,TH+NH*G.cfg.netHeightMult/2,0).scale(0.01,NH*G.cfg.netHeightMult+0.01,0.01);
+  const netPostR=new M4().translate(NW/2,TH+NH*G.cfg.netHeightMult/2,0).scale(0.01,NH*G.cfg.netHeightMult+0.01,0.01);
+  drawMesh(meshBox,netPostL,[0.7,0.7,0.7,1],0.8,0.2);
+  drawMesh(meshBox,netPostR,[0.7,0.7,0.7,1],0.8,0.2);
+  const centerLineModel=new M4().translate(0,TH+0.001,0).scale(0.01,0.001,TD);
+  drawMesh(meshBox,centerLineModel,[1,1,1,0.5],0,1);
+  const edgeW=0.015;
+  drawMesh(meshBox,new M4().translate(0,TH+0.001,-TD/2).scale(TW,0.001,edgeW),[1,1,1,0.7],0,1);
+  drawMesh(meshBox,new M4().translate(0,TH+0.001,TD/2).scale(TW,0.001,edgeW),[1,1,1,0.7],0,1);
+  drawMesh(meshBox,new M4().translate(-TW/2,TH+0.001,0).scale(edgeW,0.001,TD),[1,1,1,0.7],0,1);
+  drawMesh(meshBox,new M4().translate(TW/2,TH+0.001,0).scale(edgeW,0.001,TD),[1,1,1,0.7],0,1);
+  if(ball.active||ball.serving){
+    const spinGlow=ball.spin.len()*0.1;
+    const bc=[1,0.95,0.9,1];
+    drawMesh(meshSphere,ballModel,bc,0,0.4,spinGlow);
+  }
+  const p1Col=G.arena===1?[0,0.8,1,1]:[0.8,0.15,0.15,1];
+  const p2Col=G.arena===1?[1,0,0.8,1]:[0.15,0.15,0.8,1];
+  drawMesh(meshPaddle,p1Model,p1Col,0.1,0.4,0);
+  drawMesh(meshPaddle,p2Model,p2Col,0.1,0.4,0);
+  if(G.arena===1){
+    for(let i=0;i<8;i++){
+      const a=i/8*TAU+G.matchTime*0.5;
+      const r2=TW*0.8;
+      const lm=new M4().translate(cos(a)*r2,-0.01,sin(a)*r2).scale(0.05,0.3,0.05);
+      const hue=i/8;
+      drawMesh(meshBox,lm,[sin(hue*TAU)*0.5+0.5,sin(hue*TAU+2)*0.5+0.5,sin(hue*TAU+4)*0.5+0.5,0.8],0,0.5,2);
+    }
+  }
+  if(G.arena===3){
+    for(let i=0;i<20;i++){
+      const a=i*0.3+G.matchTime*0.01;
+      const r2=2+sin(i*1.7)*1.5;
+      const y2=1+cos(i*2.3)*0.8;
+      const sm=new M4().translate(cos(a)*r2,y2,sin(a)*r2).scale(0.02,0.02,0.02);
+      drawMesh(meshSphere,sm,[1,1,1,0.5],0,0,3);
+    }
+  }
+}
+function renderParticles(cam){
+  if(G.cfg.particles==='off'||partCount===0)return;
+  gl.useProgram(progPt);
+  gl.uniformMatrix4fv(uPt.uProj,false,cam.proj.m);
+  gl.uniformMatrix4fv(uPt.uView,false,cam.view.m);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,partPos,0,partCount*3);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,partCol,0,partCount*4);
+  gl.bindVertexArray(partVAO);
+  gl.drawArrays(gl.POINTS,0,partCount);
+  gl.bindVertexArray(null);
+}
+function renderTrail(cam){
+  if(ball.trail.length<2)return;
+  gl.useProgram(progPt);
+  gl.uniformMatrix4fv(uPt.uProj,false,cam.proj.m);
+  gl.uniformMatrix4fv(uPt.uView,false,cam.view.m);
+  const tp=new Float32Array(ball.trail.length*3);
+  const tc=new Float32Array(ball.trail.length*4);
+  for(let i=0;i<ball.trail.length;i++){
+    const t=ball.trail[i];const a=i/ball.trail.length;
+    tp[i*3]=t.x;tp[i*3+1]=t.y;tp[i*3+2]=t.z;
+    const spinL=ball.spin.len();
+    tc[i*4]=0.5+spinL*0.1;tc[i*4+1]=0.7;tc[i*4+2]=1;tc[i*4+3]=a*0.5;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,tp);
+  gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,tc);
+  gl.bindVertexArray(partVAO);
+  gl.drawArrays(gl.POINTS,0,ball.trail.length);
+  gl.bindVertexArray(null);
+}
+let lastTime=0,fpsC=0,fpsT=0,fpsV=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=min((now-lastTime)/1000,0.05);
+  lastTime=now;
+  if(G.slowMoActive){dt*=0.2;G.slowMoTimer-=dt*5;if(G.slowMoTimer<=0)G.slowMoActive=false}
+  fpsC++;if(now-fpsT>1000){fpsV=fpsC;fpsC=0;fpsT=now}
+  if(G.state==='playing'){
+    updatePlayerPaddle(dt);
+    updateAI(dt);
+    updatePhysics(dt);
+    updateParts(dt);
+  }
+  const cam=getCameraMatrices();
+  const ac=G.arenaColors[G.arena];
+  const lightDir=new V3(0.5,1,0.3).norm();
+  const lightProj=new M4().perspective(PI/3,1,0.1,50);
+  const lightView=new M4().lookAt(lightDir.mul(5),new V3(0,0,0),new V3(0,1,0));
+  const shadowMat=lightProj.mul(lightView);
+  const biasMatrix=new M4();biasMatrix.m.set([0.5,0,0,0,0,0.5,0,0,0,0,0.5,0,0.5,0.5,0.5,1]);
+  const finalShadowMat=biasMatrix.mul(shadowMat);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFBO);
+  gl.viewport(0,0,1024,1024);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.useProgram(progSh);
+  gl.uniformMatrix4fv(uSh.uProj,false,lightProj.m);
+  gl.uniformMatrix4fv(uSh.uView,false,lightView.m);
+  drawScene(cam,true);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,cv.width,cv.height);
+  gl.clearColor(ac.bg[0],ac.bg[1],ac.bg[2],1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(prog1);
+  gl.uniformMatrix4fv(u1.uProj,false,cam.proj.m);
+  gl.uniformMatrix4fv(u1.uView,false,cam.view.m);
+  gl.uniform3f(u1.uLightDir,lightDir.x,lightDir.y,lightDir.z);
+  gl.uniform3f(u1.uLightCol,ac.light[0],ac.light[1],ac.light[2]);
+  gl.uniform3f(u1.uAmbient,ac.ambient[0],ac.ambient[1],ac.ambient[2]);
+  gl.uniform3f(u1.uCamPos,cam.eye.x,cam.eye.y,cam.eye.z);
+  gl.uniformMatrix4fv(u1.uShadowMat,false,finalShadowMat.m);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,shadowTex);
+  gl.uniform1i(u1.uShadowMap,0);
+  gl.uniform1f(u1.uTime,now*0.001);
+  gl.uniform1i(u1.uArena,G.arena);
+  drawScene(cam,false);
+  gl.depthMask(false);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+  renderTrail(cam);
+  renderParticles(cam);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(true);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

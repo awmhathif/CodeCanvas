@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarlogJournal — Captain's Log</title>
+<style>
+/*═══════════════════════════════════════════
+  CSS — LCARS INSPIRED THEME
+═══════════════════════════════════════════*/
+:root{
+  --lcars-orange:#ff9966;--lcars-gold:#ffaa00;--lcars-sunflower:#ffcc99;
+  --lcars-peach:#ff8866;--lcars-violet:#cc99ff;--lcars-lilac:#cc55ff;
+  --lcars-blue:#5566ff;--lcars-bluey:#8899ff;--lcars-sky:#aaaaff;
+  --lcars-ice:#99ccff;--lcars-magenta:#cc5599;--lcars-red:#cc4444;
+  --lcars-green:#999933;--lcars-lima:#cccc66;--lcars-almond:#ffaa90;
+  --lcars-gray:#666688;--lcars-white:#f5f6fa;
+  --bg0:#000000;--bg1:#0a0a14;--bg2:#111122;--bg3:#1a1a33;
+  --tx0:#f5f6fa;--tx1:#c0c0d8;--tx2:#8080a0;
+  --panel-bg:rgba(10,10,20,.85);
+  --radius:20px;--radius-sm:8px;--radius-pill:50px;
+  --font-lcars:'Century Gothic','Trebuchet MS',Arial,sans-serif;
+  --font-mono:'Courier New',monospace;
+  --font-ui:'Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:#000;color:var(--tx0);font-family:var(--font-lcars);font-size:13px;}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--lcars-gray);border-radius:3px;}
+button{font-family:var(--font-lcars);cursor:pointer;border:none;outline:none;}
+input,select,textarea{font-family:var(--font-lcars);background:var(--bg2);border:1px solid var(--bg3);color:var(--tx0);border-radius:4px;padding:6px 10px;font-size:13px;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--lcars-orange);}
+textarea{resize:vertical;}
+
+/*═══ LAYOUT ═══*/
+#app{display:grid;grid-template-columns:80px 1fr 340px;grid-template-rows:60px 1fr 48px;height:100vh;gap:0;position:relative;}
+
+/*═══ VIEWSCREEN CANVAS ═══*/
+#viewscreen{position:fixed;inset:0;z-index:0;}
+
+/*═══ TOP BAR — LCARS Header ═══*/
+#topBar{grid-column:1/-1;grid-row:1;display:flex;align-items:stretch;z-index:10;position:relative;}
+.lcars-elbow{width:80px;min-width:80px;background:var(--lcars-orange);border-radius:0 0 0 var(--radius);position:relative;}
+.lcars-elbow::after{content:'';position:absolute;right:0;bottom:0;width:40px;height:20px;background:var(--bg0);border-radius:var(--radius) 0 0 0;}
+.lcars-bar{flex:1;display:flex;align-items:center;gap:0;padding-left:12px;}
+.lcars-bar::before{content:'';width:100%;height:24px;background:var(--lcars-orange);position:absolute;top:0;left:80px;right:0;z-index:-1;}
+.lcars-btn{height:24px;padding:0 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#000;display:flex;align-items:center;white-space:nowrap;transition:.15s;border-radius:0;}
+.lcars-btn:hover{filter:brightness(1.2);}
+.lcars-btn.orange{background:var(--lcars-orange);}
+.lcars-btn.gold{background:var(--lcars-gold);}
+.lcars-btn.sunflower{background:var(--lcars-sunflower);}
+.lcars-btn.violet{background:var(--lcars-violet);}
+.lcars-btn.peach{background:var(--lcars-peach);}
+.lcars-btn.blue{background:var(--lcars-blue);color:#fff;}
+.lcars-btn.sky{background:var(--lcars-sky);}
+.lcars-btn.ice{background:var(--lcars-ice);}
+.lcars-btn.magenta{background:var(--lcars-magenta);color:#fff;}
+.lcars-pill{border-radius:var(--radius-pill);padding:0 18px;margin:0 2px;}
+.topSpacer{flex:1;height:24px;background:var(--lcars-sunflower);min-width:20px;}
+#stardate{font-family:var(--font-mono);font-size:14px;color:var(--lcars-orange);background:var(--bg0);padding:2px 14px;border-radius:var(--radius-pill);border:1px solid var(--lcars-orange);letter-spacing:1px;margin:0 8px;}
+.lcars-cap{width:30px;height:24px;border-radius:0 var(--radius-pill) var(--radius-pill) 0;}
+
+/*═══ LEFT RAIL — LCARS Sidebar ═══*/
+#leftRail{grid-column:1;grid-row:2;background:var(--panel-bg);display:flex;flex-direction:column;z-index:10;padding-top:4px;}
+.rail-segment{width:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:center;}
+.rail-block{width:60px;margin:0 auto;border-radius:var(--radius-sm);padding:8px 4px;text-align:center;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#000;cursor:pointer;transition:.15s;}
+.rail-block:hover{filter:brightness(1.2);transform:scale(1.05);}
+.rail-block.active{box-shadow:0 0 12px rgba(255,153,102,.4);}
+.rail-spacer{width:60px;height:2px;background:var(--bg3);margin:2px auto;}
+.rail-fill{flex:1;width:60px;margin:0 auto;border-radius:0 0 var(--radius-sm) var(--radius-sm);min-height:20px;}
+
+/*═══ CENTER — Main Content ═══*/
+#center{grid-column:2;grid-row:2;z-index:10;display:flex;flex-direction:column;overflow:hidden;padding:8px;}
+
+/* PADD-style entry area */
+#padd{flex:1;background:var(--panel-bg);border:1px solid var(--bg3);border-radius:var(--radius-sm);display:flex;flex-direction:column;overflow:hidden;backdrop-filter:blur(6px);position:relative;}
+#paddHeader{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bg3);min-height:40px;}
+#paddHeader .paddTitle{font-size:14px;color:var(--lcars-orange);font-weight:700;letter-spacing:1px;flex:1;}
+#paddHeader .paddBtn{background:var(--bg3);color:var(--tx1);padding:4px 12px;border-radius:var(--radius-pill);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;transition:.15s;}
+#paddHeader .paddBtn:hover{background:var(--lcars-orange);color:#000;}
+#paddHeader .paddBtn.recording{background:var(--lcars-red);color:#fff;animation:recPulse 1s infinite;}
+@keyframes recPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+#entryMeta{display:flex;gap:8px;padding:8px 12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--bg3);}
+#entryMeta select,#entryMeta input{font-size:11px;padding:3px 8px;}
+#entryMeta .tag{padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:700;cursor:pointer;transition:.15s;}
+#entryMeta .tag.first-contact{background:var(--lcars-lilac);color:#000;}
+#entryMeta .tag.first-contact.active{box-shadow:0 0 8px var(--lcars-lilac);}
+#entryBody{flex:1;padding:12px;overflow-y:auto;}
+#entryBody textarea{width:100%;height:100%;background:transparent;border:none;color:var(--tx0);font-size:14px;line-height:1.7;font-family:var(--font-lcars);resize:none;}
+#entryBody textarea::placeholder{color:var(--tx2);}
+#paddFooter{display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--bg3);font-size:10px;color:var(--tx2);}
+#wordCount{margin-left:auto;}
+
+/* Entry list / warp view */
+#entryList{display:none;flex:1;overflow-y:auto;padding:8px 12px;}
+.entryItem{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-sm);padding:10px;margin-bottom:6px;cursor:pointer;transition:.2s;}
+.entryItem:hover{border-color:var(--lcars-orange);}
+.entryItem.active{border-color:var(--lcars-orange);box-shadow:0 0 10px rgba(255,153,102,.15);}
+.entryItem .eiDate{font-family:var(--font-mono);font-size:11px;color:var(--lcars-orange);}
+.entryItem .eiSector{font-size:10px;color:var(--lcars-violet);margin-top:2px;}
+.entryItem .eiPreview{font-size:12px;color:var(--tx1);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.entryItem .eiBadges{display:flex;gap:4px;margin-top:4px;}
+.entryItem .eiBadge{font-size:8px;padding:1px 6px;border-radius:var(--radius-pill);font-weight:700;}
+
+/*═══ RIGHT PANEL ═══*/
+#rightPanel{grid-column:3;grid-row:2;z-index:10;display:flex;flex-direction:column;overflow:hidden;background:var(--panel-bg);backdrop-filter:blur(6px);border-left:1px solid var(--bg3);}
+#rightTabs{display:flex;border-bottom:1px solid var(--bg3);}
+.rTab{flex:1;padding:8px 4px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--tx2);background:none;text-align:center;border-bottom:2px solid transparent;transition:.2s;font-weight:700;}
+.rTab:hover{color:var(--tx0);}
+.rTab.active{color:var(--lcars-orange);border-bottom-color:var(--lcars-orange);}
+.rBody{flex:1;overflow-y:auto;padding:10px;display:none;}
+.rBody.active{display:block;}
+
+/* Star Map */
+#starMap{width:100%;aspect-ratio:1;background:radial-gradient(ellipse at center,#0a0a20 0%,#000 70%);border-radius:var(--radius-sm);border:1px solid var(--bg3);position:relative;overflow:hidden;margin-bottom:8px;}
+.planet{position:absolute;border-radius:50%;cursor:pointer;transition:.3s;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.planet:hover{transform:scale(1.2);z-index:2;}
+.planet .pLabel{position:absolute;bottom:-14px;font-size:8px;color:var(--tx2);white-space:nowrap;text-align:center;}
+.orbit{position:absolute;border-radius:50%;border:1px dashed rgba(255,255,255,.06);}
+
+/* Counselor */
+.counselorCard{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;}
+.counselorCard h4{font-size:10px;color:var(--lcars-violet);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.moodBar{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.moodBar .mLabel{font-size:10px;color:var(--tx2);width:50px;}
+.moodBar .mTrack{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.moodBar .mFill{height:100%;border-radius:3px;transition:width .5s;}
+.moodEmoji{font-size:28px;text-align:center;margin:8px 0;}
+
+/* Mission Objectives */
+.missionItem{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-sm);margin-bottom:4px;}
+.missionItem input[type=checkbox]{accent-color:var(--lcars-orange);width:16px;height:16px;}
+.missionItem .mText{flex:1;font-size:12px;}
+.missionItem .mText.done{text-decoration:line-through;color:var(--tx2);}
+.missionItem .mDel{background:none;color:var(--tx2);font-size:14px;padding:0 4px;}
+
+/* Hailing Frequencies */
+.hailCard{background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--lcars-orange);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;cursor:pointer;transition:.2s;}
+.hailCard:hover{background:rgba(255,153,102,.08);}
+.hailCard .hIcon{font-size:20px;margin-bottom:4px;}
+.hailCard .hText{font-size:12px;color:var(--lcars-sunflower);line-height:1.4;font-style:italic;}
+
+/* Year in Review */
+.yearStat{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg3);}
+.yearStat .ysVal{font-size:24px;font-weight:900;color:var(--lcars-orange);width:60px;text-align:right;font-variant-numeric:tabular-nums;}
+.yearStat .ysLabel{font-size:11px;color:var(--tx1);}
+
+/*═══ BOTTOM BAR ═══*/
+#bottomBar{grid-column:1/-1;grid-row:3;display:flex;align-items:stretch;z-index:10;}
+.lcars-elbow-bl{width:80px;min-width:80px;background:var(--lcars-bluey);border-radius:var(--radius) 0 0 0;position:relative;}
+.lcars-elbow-bl::after{content:'';position:absolute;right:0;top:0;width:40px;height:20px;background:var(--bg0);border-radius:0 0 var(--radius) 0;}
+.bottom-bar-content{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;position:relative;}
+.bottom-bar-content::before{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:var(--lcars-bluey);z-index:-1;}
+.bottomInfo{font-size:10px;color:#000;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:var(--lcars-bluey);padding:2px 10px;border-radius:var(--radius-pill);z-index:1;}
+.bottomSpacer{flex:1;height:24px;background:var(--lcars-sky);z-index:1;}
+.lcars-cap-br{width:30px;height:24px;background:var(--lcars-sky);border-radius:0 var(--radius-pill) var(--radius-pill) 0;z-index:1;}
+
+/*═══ WARP ANIMATION ═══*/
+#warpOverlay{position:fixed;inset:0;z-index:5000;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;}
+#warpOverlay.active{display:flex;}
+#warpOverlay canvas{position:absolute;inset:0;}
+#warpText{position:relative;z-index:1;font-family:var(--font-mono);font-size:18px;color:var(--lcars-ice);letter-spacing:3px;}
+
+/*═══ MODAL ═══*/
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:3000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s;}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{background:var(--bg2);border:2px solid var(--lcars-orange);border-radius:var(--radius-sm);padding:24px;width:500px;max-width:92vw;max-height:85vh;overflow-y:auto;transform:translateY(16px);transition:.3s;}
+.modal-overlay.show .modal-box{transform:translateY(0);}
+.modal-box h2{font-size:16px;color:var(--lcars-orange);margin-bottom:14px;letter-spacing:1px;}
+.modal-box label{display:block;font-size:10px;color:var(--tx2);margin-bottom:3px;margin-top:10px;text-transform:uppercase;letter-spacing:1px;}
+.modal-box input,.modal-box select,.modal-box textarea{width:100%;}
+.mActions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+.btn-cancel{background:var(--bg3);color:var(--tx1);padding:6px 16px;border-radius:var(--radius-pill);font-weight:700;font-size:11px;}
+.btn-save{background:var(--lcars-orange);color:#000;padding:6px 16px;border-radius:var(--radius-pill);font-weight:700;font-size:11px;}
+.btn-del{background:var(--lcars-red);color:#fff;padding:6px 16px;border-radius:var(--radius-pill);font-weight:700;font-size:11px;}
+
+/*═══ TOAST ═══*/
+#toasts{position:fixed;top:68px;right:350px;z-index:4000;display:flex;flex-direction:column;gap:4px;}
+.toast{padding:8px 16px;border-radius:var(--radius-pill);font-size:12px;font-weight:600;background:var(--bg3);color:var(--tx0);border-left:4px solid var(--lcars-orange);animation:tIn .3s,tOut .3s 2.7s forwards;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.toast.ok{border-left-color:var(--lcars-green);}
+.toast.err{border-left-color:var(--lcars-red);}
+@keyframes tIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes tOut{to{opacity:0;transform:translateY(-10px);}}
+
+@media(max-width:900px){
+  #app{grid-template-columns:60px 1fr 280px;}
+}
+@media(max-width:700px){
+  #app{grid-template-columns:1fr;grid-template-rows:48px 1fr 44px;}
+  #leftRail,#rightPanel{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- VIEWSCREEN CANVAS -->
+<canvas id="viewscreen"></canvas>
+
+<!-- ═══ TOP BAR ═══ -->
+<div id="topBar">
+  <div class="lcars-elbow"></div>
+  <div class="lcars-bar">
+    <button class="lcars-btn orange lcars-pill" onclick="newEntry()">NEW LOG</button>
+    <button class="lcars-btn gold lcars-pill" onclick="toggleList()">ENTRIES</button>
+    <button class="lcars-btn violet lcars-pill" onclick="warpJump()">WARP</button>
+    <button class="lcars-btn peach lcars-pill" onclick="toggleRecord()" id="recBtn">● REC</button>
+    <div class="topSpacer"></div>
+    <span id="stardate">SD 00000.0</span>
+    <button class="lcars-btn sunflower lcars-pill" onclick="exportData()">EXPORT</button>
+    <button class="lcars-btn ice lcars-pill" onclick="importData()">IMPORT</button>
+    <div class="lcars-btn sky lcars-cap"></div>
+  </div>
+</div>
+
+<!-- ═══ LEFT RAIL ═══ -->
+<div id="leftRail">
+  <div class="rail-segment">
+    <div class="rail-block active" style="background:var(--lcars-orange);" onclick="setView('log')" id="railLog" title="Captain's Log">LOG</div>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-segment">
+    <div class="rail-block" style="background:var(--lcars-violet);" onclick="setView('map')" id="railMap" title="Star Map">MAP</div>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-segment">
+    <div class="rail-block" style="background:var(--lcars-gold);" onclick="setView('missions')" id="railMissions" title="Mission Objectives">OBJ</div>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-segment">
+    <div class="rail-block" style="background:var(--lcars-bluey);" onclick="setView('counselor')" id="railCounselor" title="Ship's Counselor">MOOD</div>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-segment">
+    <div class="rail-block" style="background:var(--lcars-peach);" onclick="setView('hail')" id="railHail" title="Hailing Frequencies">HAIL</div>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-segment">
+    <div class="rail-block" style="background:var(--lcars-ice);" onclick="showYearReview()" id="railYear" title="Starfleet Record">YEAR</div>
+  </div>
+  <div class="rail-fill" style="background:var(--lcars-gray);"></div>
+</div>
+
+<!-- ═══ CENTER ═══ -->
+<div id="center">
+  <!-- PADD Entry -->
+  <div id="padd">
+    <div id="paddHeader">
+      <span class="paddTitle" id="paddTitleText">CAPTAIN'S LOG</span>
+      <button class="paddBtn" onclick="saveEntry()">SAVE</button>
+      <button class="paddBtn" onclick="deleteEntry()" id="delEntryBtn" style="display:none;">DELETE</button>
+    </div>
+    <div id="entryMeta">
+      <select id="metaSector" onchange="updateMeta()">
+        <option value="personal">🪐 Personal</option>
+        <option value="career">⭐ Career</option>
+        <option value="health">💚 Health</option>
+        <option value="relationships">💜 Relationships</option>
+        <option value="supplemental">📡 Supplemental</option>
+      </select>
+      <select id="metaMood" onchange="updateMeta()">
+        <option value="5">😊 Excellent</option>
+        <option value="4">🙂 Good</option>
+        <option value="3" selected>😐 Neutral</option>
+        <option value="2">😟 Low</option>
+        <option value="1">😢 Difficult</option>
+      </select>
+      <span class="tag first-contact" id="firstContactTag" onclick="toggleFirstContact()">⚡ FIRST CONTACT</span>
+    </div>
+    <div id="entryBody">
+      <textarea id="entryText" placeholder="Captain's log, supplemental. Begin your entry..."></textarea>
+    </div>
+    <div id="paddFooter">
+      <span id="entryDateDisplay"></span>
+      <span id="wordCount">0 words</span>
+    </div>
+  </div>
+  <!-- Entry List -->
+  <div id="entryList"></div>
+</div>
+
+<!-- ═══ RIGHT PANEL ═══ -->
+<div id="rightPanel">
+  <div id="rightTabs">
+    <button class="rTab active" onclick="switchRTab('map')">Star Map</button>
+    <button class="rTab" onclick="switchRTab('counselor')">Counselor</button>
+    <button class="rTab" onclick="switchRTab('missions')">Missions</button>
+    <button class="rTab" onclick="switchRTab('hail')">Hailing</button>
+  </div>
+
+  <!-- Star Map -->
+  <div class="rBody active" id="rtab-map">
+    <div id="starMap">
+      <div class="orbit" style="width:60%;height:60%;top:20%;left:20%;"></div>
+      <div class="orbit" style="width:80%;height:80%;top:10%;left:10%;"></div>
+      <div class="orbit" style="width:95%;height:95%;top:2.5%;left:2.5%;"></div>
+    </div>
+    <div id="sectorLegend"></div>
+  </div>
+
+  <!-- Counselor -->
+  <div class="rBody" id="rtab-counselor">
+    <div class="counselorCard">
+      <h4>🧠 Ship's Counselor Analysis</h4>
+      <div class="moodEmoji" id="avgMoodEmoji">😐</div>
+      <div class="moodBar"><span class="mLabel">7‑day</span><div class="mTrack"><div class="mFill" id="mood7" style="width:50%;background:var(--lcars-gold);"></div></div></div>
+      <div class="moodBar"><span class="mLabel">30‑day</span><div class="mTrack"><div class="mFill" id="mood30" style="width:50%;background:var(--lcars-violet);"></div></div></div>
+      <div id="counselorAdvice" style="font-size:12px;color:var(--tx1);margin-top:10px;line-height:1.5;"></div>
+    </div>
+    <div class="counselorCard">
+      <h4>📊 Mood Trend — Last 14 Entries</h4>
+      <canvas id="moodChart" width="280" height="100" style="width:100%;"></canvas>
+    </div>
+    <div class="counselorCard">
+      <h4>🏷 Sector Breakdown</h4>
+      <div id="sectorBreakdown"></div>
+    </div>
+  </div>
+
+  <!-- Missions -->
+  <div class="rBody" id="rtab-missions">
+    <div style="display:flex;gap:4px;margin-bottom:8px;">
+      <input id="missionInput" placeholder="New mission objective..." style="flex:1;" onkeydown="if(event.key==='Enter')addMission()">
+      <button class="lcars-btn orange" style="padding:0 12px;border-radius:4px;" onclick="addMission()">+</button>
+    </div>
+    <div id="missionList"></div>
+  </div>
+
+  <!-- Hailing Frequencies -->
+  <div class="rBody" id="rtab-hail">
+    <div style="font-size:10px;color:var(--tx2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Incoming Hailing Frequencies</div>
+    <div id="hailList"></div>
+    <button class="lcars-btn violet" style="width:100%;padding:8px;border-radius:var(--radius-sm);margin-top:8px;" onclick="generateHails()">📡 Open Frequencies</button>
+  </div>
+</div>
+
+<!-- ═══ BOTTOM BAR ═══ -->
+<div id="bottomBar">
+  <div class="lcars-elbow-bl"></div>
+  <div class="bottom-bar-content">
+    <span class="bottomInfo" id="statusText">SYSTEMS NOMINAL</span>
+    <span class="bottomInfo" id="entryCountDisplay">0 ENTRIES</span>
+    <div class="bottomSpacer"></div>
+    <div class="lcars-cap-br"></div>
+  </div>
+</div>
+
+</div>
+
+<!-- WARP OVERLAY -->
+<div id="warpOverlay"><canvas id="warpCanvas"></canvas><div id="warpText">ENGAGING WARP DRIVE...</div></div>
+
+<!-- YEAR REVIEW MODAL -->
+<div class="modal-overlay" id="yearModal">
+  <div class="modal-box" style="width:520px;">
+    <h2>🌟 STARFLEET RECORD — Year in Review</h2>
+    <div id="yearContent"></div>
+    <div class="mActions"><button class="btn-cancel" onclick="closeModal('yearModal')">Dismiss</button></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<input type="file" id="fileIn" accept=".json" style="display:none;" onchange="handleImport(event)">
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const DB='StarlogDB',VER=1,ST='state';
+let db=null;
+let S={
+  entries:[],     // {id,date,stardate,sector,mood,text,firstContact,ts}
+  missions:[],    // {id,text,done}
+  currentId:null,
+  view:'log',     // log|list
+};
+let isRecording=false,recognition=null;
+let listMode=false;
+let firstContactActive=false;
+
+function today(){return new Date().toISOString().slice(0,10);}
+function calcStardate(d){
+  const date=d?new Date(d):new Date();
+  const y=date.getFullYear();
+  const start=new Date(y,0,1);
+  const dayOfYear=Math.floor((date-start)/86400000)+1;
+  const fraction=(dayOfYear/365.25*1000).toFixed(1);
+  return `${y-1900}${String(fraction).padStart(5,'0')}`;
+}
+
+// ── IndexedDB ──
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);r.onupgradeneeded=e=>{e.target.result.createObjectStore(ST);};r.onsuccess=e=>{db=e.target.result;res(db);};r.onerror=e=>rej(e.target.error);});}
+function save(){if(!db)return;db.transaction(ST,'readwrite').objectStore(ST).put(S,'app');}
+function load(){return new Promise(res=>{if(!db)return res(null);const r=db.transaction(ST,'readonly').objectStore(ST).get('app');r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null);});}
+
+// ═══════════════════════════════════════════
+//  AUDIO — Ambient Engine Hum & FX
+// ═══════════════════════════════════════════
+let audioCtx=null,humGain=null,humOscs=[];
+function aud(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+
+function startHum(){
+  try{
+    const c=aud();
+    humGain=c.createGain();humGain.gain.value=0.02;humGain.connect(c.destination);
+    [60,120,85].forEach(f=>{
+      const o=c.createOscillator();o.type='sine';o.frequency.value=f;
+      const g=c.createGain();g.gain.value=f===60?0.03:0.01;
+      o.connect(g).connect(humGain);o.start();humOscs.push(o);
+    });
+    // Subtle filtered noise
+    const buf=c.createBuffer(1,c.sampleRate*2,c.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);
+    const n=c.createBufferSource();n.buffer=buf;n.loop=true;
+    const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=100;
+    const ng=c.createGain();ng.gain.value=0.008;
+    n.connect(f).connect(ng).connect(humGain);n.start();
+  }catch(e){}
+}
+
+function playChirp(){
+  try{
+    const c=aud(),t=c.currentTime;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='sine';o.frequency.setValueAtTime(1200,t);o.frequency.setValueAtTime(1600,t+0.05);
+    g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+    o.connect(g).connect(c.destination);o.start(t);o.stop(t+0.12);
+  }catch(e){}
+}
+
+function playWarpSound(){
+  try{
+    const c=aud(),t=c.currentTime;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='sawtooth';o.frequency.setValueAtTime(80,t);o.frequency.exponentialRampToValueAtTime(2000,t+1.5);
+    g.gain.setValueAtTime(0.08,t);g.gain.setValueAtTime(0.08,t+1.2);g.gain.exponentialRampToValueAtTime(0.001,t+2);
+    o.connect(g).connect(c.destination);o.start(t);o.stop(t+2);
+    // White noise swoosh
+    const buf=c.createBuffer(1,c.sampleRate*2,c.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);
+    const n=c.createBufferSource();n.buffer=buf;
+    const ng=c.createGain();ng.gain.setValueAtTime(0,t);ng.gain.linearRampToValueAtTime(0.06,t+0.8);ng.gain.exponentialRampToValueAtTime(0.001,t+2);
+    const f=c.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(200,t);f.frequency.exponentialRampToValueAtTime(4000,t+1.5);
+    n.connect(f).connect(ng).connect(c.destination);n.start(t);n.stop(t+2);
+  }catch(e){}
+}
+
+function playSaveSound(){
+  try{
+    const c=aud(),t=c.currentTime;
+    [800,1000,1200].forEach((f,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+i*0.06);g.gain.linearRampToValueAtTime(0.04,t+i*0.06+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+i*0.06+0.15);
+      o.connect(g).connect(c.destination);o.start(t+i*0.06);o.stop(t+i*0.06+0.15);
+    });
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+//  VIEWSCREEN — Procedural Space Scene
+// ═══════════════════════════════════════════
+const vs=document.getElementById('viewscreen');
+const vctx=vs.getContext('2d');
+let stars=[],nebulae=[];
+
+function resizeVS(){vs.width=window.innerWidth;vs.height=window.innerHeight;generateScene();}
+window.addEventListener('resize',resizeVS);
+
+function seededRandom(seed){let s=seed;return()=>{s=Math.sin(s*127.1+311.7)*43758.5453;return s-Math.floor(s);};}
+
+function generateScene(){
+  const w=vs.width,h=vs.height;
+  // Seed based on date for daily changes
+  const dateSeed=new Date().toISOString().slice(0,10).split('-').reduce((a,b)=>a*31+parseInt(b),0);
+  const rng=seededRandom(dateSeed);
+  stars=[];nebulae=[];
+  // Stars
+  for(let i=0;i<400;i++){
+    stars.push({
+      x:rng()*w,y:rng()*h,
+      size:rng()*2+0.3,
+      brightness:0.3+rng()*0.7,
+      twinkleSpeed:0.5+rng()*3,
+      twinklePhase:rng()*Math.PI*2,
+      color:['#ffffff','#ffe8cc','#cce0ff','#ffcccc','#ccffcc'][Math.floor(rng()*5)]
+    });
+  }
+  // Nebulae
+  const nebulaColors=[
+    [`rgba(100,50,150,`,`rgba(50,80,200,`],
+    [`rgba(200,60,60,`,`rgba(255,150,50,`],
+    [`rgba(30,120,200,`,`rgba(50,200,180,`],
+    [`rgba(180,50,100,`,`rgba(100,50,200,`],
+  ];
+  const nc=nebulaColors[Math.floor(rng()*nebulaColors.length)];
+  for(let i=0;i<3;i++){
+    nebulae.push({
+      x:rng()*w,y:rng()*h,
+      rx:100+rng()*300,ry:80+rng()*200,
+      color:nc[i%2],
+      alpha:0.02+rng()*0.04,
+      rot:rng()*Math.PI
+    });
+  }
+}
+
+function renderVS(time){
+  const w=vs.width,h=vs.height;
+  vctx.fillStyle='#000005';vctx.fillRect(0,0,w,h);
+  // Nebulae
+  nebulae.forEach(n=>{
+    vctx.save();vctx.translate(n.x,n.y);vctx.rotate(n.rot);
+    const grd=vctx.createRadialGradient(0,0,0,0,0,Math.max(n.rx,n.ry));
+    grd.addColorStop(0,n.color+n.alpha*3+')');
+    grd.addColorStop(0.5,n.color+n.alpha+')');
+    grd.addColorStop(1,n.color+'0)');
+    vctx.fillStyle=grd;
+    vctx.beginPath();vctx.ellipse(0,0,n.rx,n.ry,0,0,Math.PI*2);vctx.fill();
+    vctx.restore();
+  });
+  // Stars
+  const t=time/1000;
+  stars.forEach(s=>{
+    const twinkle=0.5+0.5*Math.sin(t*s.twinkleSpeed+s.twinklePhase);
+    const alpha=s.brightness*twinkle;
+    vctx.beginPath();vctx.arc(s.x,s.y,s.size,0,Math.PI*2);
+    vctx.fillStyle=s.color.replace('ffffff',`rgba(255,255,255,${alpha})`);
+    vctx.globalAlpha=alpha;vctx.fillStyle=s.color;vctx.fill();
+    if(s.size>1.5){
+      vctx.globalAlpha=alpha*0.15;vctx.beginPath();
+      vctx.arc(s.x,s.y,s.size*3,0,Math.PI*2);vctx.fill();
+    }
+  });
+  vctx.globalAlpha=1;
+  requestAnimationFrame(renderVS);
+}
+
+// ═══════════════════════════════════════════
+//  WARP ANIMATION
+// ═══════════════════════════════════════════
+function warpJump(){
+  if(S.entries.length===0){toast('No entries to warp to.','err');return;}
+  playWarpSound();
+  const overlay=document.getElementById('warpOverlay');
+  const wc=document.getElementById('warpCanvas');
+  overlay.classList.add('active');
+  wc.width=window.innerWidth;wc.height=window.innerHeight;
+  const wctx=wc.getContext('2d');
+  const cx=wc.width/2,cy=wc.height/2;
+  let warpStars=[];
+  for(let i=0;i<200;i++){
+    const angle=Math.random()*Math.PI*2;
+    const dist=Math.random()*50;
+    warpStars.push({x:cx+Math.cos(angle)*dist,y:cy+Math.sin(angle)*dist,angle,speed:2+Math.random()*8,len:0});
+  }
+  let frame=0;
+  const maxFrames=90;
+  function animWarp(){
+    wctx.fillStyle='rgba(0,0,0,0.3)';wctx.fillRect(0,0,wc.width,wc.height);
+    const progress=frame/maxFrames;
+    warpStars.forEach(s=>{
+      s.len+=s.speed*(1+progress*5);
+      const ex=cx+Math.cos(s.angle)*s.len;
+      const ey=cy+Math.sin(s.angle)*s.len;
+      wctx.beginPath();wctx.moveTo(s.x,s.y);wctx.lineTo(ex,ey);
+      wctx.strokeStyle=`rgba(180,200,255,${0.3+progress*0.5})`;
+      wctx.lineWidth=1+progress*2;wctx.stroke();
+    });
+    frame++;
+    if(frame<maxFrames){requestAnimationFrame(animWarp);}
+    else{
+      overlay.classList.remove('active');
+      // Jump to random past entry
+      const e=S.entries[Math.floor(Math.random()*S.entries.length)];
+      S.currentId=e.id;
+      loadEntryToEditor(e);
+      listMode=false;showPadd();
+      renderAll();
+      toast(`Arrived at Stardate ${e.stardate}`,'ok');
+    }
+  }
+  animWarp();
+}
+
+// ═══════════════════════════════════════════
+//  SPEECH RECOGNITION
+// ═══════════════════════════════════════════
+function toggleRecord(){
+  if(isRecording){stopRecord();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('Speech recognition not supported in this browser.','err');return;}
+  recognition=new SR();
+  recognition.continuous=true;recognition.interimResults=true;recognition.lang='en-US';
+  recognition.onresult=(e)=>{
+    let transcript='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      transcript+=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('entryText');
+    if(e.results[e.results.length-1].isFinal){
+      ta.value+=transcript+' ';updateWordCount();
+    }
+  };
+  recognition.onerror=(e)=>{toast('Recognition error: '+e.error,'err');stopRecord();};
+  recognition.onend=()=>{if(isRecording)recognition.start();}; // Keep going
+  recognition.start();
+  isRecording=true;
+  document.getElementById('recBtn').classList.add('recording');
+  document.getElementById('recBtn').textContent='■ STOP';
+  toast('🎙 Ship\'s computer recording...','ok');
+}
+
+function stopRecord(){
+  if(recognition)recognition.stop();
+  isRecording=false;
+  document.getElementById('recBtn').classList.remove('recording');
+  document.getElementById('recBtn').textContent='● REC';
+}
+
+// ═══════════════════════════════════════════
+//  ENTRIES
+// ═══════════════════════════════════════════
+function createEntry(){
+  return{
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    date:today(),
+    stardate:calcStardate(),
+    sector:'personal',
+    mood:'3',
+    text:'',
+    firstContact:false,
+    ts:Date.now(),
+  };
+}
+
+function newEntry(){
+  const e=createEntry();
+  S.entries.unshift(e);
+  S.currentId=e.id;
+  loadEntryToEditor(e);
+  listMode=false;showPadd();
+  firstContactActive=false;
+  updateFirstContactUI();
+  playChirp();save();renderAll();
+  toast('New log entry opened.','ok');
+}
+
+function loadEntryToEditor(e){
+  document.getElementById('entryText').value=e.text;
+  document.getElementById('metaSector').value=e.sector;
+  document.getElementById('metaMood').value=e.mood;
+  firstContactActive=e.firstContact;
+  updateFirstContactUI();
+  document.getElementById('paddTitleText').textContent=`CAPTAIN'S LOG — SD ${e.stardate}`;
+  document.getElementById('entryDateDisplay').textContent=e.date;
+  document.getElementById('delEntryBtn').style.display=S.entries.length>0?'':'none';
+  updateWordCount();
+}
+
+function saveEntry(){
+  const e=S.entries.find(x=>x.id===S.currentId);
+  if(!e){toast('No entry to save.','err');return;}
+  e.text=document.getElementById('entryText').value;
+  e.sector=document.getElementById('metaSector').value;
+  e.mood=document.getElementById('metaMood').value;
+  e.firstContact=firstContactActive;
+  playSaveSound();save();renderAll();
+  toast('Entry saved to ship\'s database.','ok');
+}
+
+function deleteEntry(){
+  if(!S.currentId||!confirm('Delete this log entry?'))return;
+  S.entries=S.entries.filter(x=>x.id!==S.currentId);
+  S.currentId=S.entries.length>0?S.entries[0].id:null;
+  if(S.currentId)loadEntryToEditor(S.entries[0]);
+  else document.getElementById('entryText').value='';
+  save();renderAll();toast('Entry deleted.','');
+}
+
+function toggleList(){
+  listMode=!listMode;
+  if(listMode)showList();else showPadd();
+}
+
+function showPadd(){
+  document.getElementById('padd').style.display='flex';
+  document.getElementById('entryList').style.display='none';
+}
+
+function showList(){
+  document.getElementById('padd').style.display='none';
+  document.getElementById('entryList').style.display='block';
+  renderEntryList();
+}
+
+function selectEntry(id){
+  S.currentId=id;
+  const e=S.entries.find(x=>x.id===id);
+  if(e)loadEntryToEditor(e);
+  listMode=false;showPadd();
+  playChirp();renderAll();
+}
+
+function toggleFirstContact(){
+  firstContactActive=!firstContactActive;
+  updateFirstContactUI();
+}
+function updateFirstContactUI(){
+  const el=document.getElementById('firstContactTag');
+  el.classList.toggle('active',firstContactActive);
+}
+
+function updateWordCount(){
+  const text=document.getElementById('entryText').value;
+  const words=text.trim()?text.trim().split(/\s+/).length:0;
+  document.getElementById('wordCount').textContent=words+' words';
+}
+document.getElementById('entryText').addEventListener('input',updateWordCount);
+
+// ═══════════════════════════════════════════
+//  MISSIONS
+// ═══════════════════════════════════════════
+function addMission(){
+  const inp=document.getElementById('missionInput');
+  const text=inp.value.trim();if(!text)return;
+  S.missions.push({id:Date.now().toString(36),text,done:false});
+  inp.value='';save();renderMissions();playChirp();
+}
+
+function toggleMission(id){
+  const m=S.missions.find(x=>x.id===id);
+  if(m){m.done=!m.done;save();renderMissions();}
+}
+
+function deleteMission(id){
+  S.missions=S.missions.filter(x=>x.id!==id);
+  save();renderMissions();
+}
+
+// ═══════════════════════════════════════════
+//  HAILING FREQUENCIES
+// ═══════════════════════════════════════════
+const PROMPTS=[
+  {icon:'🌌',text:'What discovery did you make today that surprised you?'},
+  {icon:'🛸',text:'If you could communicate with anyone in the galaxy right now, who and why?'},
+  {icon:'⭐',text:'What was your brightest moment today? What made it shine?'},
+  {icon:'🔭',text:'What are you looking forward to exploring tomorrow?'},
+  {icon:'🪐',text:'Which relationship in your life could use more attention?'},
+  {icon:'💫',text:'What challenge did you navigate today? How did it change your course?'},
+  {icon:'🌠',text:'What would your future self thank you for doing today?'},
+  {icon:'🚀',text:'If today had a mission name, what would it be?'},
+  {icon:'🌍',text:'What did you learn about yourself that you didn\'t know before?'},
+  {icon:'📡',text:'What signal from the universe are you picking up right now?'},
+  {icon:'🔥',text:'What energizes you most about your current trajectory?'},
+  {icon:'🌊',text:'What emotion is running strongest in your systems today?'},
+  {icon:'🎯',text:'What one thing, if accomplished, would make this week legendary?'},
+  {icon:'💎',text:'What\'s a small thing you\'re grateful for that often goes unnoticed?'},
+  {icon:'🛡️',text:'What boundary did you set or need to set?'},
+];
+
+function generateHails(){
+  const shuffled=[...PROMPTS].sort(()=>Math.random()-.5).slice(0,4);
+  document.getElementById('hailList').innerHTML=shuffled.map(p=>`
+    <div class="hailCard" onclick="usePrompt(\`${p.text.replace(/`/g,"'")}\`)">
+      <div class="hIcon">${p.icon}</div>
+      <div class="hText">"${p.text}"</div>
+    </div>
+  `).join('');
+}
+
+function usePrompt(text){
+  const ta=document.getElementById('entryText');
+  if(!S.currentId)newEntry();
+  ta.value+=(ta.value?'\n\n':'')+text+'\n';
+  ta.focus();
+  listMode=false;showPadd();
+  updateWordCount();
+  playChirp();
+}
+
+// ═══════════════════════════════════════════
+//  COUNSELOR — Mood Analysis
+// ═══════════════════════════════════════════
+function analyzeMood(){
+  const entries=S.entries.slice().sort((a,b)=>b.ts-a.ts);
+  const last7=entries.slice(0,7);
+  const last30=entries.slice(0,30);
+  const avg=(arr)=>arr.length?arr.reduce((s,e)=>s+parseInt(e.mood),0)/arr.length:3;
+  const a7=avg(last7),a30=avg(last30);
+
+  document.getElementById('mood7').style.width=(a7/5*100)+'%';
+  document.getElementById('mood30').style.width=(a30/5*100)+'%';
+  const emojis=['','😢','😟','😐','🙂','😊'];
+  document.getElementById('avgMoodEmoji').textContent=emojis[Math.round(a7)]||'😐';
+
+  // Counselor advice
+  let advice='';
+  if(a7>=4.5)advice='Your morale is exceptional, Captain. Continue on your current heading. The crew looks to your example.';
+  else if(a7>=3.5)advice='Systems are running well. Consider exploring what brings you to your highest state—replicate more of those conditions.';
+  else if(a7>=2.5)advice='Readings indicate some turbulence. I recommend taking time for activities that restore your energy. Perhaps a visit to the holodeck?';
+  else if(a7>=1.5)advice='Counselor\'s recommendation: prioritize self-care protocols. Difficult periods are temporary—your resilience is noted in the record.';
+  else advice='Captain, your wellbeing is the ship\'s highest priority. Please consider reaching out to someone you trust. You don\'t have to navigate this alone.';
+
+  // Trend
+  if(entries.length>=3){
+    const recent3=avg(entries.slice(0,3));
+    const prev3=avg(entries.slice(3,6));
+    if(recent3>prev3+0.5)advice+='\n\n📈 Mood is trending upward. Whatever you\'re doing, it\'s working.';
+    else if(recent3<prev3-0.5)advice+='\n\n📉 There\'s a downward trend detected. It might be time to reassess current mission priorities.';
+  }
+
+  document.getElementById('counselorAdvice').textContent=advice;
+
+  // Mood chart
+  renderMoodChart(entries.slice(0,14).reverse());
+
+  // Sector breakdown
+  const sectors={personal:0,career:0,health:0,relationships:0,supplemental:0};
+  entries.forEach(e=>sectors[e.sector]=(sectors[e.sector]||0)+1);
+  const total=entries.length||1;
+  const sectorColors={personal:'var(--lcars-orange)',career:'var(--lcars-gold)',health:'var(--lcars-green)',relationships:'var(--lcars-violet)',supplemental:'var(--lcars-ice)'};
+  document.getElementById('sectorBreakdown').innerHTML=Object.entries(sectors).map(([k,v])=>`
+    <div class="moodBar"><span class="mLabel" style="width:80px;">${k}</span><div class="mTrack"><div class="mFill" style="width:${v/total*100}%;background:${sectorColors[k]};"></div></div><span style="font-size:10px;color:var(--tx2);width:24px;text-align:right;">${v}</span></div>
+  `).join('');
+}
+
+function renderMoodChart(entries){
+  const canvas=document.getElementById('moodChart');
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(entries.length<2)return;
+
+  ctx.strokeStyle='var(--lcars-orange)';ctx.lineWidth=2;ctx.beginPath();
+  entries.forEach((e,i)=>{
+    const x=20+i*((w-40)/(entries.length-1));
+    const y=h-10-(parseInt(e.mood)-1)/4*(h-20);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // Dots
+  entries.forEach((e,i)=>{
+    const x=20+i*((w-40)/(entries.length-1));
+    const y=h-10-(parseInt(e.mood)-1)/4*(h-20);
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle=parseInt(e.mood)>=4?'var(--lcars-gold)':parseInt(e.mood)>=3?'var(--lcars-orange)':'var(--lcars-red)';
+    ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════════
+//  STAR MAP
+// ═══════════════════════════════════════════
+function renderStarMap(){
+  const map=document.getElementById('starMap');
+  // Remove old planets
+  map.querySelectorAll('.planet').forEach(p=>p.remove());
+
+  const sectors={personal:{color:'var(--lcars-orange)',emoji:'🪐',count:0},career:{color:'var(--lcars-gold)',emoji:'⭐',count:0},health:{color:'var(--lcars-green)',emoji:'💚',count:0},relationships:{color:'var(--lcars-violet)',emoji:'💜',count:0},supplemental:{color:'var(--lcars-ice)',emoji:'📡',count:0}};
+  S.entries.forEach(e=>sectors[e.sector].count++);
+
+  const positions=[
+    {top:'15%',left:'20%'},{top:'25%',left:'70%'},
+    {top:'60%',left:'15%'},{top:'65%',left:'75%'},
+    {top:'42%',left:'45%'}
+  ];
+
+  Object.entries(sectors).forEach(([key,s],i)=>{
+    const size=Math.max(20,Math.min(50,12+s.count*3));
+    const p=document.createElement('div');
+    p.className='planet';
+    p.style.cssText=`width:${size}px;height:${size}px;background:${s.color};top:${positions[i].top};left:${positions[i].left};box-shadow:0 0 ${size/2}px ${s.color};`;
+    p.innerHTML=`<span style="font-size:${size/3}px;">${s.emoji}</span><span class="pLabel">${key} (${s.count})</span>`;
+    p.onclick=()=>{document.getElementById('metaSector').value=key;toast(`Sector: ${key}`,'ok');};
+    map.appendChild(p);
+  });
+
+  // Legend
+  document.getElementById('sectorLegend').innerHTML=Object.entries(sectors).map(([k,s])=>`
+    <span style="font-size:10px;color:${s.color};margin-right:8px;">${s.emoji} ${k}: ${s.count}</span>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  YEAR IN REVIEW
+// ═══════════════════════════════════════════
+function showYearReview(){
+  const year=new Date().getFullYear();
+  const yearEntries=S.entries.filter(e=>e.date.startsWith(year));
+  const total=yearEntries.length;
+  const avgMood=total?yearEntries.reduce((s,e)=>s+parseInt(e.mood),0)/total:0;
+  const firstContacts=yearEntries.filter(e=>e.firstContact).length;
+  const totalWords=yearEntries.reduce((s,e)=>s+e.text.trim().split(/\s+/).filter(w=>w).length,0);
+  const sectors={};
+  yearEntries.forEach(e=>sectors[e.sector]=(sectors[e.sector]||0)+1);
+  const topSector=Object.entries(sectors).sort((a,b)=>b[1]-a[1])[0];
+  const longestStreak=calcLongestStreak(yearEntries);
+  const missionsComplete=S.missions.filter(m=>m.done).length;
+
+  document.getElementById('yearContent').innerHTML=`
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:48px;">🌟</div>
+      <div style="font-size:20px;color:var(--lcars-gold);font-weight:700;">STARFLEET RECORD ${year}</div>
+    </div>
+    <div class="yearStat"><span class="ysVal">${total}</span><span class="ysLabel">Captain's log entries recorded</span></div>
+    <div class="yearStat"><span class="ysVal">${totalWords.toLocaleString()}</span><span class="ysLabel">Words written in the ship's log</span></div>
+    <div class="yearStat"><span class="ysVal">${avgMood.toFixed(1)}</span><span class="ysLabel">Average mood rating (out of 5)</span></div>
+    <div class="yearStat"><span class="ysVal">${firstContacts}</span><span class="ysLabel">First contact experiences logged</span></div>
+    <div class="yearStat"><span class="ysVal">${longestStreak}</span><span class="ysLabel">Longest consecutive logging streak (days)</span></div>
+    <div class="yearStat"><span class="ysVal">${missionsComplete}</span><span class="ysLabel">Mission objectives completed</span></div>
+    ${topSector?`<div class="yearStat"><span class="ysVal" style="font-size:16px;">${topSector[0]}</span><span class="ysLabel">Most explored sector (${topSector[1]} entries)</span></div>`:''}
+  `;
+  document.getElementById('yearModal').classList.add('show');
+}
+
+function calcLongestStreak(entries){
+  const dates=new Set(entries.map(e=>e.date));
+  let maxStreak=0,streak=0;
+  const sorted=[...dates].sort();
+  for(let i=0;i<sorted.length;i++){
+    if(i===0){streak=1;}
+    else{
+      const prev=new Date(sorted[i-1]);prev.setDate(prev.getDate()+1);
+      streak=prev.toISOString().slice(0,10)===sorted[i]?streak+1:1;
+    }
+    maxStreak=Math.max(maxStreak,streak);
+  }
+  return maxStreak;
+}
+
+// ═══════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════
+function renderAll(){
+  updateStardate();renderEntryList();renderMissions();renderStarMap();analyzeMood();
+  document.getElementById('entryCountDisplay').textContent=S.entries.length+' ENTRIES';
+  document.getElementById('statusText').textContent=S.entries.length>0?'SYSTEMS NOMINAL':'AWAITING FIRST LOG ENTRY';
+}
+
+function updateStardate(){
+  document.getElementById('stardate').textContent='SD '+calcStardate();
+}
+
+function renderEntryList(){
+  const list=document.getElementById('entryList');
+  if(S.entries.length===0){
+    list.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx2);">No log entries. Begin your voyage.</div>';
+    return;
+  }
+  const sectorColors={personal:'var(--lcars-orange)',career:'var(--lcars-gold)',health:'var(--lcars-green)',relationships:'var(--lcars-violet)',supplemental:'var(--lcars-ice)'};
+  list.innerHTML=S.entries.map(e=>{
+    const preview=e.text.slice(0,80)||(e.text?'':'(empty entry)');
+    return`<div class="entryItem${e.id===S.currentId?' active':''}" onclick="selectEntry('${e.id}')">
+      <div class="eiDate">SD ${e.stardate} — ${e.date}</div>
+      <div class="eiSector" style="color:${sectorColors[e.sector]||'var(--tx2)'};">Sector: ${e.sector}</div>
+      <div class="eiPreview">${esc(preview)}</div>
+      <div class="eiBadges">
+        <span class="eiBadge" style="background:${sectorColors[e.sector]};color:#000;">${e.sector}</span>
+        ${e.firstContact?'<span class="eiBadge" style="background:var(--lcars-lilac);color:#000;">⚡ First Contact</span>':''}
+        <span class="eiBadge" style="background:var(--bg3);color:var(--tx2);">${['','😢','😟','😐','🙂','😊'][e.mood]}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMissions(){
+  const list=document.getElementById('missionList');
+  if(S.missions.length===0){list.innerHTML='<div style="color:var(--tx2);font-size:11px;padding:10px;">No active mission objectives.</div>';return;}
+  list.innerHTML=S.missions.map(m=>`
+    <div class="missionItem">
+      <input type="checkbox" ${m.done?'checked':''} onchange="toggleMission('${m.id}')">
+      <span class="mText${m.done?' done':''}">${esc(m.text)}</span>
+      <button class="mDel" onclick="deleteMission('${m.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function esc(s){return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══════════════════════════════════════════
+//  UI NAVIGATION
+// ═══════════════════════════════════════════
+function setView(v){
+  document.querySelectorAll('#leftRail .rail-block').forEach(b=>b.classList.remove('active'));
+  const tabMap={log:'railLog',map:'railMap',missions:'railMissions',counselor:'railCounselor',hail:'railHail'};
+  if(tabMap[v])document.getElementById(tabMap[v]).classList.add('active');
+
+  if(v==='log'){listMode=false;showPadd();}
+  else if(v==='map')switchRTab('map');
+  else if(v==='missions')switchRTab('missions');
+  else if(v==='counselor')switchRTab('counselor');
+  else if(v==='hail')switchRTab('hail');
+}
+
+function switchRTab(tab){
+  document.querySelectorAll('.rTab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rBody').forEach(t=>t.classList.remove('active'));
+  const btn=document.querySelector(`.rTab[onclick="switchRTab('${tab}')"]`);
+  if(btn)btn.classList.add('active');
+  const body=document.getElementById('rtab-'+tab);
+  if(body)body.classList.add('active');
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`starlog-backup-${today()}.json`;a.click();
+  toast('💾 Ship\'s database exported.','ok');
+}
+
+function importData(){document.getElementById('fileIn').click();}
+function handleImport(e){
+  const f=e.target.files[0];if(!f)return;
+  f.text().then(txt=>{
+    const data=JSON.parse(txt);
+    if(data.entries){Object.assign(S,data);save();renderAll();toast('📂 Database restored.','ok');}
+    else toast('Invalid file.','err');
+  }).catch(err=>toast('Import failed.','err'));
+  e.target.value='';
+}
+
+function toast(msg,type){
+  const el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3200);
+}
+
+// ═══════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show'));
+    if(isRecording)stopRecord();
+  }
+  if(e.ctrlKey&&e.key==='s'){e.preventDefault();saveEntry();}
+  if(e.ctrlKey&&e.key==='n'){e.preventDefault();newEntry();}
+});
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+(async function init(){
+  await openDB();
+  const saved=await load();
+  if(saved)Object.assign(S,saved);
+  if(!S.missions)S.missions=[];
+
+  resizeVS();
+  requestAnimationFrame(renderVS);
+
+  if(S.entries.length>0){
+    if(!S.currentId)S.currentId=S.entries[0].id;
+    const e=S.entries.find(x=>x.id===S.currentId);
+    if(e)loadEntryToEditor(e);
+  }
+
+  renderAll();
+  generateHails();
+
+  // Start ambient hum on first interaction
+  document.addEventListener('click',function startAudio(){
+    startHum();
+    document.removeEventListener('click',startAudio);
+  },{once:true});
+})();
+</script>
+</body>
+</html>

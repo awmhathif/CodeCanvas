@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambient Sound Mixer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        :root {
+            --primary: #6c63ff;
+            --secondary: #ff6584;
+            --dark: #1f1f1f;
+            --light: #f5f5f5;
+            --success: #00c853;
+            --glow: 0 0 15px rgba(108, 99, 255, 0.7);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #121212, #2d2d2d);
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 10px rgba(108, 99, 255, 0.4);
+            }
+            100% {
+                text-shadow: 0 0 20px rgba(255, 101, 132, 0.8);
+            }
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+        }
+        
+        .sound-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .sound-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sound-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--glow);
+        }
+        
+        .sound-card.active {
+            border: 1px solid var(--primary);
+            box-shadow: var(--glow);
+        }
+        
+        .sound-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .sound-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(108, 99, 255, 0.2);
+            border-radius: 50%;
+        }
+        
+        .volume-control {
+            width: 100%;
+            -webkit-appearance: none;
+            margin: 1rem 0;
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .volume-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .volume-control::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(108, 99, 255, 0.7);
+        }
+        
+        .sound-visualizer {
+            height: 40px;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .visualizer-bar {
+            flex: 1;
+            height: 5px;
+            background: rgba(108, 99, 255, 0.3);
+            border-radius: 2px;
+            transition: all 0.1s ease;
+        }
+        
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .controls-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .main-controls {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a52ff;
+            box-shadow: 0 0 15px rgba(108, 99, 255, 0.5);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #00b34a;
+            box-shadow: 0 0 15px rgba(0, 200, 83, 0.5);
+        }
+        
+        .record-btn {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .record-btn.recording {
+            background: #ff4747;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 71, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 71, 71, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 71, 0);
+            }
+        }
+        
+        .time-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--light);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .volume-master {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .volume-master label {
+            font-weight: 600;
+        }
+        
+        .volume-master input {
+            width: 150px;
+        }
+        
+        .presets-panel {
+            margin-top: 1.5rem;
+        }
+        
+        .presets-title {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .presets-list {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+        
+        .preset-btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            background: rgba(108, 99, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(108, 99, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .preset-btn:hover {
+            background: rgba(108, 99, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .waves {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sound-card.active .waves {
+            opacity: 1;
+        }
+        
+        .downloads-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .downloads-title {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        
+        .downloads-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        
+        .download-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .download-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .download-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(108, 99, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .download-meta h4 {
+            margin-bottom: 0.3rem;
+        }
+        
+        .download-meta span {
+            font-size: 0.85rem;
+            opacity: 0.6;
+        }
+        
+        .download-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: rgba(108, 99, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .no-recordings {
+            padding: 2rem;
+            text-align: center;
+            opacity: 0.6;
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            .controls-wrapper {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .main-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .volume-master {
+                width: 100%;
+                margin-top: 1rem;
+            }
+            
+            .sound-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(108, 99, 255, 0.5);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(108, 99, 255, 0.7);
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        .slider-wrapper {
+            position: relative;
+        }
+        
+        .tooltip {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        
+        .slider-wrapper:hover .tooltip {
+            opacity: 1;
+        }
+        
+        .effect-controls {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .effect-control {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .effect-control label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Ambient Sound Mixer</h1>
+            <p class="subtitle">Create, mix, and record your perfect ambient soundscape</p>
+        </header>
+        
+        <div class="controls-panel">
+            <div class="controls-wrapper">
+                <div class="main-controls">
+                    <button id="play-all-btn" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M10.804 8 5 4.633v6.734L10.804 8zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696l6.363 3.692z"/>
+                        </svg>
+                        Play All
+                    </button>
+                    <button id="stop-all-btn" class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                        </svg>
+                        Stop All
+                    </button>
+                    <button id="record-btn" class="btn btn-secondary record-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <circle cx="8" cy="8" r="6"/>
+                        </svg>
+                        Record
+                    </button>
+                    <div id="time-display" class="time-display">00:00</div>
+                </div>
+                
+                <div class="volume-master">
+                    <label>Master Volume</label>
+                    <div class="slider-wrapper">
+                        <input type="range" id="master-volume" class="volume-control" min="0" max="1" step="0.01" value="0.8">
+                        <span class="tooltip">80%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="presets-panel">
+                <div class="presets-title">
+                    <span>Sound Presets</span>
+                    <button id="save-preset-btn" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">+ Save Current Mix</button>
+                </div>
+                <div class="presets-list">
+                    <button class="preset-btn">Rainy Forest</button>
+                    <button class="preset-btn">Ocean Waves</button>
+                    <button class="preset-btn">Campfire Night</button>
+                    <button class="preset-btn">Thunderstorm</button>
+                    <button class="preset-btn">Mountain Stream</button>
+                    <button class="preset-btn">City Ambience</button>
+                    <button class="preset-btn">Meditation</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sound-grid" id="sound-grid">
+            <!-- Sound cards will be added here dynamically -->
+        </div>
+        
+        <div class="downloads-panel">
+            <h3 class="downloads-title">Your Recordings</h3>
+            <div class="downloads-list" id="downloads-list">
+                <div class="no-recordings">No recordings yet. Mix your sounds and hit record!</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Tone.js
+            const context = new Tone.Context();
+            Tone.setContext(context);
+            
+            let recorder = null;
+            let isRecording = false;
+            let recordingStartTime = 0;
+            let recordingInterval = null;
+            let masterVolume = new Tone.Volume(0).toDestination();
+            let analyser = new Tone.Analyser("waveform", 128);
+            masterVolume.connect(analyser);
+            
+            // Sound data
+            const sounds = [
+                { 
+                    id: 'rain', 
+                    name: 'Rain', 
+                    icon: '🌧️', 
+                    url: 'https://assets.codepen.io/1538474/rain.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'wind', 
+                    name: 'Wind', 
+                    icon: '💨', 
+                    url: 'https://assets.codepen.io/1538474/wind.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'forest', 
+                    name: 'Forest', 
+                    icon: '🌳', 
+                    url: 'https://assets.codepen.io/1538474/forest.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'thunder', 
+                    name: 'Thunder', 
+                    icon: '⚡', 
+                    url: 'https://assets.codepen.io/1538474/thunder.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'waves', 
+                    name: 'Ocean Waves', 
+                    icon: '🌊', 
+                    url: 'https://assets.codepen.io/1538474/waves.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'stream', 
+                    name: 'Stream', 
+                    icon: '💦', 
+                    url: 'https://assets.codepen.io/1538474/stream.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'fire', 
+                    name: 'Fire Crackle', 
+                    icon: '🔥', 
+                    url: 'https://assets.codepen.io/1538474/fire.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'birds', 
+                    name: 'Birds', 
+                    icon: '🐦', 
+                    url: 'https://assets.codepen.io/1538474/birds.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'cave', 
+                    name: 'Cave Drips', 
+                    icon: '🪨', 
+                    url: 'https://assets.codepen.io/1538474/cave.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'snow', 
+                    name: 'Snow Crunching', 
+                    icon: '❄️', 
+                    url: 'https://assets.codepen.io/1538474/snow.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'beach', 
+                    name: 'Beach', 
+                    icon: '🏖️', 
+                    url: 'https://assets.codepen.io/1538474/beach.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                },
+                { 
+                    id: 'night', 
+                    name: 'Night Crickets', 
+                    icon: '🦗', 
+                    url: 'https://assets.codepen.io/1538474/night.mp3',
+                    player: null,
+                    active: false,
+                    volume: 0.7,
+                    effects: {
+                        filter: null,
+                        reverb: null
+                    }
+                }
+            ];
+            
+            const recordings = [];
+            
+            // Create sound cards
+            const soundGrid = document.getElementById('sound-grid');
+            
+            function createSoundCards() {
+                sounds.forEach(sound => {
+                    const card = document.createElement('div');
+                    card.className = 'sound-card fade-in';
+                    card.id = `card-${sound.id}`;
+                    card.dataset.soundId = sound.id;
+                    
+                    // Create player
+                    sound.player = new Tone.Player({
+                        url: sound.url,
+                        loop: true,
+                        volume: sound.volume,
+                        autostart: false,
+                        onload: () => {
+                            console.log(`${sound.name} loaded`);
+                        }
+                    }).connect(masterVolume);
+                    
+                    // Add effects
+                    sound.effects.filter = new Tone.Filter(1000, "lowpass");
+                    sound.effects.reverb = new Tone.Reverb(1.5);
+                    sound.player.chain(sound.effects.filter, sound.effects.reverb, masterVolume);
+                    
+                    card.innerHTML = `
+                        <h3>
+                            <span class="sound-icon">${sound.icon}</span>
+                            ${sound.name}
+                        </h3>
+                        <div class="slider-wrapper">
+                            <input type="range" class="volume-control" min="0" max="1" step="0.01" value="${sound.volume}" data-sound-id="${sound.id}">
+                            <span class="tooltip">${Math.round(sound.volume * 100)}%</span>
+                        </div>
+                        <div class="effect-controls">
+                            <div class="effect-control">
+                                <label>Filter</label>
+                                <input type="range" class="filter-control" min="100" max="10000" step="100" value="1000" data-sound-id="${sound.id}">
+                            </div>
+                            <div class="effect-control">
+                                <label>Reverb</label>
+                                <input type="range" class="reverb-control" min="0" max="5" step="0.1" value="1.5" data-sound-id="${sound.id}">
+                            </div>
+                        </div>
+                        <div class="sound-visualizer" id="visualizer-${sound.id}">
+                            ${Array(10).fill().map(() => `<div class="visualizer-bar"></div>`).join('')}
+                        </div>
+                        <div class="waves"></div>
+                    `;
+                    
+                    soundGrid.appendChild(card);
+                    
+                    // Add click event to toggle sound
+                    card.addEventListener('click', function(e) {
+                        // Don't toggle if clicking on sliders
+                        if (e.target.tagName === 'INPUT') return;
+                        
+                        toggleSound(sound.id);
+                    });
+                });
+                
+                // Add event listeners for volume sliders
+                document.querySelectorAll('.volume-control').forEach(slider => {
+                    if (slider.id === 'master-volume') return;
+                    
+                    const soundId = slider.dataset.soundId;
+                    
+                    slider.addEventListener('input', function() {
+                        const sound = sounds.find(s => s.id === soundId);
+                        sound.volume = parseFloat(this.value);
+                        sound.player.volume.value = Tone.gainToDb(sound.volume);
+                        
+                        // Update tooltip
+                        const tooltip = this.parentElement.querySelector('.tooltip');
+                        tooltip.textContent = `${Math.round(sound.volume * 100)}%`;
+                    });
+                    
+                    // Prevent card toggle when adjusting slider
+                    slider.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                });
+                
+                // Add event listeners for effect sliders
+                document.querySelectorAll('.filter-control').forEach(slider => {
+                    const soundId = slider.dataset.soundId;
+                    
+                    slider.addEventListener('input', function() {
+                        const sound = sounds.find(s => s.id === soundId);
+                        const filterFreq = parseFloat(this.value);
+                        sound.effects.filter.frequency.value = filterFreq;
+                    });
+                    
+                    slider.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                });
+                
+                document.querySelectorAll('.reverb-control').forEach(slider => {
+                    const soundId = slider.dataset.soundId;
+                    
+                    slider.addEventListener('input', function() {
+                        const sound = sounds.find(s => s.id === soundId);
+                        const reverbTime = parseFloat(this.value);
+                        
+                        // Need to recreate the reverb when changing decay time
+                        sound.effects.reverb.dispose();
+                        sound.effects.reverb = new Tone.Reverb(reverbTime);
+                        sound.player.chain(sound.effects.filter, sound.effects.reverb, masterVolume);
+                    });
+                    
+                    slider.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                });
+            }
+            
+            // Toggle sound
+            function toggleSound(soundId) {
+                const sound = sounds.find(s => s.id === soundId);
+                const card = document.getElementById(`card-${soundId}`);
+                
+                if (sound.active) {
+                    sound.player.stop();
+                    sound.active = false;
+                    card.classList.remove('active');
+                } else {
+                    sound.player.start();
+                    sound.active = true;
+                    card.classList.add('active');
+                    updateVisualization(soundId);
+                }
+            }
+            
+            // Update visualization bars
+            function updateVisualization(soundId) {
+                const sound = sounds.find(s => s.id === soundId);
+                if (!sound.active) return;
+                
+                const visualizer = document.getElementById(`visualizer-${soundId}`);
+                const bars = visualizer.querySelectorAll('.visualizer-bar');
+                
+                function updateBars() {
+                    if (!sound.active) return;
+                    
+                    bars.forEach((bar, i) => {
+                        // Create a dynamic effect even though we don't have real audio analysis
+                        const height = Math.floor(Math.random() * 35) + 5;
+                        bar.style.height =
+const height = Math.floor(Math.random() * 35) + 5;
+                        bar.style.height = `${height}px`;
+                    });
+                    
+                    requestAnimationFrame(updateBars);
+                }
+                
+                updateBars();
+            }
+            
+            // Play/Stop all sounds
+            document.getElementById('play-all-btn').addEventListener('click', function() {
+                sounds.forEach(sound => {
+                    if (!sound.active) {
+                        sound.player.start();
+                        sound.active = true;
+                        document.getElementById(`card-${sound.id}`).classList.add('active');
+                        updateVisualization(sound.id);
+                    }
+                });
+            });
+            
+            document.getElementById('stop-all-btn').addEventListener('click', function() {
+                sounds.forEach(sound => {
+                    if (sound.active) {
+                        sound.player.stop();
+                        sound.active = false;
+                        document.getElementById(`card-${sound.id}`).classList.remove('active');
+                    }
+                });
+            });
+            
+            // Master volume control
+            document.getElementById('master-volume').addEventListener('input', function() {
+                const volume = parseFloat(this.value);
+                masterVolume.volume.value = Tone.gainToDb(volume);
+                
+                const tooltip = this.parentElement.querySelector('.tooltip');
+                tooltip.textContent = `${Math.round(volume * 100)}%`;
+            });
+            
+            // Recording functionality
+            document.getElementById('record-btn').addEventListener('click', function() {
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            });
+            
+            function startRecording() {
+                if (!isRecording) {
+                    // Check if any sounds are active
+                    const activeSounds = sounds.filter(sound => sound.active);
+                    if (activeSounds.length === 0) {
+                        alert("Please activate at least one sound before recording!");
+                        return;
+                    }
+                    
+                    recorder = new Tone.Recorder();
+                    masterVolume.connect(recorder);
+                    recorder.start();
+                    
+                    const recordBtn = document.getElementById('record-btn');
+                    recordBtn.classList.add('recording');
+                    recordBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                        </svg>
+                        Stop Recording
+                    `;
+                    
+                    isRecording = true;
+                    recordingStartTime = Date.now();
+                    
+                    // Update timer
+                    updateRecordingTimer();
+                    recordingInterval = setInterval(updateRecordingTimer, 1000);
+                }
+            }
+            
+            function stopRecording() {
+                if (isRecording) {
+                    isRecording = false;
+                    clearInterval(recordingInterval);
+                    
+                    const recordBtn = document.getElementById('record-btn');
+                    recordBtn.classList.remove('recording');
+                    recordBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <circle cx="8" cy="8" r="6"/>
+                        </svg>
+                        Record
+                    `;
+                    
+                    // Stop recording and get the audio
+                    recorder.stop().then(async (buffer) => {
+                        const url = URL.createObjectURL(buffer);
+                        
+                        // Create a recording object
+                        const recording = {
+                            id: Date.now(),
+                            name: `Ambient Mix ${recordings.length + 1}`,
+                            date: new Date(),
+                            duration: Math.floor((Date.now() - recordingStartTime) / 1000),
+                            url: url
+                        };
+                        
+                        recordings.push(recording);
+                        updateRecordingsList();
+                    });
+                    
+                    document.getElementById('time-display').textContent = '00:00';
+                }
+            }
+            
+            function updateRecordingTimer() {
+                const seconds = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                
+                const display = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+                document.getElementById('time-display').textContent = display;
+            }
+            
+            function updateRecordingsList() {
+                const downloadsList = document.getElementById('downloads-list');
+                
+                if (recordings.length === 0) {
+                    downloadsList.innerHTML = `<div class="no-recordings">No recordings yet. Mix your sounds and hit record!</div>`;
+                    return;
+                }
+                
+                downloadsList.innerHTML = '';
+                
+                recordings.forEach(recording => {
+                    const minutes = Math.floor(recording.duration / 60);
+                    const seconds = recording.duration % 60;
+                    const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    const dateText = recording.date.toLocaleDateString() + ' ' + 
+                                     recording.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    const item = document.createElement('div');
+                    item.className = 'download-item fade-in';
+                    item.innerHTML = `
+                        <div class="download-info">
+                            <div class="download-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2zm2.354 6.854-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 1 1 .708-.708L7.5 9.293V5.5a.5.5 0 0 1 1 0v3.793l1.146-1.147a.5.5 0 0 1 .708.708z"/>
+                                </svg>
+                            </div>
+                            <div class="download-meta">
+                                <h4>${recording.name}</h4>
+                                <span>${dateText} · ${durationText}</span>
+                            </div>
+                        </div>
+                        <div class="download-actions">
+                            <button class="action-btn play-recording" data-id="${recording.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M10.804 8 5 4.633v6.734L10.804 8zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696l6.363 3.692z"/>
+                                </svg>
+                            </button>
+                            <button class="action-btn download-recording" data-id="${recording.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    
+                    downloadsList.appendChild(item);
+                });
+                
+                // Add event listeners for the download and play buttons
+                document.querySelectorAll('.download-recording').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = parseInt(this.dataset.id);
+                        const recording = recordings.find(r => r.id === id);
+                        
+                        const a = document.createElement('a');
+                        a.href = recording.url;
+                        a.download = `${recording.name}.mp3`;
+                        a.click();
+                    });
+                });
+                
+                let currentlyPlaying = null;
+                
+                document.querySelectorAll('.play-recording').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = parseInt(this.dataset.id);
+                        const recording = recordings.find(r => r.id === id);
+                        
+                        if (currentlyPlaying) {
+                            currentlyPlaying.pause();
+                            currentlyPlaying = null;
+                            
+                            // Reset all play buttons
+                            document.querySelectorAll('.play-recording').forEach(b => {
+                                b.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M10.804 8 5 4.633v6.734L10.804 8zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696l6.363 3.692z"/>
+                                </svg>`;
+                            });
+                        }
+                        
+                        const audio = new Audio(recording.url);
+                        audio.play();
+                        currentlyPlaying = audio;
+                        
+                        // Change the button to stop icon
+                        this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                        </svg>`;
+                        
+                        audio.onended = function() {
+                            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M10.804 8 5 4.633v6.734L10.804 8zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696l6.363 3.692z"/>
+                            </svg>`;
+                            currentlyPlaying = null;
+                        };
+                    });
+                });
+            }
+            
+            // Save preset functionality
+            document.getElementById('save-preset-btn').addEventListener('click', function() {
+                const activeIds = sounds.filter(s => s.active).map(s => s.id);
+                if (activeIds.length === 0) {
+                    alert("Please activate at least one sound before saving a preset!");
+                    return;
+                }
+                
+                const presetName = prompt("Name your preset:", "My Ambient Mix");
+                if (!presetName) return;
+                
+                const preset = {
+                    name: presetName,
+                    sounds: sounds.map(s => ({
+                        id: s.id,
+                        active: s.active,
+                        volume: s.volume
+                    }))
+                };
+                
+                // Save to localStorage
+                const presets = JSON.parse(localStorage.getItem('ambientPresets') || '[]');
+                presets.push(preset);
+                localStorage.setItem('ambientPresets', JSON.stringify(presets));
+                
+                // Add to UI
+                const presetsList = document.querySelector('.presets-list');
+                const presetBtn = document.createElement('button');
+                presetBtn.className = 'preset-btn';
+                presetBtn.textContent = presetName;
+                presetsList.appendChild(presetBtn);
+                
+                // Add click event
+                presetBtn.addEventListener('click', function() {
+                    loadPreset(preset);
+                });
+            });
+            
+            // Load preset
+            function loadPreset(preset) {
+                // Stop all sounds first
+                sounds.forEach(sound => {
+                    if (sound.active) {
+                        sound.player.stop();
+                        sound.active = false;
+                        document.getElementById(`card-${sound.id}`).classList.remove('active');
+                    }
+                });
+                
+                // Activate preset sounds
+                preset.sounds.forEach(presetSound => {
+                    const sound = sounds.find(s => s.id === presetSound.id);
+                    if (presetSound.active) {
+                        sound.player.volume.value = Tone.gainToDb(presetSound.volume);
+                        sound.volume = presetSound.volume;
+                        sound.player.start();
+                        sound.active = true;
+                        document.getElementById(`card-${sound.id}`).classList.add('active');
+                        updateVisualization(sound.id);
+                        
+                        // Update volume slider
+                        const slider = document.querySelector(`.volume-control[data-sound-id="${sound.id}"]`);
+                        slider.value = presetSound.volume;
+                    }
+                });
+            }
+            
+            // Load presets from localStorage
+            function loadSavedPresets() {
+                const presets = JSON.parse(localStorage.getItem('ambientPresets') || '[]');
+                const presetsList = document.querySelector('.presets-list');
+                
+                presets.forEach(preset => {
+                    const presetBtn = document.createElement('button');
+                    presetBtn.className = 'preset-btn';
+                    presetBtn.textContent = preset.name;
+                    presetsList.appendChild(presetBtn);
+                    
+                    presetBtn.addEventListener('click', function() {
+                        loadPreset(preset);
+                    });
+                });
+            }
+            
+            // Initialize
+            createSoundCards();
+            loadSavedPresets();
+            
+            // Add click events to built-in presets
+            document.querySelectorAll('.preset-btn').forEach((btn, index) => {
+                if (index < 7) { // Only for the default presets
+                    btn.addEventListener('click', function() {
+                        // Define presets
+                        const builtInPresets = [
+                            { // Rainy Forest
+                                sounds: [
+                                    { id: 'rain', active: true, volume: 0.8 },
+                                    { id: 'forest', active: true, volume: 0.5 },
+                                    { id: 'birds', active: true, volume: 0.3 }
+                                ]
+                            },
+                            { // Ocean Waves
+                                sounds: [
+                                    { id: 'waves', active: true, volume: 0.9 },
+                                    { id: 'beach', active: true, volume: 0.5 }
+                                ]
+                            },
+                            { // Campfire Night
+                                sounds: [
+                                    { id: 'fire', active: true, volume: 0.8 },
+                                    { id: 'night', active: true, volume: 0.6 },
+                                    { id: 'wind', active: true, volume: 0.3 }
+                                ]
+                            },
+                            { // Thunderstorm
+                                sounds: [
+                                    { id: 'rain', active: true, volume: 0.7 },
+                                    { id: 'thunder', active: true, volume: 0.6 },
+                                    { id: 'wind', active: true, volume: 0.5 }
+                                ]
+                            },
+                            { // Mountain Stream
+                                sounds: [
+                                    { id: 'stream', active: true, volume: 0.8 },
+                                    { id: 'birds', active: true, volume: 0.4 },
+                                    { id: 'wind', active: true, volume: 0.3 }
+                                ]
+                            },
+                            { // City Ambience
+                                sounds: [
+                                    { id: 'wind', active: true, volume: 0.5 },
+                                    { id: 'rain', active: true, volume: 0.3 }
+                                ]
+                            },
+                            { // Meditation
+                                sounds: [
+                                    { id: 'stream', active: true, volume: 0.4 },
+                                    { id: 'birds', active: true, volume: 0.3 },
+                                    { id: 'wind', active: true, volume: 0.2 }
+                                ]
+                            }
+                        ];
+                        
+                        loadPreset(builtInPresets[index]);
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

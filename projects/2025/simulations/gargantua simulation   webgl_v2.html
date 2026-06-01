@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gargantua Simulation | WebGL</title>
+    <style>
+        :root {
+            --primary: #00f0ff;
+            --bg-panel: rgba(10, 15, 30, 0.65);
+            --text: #e0f7fa;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text);
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Cinematic Bars */
+        .cinematic-bar {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background: #000;
+            z-index: 10;
+            transition: height 1.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+        .bar-top { top: 0; }
+        .bar-bottom { bottom: 0; }
+
+        body.cinematic .cinematic-bar {
+            height: 12vh;
+        }
+
+        body.cinematic .ui-container {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+        }
+
+        /* UI Panel */
+        .ui-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            border-radius: 0 0 10px 0;
+            z-index: 20;
+            transition: all 0.5s ease;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            font-size: 14px;
+            letter-spacing: 2px;
+            margin: 0 0 15px 0;
+            text-transform: uppercase;
+            color: var(--primary);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            background: var(--primary);
+            cursor: pointer;
+            margin-top: -5px;
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--primary);
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px;
+            font-family: inherit;
+            font-size: 10px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+
+        button.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 10px;
+            opacity: 0.5;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Toggle Switch */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .toggle-label { font-size: 11px; }
+        
+        /* Loading Overlay */
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: var(--primary);
+            transition: opacity 1s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">INITIALIZING SIMULATION...</div>
+
+    <div class="cinematic-bar bar-top"></div>
+    <div class="cinematic-bar bar-bottom"></div>
+
+    <div class="ui-container">
+        <h1>Sys.Control</h1>
+        
+        <div class="control-group">
+            <label>Accretion Speed <span id="val-speed">1.0</span></label>
+            <input type="range" id="inp-speed" min="0" max="5" step="0.1" value="1.5">
+        </div>
+
+        <div class="control-group">
+            <label>Disk Intensity <span id="val-bright">1.0</span></label>
+            <input type="range" id="inp-bright" min="0" max="3" step="0.1" value="1.2">
+        </div>
+
+        <div class="control-group">
+            <label>Lens Distortion <span id="val-lens">1.0</span></label>
+            <input type="range" id="inp-lens" min="0.1" max="2" step="0.1" value="1.0">
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Wormhole Mode</span>
+            <button id="btn-wormhole" style="flex:0; width: 40px;">OFF</button>
+        </div>
+
+        <div class="btn-row">
+            <button id="btn-cine">Cinematic</button>
+            <button id="btn-audio">Audio: OFF</button>
+        </div>
+        <div class="btn-row">
+            <button id="btn-reset">Reset Cam</button>
+        </div>
+    </div>
+
+    <div class="status">
+        POS: <span id="debug-pos">0,0,0</span><br>
+        FPS: <span id="debug-fps">60</span>
+    </div>
+
+    <canvas id="glcanvas"></canvas>
+
+    <!-- SHADERS -->
+    <script id="vs" type="x-shader/x-vertex">#version 300 es
+        in vec4 position;
+        void main() {
+            gl_Position = position;
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">#version 300 es
+        precision highp float;
+
+        out vec4 fragColor;
+        
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform vec3 uCamPos;
+        uniform vec3 uCamTarget;
+        
+        // Settings
+        uniform float uDiskSpeed;
+        uniform float uDiskBright;
+        uniform float uLensStrength;
+        uniform bool uWormholeMode;
+        uniform bool uCinematic;
+
+        #define PI 3.14159265359
+        #define MAX_STEPS 120
+        #define STEP_SIZE 0.05
+        #define MAX_DIST 50.0
+        #define BH_RADIUS 1.2
+        #define DISK_INNER 2.2
+        #define DISK_OUTER 7.5
+
+        // Noise functions for texture generation
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        float noise(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i.xy + vec2(0,0)), hash(i.xy + vec2(1,0)), f.x),
+                    mix(hash(i.xy + vec2(0,1)), hash(i.xy + vec2(1,1)), f.x), f.y),
+                mix(mix(hash(i.xy + vec2(0,0) + i.z), hash(i.xy + vec2(1,0) + i.z), f.x),
+                    mix(hash(i.xy + vec2(0,1) + i.z), hash(i.xy + vec2(1,1) + i.z), f.x), f.y), 
+                f.z
+            );
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p *= 2.0;
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        // Starfield background
+        vec3 getBackground(vec3 dir) {
+            float stars = pow(hash(dir.xy * 200.0 + dir.z * 50.0), 200.0) * 100.0;
+            stars += pow(hash(dir.yx * 300.0 - dir.z * 20.0), 300.0) * 50.0;
+            
+            // Nebulae
+            float n = fbm(dir * 3.0 + vec3(0.1));
+            vec3 neb = vec3(0.1, 0.05, 0.2) * smoothstep(0.4, 1.0, n);
+            
+            // Planet glow (fake planet in distance)
+            vec3 planetDir = normalize(vec3(0.5, 0.2, -0.8));
+            float planet = max(0.0, dot(dir, planetDir));
+            // Planet body
+            if(planet > 0.9995) return vec3(0.8, 0.6, 0.4);
+            // Planet glow
+            neb += vec3(0.4, 0.3, 0.1) * pow(planet, 80.0) * 0.5;
+
+            return vec3(stars) + neb;
+        }
+
+        // Rotate vector
+        vec3 rotateY(vec3 v, float angle) {
+            float c = cos(angle);
+            float s = sin(angle);
+            return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+            
+            // Camera setup
+            vec3 ro = uCamPos;
+            vec3 fwd = normalize(uCamTarget - ro);
+            vec3 right = normalize(cross(vec3(0, 1, 0), fwd));
+            vec3 up = cross(fwd, right);
+            vec3 rd = normalize(fwd + uv.x * right + uv.y * up);
+
+            vec3 col = vec3(0.0);
+            float glow = 0.0;
+            
+            // Wormhole Mode logic
+            if (uWormholeMode) {
+                // Simplified Raymarching for Wormhole distortion
+                vec3 p = ro;
+                float d = 0.0;
+                bool hit = false;
+                
+                for(int i=0; i<60; i++) {
+                    float distToCenter = length(p);
+                    // Bending space logic inverted for wormhole
+                    // Ray tends towards center then passes through
+                    float force = 1.0 / (distToCenter * distToCenter + 0.1) * uLensStrength;
+                    rd = normalize(rd - p * force * 0.02);
+                    
+                    p += rd * 0.2;
+                    
+                    if (length(p) < BH_RADIUS) {
+                        // Inside throat - map to 'other side' (just a distorted skybox here)
+                         col = getBackground(rotateY(rd, uTime * 0.2)) * vec3(0.5, 0.8, 1.0) * 2.0;
+                         hit = true;
+                         break;
+                    }
+                    if (length(p) > MAX_DIST) break;
+                }
+                
+                if (!hit) {
+                     // Add subtle throat glow
+                    float rim = dot(rd, normalize(p));
+                    col = getBackground(rd) + vec3(0.1, 0.4, 0.6) * pow(1.0-abs(rim), 4.0);
+                }
+            } 
+            else {
+                // BLACK HOLE MODE
+                
+                vec3 p = ro;
+                vec3 accumColor = vec3(0.0);
+                float alpha = 1.0;
+                bool hitHorizon = false;
+                
+                // Adaptive Raymarching
+                // We track the ray. Gravity bends 'rd' towards (0,0,0).
+                
+                for(int i = 0; i < MAX_STEPS; i++) {
+                    float r = length(p);
+                    
+                    // Event Horizon check
+                    if(r < BH_RADIUS) {
+                        hitHorizon = true;
+                        break;
+                    }
+                    
+                    // Gravity Bending (Newtonian approximation for performance + art style)
+                    // F ~ 1/r^2. 
+                    float gravityStrength = (1.5 * uLensStrength) / (r * r);
+                    vec3 gravityDir = normalize(-p);
+                    rd = normalize(rd + gravityDir * gravityStrength * STEP_SIZE);
+                    
+                    // Move ray
+                    vec3 prevP = p;
+                    p += rd * max(0.05, r * 0.1); // Adaptive step size based on distance
+                    
+                    // Accretion Disk Rendering
+                    // Check if we crossed the Y=0 plane
+                    if(prevP.y * p.y < 0.0) {
+                        // Find exact intersection point with plane
+                        float t = -prevP.y / rd.y; 
+                        vec3 intersect = prevP + rd * t;
+                        float dist = length(intersect);
+                        
+                        if(dist > DISK_INNER && dist < DISK_OUTER) {
+                            // UVs for the disk
+                            float angle = atan(intersect.z, intersect.x);
+                            float spiral = angle + dist * 0.5 - uTime * uDiskSpeed;
+                            
+                            // Procedural Texture
+                            float noiseVal = fbm(vec3(intersect.x * 2.0, intersect.z * 2.0, uTime * 0.1));
+                            noiseVal *= fbm(vec3(dist * 3.0, spiral * 3.0, 0.0));
+                            
+                            // Doppler shift approximation
+                            // Calculate velocity vector of disk at this point
+                            vec3 vel = normalize(cross(vec3(0,1,0), intersect));
+                            float doppler = dot(normalize(uCamPos - intersect), vel);
+                            
+                            // Color mapping
+                            float temp = smoothstep(DISK_OUTER, DISK_INNER, dist); // Hotter inside
+                            vec3 diskCol = mix(vec3(1.0, 0.1, 0.05), vec3(0.6, 0.8, 1.0), temp); // Red to Blue
+                            
+                            // Apply doppler beaming (brightness + slight color shift)
+                            float beam = 0.5 + 0.5 * doppler;
+                            diskCol *= mix(0.5, 1.8, beam); // Brighter approaching
+                            
+                            // Soft edges
+                            float alphaDisk = smoothstep(DISK_INNER, DISK_INNER + 0.5, dist) * smoothstep(DISK_OUTER, DISK_OUTER - 2.0, dist);
+                                              
+                            accumColor += diskCol * noiseVal * alphaDisk * uDiskBright * 0.3;
+                        }
+                    }
+                    
+                    // Glow accumulation near photon sphere
+                    glow += 0.01 / (max(0.0, r - BH_RADIUS) + 0.1);
+                    
+                    if (r > MAX_DIST) break;
+                }
+                
+                if (hitHorizon) {
+                    col = vec3(0.0); // Pure black
+                } else {
+                    col = getBackground(rd);
+                }
+                
+                // Add Accretion Disk
+                col += accumColor;
+                
+                // Add Photon Ring Glow
+                col += vec3(0.5, 0.7, 1.0) * glow * 0.02 * uDiskBright;
+            }
+
+            // Cinematic Post-Processing
+            if (uCinematic) {
+                // Vignette
+                float v = length(uv);
+                col *= smoothstep(1.5, 0.5, v);
+                
+                // Grading: Teal/Orange push
+                col = pow(col, vec3(1.2)); // Contrast
+                col.r = smoothstep(0.0, 1.0, col.r);
+                col.b = smoothstep(0.0, 0.9, col.b) * 1.1;
+                
+                // Grain
+                float grain = hash(uv * uTime) * 0.05;
+                col += grain;
+            }
+
+            fragColor = vec4(col, 1.0);
+        }
+    </script>
+
+    <script>
+        // --- AUDIO ENGINE (Procedural to save size) ---
+        class SpaceAudio {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.nodes = [];
+            }
+
+            init() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                
+                // Master Gain
+                this.master = this.ctx.createGain();
+                this.master.gain.value = 0.4;
+                this.master.connect(this.ctx.destination);
+                
+                // 1. Deep Drone (Brown Noise approximation via filtered White Noise)
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = output[i];
+                    output[i] *= 3.5; 
+                }
+                var lastOut = 0;
+                
+                let noise = this.ctx.createBufferSource();
+                noise.buffer = noiseBuffer;
+                noise.loop = true;
+                let noiseFilter = this.ctx.createBiquadFilter();
+                noiseFilter.type = 'lowpass';
+                noiseFilter.frequency.value = 80;
+                noise.connect(noiseFilter).connect(this.master);
+                this.nodes.push(noise);
+
+                // 2. Low Sine Emitter (The "thrum")
+                let osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 40;
+                let oscGain = this.ctx.createGain();
+                oscGain.gain.value = 0.2;
+                
+                // LFO for the thrum
+                let lfo = this.ctx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.1;
+                let lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 10.0;
+                lfo.connect(lfoGain).connect(osc.frequency);
+                
+                osc.connect(oscGain).connect(this.master);
+                this.nodes.push(osc, lfo);
+
+                // Start all
+                this.nodes.forEach(n => n.start());
+                this.isPlaying = true;
+            }
+
+            toggle() {
+                if (!this.ctx) {
+                    this.init();
+                    return true;
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                    this.isPlaying = true;
+                } else {
+                    this.ctx.suspend();
+                    this.isPlaying = false;
+                }
+                return this.isPlaying;
+            }
+        }
+        
+        const audioEngine = new SpaceAudio();
+
+        // --- WEBGL ENGINE ---
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl2');
+
+        if (!gl) {
+            alert("WebGL 2.0 not supported on this browser.");
+        }
+
+        // Shader Compilation
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error("Shader compile error:", gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vs').textContent.trim();
+        const fsSource = document.getElementById('fs').textContent.trim();
+
+        const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error("Program link error:", gl.getProgramInfoLog(program));
+        }
+
+        // Buffer Setup (Fullscreen Quad)
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1,
+        ]), gl.STATIC_DRAW);
+
+        const positionAttrib = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionAttrib);
+        gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
+
+        // Uniform Locations
+        const uLocs = {
+            res: gl.getUniformLocation(program, "uResolution"),
+            time: gl.getUniformLocation(program, "uTime"),
+            camPos: gl.getUniformLocation(program, "uCamPos"),
+            camTarget: gl.getUniformLocation(program, "uCamTarget"),
+            diskSpeed: gl.getUniformLocation(program, "uDiskSpeed"),
+            diskBright: gl.getUniformLocation(program, "uDiskBright"),
+            lensStrength: gl.getUniformLocation(program, "uLensStrength"),
+            wormhole: gl.getUniformLocation(program, "uWormholeMode"),
+            cinematic: gl.getUniformLocation(program, "uCinematic")
+        };
+
+        // State
+        let state = {
+            time: 0,
+            camLat: -0.2, // Radians
+            camLon: 1.5,
+            camDist: 12.0,
+            speed: 1.5,
+            bright: 1.2,
+            lens: 1.0,
+            wormhole: false,
+            cinematic: false,
+            dragging: false,
+            lastX: 0,
+            lastY: 0
+        };
+
+        // --- INTERACTION ---
+        
+        // Input binding
+        const inputs = {
+            speed: document.getElementById('inp-speed'),
+            bright: document.getElementById('inp-bright'),
+            lens: document.getElementById('inp-lens'),
+            wormBtn: document.getElementById('btn-wormhole'),
+            cineBtn: document.getElementById('btn-cine'),
+            audBtn: document.getElementById('btn-audio'),
+            resetBtn: document.getElementById('btn-reset'),
+            debugPos: document.getElementById('debug-pos'),
+            debugFps: document.getElementById('debug-fps')
+        };
+
+        const displayVals = {
+            speed: document.getElementById('val-speed'),
+            bright: document.getElementById('val-bright'),
+            lens: document.getElementById('val-lens')
+        };
+
+        // Listeners
+        inputs.speed.oninput = (e) => { state.speed = parseFloat(e.target.value); displayVals.speed.innerText = state.speed; };
+        inputs.bright.oninput = (e) => { state.bright = parseFloat(e.target.value); displayVals.bright.innerText = state.bright; };
+        inputs.lens.oninput = (e) => { state.lens = parseFloat(e.target.value); displayVals.lens.innerText = state.lens; };
+
+        inputs.wormBtn.onclick = () => {
+            state.wormhole = !state.wormhole;
+            inputs.wormBtn.innerText = state.wormhole ? "ON" : "OFF";
+            inputs.wormBtn.classList.toggle('active');
+        };
+
+        inputs.cineBtn.onclick = () => {
+            state.cinematic = !state.cinematic;
+            inputs.cineBtn.classList.toggle('active');
+            if(state.cinematic) {
+                document.body.classList.add('cinematic');
+                // Auto exit cinematic on click anywhere
+                setTimeout(() => {
+                    const exitHandler = () => {
+                        state.cinematic = false;
+                        inputs.cineBtn.classList.remove('active');
+                        document.body.classList.remove('cinematic');
+                        document.removeEventListener('click', exitHandler);
+                    };
+                    document.addEventListener('click', exitHandler);
+                }, 100);
+            }
+        };
+
+        inputs.audBtn.onclick = () => {
+            const playing = audioEngine.toggle();
+            inputs.audBtn.innerText = playing ? "Audio: ON" : "Audio: OFF";
+            inputs.audBtn.classList.toggle('active');
+        };
+
+        inputs.resetBtn.onclick = () => {
+            state.camLat = -0.2;
+            state.camLon = 1.5;
+            state.camDist = 12.0;
+        };
+
+        // Camera Controls
+        canvas.addEventListener('mousedown', e => { state.dragging = true; state.lastX = e.clientX; state.lastY = e.clientY; });
+        window.addEventListener('mouseup', () => state.dragging = false);
+        window.addEventListener('mousemove', e => {
+            if (!state.dragging) return;
+            const dx = e.clientX - state.lastX;
+            const dy = e.clientY - state.lastY;
+            state.lastX = e.clientX;
+            state.lastY = e.clientY;
+            
+            // Orbit logic
+            state.camLon -= dx * 0.005;
+            state.camLat += dy * 0.005;
+            state.camLat = Math.max(-1.5, Math.min(1.5, state.camLat));
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            state.camDist += e.deltaY * 0.01;
+            state.camDist = Math.max(3.0, Math.min(30.0, state.camDist));
+        }, {passive: false});
+
+
+        // --- RENDER LOOP ---
+        let lastTime = 0;
+        let frameCount = 0;
+        let fpsTimer = 0;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Initial hide loader
+        setTimeout(() => {
+            document.getElementById('loader').style.opacity = 0;
+            setTimeout(() => document.getElementById('loader').remove(), 1000);
+        }, 500);
+
+        function render(now) {
+            now *= 0.001; // convert to seconds
+            const dt = now - lastTime;
+            lastTime = now;
+            state.time = now;
+
+            // Debug Stats
+            frameCount++;
+            if (now - fpsTimer > 1.0) {
+                inputs.debugFps.innerText = frameCount;
+                frameCount = 0;
+                fpsTimer = now;
+                inputs.debugPos.innerText = `${state.camLon.toFixed(2)}, ${state.camLat.toFixed(2)}`;
+            }
+
+            // Calculate Camera Position
+            const cx = state.camDist * Math.cos(state.camLat) * Math.sin(state.camLon);
+            const cy = state.camDist * Math.sin(state.camLat);
+            const cz = state.camDist * Math.cos(state.camLat) * Math.cos(state.camLon);
+
+            gl.useProgram(program);
+
+            gl.uniform2f(uLocs.res, canvas.width, canvas.height);
+            gl.uniform1f(uLocs.time, state.time);
+            gl.uniform3f(uLocs.camPos, cx, cy, cz);
+            gl.uniform3f(uLocs.camTarget, 0, 0, 0);
+            
+            gl.uniform1f(uLocs.diskSpeed, state.speed);
+            gl.uniform1f(uLocs.diskBright, state.bright);
+            gl.uniform1f(uLocs.lensStrength, state.lens);
+            gl.uniform1i(uLocs.wormhole, state.wormhole);
+            gl.uniform1i(uLocs.cinematic, state.cinematic);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

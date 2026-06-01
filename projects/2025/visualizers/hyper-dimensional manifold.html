@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyper-Dimensional Manifold</title>
+    <style>
+        /* Basic CSS Reset and Styling */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ffffff;
+        }
+        canvas {
+            display: block;
+        }
+        /* Overlay for information */
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: #00ffcc;
+            text-shadow: 0 0 5px #00ffcc;
+            max-width: 300px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+        }
+        p {
+            margin: 0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <!-- Info panel to describe the visualization -->
+    <div id="info">
+        <h1>Hyper-Dimensional Manifold</h1>
+        <p>A procedural visualization of a complex system. The core reacts to temporal distortion while the outer particle field is influenced by your cursor.</p>
+    </div>
+
+    <!-- The core of the visualization is the three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- SCENE SETUP ---
+        // This part initializes the fundamental components of a three.js scene.
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- GLOBAL VARIABLES ---
+        // These variables will be used throughout the script to manage the state of the animation.
+        const clock = new THREE.Clock();
+        const mouse = new THREE.Vector2();
+        let uniforms;
+
+        // --- CORE OBJECT: THE MANIFOLD ---
+        // This is the central, crystalline structure.
+        // We use a custom shader for a unique, evolving appearance.
+        function createManifold() {
+            // Uniforms are variables passed from JS to the GPU shader.
+            // They allow us to animate the material in real-time.
+            uniforms = {
+                time: { value: 1.0 },
+                resolution: { value: new THREE.Vector2() },
+                mouse: { value: new THREE.Vector2() }
+            };
+
+            // The material uses custom GLSL (OpenGL Shading Language) code.
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec2 resolution;
+                    uniform float time;
+                    uniform vec2 mouse;
+
+                    varying vec2 vUv;
+
+                    // A complex function to generate procedural patterns.
+                    // This is a form of generative art, creating visuals from mathematical formulas.
+                    float a(vec3 p) {
+                        p.xy *= mat2(cos(time*0.1),-sin(time*0.1),sin(time*0.1),cos(time*0.1));
+                        return dot(sin(p*2.)*cos(p.zxy*3.+time), cos(p.yzx*3.+time)) * 0.5 + 0.5;
+                    }
+
+                    void main() {
+                        vec2 p = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+                        float d = length(p);
+                        vec3 col = vec3(0.0);
+
+                        // The core visual logic. It layers multiple patterns and colors.
+                        float pattern = a(vec3(p * (2.0 + sin(time) * 0.5)), time * 0.2));
+                        pattern *= smoothstep(0.7, 0.2, d); // Fades out at the edges.
+
+                        // Coloring based on the pattern and distance from center.
+                        col += vec3(pattern * 0.2, pattern * 0.5, pattern * 1.0) * (1.0 - d);
+                        col += vec3(d * 0.5, d * 0.2, 0.0); // Adds a warm glow to the center.
+                        col = pow(col, vec3(1.2)); // Adjusts contrast.
+
+                        gl_FragColor = vec4(col, 1.0);
+                    }
+                `,
+                side: THREE.DoubleSide
+            });
+
+            // The geometry is an Icosahedron, a 20-sided polyhedron, which gives a complex base shape.
+            const geometry = new THREE.IcosahedronGeometry(2, 20);
+            const manifold = new THREE.Mesh(geometry, material);
+            scene.add(manifold);
+            return manifold;
+        }
+
+        const manifold = createManifold();
+
+        // --- PARTICLE SYSTEM: THE NEBULA ---
+        // A cloud of particles that surrounds the manifold and reacts to the mouse.
+        function createParticleNebula() {
+            const particleCount = 20000;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            const color = new THREE.Color();
+
+            for (let i = 0; i < particleCount; i++) {
+                // We create particles in a spherical shell distribution.
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(Math.random() * 2 - 1);
+                const r = 4 + Math.random() * 6;
+
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+
+                // Assign a color based on position for a galactic look.
+                color.setHSL((x + 5) / 10, 0.7, 0.6);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particles.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3)); // Store velocity data
+
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending, // Creates a nice glow effect
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const nebula = new THREE.Points(particles, particleMaterial);
+            scene.add(nebula);
+            return nebula;
+        }
+
+        const nebula = createParticleNebula();
+
+        // --- CAMERA POSITION ---
+        camera.position.z = 15;
+
+        // --- EVENT LISTENERS ---
+        // These functions make the visualization interactive.
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.resolution.value.x = renderer.domElement.width;
+            uniforms.resolution.value.y = renderer.domElement.height;
+        }
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onMouseMove(event) {
+            // Normalize mouse coordinates to [-1, 1] range
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+        window.addEventListener('mousemove', onMouseMove, false);
+
+        // --- ANIMATION LOOP ---
+        // This function is called every frame to update and render the scene.
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // 1. Animate the core manifold
+            manifold.rotation.x += 0.0005;
+            manifold.rotation.y += 0.0007;
+            uniforms.time.value = time; // Update shader time
+
+            // 2. Animate the particle nebula
+            const positions = nebula.geometry.attributes.position.array;
+            const velocities = nebula.geometry.attributes.velocity.array;
+
+            const mouseForce = 0.8;
+            const returnForce = 0.002;
+            const velocityDamping = 0.97;
+
+            // This loop updates each particle's position based on mouse interaction.
+            for (let i = 0; i < positions.length; i += 3) {
+                const particleVector = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
+                
+                // Project 3D particle position to 2D screen space to interact with mouse
+                const screenPos = particleVector.clone().project(camera);
+
+                // Calculate distance to the mouse cursor
+                const dx = mouse.x - screenPos.x;
+                const dy = mouse.y - screenPos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // If close to the mouse, apply a force
+                if (dist < 0.2) {
+                    const force = (0.2 - dist) * mouseForce;
+                    velocities[i] += dx * force;
+                    velocities[i + 1] += dy * force;
+                }
+
+                // Apply a force to return to original position (a subtle pull towards the center)
+                const originalLength = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]).length();
+                const currentLength = particleVector.length();
+                const returnFactor = (originalLength - currentLength) * returnForce;
+                
+                particleVector.normalize().multiplyScalar(returnFactor);
+                velocities[i] += particleVector.x;
+                velocities[i+1] += particleVector.y;
+                velocities[i+2] += particleVector.z;
+
+
+                // Apply damping to slow down particles over time
+                velocities[i] *= velocityDamping;
+                velocities[i + 1] *= velocityDamping;
+                velocities[i + 2] *= velocityDamping;
+
+                // Update position with velocity
+                positions[i] += velocities[i] * delta * 60;
+                positions[i + 1] += velocities[i + 1] * delta * 60;
+                positions[i + 2] += velocities[i + 2] * delta * 60;
+            }
+            nebula.geometry.attributes.position.needsUpdate = true; // Important!
+
+            // 3. Render the final scene
+            renderer.render(scene, camera);
+        }
+
+        // --- INITIALIZATION ---
+        // Set initial values and start the animation loop.
+        onWindowResize(); // Set initial size
+        animate();
+    </script>
+</body>
+</html>

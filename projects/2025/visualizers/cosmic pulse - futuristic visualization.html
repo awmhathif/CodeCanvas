@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Pulse - Futuristic Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        .control-btn {
+            background: none;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            color: rgba(0, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            outline: none;
+        }
+        .control-btn:hover {
+            background: rgba(0, 255, 255, 0.2);
+            border-color: rgba(0, 255, 255, 0.8);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 1s ease;
+        }
+        .loading h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, #00FFFF, #FF00FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        .progress-bar {
+            width: 300px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress {
+            height: 100%;
+            background: linear-gradient(to right, #00FFFF, #FF00FF);
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+        }
+        .instructions {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            font-size: 14px;
+            text-align: center;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+            max-width: 80%;
+        }
+        .instructions:hover {
+            opacity: 1;
+        }
+        .breath-guide {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+            animation: pulse 8s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 50px rgba(0, 255, 255, 0.5); }
+            50% { transform: translate(-50%, -50%) scale(1.5); box-shadow: 0 0 100px rgba(0, 255, 255, 0.8); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <h1>COSMIC PULSE</h1>
+        <div class="progress-bar">
+            <div class="progress" id="progress"></div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        Move your mouse/touch to interact • Scroll to zoom • Breathe with the rhythm for stress relief
+    </div>
+    
+    <div class="breath-guide" id="breath-guide"></div>
+    
+    <div class="controls">
+        <button class="control-btn" id="mode-toggle">Change Mode</button>
+        <button class="control-btn" id="color-toggle">Change Colors</button>
+        <button class="control-btn" id="breath-toggle">Breathing Guide</button>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Initialize variables
+        let scene, camera, renderer, composer;
+        let particles, galaxy, energy;
+        let mouseX = 0, mouseY = 0;
+        let targetMouseX = 0, targetMouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+        let clock = new THREE.Clock();
+        let colorScheme = 0;
+        let visualMode = 0;
+        const colorSchemes = [
+            { primary: 0x00ffff, secondary: 0xff00ff }, // Cyan and Magenta
+            { primary: 0x00ff00, secondary: 0x0000ff }, // Green and Blue
+            { primary: 0xff0000, secondary: 0xffff00 }, // Red and Yellow
+            { primary: 0xff8800, secondary: 0x0088ff }  // Orange and Light Blue
+        ];
+        
+        // Setup progress loader
+        function updateProgress(percent) {
+            document.getElementById('progress').style.width = `${percent}%`;
+            if (percent >= 100) {
+                setTimeout(() => {
+                    document.querySelector('.loading').style.opacity = 0;
+                    setTimeout(() => {
+                        document.querySelector('.loading').style.display = 'none';
+                    }, 1000);
+                }, 500);
+            }
+        }
+        
+        // Initialize the scene
+        function init() {
+            updateProgress(10);
+            
+            // Create scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.0005);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
+            camera.position.z = 1000;
+            
+            updateProgress(20);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            
+            updateProgress(30);
+            
+            // Create particle systems
+            createParticles();
+            createGalaxy();
+            createEnergyField();
+            
+            updateProgress(70);
+            
+            // Add event listeners
+            document.addEventListener('mousemove', onDocumentMouseMove);
+            document.addEventListener('touchmove', onDocumentTouchMove);
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('wheel', onDocumentWheel);
+            
+            // Setup UI controls
+            document.getElementById('mode-toggle').addEventListener('click', toggleVisualMode);
+            document.getElementById('color-toggle').addEventListener('click', toggleColorScheme);
+            document.getElementById('breath-toggle').addEventListener('click', toggleBreathingGuide);
+            
+            updateProgress(100);
+            
+            // Start animation
+            animate();
+        }
+        
+        // Create particle system
+        function createParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const sizes = [];
+            const colors = [];
+            
+            const color1 = new THREE.Color(colorSchemes[colorScheme].primary);
+            const color2 = new THREE.Color(colorSchemes[colorScheme].secondary);
+            
+            for (let i = 0; i < 5000; i++) {
+                const x = Math.random() * 2000 - 1000;
+                const y = Math.random() * 2000 - 1000;
+                const z = Math.random() * 2000 - 1000;
+                
+                vertices.push(x, y, z);
+                
+                // Dynamic particle sizes
+                sizes.push(Math.random() * 10 + 5);
+                
+                // Color gradient
+                const mixedColor = new THREE.Color().lerpColors(color1, color2, Math.random());
+                colors.push(mixedColor.r, mixedColor.g, mixedColor.b);
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            // Custom shader material for particles
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0.0 },
+                    pointTexture: { value: new THREE.TextureLoader().load(createParticleTexture()) }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                        vColor = color;
+                        vec3 pos = position;
+                        
+                        // Add some movement
+                        pos.x += sin(pos.z * 0.01 + time * 0.5) * 20.0;
+                        pos.y += cos(pos.z * 0.01 + time * 0.5) * 20.0;
+                        
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D pointTexture;
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        vec2 uv = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);
+                        vec4 texColor = texture2D(pointTexture, uv);
+                        if (texColor.a < 0.3) discard;
+                        gl_FragColor = vec4(vColor, 1.0) * texColor;
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            
+            updateProgress(40);
+        }
+        
+        // Create galaxy spiral
+        function createGalaxy() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const colors = [];
+            const sizes = [];
+            
+            const color1 = new THREE.Color(colorSchemes[colorScheme].primary);
+            const color2 = new THREE.Color(colorSchemes[colorScheme].secondary);
+            
+            // Create spiral galaxy
+            for (let i = 0; i < 20000; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 1000;
+                const spiralOffset = Math.random() * Math.PI * 4;
+                const armAngle = angle + spiralOffset * (radius / 1000);
+                
+                const x = Math.cos(armAngle) * radius;
+                const y = (Math.random() - 0.5) * 50;  // Thinner on y axis
+                const z = Math.sin(armAngle) * radius;
+                
+                vertices.push(x, y, z);
+                
+                // Gradient color from center to edge
+                const colorPos = radius / 1000;
+                const mixedColor = new THREE.Color().lerpColors(color2, color1, colorPos);
+                colors.push(mixedColor.r, mixedColor.g, mixedColor.b);
+                
+                // Larger particles near center
+                const particleSize = 5 + (1 - radius / 1000) * 10;
+                sizes.push(particleSize);
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+            
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0.0 },
+                    pointTexture: { value: new THREE.TextureLoader().load(createParticleTexture()) }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                        vColor = color;
+                        
+                        // Calculate distance from center
+                        float dist = length(position.xz);
+                        
+                        // Rotate points based on distance from center
+                        float angle = time * (0.1 / (dist/200.0 + 0.1));
+                        float s = sin(angle);
+                        float c = cos(angle);
+                        
+                        vec3 pos = position;
+                        pos.x = position.x * c - position.z * s;
+                        pos.z = position.x * s + position.z * c;
+                        
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D pointTexture;
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        vec2 uv = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);
+                        vec4 texColor = texture2D(pointTexture, uv);
+                        if (texColor.a < 0.3) discard;
+                        gl_FragColor = vec4(vColor, 1.0) * texColor;
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            galaxy = new THREE.Points(geometry, material);
+            galaxy.rotation.x = Math.PI / 6; // Tilt the galaxy
+            scene.add(galaxy);
+            
+            updateProgress(50);
+        }
+        
+        // Create energy field
+        function createEnergyField() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const colors = [];
+            
+            const color1 = new THREE.Color(colorSchemes[colorScheme].primary);
+            const color2 = new THREE.Color(colorSchemes[colorScheme].secondary);
+            
+            // Create energy lines
+            for (let i = 0; i < 100; i++) {
+                const linePoints = 50;
+                const radius = 800 + Math.random() * 200;
+                const startAngle = Math.random() * Math.PI * 2;
+                const angleSpan = Math.PI * (0.1 + Math.random() * 0.2);
+                
+                for (let j = 0; j < linePoints; j++) {
+                    const angle = startAngle + (j / (linePoints - 1)) * angleSpan;
+                    const heightOffset = Math.sin((j / (linePoints - 1)) * Math.PI) * 300;
+                    
+                    const x = Math.cos(angle) * radius;
+                    const y = heightOffset;
+                    const z = Math.sin(angle) * radius;
+                    
+                    vertices.push(x, y, z);
+                    
+                    // Color gradient along the line
+                    const colorPos = j / (linePoints - 1);
+                    const mixedColor = new THREE.Color().lerpColors(color1, color2, colorPos);
+                    colors.push(mixedColor.r, mixedColor.g, mixedColor.b);
+                }
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.LineBasicMaterial({ 
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.5
+            });
+            
+            energy = new THREE.LineSegments(geometry, material);
+            scene.add(energy);
+            
+            updateProgress(60);
+        }
+        
+        // Create a particle texture
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            const size = 128;
+            canvas.width = size;
+            canvas.height = size;
+            
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(
+                size / 2, size / 2, 0,
+                size / 2, size / 2, size / 2
+            );
+            
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.4)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, size, size);
+            
+            return canvas.toDataURL();
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+            
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Handle mouse movement
+        function onDocumentMouseMove(event) {
+            targetMouseX = (event.clientX - windowHalfX) * 0.5;
+            targetMouseY = (event.clientY - windowHalfY) * 0.5;
+        }
+        
+        // Handle touch movement
+        function onDocumentTouchMove(event) {
+            if (event.touches.length === 1) {
+                event.preventDefault();
+                targetMouseX = (event.touches[0].pageX - windowHalfX) * 0.5;
+                targetMouseY = (event.touches[0].pageY - windowHalfY) * 0.5;
+            }
+        }
+        
+        // Handle scroll for zoom
+        function onDocumentWheel(event) {
+            camera.position.z += event.deltaY * 0.5;
+            // Limit zoom range
+            camera.position.z = Math.max(100, Math.min(camera.position.z, 2000));
+        }
+        
+        // Toggle visual mode
+        function toggleVisualMode() {
+            visualMode = (visualMode + 1) % 3;
+            
+            // Reset rotations
+            particles.rotation.set(0, 0, 0);
+            galaxy.rotation.x = Math.PI / 6;
+            galaxy.rotation.y = 0;
+            energy.rotation.set(0, 0, 0);
+            
+            // Reset camera
+            camera.position.z = 1000;
+        }
+        
+        // Toggle color scheme
+        function toggleColorScheme() {
+            colorScheme = (colorScheme + 1) % colorSchemes.length;
+            
+            // Update colors for particles
+            const positions = particles.geometry.attributes.position;
+            const colors = particles.geometry.attributes.color;
+            const color1 = new THREE.Color(colorSchemes[colorScheme].primary);
+            const color2 = new THREE.Color(colorSchemes[colorScheme].secondary);
+            
+            for (let i = 0; i < positions.count; i++) {
+                const mixedColor = new THREE.Color().lerpColors(color1, color2, Math.random());
+                colors.array[i * 3] = mixedColor.r;
+                colors.array[i * 3 + 1] = mixedColor.g;
+                colors.array[i * 3 + 2] = mixedColor.b;
+            }
+            
+            colors.needsUpdate = true;
+            
+            // Update galaxy colors
+            const galaxyColors = galaxy.geometry.attributes.color;
+            
+            for (let i = 0; i < galaxy.geometry.attributes.position.count; i++) {
+                const x = galaxy.geometry.attributes.position.array[i * 3];
+                const z = galaxy.geometry.attributes.position.array[i * 3 + 2];
+                const radius = Math.sqrt(x * x + z * z);
+                const colorPos = radius / 1000;
+                
+                const mixedColor = new THREE.Color().lerpColors(
+                    new THREE.Color(colorSchemes[colorScheme].secondary),
+                    new THREE.Color(colorSchemes[colorScheme].primary),
+                    colorPos
+                );
+                
+                galaxyColors.array[i * 3] = mixedColor.r;
+                galaxyColors.array[i * 3 + 1] = mixedColor.g;
+                galaxyColors.array[i * 3 + 2] = mixedColor.b;
+            }
+            
+            galaxyColors.needsUpdate = true;
+            
+            // Update energy colors
+            const energyColors = energy.geometry.attributes.color;
+            
+            for (let i = 0; i < energy.geometry.attributes.position.count; i++) {
+                const linePos = i % 50 / 49;
+                const mixedColor = new THREE.Color().lerpColors(
+                    new THREE.Color(colorSchemes[colorScheme].primary),
+                    new THREE.Color(colorSchemes[colorScheme].secondary),
+                    linePos
+                );
+                
+                energyColors.array[i * 3] = mixedColor.r;
+                energyColors.array[i * 3 + 1] = mixedColor.g;
+                energyColors.array[i * 3 + 2] = mixedColor.b;
+            }
+            
+            energyColors.needsUpdate = true;
+        }
+        
+        // Toggle breathing guide
+        function toggleBreathingGuide() {
+            const guide = document.getElementById('breath-guide');
+            if (guide.style.display === 'none' || guide.style.display === '') {
+                guide.style.display = 'block';
+            } else {
+                guide.style.display = 'none';
+            }
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+        
+        // Render scene
+        function render() {
+            // Smooth mouse movement
+            mouseX += (targetMouseX - mouseX) * 0.05;
+            mouseY += (targetMouseY - mouseY) * 0.05;
+            
+            const time = clock.getElapsedTime();
+            
+            // Update time uniform for shaders
+            if (particles.material.uniforms) {
+                particles.material.uniforms.time.value = time;
+            }
+            
+            if (galaxy.material.uniforms) {
+                galaxy.material.uniforms.time.value = time;
+            }
+            
+            // Different visual modes
+            switch(visualMode) {
+                case 0: // Default mode - slow rotation
+                    camera.position.x += (mouseX - camera.position.x) * 0.05;
+                    camera.position.y += (-mouseY - camera.position.y) * 0.05;
+                    camera.lookAt(scene.position);
+                    
+                    particles.rotation.y = time * 0.05;
+                    energy.rotation.y = -time * 0.03;
+                    break;
+                    
+                case 1: // Wormhole mode
+                    camera.position.z = 1000 + Math.sin(time * 0.2) * 300;
+                    camera.rotation.z = time * 0.1;
+                    
+                    particles.rotation.z = time * 0.1;
+                    galaxy.rotation.z = time * 0.05;
+                    
+                    // Move camera through the galaxy
+                    const cameraAngle = time * 0.1;
+                    camera.position.x = Math.sin(cameraAngle) * 300;
+                    camera.position.y = Math.cos(cameraAngle) * 300;
+                    camera.lookAt(0, 0, camera.position.z - 1000);
+                    break;
+                    
+                case 2: // Orbit mode
+                    const orbitRadius = 1500;
+                    const orbitAngle = time * 0.1;
+                    camera.position.x = Math.sin(orbitAngle) * orbitRadius;
+                    camera.position.z = Math.cos(orbitAngle) * orbitRadius;
+                    camera.position.y = Math.sin(time * 0.2) * 300;
+                    camera.lookAt(scene.position);
+                    
+                    particles.rotation.y = time * 0.1;
+                    galaxy.rotation.y = time * 0.05;
+                    energy.rotation.x = Math.sin(time * 0.1) * 0.2;
+                    break;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Start the visualization
+        init();
+    </script>
+</body>
+</html>

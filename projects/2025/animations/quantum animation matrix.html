@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Animation Matrix</title>
+    <style>
+        :root {
+            --quantum-energy: 0;
+            --neon-primary: hsl(calc(var(--quantum-energy) * 360), 100%, 70%);
+            --neon-secondary: hsl(calc((var(--quantum-energy) * 360 + 120) % 360), 100%, 70%);
+            --neon-tertiary: hsl(calc((var(--quantum-energy) * 360 + 240) % 360), 100%, 70%);
+            --particle-size: 1vmin;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        #quantumCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        #energyCore {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30vmin;
+            height: 30vmin;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--neon-primary), transparent 70%);
+            box-shadow: 0 0 5vmin var(--neon-primary), 
+                        0 0 10vmin var(--neon-primary),
+                        0 0 15vmin var(--neon-primary);
+            filter: blur(1vmin);
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            z-index: 2;
+            animation: pulse 3s infinite alternate ease-in-out;
+        }
+        
+        #nexusInterface {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+        
+        .nexusNode {
+            position: absolute;
+            width: 10vmin;
+            height: 10vmin;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 0.3vmin solid var(--neon-secondary);
+            box-shadow: 0 0 1vmin var(--neon-secondary), 
+                        inset 0 0 1vmin var(--neon-secondary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: scale(0);
+            animation: nodeAppear 0.5s forwards;
+            z-index: 4;
+        }
+        
+        .nexusNode:hover {
+            transform: scale(1.1) !important;
+            box-shadow: 0 0 2vmin var(--neon-secondary), 
+                        inset 0 0 2vmin var(--neon-secondary);
+        }
+        
+        .nexusNode:nth-child(1) { top: 20%; left: 20%; animation-delay: 0.1s; }
+        .nexusNode:nth-child(2) { top: 20%; right: 20%; animation-delay: 0.3s; }
+        .nexusNode:nth-child(3) { bottom: 20%; left: 20%; animation-delay: 0.5s; }
+        .nexusNode:nth-child(4) { bottom: 20%; right: 20%; animation-delay: 0.7s; }
+        .nexusNode:nth-child(5) { top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); animation-delay: 1s; }
+        
+        .quantumConnection {
+            position: absolute;
+            background: linear-gradient(to right, var(--neon-primary), var(--neon-secondary));
+            height: 0.2vmin;
+            transform-origin: left center;
+            z-index: 3;
+            box-shadow: 0 0 0.5vmin var(--neon-primary);
+            animation: connectionPulse 2s infinite alternate;
+        }
+        
+        #hudOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%);
+        }
+        
+        .hudElement {
+            position: absolute;
+            color: white;
+            font-size: 2vmin;
+            text-shadow: 0 0 1vmin var(--neon-primary);
+            opacity: 0.8;
+        }
+        
+        #energyLevel {
+            top: 2vmin;
+            left: 2vmin;
+        }
+        
+        #particleCount {
+            top: 2vmin;
+            right: 2vmin;
+        }
+        
+        #fpsCounter {
+            bottom: 2vmin;
+            left: 2vmin;
+        }
+        
+        #interactionPrompt {
+            bottom: 2vmin;
+            right: 2vmin;
+            animation: blink 2s infinite;
+        }
+        
+        .quantumParticle {
+            position: absolute;
+            border-radius: 50%;
+            background: var(--neon-primary);
+            box-shadow: 0 0 1vmin var(--neon-primary);
+            width: var(--particle-size);
+            height: var(--particle-size);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
+        }
+        
+        @keyframes nodeAppear {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes connectionPulse {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.8; }
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        @keyframes particleOrbit {
+            0% { transform: rotate(0deg) translateX(10vmin) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(10vmin) rotate(-360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            :root {
+                --particle-size: 2vmin;
+            }
+            
+            .nexusNode {
+                width: 15vmin;
+                height: 15vmin;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="quantumCanvas"></canvas>
+    <div id="energyCore"></div>
+    
+    <div id="nexusInterface">
+        <div class="nexusNode" data-energy="0.1">α</div>
+        <div class="nexusNode" data-energy="0.3">β</div>
+        <div class="nexusNode" data-energy="0.5">γ</div>
+        <div class="nexusNode" data-energy="0.7">δ</div>
+        <div class="nexusNode" data-energy="0.9">Ω</div>
+    </div>
+    
+    <div id="hudOverlay">
+        <div class="hudElement" id="energyLevel">QUANTUM ENERGY: 0%</div>
+        <div class="hudElement" id="particleCount">PARTICLES: 0</div>
+        <div class="hudElement" id="fpsCounter">FPS: 0</div>
+        <div class="hudElement" id="interactionPrompt">TAP NODES TO ACTIVATE</div>
+    </div>
+    
+    <script>
+        // Quantum Animation Engine
+        (function() {
+            // Core variables
+            const canvas = document.getElementById('quantumCanvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            let connections = [];
+            let lastTime = 0;
+            let fps = 0;
+            let frameCount = 0;
+            let lastFpsUpdate = 0;
+            let quantumEnergy = 0;
+            let targetEnergy = 0;
+            let activeNodes = [];
+            let isInteracting = false;
+            let interactionCooldown = false;
+            
+            // Initialize system
+            function init() {
+                resize();
+                window.addEventListener('resize', resize);
+                
+                // Create initial particles
+                createParticles(50);
+                
+                // Set up node interactions
+                document.querySelectorAll('.nexusNode').forEach(node => {
+                    node.addEventListener('click', handleNodeClick);
+                    node.addEventListener('touchstart', handleNodeClick);
+                });
+                
+                // Create connections between nodes
+                createConnections();
+                
+                // Start animation loop
+                requestAnimationFrame(animate);
+                
+                // Start FPS counter
+                setInterval(updateFpsCounter, 1000);
+            }
+            
+            // Resize handler
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            
+            // Animation loop
+            function animate(timestamp) {
+                // Calculate delta time for smooth animations
+                const deltaTime = timestamp - lastTime;
+                lastTime = timestamp;
+                
+                // Clear canvas with fade effect
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Update quantum energy
+                updateQuantumEnergy(deltaTime);
+                
+                // Update and draw particles
+                updateParticles(deltaTime);
+                
+                // Update connections
+                updateConnections();
+                
+                // Update core glow
+                updateCoreGlow();
+                
+                // Update HUD
+                updateHUD();
+                
+                // Frame counter for FPS calculation
+                frameCount++;
+                
+                // Continue animation loop
+                requestAnimationFrame(animate);
+            }
+            
+            // Create particles
+            function createParticles(count) {
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        size: Math.random() * 3 + 1,
+                        color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+                        life: Math.random() * 1000 + 500,
+                        maxLife: Math.random() * 1000 + 500,
+                        orbitRadius: Math.random() * 50 + 20,
+                        orbitSpeed: (Math.random() - 0.5) * 0.02,
+                        angle: Math.random() * Math.PI * 2,
+                        type: Math.random() > 0.5 ? 'free' : 'orbit'
+                    });
+                }
+            }
+            
+            // Update particles
+            function updateParticles(deltaTime) {
+                particles.forEach((p, i) => {
+                    // Update particle life
+                    p.life -= deltaTime;
+                    
+                    if (p.life <= 0) {
+                        // Replace dead particles
+                        particles.splice(i, 1);
+                        particles.push({
+                            x: Math.random() * width,
+                            y: Math.random() * height,
+                            vx: (Math.random() - 0.5) * 2 * (1 + quantumEnergy),
+                            vy: (Math.random() - 0.5) * 2 * (1 + quantumEnergy),
+                            size: Math.random() * 3 + 1,
+                            color: `hsl(${(quantumEnergy * 360 + Math.random() * 60) % 360}, 100%, 70%)`,
+                            life: Math.random() * 1000 + 500,
+                            maxLife: Math.random() * 1000 + 500,
+                            orbitRadius: Math.random() * 50 + 20,
+                            orbitSpeed: (Math.random() - 0.5) * 0.02 * (1 + quantumEnergy),
+                            angle: Math.random() * Math.PI * 2,
+                            type: Math.random() > 0.3 ? 'free' : 'orbit'
+                        });
+                        return;
+                    }
+                    
+                    // Update position based on type
+                    if (p.type === 'free') {
+                        p.x += p.vx * (1 + quantumEnergy * 0.5);
+                        p.y += p.vy * (1 + quantumEnergy * 0.5);
+                        
+                        // Bounce off edges
+                        if (p.x < 0 || p.x > width) p.vx *= -1;
+                        if (p.y < 0 || p.y > height) p.vy *= -1;
+                    } else {
+                        // Orbital motion
+                        p.angle += p.orbitSpeed;
+                        const centerX = width / 2 + Math.sin(p.angle * 0.5) * 100 * quantumEnergy;
+                        const centerY = height / 2 + Math.cos(p.angle * 0.3) * 100 * quantumEnergy;
+                        p.x = centerX + Math.cos(p.angle) * p.orbitRadius;
+                        p.y = centerY + Math.sin(p.angle) * p.orbitRadius;
+                    }
+                    
+                    // Draw particle
+                    const alpha = p.life / p.maxLife;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color.replace(')', `, ${alpha})`).replace('hsl', 'hsla');
+                    ctx.fill();
+                    
+                    // Add glow effect
+                    ctx.shadowBlur = p.size * 2;
+                    ctx.shadowColor = p.color;
+                });
+                
+                // Adjust particle count based on energy
+                const targetParticles = 50 + Math.floor(quantumEnergy * 150);
+                if (particles.length < targetParticles) {
+                    createParticles(1);
+                } else if (particles.length > targetParticles && particles.length > 50) {
+                    particles.pop();
+                }
+            }
+            
+            // Create connections between nodes
+            function createConnections() {
+                const nodes = document.querySelectorAll('.nexusNode');
+                
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        connections.push({
+                            node1: nodes[i],
+                            node2: nodes[j],
+                            active: false,
+                            pulsePhase: Math.random() * Math.PI * 2
+                        });
+                    }
+                }
+            }
+            
+            // Update connections
+            function updateConnections() {
+                connections.forEach(conn => {
+                    const rect1 = conn.node1.getBoundingClientRect();
+                    const rect2 = conn.node2.getBoundingClientRect();
+                    
+                    const x1 = rect1.left + rect1.width / 2;
+                    const y1 = rect1.top + rect1.height / 2;
+                    const x2 = rect2.left + rect2.width / 2;
+                    const y2 = rect2.top + rect2.height / 2;
+                    
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Only draw if nodes are active or connection is already active
+                    const node1Active = activeNodes.includes(conn.node1);
+                    const node2Active = activeNodes.includes(conn.node2);
+                    
+                    if (node1Active || node2Active || conn.active) {
+                        if (!conn.active && (node1Active || node2Active)) {
+                            conn.active = true;
+                        }
+                        
+                        // Animate pulse
+                        conn.pulsePhase += 0.02;
+                        const pulseIntensity = (Math.sin(conn.pulsePhase) + 1) / 2;
+                        
+                        // Draw connection
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.lineWidth = 1 + pulseIntensity * 2;
+                        
+                        // Gradient based on active nodes
+                        let gradient;
+                        if (node1Active && node2Active) {
+                            gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                            gradient.addColorStop(0, `hsl(${quantumEnergy * 360}, 100%, 70%)`);
+                            gradient.addColorStop(1, `hsl(${(quantumEnergy * 360 + 120) % 360}, 100%, 70%)`);
+                        } else if (node1Active) {
+                            gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                            gradient.addColorStop(0, `hsl(${quantumEnergy * 360}, 100%, 70%)`);
+                            gradient.addColorStop(1, 'rgba(255, 255, 255, 0.2)');
+                        } else if (node2Active) {
+                            gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+                            gradient.addColorStop(1, `hsl(${quantumEnergy * 360}, 100%, 70%)`);
+                        } else {
+                            gradient = 'rgba(255, 255, 255, 0.1)';
+                        }
+                        
+                        ctx.strokeStyle = gradient;
+                        ctx.stroke();
+                        
+                        // Add glow
+                        ctx.shadowBlur = 10 * pulseIntensity;
+                        ctx.shadowColor = `hsl(${quantumEnergy * 360}, 100%, 70%)`;
+                    }
+                    
+                    // Fade out inactive connections
+                    if (conn.active && !node1Active && !node2Active) {
+                        conn.active = false;
+                    }
+                });
+            }
+            
+            // Handle node clicks
+            function handleNodeClick(e) {
+                e.preventDefault();
+                
+                if (interactionCooldown) return;
+                
+                const node = e.currentTarget;
+                const energyValue = parseFloat(node.getAttribute('data-energy'));
+                
+                // Toggle node activation
+                const nodeIndex = activeNodes.indexOf(node);
+                if (nodeIndex === -1) {
+                    // Activate node
+                    activeNodes.push(node);
+                    node.style.boxShadow = `0 0 2vmin var(--neon-primary), inset 0 0 2vmin var(--neon-primary)`;
+                    node.style.borderColor = 'var(--neon-primary)';
+                    targetEnergy = Math.min(1, targetEnergy + energyValue * 0.2);
+                    
+                    // Create ripple effect
+                    createRipple(node, energyValue);
+                } else {
+                    // Deactivate node
+                    activeNodes.splice(nodeIndex, 1);
+                    node.style.boxShadow = `0 0 1vmin var(--neon-secondary), inset 0 0 1vmin var(--neon-secondary)`;
+                    node.style.borderColor = 'var(--neon-secondary)';
+                    targetEnergy = Math.max(0, targetEnergy - energyValue * 0.1);
+                }
+                
+                // Set interaction cooldown
+                interactionCooldown = true;
+                setTimeout(() => {
+                    interactionCooldown = false;
+                }, 200);
+            }
+            
+            // Create ripple effect from node
+            function createRipple(node, energy) {
+                const rect = node.getBoundingClientRect();
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                const maxRadius = Math.max(width, height) * 0.7;
+                const rippleCount = 3 + Math.floor(energy * 5);
+                
+                for (let i = 0; i < rippleCount; i++) {
+                    const delay = i * 200;
+                    const rippleSize = 5 + i * 10;
+                    
+                    setTimeout(() => {
+                        let radius = 0;
+                        const ripple = () => {
+                            radius += 5 + quantumEnergy * 10;
+                            
+                            ctx.beginPath();
+                            ctx.arc(x, y, radius, 0, Math.PI * 2);
+                            ctx.strokeStyle = `hsla(${quantumEnergy * 360}, 100%, 70%, ${1 - radius / maxRadius})`;
+                            ctx.lineWidth = rippleSize * (1 - radius / maxRadius);
+                            ctx.stroke();
+                            
+                            if (radius < maxRadius) {
+                                requestAnimationFrame(ripple);
+                            }
+                        };
+                        
+                        ripple();
+                    }, delay);
+                }
+            }
+            
+            // Update quantum energy
+            function updateQuantumEnergy(deltaTime) {
+                const energyChangeSpeed = 0.001;
+                if (quantumEnergy < targetEnergy) {
+                    quantumEnergy = Math.min(targetEnergy, quantumEnergy + energyChangeSpeed * deltaTime);
+                } else if (quantumEnergy > targetEnergy) {
+                    quantumEnergy = Math.max(targetEnergy, quantumEnergy - energyChangeSpeed * deltaTime * 0.5);
+                }
+                
+                // Update CSS variable
+                document.documentElement.style.setProperty('--quantum-energy', quantumEnergy);
+            }
+            
+            // Update core glow
+            function updateCoreGlow() {
+                const core = document.getElementById('energyCore');
+                const glowIntensity = quantumEnergy * 20;
+                core.style.boxShadow = `
+                    0 0 ${5 + glowIntensity}vmin var(--neon-primary), 
+                    0 0 ${10 + glowIntensity * 2}vmin var(--neon-primary),
+                    0 0 ${15 + glowIntensity * 3}vmin var(--neon-primary)
+                `;
+            }
+            
+            // Update HUD
+            function updateHUD() {
+                document.getElementById('energyLevel').textContent = 
+                    `QUANTUM ENERGY: ${Math.floor(quantumEnergy * 100)}%`;
+                document.getElementById('particleCount').textContent = 
+                    `PARTICLES: ${particles.length}`;
+                document.getElementById('fpsCounter').textContent = 
+                    `FPS: ${Math.floor(fps)}`;
+                
+                // Update prompt visibility
+                document.getElementById('interactionPrompt').style.display = 
+                    activeNodes.length === 0 ? 'block' : 'none';
+            }
+            
+            // FPS counter
+            function updateFpsCounter() {
+                fps = frameCount;
+                frameCount = 0;
+            }
+            
+            // Start the quantum animation system
+            init();
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGame Engine</title>
+  <style>
+    :root {
+      --primary: #4a6fa5;
+      --secondary: #166088;
+      --dark: #0d3b66;
+      --light: #f0f4f8;
+      --accent: #44aa99;
+      --error: #ff6b6b;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: var(--light);
+      color: #333;
+      min-height: 100vh;
+    }
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .actions button {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 0.5rem;
+      transition: background-color 0.3s;
+    }
+    .actions button:hover {
+      background-color: #338877;
+    }
+    main {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 60px);
+    }
+    @media (min-width: 768px) {
+      main {
+        flex-direction: row;
+      }
+    }
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      overflow: hidden;
+    }
+    .preview-container {
+      flex: 1;
+      background-color: white;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #ddd;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 0.5rem;
+    }
+    .tab {
+      padding: 0.5rem 1rem;
+      background-color: #ddd;
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      margin-right: 0.25rem;
+    }
+    .tab.active {
+      background-color: white;
+      font-weight: bold;
+    }
+    .editor {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 0 4px 4px 4px;
+      background-color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    .editor textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+    .game-preview {
+      flex: 1;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .game-canvas {
+      background-color: black;
+      width: 100%;
+      height: 100%;
+      max-width: 800px;
+      max-height: 600px;
+    }
+    .controls {
+      padding: 1rem 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 90%;
+      width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .close {
+      float: right;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    h2, h3 {
+      margin-bottom: 1rem;
+    }
+    p {
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+    .resource-panel {
+      background-color: white;
+      border: 1px solid #ddd;
+      padding: 1rem;
+      margin-top: 1rem;
+      border-radius: 4px;
+    }
+    .resource-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .resource-list {
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .resource-item {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    .library-panel {
+      margin-top: 1rem;
+    }
+    .library-item {
+      padding: 0.5rem;
+      background-color: #f0f4f8;
+      margin-bottom: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .error-box {
+      background-color: #ffeeee;
+      border: 1px solid #ff6b6b;
+      color: #ff6b6b;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      border-radius: 4px;
+      display: none;
+    }
+    @media (max-width: 767px) {
+      .editor-container, .preview-container {
+        flex: none;
+        height: 50vh;
+      }
+      .preview-container {
+        border-left: none;
+        border-top: 1px solid #ddd;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">WebGame Engine</div>
+    <div class="actions">
+      <button id="help-btn">Help</button>
+      <button id="share-btn">Share</button>
+      <button id="export-btn">Export</button>
+      <button id="run-btn">Run Game</button>
+    </div>
+  </header>
+  
+  <main>
+    <div class="editor-container">
+      <div class="tabs">
+        <div class="tab active" data-tab="html">HTML</div>
+        <div class="tab" data-tab="css">CSS</div>
+        <div class="tab" data-tab="js">JavaScript</div>
+      </div>
+      <div class="editor">
+        <textarea id="html-editor"><!DOCTYPE html>
+<html>
+<head>
+  <title>My Game</title>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <!-- Game content goes here -->
+</body>
+</html>
+</textarea>
+        <textarea id="css-editor" style="display: none;">body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #000;
+}
+#gameCanvas {
+  display: block;
+  margin: 0 auto;
+}
+</textarea>
+        <textarea id="js-editor" style="display: none;">// Game Engine Setup
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game variables
+let player = {
+  x: 100,
+  y: 100,
+  width: 50,
+  height: 50,
+  color: 'red',
+  speed: 5
+};
+
+// Input handling
+const keys = {};
+document.addEventListener('keydown', function(e) {
+  keys[e.key] = true;
+});
+document.addEventListener('keyup', function(e) {
+  keys[e.key] = false;
+});
+
+// Game loop
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Update game state
+function update() {
+  if(keys['ArrowUp']) player.y -= player.speed;
+  if(keys['ArrowDown']) player.y += player.speed;
+  if(keys['ArrowLeft']) player.x -= player.speed;
+  if(keys['ArrowRight']) player.x += player.speed;
+  
+  // Keep player within canvas
+  player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+}
+
+// Render game
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+}
+
+window.onload = function() {
+  gameLoop();
+};
+</textarea>
+      </div>
+      <div class="error-box" id="error-display"></div>
+      
+      <div class="resource-panel">
+        <div class="resource-header">
+          <h3>Resources</h3>
+          <button id="add-resource">Add</button>
+        </div>
+        <div class="resource-list">
+          <div class="resource-item">
+            <span>player.png</span>
+            <button class="remove-btn">Remove</button>
+          </div>
+          <div class="resource-item">
+            <span>background.jpg</span>
+            <button class="remove-btn">Remove</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="library-panel">
+        <h3>Game Components</h3>
+        <div class="library-item" data-type="sprite">Sprite</div>
+        <div class="library-item" data-type="physics">Physics</div>
+        <div class="library-item" data-type="sound">Sound</div>
+        <div class="library-item" data-type="input">Input Controls</div>
+      </div>
+    </div>
+    
+    <div class="preview-container">
+      <h3>Game Preview</h3>
+      <div class="game-preview">
+        <iframe id="game-frame" class="game-canvas"></iframe>
+      </div>
+      <div class="controls">
+        <div>
+          <button id="restart-btn">Restart</button>
+          <select id="device-preview">
+            <option value="desktop">Desktop</option>
+            <option value="tablet">Tablet</option>
+            <option value="mobile">Mobile</option>
+          </select>
+        </div>
+        <div>
+          <button id="fullscreen-btn">Fullscreen</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Help Modal -->
+  <div class="modal" id="help-modal">
+    <div class="modal-content">
+      <span class="close" id="close-help">&times;</span>
+      <h2>WebGame Engine Help</h2>
+      <p>Welcome to WebGame Engine! Here's how to get started:</p>
+      <h3>Creating Your Game</h3>
+      <p>Use the HTML, CSS, and JavaScript editors to build your game. The HTML editor is where you structure your game, the CSS editor is for styling, and the JavaScript editor is where your game logic goes.</p>
+      <h3>Game Engine Features</h3>
+      <ul>
+        <li>Sprite Management: Create and control game sprites</li>
+        <li>Input Handling: Keyboard, mouse, and touch controls</li>
+        <li>Physics: Simple collision detection</li>
+        <li>Sound: Audio playback capabilities</li>
+        <li>Resource Management: Add images, sounds, and other assets</li>
+      </ul>
+      <h3>Sharing Your Game</h3>
+      <p>Click the "Share" button to generate a link that you can share with others. Your game will be playable on any device with a web browser.</p>
+      <h3>Exporting Your Game</h3>
+      <p>Click the "Export" button to download your game as a complete package. For web export, your game will be downloaded as a standalone HTML file with embedded CSS and JavaScript.</p>
+    </div>
+  </div>
+  
+  <!-- Share Modal -->
+  <div class="modal" id="share-modal">
+    <div class="modal-content">
+      <span class="close" id="close-share">&times;</span>
+      <h2>Share Your Game</h2>
+      <p>Copy this link to share your game:</p>
+      <input type="text" id="share-link" value="https://webgameengine.example/game/12345" readonly style="width: 100%; padding: 0.5rem; margin-bottom: 1rem;">
+      <button id="copy-link">Copy Link</button>
+      <h3>Embed Code</h3>
+      <textarea id="embed-code" readonly style="width: 100%; height: 100px; padding: 0.5rem;"><iframe src="https://webgameengine.example/game/12345" width="800" height="600" frameborder="0"></iframe></textarea>
+      <button id="copy-embed">Copy Embed Code</button>
+    </div>
+  </div>
+  
+  <!-- Export Modal -->
+  <div class="modal" id="export-modal">
+    <div class="modal-content">
+      <span class="close" id="close-export">&times;</span>
+      <h2>Export Your Game</h2>
+      <p>Choose an export format:</p>
+      <div style="margin: 1rem 0;">
+        <button id="export-web">Web (HTML/JS/CSS)</button>
+        <button id="export-android">Android (APK)</button>
+        <button id="export-windows">Windows (EXE)</button>
+      </div>
+      <div id="export-progress" style="display: none;">
+        <p>Exporting your game... <span id="export-percentage">0%</span></p>
+        <div style="background-color: #eee; height: 20px; border-radius: 10px; overflow: hidden;">
+          <div id="progress-bar" style="background-color: var(--accent); height: 100%; width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // --- Tab Switching ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const editorType = tab.getAttribute('data-tab');
+        document.querySelectorAll('textarea').forEach(editor => editor.style.display = 'none');
+        document.getElementById(`${editorType}-editor`).style.display = 'block';
+      });
+    });
+    
+    // --- Modal Handling ---
+    function openModal(id) {
+      document.getElementById(id).style.display = 'flex';
+    }
+    
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+    
+    document.getElementById('help-btn').addEventListener('click', () => openModal('help-modal'));
+    document.getElementById('share-btn').addEventListener('click', () => openModal('share-modal'));
+    document.getElementById('export-btn').addEventListener('click', () => openModal('export-modal'));
+    document.getElementById('close-help').addEventListener('click', () => closeModal('help-modal'));
+    document.getElementById('close-share').addEventListener('click', () => closeModal('share-modal'));
+    document.getElementById('close-export').addEventListener('click', () => closeModal('export-modal'));
+    
+    // --- Run Game ---
+    document.getElementById('run-btn').addEventListener('click', runGame);
+    
+    function runGame() {
+      const htmlCode = document.getElementById('html-editor').value;
+      const cssCode = document.getElementById('css-editor').value;
+      const jsCode = document.getElementById('js-editor').value;
+      
+      const iframe = document.getElementById('game-frame');
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      
+      doc.open();
+      doc.write(`
+        ${htmlCode}
+        <style>${cssCode}</style>
+        <script>${jsCode}<\/script>
+      `);
+      doc.close();
+      
+      // Clear previous errors
+      const errorBox = document.getElementById('error-display');
+      errorBox.style.display = 'none';
+      
+      // Handle errors from the iframe
+      iframe.contentWindow.onerror = function(message, source, lineno) {
+        errorBox.textContent = `Error: ${message} (line ${lineno})`;
+        errorBox.style.display = 'block';
+        return true;
+      };
+    }
+    
+    // --- Restart Game ---
+    document.getElementById('restart-btn').addEventListener('click', runGame);
+    
+    // --- Device Preview ---
+    document.getElementById('device-preview').addEventListener('change', function() {
+      const gameFrame = document.getElementById('game-frame');
+      switch(this.value) {
+        case 'desktop':
+          gameFrame.style.width = '100%';
+          gameFrame.style.height = '100%';
+          break;
+        case 'tablet':
+          gameFrame.style.width = '768px';
+          gameFrame.style.height = '1024px';
+          break;
+        case 'mobile':
+          gameFrame.style.width = '375px';
+          gameFrame.style.height = '667px';
+          break;
+      }
+    });
+    
+    // --- Fullscreen ---
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+      const gameFrame = document.getElementById('game-frame');
+      if (gameFrame.requestFullscreen) {
+        gameFrame.requestFullscreen();
+      } else if (gameFrame.webkitRequestFullscreen) {
+        gameFrame.webkitRequestFullscreen();
+      } else if (gameFrame.msRequestFullscreen) {
+        gameFrame.msRequestFullscreen();
+      }
+    });
+    
+    // --- Share Functionality ---
+    document.getElementById('copy-link').addEventListener('click', function() {
+      const shareLink = document.getElementById('share-link');
+      shareLink.select();
+      document.execCommand('copy');
+      this.textContent = 'Copied!';
+      setTimeout(() => this.textContent = 'Copy Link', 2000);
+    });
+    
+    document.getElementById('copy-embed').addEventListener('click', function() {
+      const embedCode = document.getElementById('embed-code');
+      embedCode.select();
+      document.execCommand('copy');
+      this.textContent = 'Copied!';
+      setTimeout(() => this.textContent = 'Copy Embed Code', 2000);
+    });
+    
+    // --- Export Functionality ---
+    // Improved export: For "Web" export, combine the code and trigger a download.
+    document.getElementById('export-web').addEventListener('click', function() {
+      simulateExport('web');
+    });
+    document.getElementById('export-android').addEventListener('click', function() {
+      simulateExport('android');
+    });
+    document.getElementById('export-windows').addEventListener('click', function() {
+      simulateExport('windows');
+    });
+    
+    function simulateExport(type) {
+      const exportProgress = document.getElementById('export-progress');
+      const progressBar = document.getElementById('progress-bar');
+      const exportPercentage = document.getElementById('export-percentage');
+      exportProgress.style.display = 'block';
+      
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 5;
+        progressBar.style.width = progress + '%';
+        exportPercentage.textContent = progress + '%';
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            if (type === 'web') {
+              exportWeb();
+            } else {
+              alert(`Export for ${type.toUpperCase()} is not implemented yet.`);
+            }
+            exportProgress.style.display = 'none';
+            progressBar.style.width = '0%';
+            closeModal('export-modal');
+          }, 500);
+        }
+      }, 200);
+    }
+    
+    function exportWeb() {
+      const htmlCode = document.getElementById('html-editor').value;
+      const cssCode = document.getElementById('css-editor').value;
+      const jsCode = document.getElementById('js-editor').value;
+      
+      // Combine the code into a single HTML file
+      const combined = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exported Game</title>
+  <style>${cssCode}</style>
+</head>
+<body>
+  ${htmlCode}
+  <script>${jsCode}<\/script>
+</body>
+</html>`;
+      
+      const blob = new Blob([combined], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'exported_game.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    // --- Game Components Insertion ---
+    document.querySelectorAll('.library-item').forEach(item => {
+      item.addEventListener('click', function() {
+        const type = this.getAttribute('data-type');
+        insertComponentCode(type);
+      });
+    });
+    
+    function insertComponentCode(type) {
+      const jsEditor = document.getElementById('js-editor');
+      let code = '';
+      switch(type) {
+        case 'sprite':
+          code = `
+// Sprite class
+class Sprite {
+  constructor(x, y, width, height, image) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.image = new Image();
+    this.image.src = image;
+  }
+  draw(ctx) {
+    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+  }
+  update() {
+    // Update sprite logic here
+  }
+  intersects(other) {
+    return !(this.x > other.x + other.width ||
+             this.x + this.width < other.x ||
+             this.y > other.y + other.height ||
+             this.y + this.height < other.y);
+  }
+}`;
+          break;
+        case 'physics':
+          code = `
+// Simple physics system
+const physics = {
+  gravity: 0.5,
+  applyGravity(object) {
+    if (!object.vY) object.vY = 0;
+    object.vY += this.gravity;
+    object.y += object.vY;
+  },
+  checkCollision(obj1, obj2) {
+    return !(obj1.x > obj2.x + obj2.width ||
+             obj1.x + obj1.width < obj2.x ||
+             obj1.y > obj2.y + obj2.height ||
+             obj1.y + obj1.height < obj2.y);
+  },
+  resolveCollision(obj1, obj2) {
+    const dx = (obj1.x + obj1.width/2) - (obj2.x + obj2.width/2);
+    const dy = (obj1.y + obj1.height/2) - (obj2.y + obj2.height/2);
+    if (Math.abs(dx) > Math.abs(dy)) {
+      obj1.x = dx > 0 ? obj2.x + obj2.width : obj2.x - obj1.width;
+      obj1.vX = 0;
+    } else {
+      obj1.y = dy > 0 ? obj2.y + obj2.height : obj2.y - obj1.height;
+      obj1.vY = 0;
+      if(dy < 0) obj1.isGrounded = true;
+    }
+  }
+};`;
+          break;
+        case 'sound':
+          code = `
+// Sound manager
+const soundManager = {
+  sounds: {},
+  load(name, src) {
+    this.sounds[name] = new Audio(src);
+    return this.sounds[name];
+  },
+  play(name) {
+    if (this.sounds[name]) {
+      this.sounds[name].currentTime = 0;
+      this.sounds[name].play();
+    }
+  },
+  stop(name) {
+    if (this.sounds[name]) {
+      this.sounds[name].pause();
+      this.sounds[name].currentTime = 0;
+    }
+  }
+};
+// Example usage:
+// soundManager.load('jump', 'jump.mp3');
+// soundManager.play('jump');`;
+          break;
+        case 'input':
+          code = `
+// Input manager
+const inputManager = {
+  keys: {},
+  mouse: { x: 0, y: 0, pressed: false },
+  touches: [],
+  init() {
+    window.addEventListener('keydown', e => { this.keys[e.key] = true; });
+    window.addEventListener('keyup', e => { this.keys[e.key] = false; });
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouse.x = e.clientX - rect.left;
+      this.mouse.y = e.clientY - rect.top;
+    });
+    canvas.addEventListener('mousedown', () => { this.mouse.pressed = true; });
+    canvas.addEventListener('mouseup', () => { this.mouse.pressed = false; });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); this.touches = []; 
+      for(let i = 0; i < e.touches.length; i++) {
+        const rect = canvas.getBoundingClientRect();
+        this.touches.push({ x: e.touches[i].clientX - rect.left, y: e.touches[i].clientY - rect.top, id: e.touches[i].identifier });
+      }
+    });
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); this.touches = []; 
+      for(let i = 0; i < e.touches.length; i++) {
+        const rect = canvas.getBoundingClientRect();
+        this.touches.push({ x: e.touches[i].clientX - rect.left, y: e.touches[i].clientY - rect.top, id: e.touches[i].identifier });
+      }
+    });
+    canvas.addEventListener('touchend', e => { e.preventDefault(); this.touches = []; 
+      for(let i = 0; i < e.touches.length; i++) {
+        const rect = canvas.getBoundingClientRect();
+        this.touches.push({ x: e.touches[i].clientX - rect.left, y: e.touches[i].clientY - rect.top, id: e.touches[i].identifier });
+      }
+    });
+  },
+  isKeyDown(key) {
+    return this.keys[key] === true;
+  },
+  isTouching(x, y, width, height) {
+    if (this.mouse.pressed &&
+        this.mouse.x >= x && this.mouse.x <= x + width &&
+        this.mouse.y >= y && this.mouse.y <= y + height) {
+      return true;
+    }
+    for (let touch of this.touches) {
+      if (touch.x >= x && touch.x <= x + width &&
+          touch.y >= y && touch.y <= y + height) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+inputManager.init();`;
+          break;
+      }
+      
+      // Insert code at cursor or append at the end
+      if (jsEditor.selectionStart || jsEditor.selectionStart === 0) {
+        const start = jsEditor.selectionStart;
+        const end = jsEditor.selectionEnd;
+        jsEditor.value = jsEditor.value.substring(0, start) + code + jsEditor.value.substring(end);
+        jsEditor.selectionStart = jsEditor.selectionEnd = start + code.length;
+      } else {
+        jsEditor.value += code;
+      }
+      // Switch to JS tab and focus
+      document.querySelector('.tab[data-tab="js"]').click();
+      jsEditor.focus();
+    }
+    
+    // --- Auto-run on Load ---
+    window.addEventListener('load', runGame);
+  </script>
+</body>
+</html>

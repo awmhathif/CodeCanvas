@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clock / Timer / Stopwatch</title>
+  <style>
+    :root{
+      --bg:#000;
+      --fg:#e9f2ff;
+      --glow: 0 0 10px rgba(110,190,255,.55), 0 0 28px rgba(110,190,255,.25);
+      --glow-strong: 0 0 14px rgba(110,190,255,.75), 0 0 44px rgba(110,190,255,.35);
+      --muted: rgba(233,242,255,.6);
+      --stroke: rgba(233,242,255,.18);
+      --accent: rgba(110,190,255,.9);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      overflow:hidden;
+    }
+
+    .app{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+
+    .modes{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    button{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background:transparent;
+      color:var(--fg);
+      padding:10px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      letter-spacing:.5px;
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, opacity .12s ease;
+      box-shadow: none;
+      text-shadow: var(--glow);
+    }
+    button:hover{
+      border-color: rgba(110,190,255,.45);
+      box-shadow: var(--glow);
+    }
+    button:active{ transform: translateY(1px); }
+    button[aria-pressed="true"]{
+      border-color: rgba(110,190,255,.8);
+      box-shadow: var(--glow-strong);
+    }
+
+    .center{
+      flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      position:relative;
+    }
+
+    .stage{
+      width:min(1100px, 96vw);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:18px;
+    }
+
+    .display{
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(56px, 10vw, 160px);
+      line-height:1;
+      text-align:center;
+      letter-spacing: .06em;
+      text-shadow: var(--glow-strong);
+      filter: drop-shadow(0 0 18px rgba(110,190,255,.18));
+      will-change: opacity, transform;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .display.swap-out{
+      opacity:0;
+      transform: translateY(6px);
+    }
+
+    .subline{
+      color:var(--muted);
+      font-size: 14px;
+      letter-spacing:.12em;
+      text-transform: uppercase;
+      text-shadow: var(--glow);
+      user-select:none;
+    }
+
+    .panel{
+      width:min(760px, 96vw);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+      align-items:center;
+      padding-top: 6px;
+    }
+
+    .panel.hidden{ display:none; }
+
+    .field{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border:1px solid var(--stroke);
+      border-radius:10px;
+      box-shadow:none;
+    }
+
+    input{
+      width: 70px;
+      background:transparent;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:8px;
+      color:var(--fg);
+      padding:10px 10px;
+      outline:none;
+      text-shadow: var(--glow);
+      caret-color: var(--accent);
+      transition: border-color .12s ease, box-shadow .12s ease;
+    }
+    input:focus{
+      border-color: rgba(110,190,255,.55);
+      box-shadow: var(--glow);
+    }
+    .label{
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      user-select:none;
+    }
+
+    .hint{
+      margin-top: 2px;
+      color: rgba(233,242,255,.45);
+      font-size: 12px;
+      text-shadow: var(--glow);
+      user-select:none;
+      text-align:center;
+    }
+
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="modes" role="group" aria-label="Mode">
+        <button id="btnClock" aria-pressed="true">Clock</button>
+        <button id="btnTimer" aria-pressed="false">Timer</button>
+        <button id="btnStopwatch" aria-pressed="false">Stopwatch</button>
+      </div>
+
+      <button id="btnFullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">
+        Fullscreen
+      </button>
+    </div>
+
+    <div class="center">
+      <div class="stage">
+        <div id="display" class="display">00:00:00</div>
+        <div id="subline" class="subline">Clock</div>
+
+        <!-- Timer controls -->
+        <div id="timerPanel" class="panel hidden" aria-label="Timer controls">
+          <div class="field" aria-label="Set timer">
+            <div class="label">Set</div>
+            <input id="tHours" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="0" aria-label="Hours" />
+            <div class="label">h</div>
+            <input id="tMinutes" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="5" aria-label="Minutes" />
+            <div class="label">m</div>
+            <input id="tSeconds" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="0" aria-label="Seconds" />
+            <div class="label">s</div>
+          </div>
+
+          <button id="timerStart">Start</button>
+          <button id="timerPause">Pause</button>
+          <button id="timerReset">Reset</button>
+        </div>
+
+        <!-- Stopwatch controls -->
+        <div id="stopwatchPanel" class="panel hidden" aria-label="Stopwatch controls">
+          <button id="swStart">Start</button>
+          <button id="swPause">Pause</button>
+          <button id="swReset">Reset</button>
+        </div>
+
+        <div class="hint" id="hint">
+          Pitch black. Big digits. Glow only.
+        </div>
+
+        <div class="sr-only" aria-live="polite" id="ariaLive"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ---------- Utilities ----------
+      const $ = (id) => document.getElementById(id);
+
+      const display = $("display");
+      const subline = $("subline");
+      const ariaLive = $("ariaLive");
+
+      const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
+
+      function formatHMS(totalSeconds) {
+        totalSeconds = Math.max(0, totalSeconds);
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = Math.floor(totalSeconds % 60);
+        return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+      }
+
+      function nowTimeString() {
+        const d = new Date();
+        const h = pad2(d.getHours());
+        const m = pad2(d.getMinutes());
+        const s = pad2(d.getSeconds());
+        return `${h}:${m}:${s}`;
+      }
+
+      function fadeSwapText(text) {
+        display.classList.add("swap-out");
+        // Keep it snappy; swap mid-transition.
+        window.setTimeout(() => {
+          display.textContent = text;
+          display.classList.remove("swap-out");
+        }, 120);
+      }
+
+      function clampInt(val, min, max) {
+        const n = Number.parseInt(String(val).replace(/[^\d]/g, ""), 10);
+        if (Number.isNaN(n)) return min;
+        return Math.min(max, Math.max(min, n));
+      }
+
+      // ---------- Mode state ----------
+      const Mode = { CLOCK: "clock", TIMER: "timer", STOPWATCH: "stopwatch" };
+      let mode = Mode.CLOCK;
+
+      // Ensure only one "engine" runs at a time
+      let clockInterval = null;
+
+      // Using rAF for smooth timer/stopwatch updates
+      let rafId = null;
+
+      function stopAllEngines() {
+        if (clockInterval) {
+          clearInterval(clockInterval);
+          clockInterval = null;
+        }
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+
+      function setMode(nextMode) {
+        if (mode === nextMode) return;
+        stopAllEngines();
+        mode = nextMode;
+
+        // Buttons pressed state
+        $("btnClock").setAttribute("aria-pressed", String(mode === Mode.CLOCK));
+        $("btnTimer").setAttribute("aria-pressed", String(mode === Mode.TIMER));
+        $("btnStopwatch").setAttribute("aria-pressed", String(mode === Mode.STOPWATCH));
+
+        // Panels
+        $("timerPanel").classList.toggle("hidden", mode !== Mode.TIMER);
+        $("stopwatchPanel").classList.toggle("hidden", mode !== Mode.STOPWATCH);
+
+        // Subline
+        subline.textContent = mode === Mode.CLOCK ? "Clock" : mode === Mode.TIMER ? "Timer" : "Stopwatch";
+
+        // Start appropriate engine
+        if (mode === Mode.CLOCK) startClock();
+        if (mode === Mode.TIMER) {
+          // Show current remaining immediately
+          fadeSwapText(formatHMS(Math.ceil(timerRemainingMs / 1000)));
+          startTimerUiIdleTick();
+        }
+        if (mode === Mode.STOPWATCH) {
+          fadeSwapText(formatHMS(Math.floor(swElapsedMs / 1000)));
+          startStopwatchUiIdleTick();
+        }
+      }
+
+      // ---------- Clock ----------
+      function startClock() {
+        fadeSwapText(nowTimeString());
+
+        // Align updates close to the second boundary
+        const schedule = () => {
+          const d = new Date();
+          const msToNextSecond = 1000 - d.getMilliseconds();
+          setTimeout(() => {
+            fadeSwapText(nowTimeString());
+            clockInterval = setInterval(() => fadeSwapText(nowTimeString()), 1000);
+          }, msToNextSecond);
+        };
+        schedule();
+      }
+
+      // ---------- Timer ----------
+      let timerTotalMs = 0;
+      let timerRemainingMs = 5 * 60 * 1000; // default 5 minutes
+      let timerRunning = false;
+      let timerEndPerf = 0;
+
+      function readTimerInputsToMs() {
+        const h = clampInt($("tHours").value, 0, 99);
+        const m = clampInt($("tMinutes").value, 0, 59);
+        const s = clampInt($("tSeconds").value, 0, 59);
+        $("tHours").value = String(h);
+        $("tMinutes").value = String(m);
+        $("tSeconds").value = String(s);
+        return ((h * 3600) + (m * 60) + s) * 1000;
+      }
+
+      function applyTimerInputs() {
+        const ms = readTimerInputsToMs();
+        timerTotalMs = ms;
+        timerRemainingMs = ms;
+        timerRunning = false;
+        fadeSwapText(formatHMS(Math.ceil(timerRemainingMs / 1000)));
+      }
+
+      function startTimer() {
+        const ms = readTimerInputsToMs();
+        if (!timerRunning && timerRemainingMs <= 0) {
+          // If finished, restarting uses input value
+          timerTotalMs = ms;
+          timerRemainingMs = ms;
+        } else if (!timerRunning && timerTotalMs === 0) {
+          timerTotalMs = ms;
+          timerRemainingMs = ms;
+        }
+        if (timerRemainingMs <= 0) return;
+
+        timerRunning = true;
+        timerEndPerf = performance.now() + timerRemainingMs;
+        tickTimer();
+      }
+
+      function pauseTimer() {
+        if (!timerRunning) return;
+        timerRunning = false;
+        timerRemainingMs = Math.max(0, timerEndPerf - performance.now());
+        fadeSwapText(formatHMS(Math.ceil(timerRemainingMs / 1000)));
+      }
+
+      function resetTimer() {
+        timerRunning = false;
+        timerRemainingMs = timerTotalMs || readTimerInputsToMs();
+        fadeSwapText(formatHMS(Math.ceil(timerRemainingMs / 1000)));
+      }
+
+      function tickTimer() {
+        if (mode !== Mode.TIMER) return;
+        if (!timerRunning) return;
+
+        const remaining = Math.max(0, timerEndPerf - performance.now());
+        timerRemainingMs = remaining;
+
+        // Update display (show seconds resolution, but refresh smoothly)
+        const shown = formatHMS(Math.ceil(remaining / 1000));
+        display.textContent = shown;
+
+        if (remaining <= 0) {
+          timerRunning = false;
+          ariaLive.textContent = "Timer finished.";
+          // Keep at 00:00:00
+          display.textContent = "00:00:00";
+          return;
+        }
+
+        rafId = requestAnimationFrame(tickTimer);
+      }
+
+      // When timer mode is selected but not running, keep display steady (no engine needed).
+      function startTimerUiIdleTick() {
+        // No-op: intentionally minimal. (Kept as a hook if you want subtle pulsing later.)
+      }
+
+      // ---------- Stopwatch ----------
+      let swRunning = false;
+      let swElapsedMs = 0;
+      let swStartPerf = 0;
+
+      function startStopwatch() {
+        if (swRunning) return;
+        swRunning = true;
+        swStartPerf = performance.now() - swElapsedMs; // resume
+        tickStopwatch();
+      }
+
+      function pauseStopwatch() {
+        if (!swRunning) return;
+        swRunning = false;
+        swElapsedMs = performance.now() - swStartPerf;
+        fadeSwapText(formatHMS(Math.floor(swElapsedMs / 1000)));
+      }
+
+      function resetStopwatch() {
+        swRunning = false;
+        swElapsedMs = 0;
+        fadeSwapText("00:00:00");
+      }
+
+      function tickStopwatch() {
+        if (mode !== Mode.STOPWATCH) return;
+        if (!swRunning) return;
+
+        swElapsedMs = performance.now() - swStartPerf;
+        display.textContent = formatHMS(Math.floor(swElapsedMs / 1000));
+        rafId = requestAnimationFrame(tickStopwatch);
+      }
+
+      function startStopwatchUiIdleTick() {
+        // No-op (same reasoning as timer idle).
+      }
+
+      // ---------- Fullscreen ----------
+      const fsBtn = $("btnFullscreen");
+      function isFullscreen() {
+        return !!document.fullscreenElement;
+      }
+      async function toggleFullscreen() {
+        try {
+          if (!isFullscreen()) {
+            await document.documentElement.requestFullscreen();
+          } else {
+            await document.exitFullscreen();
+          }
+        } catch {
+          // Ignore if blocked (e.g., not a user gesture). Button click should be fine.
+        }
+        updateFullscreenLabel();
+      }
+      function updateFullscreenLabel() {
+        fsBtn.textContent = isFullscreen() ? "Exit Fullscreen" : "Fullscreen";
+      }
+      document.addEventListener("fullscreenchange", updateFullscreenLabel);
+
+      // ---------- Wire up UI ----------
+      $("btnClock").addEventListener("click", () => setMode(Mode.CLOCK));
+      $("btnTimer").addEventListener("click", () => setMode(Mode.TIMER));
+      $("btnStopwatch").addEventListener("click", () => setMode(Mode.STOPWATCH));
+      fsBtn.addEventListener("click", toggleFullscreen);
+
+      $("timerStart").addEventListener("click", () => startTimer());
+      $("timerPause").addEventListener("click", () => pauseTimer());
+      $("timerReset").addEventListener("click", () => {
+        // If user edits inputs, treat reset as "apply inputs"
+        applyTimerInputs();
+      });
+
+      // Pressing Enter in timer fields applies + updates display
+      ["tHours","tMinutes","tSeconds"].forEach(id => {
+        $(id).addEventListener("keydown", (e) => {
+          if (e.key === "Enter") applyTimerInputs();
+        });
+        $(id).addEventListener("blur", () => {
+          // Keep values tidy
+          applyTimerInputs();
+        });
+      });
+
+      $("swStart").addEventListener("click", () => startStopwatch());
+      $("swPause").addEventListener("click", () => pauseStopwatch());
+      $("swReset").addEventListener("click", () => resetStopwatch());
+
+      // ---------- Init ----------
+      // Initialize timer defaults in inputs and internal state
+      timerTotalMs = readTimerInputsToMs();
+      timerRemainingMs = timerTotalMs;
+
+      updateFullscreenLabel();
+      startClock();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Space Explorer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle, #000428, #004e92);
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+        }
+
+        #info h1 {
+            font-size: 18px;
+            margin: 0;
+            color: #00fff6;
+        }
+
+        #info p {
+            margin: 5px 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .controls button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: linear-gradient(to bottom, #003e8f, #00d4ff);
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .controls button:hover {
+            background: linear-gradient(to bottom, #0046a5, #00e1ff);
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Quantum Space Explorer</h1>
+        <p>Fly through the dynamically morphing quantum space.</p>
+        <div class="controls">
+            <button id="start">Start</button>
+            <button id="reset">Reset</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene, camera, and renderer setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0x00fff6, 2, 50);
+        pointLight.position.set(0, 5, 5);
+        scene.add(pointLight);
+
+        // Particle system setup
+        const particleCount = 1000;
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        // Random particle positions
+        const particlePositions = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount; i++) {
+            particlePositions[i * 3] = (Math.random() - 0.5) * 50;
+            particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 50;
+            particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+        const particleSystem = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particleSystem);
+
+        // Wormhole (torus shape)
+        const wormholeGeometry = new THREE.TorusGeometry(5, 1.5, 16, 100);
+        const wormholeMaterial = new THREE.MeshPhongMaterial({
+            color: 0x00d4ff,
+            wireframe: true,
+            emissive: 0x002244
+        });
+        const wormhole = new THREE.Mesh(wormholeGeometry, wormholeMaterial);
+        wormhole.rotation.x = Math.PI / 2;
+        scene.add(wormhole);
+
+        // Camera movement
+        let moveForward = false;
+        camera.position.z = 10;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate wormhole
+            wormhole.rotation.z += 0.01;
+
+            // Move camera forward
+            if (moveForward) {
+                camera.position.z -= 0.1;
+                camera.position.y += Math.sin(camera.position.z / 5) * 0.05;
+            }
+
+            // Particles animation
+            const positions = particleSystem.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3 + 2] += 0.05;
+                if (positions[i * 3 + 2] > 25) positions[i * 3 + 2] = -25;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        // Event listeners
+        document.getElementById('start').addEventListener('click', () => {
+            moveForward = true;
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            moveForward = false;
+            camera.position.set(0, 0, 10);
+        });
+
+        animate();
+
+        // Adjust renderer on resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

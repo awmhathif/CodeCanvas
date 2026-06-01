@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteVerse — 3D Note World</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#08080f;--bg2:#0e0e1a;--bg3:#161628;--bg4:#1e1e38;--bg5:#282848;
+--text:#e4e4f4;--text2:#a4a4c4;--text3:#646484;
+--accent:#7c5cfc;--accent2:#9d7cff;--accent3:#b99cff;
+--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--cyan:#06b6d4;--pink:#ec4899;--blue:#3b82f6;
+--panel:rgba(14,14,26,.97);--border:rgba(124,92,252,.18);--glow:rgba(124,92,252,.1);
+--radius:12px;
+}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+canvas#world{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+.ui-layer{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;pointer-events:none}
+.ui-layer>*{pointer-events:auto}
+
+/* ─── TOP BAR ─── */
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);backdrop-filter:blur(12px)}
+.topbar .logo{font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px;white-space:nowrap}
+.topbar .logo-sub{font-size:9px;color:var(--text3);margin-left:-2px;white-space:nowrap}
+.search-box{flex:1;max-width:400px;position:relative}
+.search-box input{width:100%;padding:7px 12px 7px 32px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;outline:none;transition:border .2s}
+.search-box input:focus{border-color:var(--accent2)}
+.search-box .si{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text3);pointer-events:none}
+.tb-actions{display:flex;gap:6px;margin-left:auto}
+.btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;font-family:inherit}
+.btn:hover{border-color:var(--accent2);background:var(--bg4)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--pink));border:none;color:#fff;font-weight:600}
+.btn.primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn.danger{border-color:var(--red);color:var(--red)}.btn.danger:hover{background:rgba(239,68,68,.12)}
+.btn.sm{padding:4px 10px;font-size:10px}
+.btn.icon-btn{padding:6px 8px;font-size:14px}
+
+/* ─── SIDEBAR ─── */
+.sidebar{position:fixed;left:0;top:46px;bottom:0;width:260px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:transform .3s;backdrop-filter:blur(12px);z-index:12}
+.sidebar.hidden{transform:translateX(-260px)}
+.sb-section{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03)}
+.sb-section h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.sb-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--text2);transition:all .15s;margin-bottom:2px}
+.sb-item:hover{background:var(--glow);color:var(--text)}
+.sb-item.active{background:var(--accent)22;color:var(--accent2);font-weight:600}
+.sb-item .cnt{margin-left:auto;font-size:10px;color:var(--text3);background:var(--bg);padding:1px 6px;border-radius:10px}
+.sb-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.color-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.color-swatch{width:22px;height:22px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-swatch:hover,.color-swatch.active{border-color:#fff;transform:scale(1.1)}
+.sb-stats{padding:12px;font-size:11px;color:var(--text3);line-height:1.8}
+.sb-stats .sv{color:var(--accent3);font-weight:600}
+
+/* ─── NOTE GRID ─── */
+.content{position:fixed;top:46px;left:260px;right:0;bottom:0;overflow-y:auto;padding:16px;z-index:11;transition:left .3s}
+.content.expanded{left:0}
+.content::-webkit-scrollbar{width:5px}
+.content::-webkit-scrollbar-thumb{background:var(--accent);border-radius:4px}
+.content::-webkit-scrollbar-track{background:transparent}
+.view-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.view-header h2{font-size:18px;font-weight:700}
+.view-header .count{font-size:12px;color:var(--text3)}
+.view-toggle{display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:2px}
+.view-toggle .vt{padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;color:var(--text3);transition:all .15s}
+.view-toggle .vt.active{background:var(--accent);color:#fff}
+.sort-select{padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;cursor:pointer}
+.note-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.note-grid.list{grid-template-columns:1fr}
+
+/* ─── NOTE CARD ─── */
+.note-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;animation:cardIn .3s ease}
+.note-card:hover{border-color:var(--accent2);transform:translateY(-2px);box-shadow:0 8px 30px var(--glow)}
+.note-card .nc-color{position:absolute;top:0;left:0;right:0;height:3px}
+.note-card .nc-pin{position:absolute;top:8px;right:8px;font-size:12px;opacity:.6}
+.note-card .nc-title{font-size:14px;font-weight:600;margin-bottom:4px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-card .nc-body{font-size:12px;color:var(--text2);line-height:1.5;max-height:60px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.note-card .nc-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.note-card .nc-tag{font-size:9px;padding:2px 6px;border-radius:4px;background:var(--bg);color:var(--text3)}
+.note-card .nc-meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;color:var(--text3)}
+.note-card .nc-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.note-card:hover .nc-actions{opacity:1}
+.note-card .nc-actions .btn{padding:3px 6px;font-size:10px}
+.note-card.trashed{opacity:.6}
+.note-card.trashed .nc-color{opacity:.3}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── MODAL ─── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(4px)}
+.modal-bg.show{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:600px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:scale(.96);transition:transform .2s}
+.modal-bg.show .modal{transform:scale(1)}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.modal-head h3{flex:1;font-size:16px;font-weight:700}
+.modal-head .close-btn{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .2s}
+.form-group input:focus,.form-group textarea:focus{border-color:var(--accent2)}
+.form-group textarea{min-height:150px;resize:vertical;line-height:1.6}
+.form-group .tag-input-row{display:flex;gap:4px;flex-wrap:wrap;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);min-height:36px;align-items:center;cursor:text}
+.form-group .tag-input-row:focus-within{border-color:var(--accent2)}
+.form-group .tag-input-row .tag-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;background:var(--accent)33;color:var(--accent2);font-size:11px}
+.form-group .tag-input-row .tag-pill .x{cursor:pointer;font-size:13px;opacity:.6}
+.form-group .tag-input-row .tag-pill .x:hover{opacity:1}
+.form-group .tag-input-row input{border:none;background:transparent;color:var(--text);outline:none;font-size:12px;flex:1;min-width:60px;padding:2px}
+.priority-btns{display:flex;gap:6px}
+.priority-btns .pb{padding:4px 14px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all .15s}
+.priority-btns .pb.active{font-weight:600}
+.priority-btns .pb[data-p="low"].active{background:var(--green)22;border-color:var(--green);color:var(--green)}
+.priority-btns .pb[data-p="medium"].active{background:var(--amber)22;border-color:var(--amber);color:var(--amber)}
+.priority-btns .pb[data-p="high"].active{background:var(--red)22;border-color:var(--red);color:var(--red)}
+
+/* ─── EMPTY STATE ─── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .ei{font-size:48px;margin-bottom:12px}
+.empty-state h3{font-size:16px;color:var(--text2);margin-bottom:6px}
+.empty-state p{font-size:12px;margin-bottom:16px}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg4);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:12px;color:var(--text);z-index:200;opacity:0;transition:all .3s;pointer-events:none;backdrop-filter:blur(8px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── DETAIL VIEWER ─── */
+.detail-view{position:fixed;top:46px;right:0;bottom:0;width:420px;background:var(--panel);border-left:1px solid var(--border);z-index:13;transform:translateX(100%);transition:transform .3s;overflow-y:auto;backdrop-filter:blur(12px)}
+.detail-view.open{transform:translateX(0)}
+.detail-view .dv-head{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.detail-view .dv-body{padding:16px}
+.detail-view .dv-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.detail-view .dv-meta{font-size:11px;color:var(--text3);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
+.detail-view .dv-content{font-size:14px;line-height:1.8;color:var(--text2);white-space:pre-wrap;margin-bottom:16px}
+.detail-view .dv-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.detail-view .dv-tags .dt{padding:3px 10px;border-radius:6px;font-size:11px;background:var(--bg3);color:var(--text3)}
+.detail-view .dv-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ─── CONTEXT MENU ─── */
+.ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;z-index:150;min-width:160px;box-shadow:0 8px 30px rgba(0,0,0,.4);display:none}
+.ctx-menu.show{display:block}
+.ctx-item{padding:7px 12px;font-size:12px;color:var(--text2);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;transition:background .1s}
+.ctx-item:hover{background:var(--bg4);color:var(--text)}
+.ctx-item.danger{color:var(--red)}
+
+@media(max-width:768px){
+.sidebar{width:220px}.sidebar.hidden{transform:translateX(-220px)}
+.content{left:0}.content.expanded{left:0}
+.note-grid{grid-template-columns:1fr}
+.detail-view{width:100%}
+}
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+
+<div class="ui-layer">
+<!-- TOP BAR -->
+<div class="topbar">
+<div><div class="logo">🌌 NoteVerse</div><div class="logo-sub">3D Note World</div></div>
+<div class="search-box"><span class="si">🔍</span><input type="text" id="searchInput" placeholder="Search notes... (Ctrl+K)"></div>
+<div class="tb-actions">
+<button class="btn primary" id="newNoteBtn">✨ New Note</button>
+<button class="btn icon-btn" id="toggleSidebar" title="Toggle sidebar">☰</button>
+<button class="btn icon-btn" id="exportAllBtn" title="Export all">📤</button>
+<button class="btn icon-btn" id="importBtn" title="Import">📥</button>
+<input type="file" id="importFile" accept=".json" style="display:none">
+</div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+<div class="sb-section">
+<h4>Views</h4>
+<div class="sb-item active" data-view="all"><span>📋</span> All Notes <span class="cnt" id="cntAll">0</span></div>
+<div class="sb-item" data-view="pinned"><span>📌</span> Pinned <span class="cnt" id="cntPinned">0</span></div>
+<div class="sb-item" data-view="recent"><span>🕐</span> Recent <span class="cnt" id="cntRecent">0</span></div>
+<div class="sb-item" data-view="favorites"><span>⭐</span> Favorites <span class="cnt" id="cntFav">0</span></div>
+<div class="sb-item" data-view="archived"><span>📦</span> Archived <span class="cnt" id="cntArchived">0</span></div>
+<div class="sb-item" data-view="trash"><span>🗑️</span> Recycle Bin <span class="cnt" id="cntTrash">0</span></div>
+</div>
+<div class="sb-section">
+<h4>Categories</h4>
+<div class="sb-item" data-view="cat-personal"><span class="dot" style="background:var(--accent)"></span> Personal <span class="cnt" id="cntPersonal">0</span></div>
+<div class="sb-item" data-view="cat-work"><span class="dot" style="background:var(--blue)"></span> Work <span class="cnt" id="cntWork">0</span></div>
+<div class="sb-item" data-view="cat-ideas"><span class="dot" style="background:var(--amber)"></span> Ideas <span class="cnt" id="cntIdeas">0</span></div>
+<div class="sb-item" data-view="cat-journal"><span class="dot" style="background:var(--pink)"></span> Journal <span class="cnt" id="cntJournal">0</span></div>
+<div class="sb-item" data-view="cat-learning"><span class="dot" style="background:var(--cyan)"></span> Learning <span class="cnt" id="cntLearning">0</span></div>
+<div class="sb-item" data-view="cat-project"><span class="dot" style="background:var(--green)"></span> Projects <span class="cnt" id="cntProject">0</span></div>
+</div>
+<div class="sb-section">
+<h4>Tags</h4>
+<div id="tagCloud" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+</div>
+<div class="sb-stats" id="sbStats"></div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="content">
+<div class="view-header">
+<h2 id="viewTitle">All Notes</h2>
+<span class="count" id="viewCount"></span>
+<div style="flex:1"></div>
+<div class="view-toggle">
+<div class="vt active" data-mode="grid" title="Grid">▦</div>
+<div class="vt" data-mode="list" title="List">☰</div>
+</div>
+<select class="sort-select" id="sortSelect">
+<option value="updated">Last Updated</option>
+<option value="created">Created</option>
+<option value="title">Title A-Z</option>
+<option value="priority">Priority</option>
+<option value="color">Color</option>
+</select>
+</div>
+<div class="note-grid" id="noteGrid"></div>
+</div>
+
+<!-- DETAIL VIEW -->
+<div class="detail-view" id="detailView">
+<div class="dv-head">
+<button class="btn sm" id="closeDetail">✕ Close</button>
+<div style="flex:1"></div>
+<button class="btn sm" id="dvEdit">✏️ Edit</button>
+<button class="btn sm" id="dvDuplicate">📋 Duplicate</button>
+</div>
+<div class="dv-body" id="dvBody"></div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu" id="ctxMenu">
+<div class="ctx-item" data-action="edit">✏️ Edit</div>
+<div class="ctx-item" data-action="pin">📌 Toggle Pin</div>
+<div class="ctx-item" data-action="fav">⭐ Toggle Favorite</div>
+<div class="ctx-item" data-action="archive">📦 Archive</div>
+<div class="ctx-item" data-action="duplicate">📋 Duplicate</div>
+<div class="ctx-item" data-action="export">📤 Export</div>
+<div class="ctx-item danger" data-action="trash">🗑️ Move to Trash</div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg">
+<div class="modal" id="modal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ════════════════════ IndexedDB ════════════════════ */
+const DB_NAME='NoteVerseDB',DB_VER=1,STORE='notes';
+let db;
+function openDB(){
+return new Promise((resolve,reject)=>{
+const req=indexedDB.open(DB_NAME,DB_VER);
+req.onupgradeneeded=e=>{
+const d=e.target.result;
+if(!d.objectStoreNames.contains(STORE)){
+const s=d.createObjectStore(STORE,{keyPath:'id'});
+s.createIndex('category','category',{unique:false});
+s.createIndex('trashed','trashed',{unique:false});
+s.createIndex('archived','archived',{unique:false});
+s.createIndex('pinned','pinned',{unique:false});
+s.createIndex('updatedAt','updatedAt',{unique:false});
+}
+};
+req.onsuccess=e=>{db=e.target.result;resolve(db)};
+req.onerror=e=>reject(e);
+});
+}
+function dbPut(note){return new Promise((r,j)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).put(note);t.oncomplete=()=>r();t.onerror=e=>j(e)})}
+function dbDelete(id){return new Promise((r,j)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).delete(id);t.oncomplete=()=>r();t.onerror=e=>j(e)})}
+function dbGetAll(){return new Promise((r,j)=>{const t=db.transaction(STORE,'readonly');const req=t.objectStore(STORE).getAll();req.onsuccess=()=>r(req.result);req.onerror=e=>j(e)})}
+function dbGet(id){return new Promise((r,j)=>{const t=db.transaction(STORE,'readonly');const req=t.objectStore(STORE).get(id);req.onsuccess=()=>r(req.result);req.onerror=e=>j(e)})}
+function dbClear(){return new Promise((r,j)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).clear();t.oncomplete=()=>r();t.onerror=e=>j(e)})}
+
+/* ════════════════════ HELPERS ════════════════════ */
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,8)}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function escH(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function timeAgo(ts){const s=Math.floor((Date.now()-ts)/1e3);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';if(s<604800)return Math.floor(s/86400)+'d ago';return new Date(ts).toLocaleDateString()}
+
+/* ════════════════════ CONSTANTS ════════════════════ */
+const CATEGORIES=[
+{id:'personal',name:'Personal',color:'#7c5cfc',icon:'💜'},
+{id:'work',name:'Work',color:'#3b82f6',icon:'💼'},
+{id:'ideas',name:'Ideas',color:'#f59e0b',icon:'💡'},
+{id:'journal',name:'Journal',color:'#ec4899',icon:'📔'},
+{id:'learning',name:'Learning',color:'#06b6d4',icon:'📚'},
+{id:'project',name:'Projects',color:'#22c55e',icon:'🚀'}
+];
+const NOTE_COLORS=['#7c5cfc','#3b82f6','#06b6d4','#22c55e','#f59e0b','#ef4444','#ec4899','#8b5cf6','#f97316','#64748b'];
+const PRIORITIES=[{id:'low',label:'Low',color:'#22c55e'},{id:'medium',label:'Medium',color:'#f59e0b'},{id:'high',label:'High',color:'#ef4444'}];
+
+/* ════════════════════ STATE ════════════════════ */
+let allNotes=[],currentView='all',viewMode='grid',sortBy='updated',searchQuery='',selectedNoteId=null,ctxNoteId=null;
+
+/* ════════════════════ SEED DATA ════════════════════ */
+const SEEDS=[
+{title:'Welcome to NoteVerse! 🌌',body:'This is your 3D note world. Create, organize, and explore your thoughts in a beautiful space.\n\nTry these features:\n• Create notes with the ✨ button\n• Pin important notes 📌\n• Star your favorites ⭐\n• Organize with categories & tags\n• Search instantly with Ctrl+K\n• Right-click for more options\n• Export & import your data\n\nEnjoy your creative space!',category:'personal',tags:['welcome','tutorial'],color:'#7c5cfc',pinned:true,priority:'medium'},
+{title:'Project Ideas Brainstorm',body:'Some ideas to explore:\n\n1. Build a generative art tool using WebGL\n2. Create a collaborative music sequencer\n3. Design an AI-powered writing assistant\n4. Develop a habit tracker with beautiful visualizations\n5. Make a real-time multiplayer drawing game\n\nEach idea needs a prototype within 2 weeks.',category:'ideas',tags:['brainstorm','projects','creative'],color:'#f59e0b',priority:'high'},
+{title:'Weekly Journal — Reflections',body:'This week has been transformative. Started the morning practice of 20 minutes of meditation followed by journaling. The clarity it brings is remarkable.\n\nKey insight: Creativity flows best when I\'m not trying to force it. The best ideas come during walks or in the shower.\n\nGratitude list:\n- Good health\n- Supportive team\n- Beautiful weather\n- New learning opportunities',category:'journal',tags:['reflection','gratitude','mindfulness'],color:'#ec4899',priority:'low'},
+{title:'WebGL Shader Notes',body:'Raymarching fundamentals:\n\nSDF (Signed Distance Function):\n- Returns distance to nearest surface\n- Negative inside, positive outside\n- March along ray, step by SDF value\n\nKey SDFs:\n- Sphere: length(p) - r\n- Box: length(max(abs(p)-b, 0))\n- Torus: length(vec2(length(p.xz)-t.x, p.y)) - t.y\n\nSmooth min for organic blending:\nsmin(a, b, k) = -log(exp(-k*a)+exp(-k*b))/k\n\nNormals via central differences:\nn = normalize(f(p+e)-f(p-e))',category:'learning',tags:['webgl','shaders','graphics','programming'],color:'#06b6d4',priority:'medium'},
+{title:'Meeting Notes — Q1 Planning',body:'Attendees: Team Alpha\nDate: Monday\n\nAgenda:\n1. Review Q4 results — exceeded targets by 12%\n2. Q1 objectives — focus on user retention\n3. Resource allocation — need 2 more engineers\n4. Timeline for v2.0 launch — targeting March\n\nAction items:\n- Sarah: Draft retention strategy by Friday\n- Mike: Technical architecture review\n- Lisa: User research report compilation\n- All: Read competitive analysis doc',category:'work',tags:['meeting','planning','quarterly'],color:'#3b82f6',pinned:true,priority:'high'},
+{title:'Reading List 2025',body:'Currently reading:\n📖 "The Art of Doing Science and Engineering" — Richard Hamming\n\nUp next:\n📚 "Gödel, Escher, Bach" — Hofstadter\n📚 "The Design of Everyday Things" — Don Norman\n📚 "Thinking, Fast and Slow" — Daniel Kahneman\n📚 "Structure and Interpretation of Computer Programs"\n📚 "The Pragmatic Programmer" (re-read)\n\nCompleted this year: 12 books\nGoal: 30 books',category:'personal',tags:['reading','books','goals'],color:'#8b5cf6',favorite:true,priority:'low'},
+{title:'Fitness Tracker — App Design',body:'Core screens:\n\n1. Dashboard — daily summary, streak counter, quick log\n2. Workout Log — exercises, sets, reps, weight\n3. Progress Charts — weekly/monthly trends\n4. Goals — set and track targets\n5. Social — share achievements, challenges\n\nDesign principles:\n- Minimal friction for logging\n- Motivational without being annoying\n- Dark mode by default\n- Haptic feedback on milestones\n\nTech stack: React Native, Supabase, D3 for charts',category:'project',tags:['design','app','fitness','ux'],color:'#22c55e',priority:'medium'},
+{title:'Cooking Recipes Collection',body:'🍝 Perfect Aglio e Olio:\n- 400g spaghetti\n- 6 cloves garlic, thinly sliced\n- 1/2 cup olive oil\n- Red pepper flakes\n- Fresh parsley\n- Parmesan\n\nCook pasta al dente. Sauté garlic in oil until golden. Toss with pasta, pepper flakes, parsley. Finish with parmesan.\n\n🥘 Thai Green Curry:\n- Green curry paste\n- Coconut milk\n- Chicken or tofu\n- Thai basil, bamboo shoots\n- Fish sauce, palm sugar\n- Jasmine rice\n\nSimmer curry paste in coconut cream, add protein, vegetables, season to taste.',category:'personal',tags:['cooking','recipes','food'],color:'#f97316',priority:'low'},
+{title:'AI Ethics Discussion Points',body:'Key considerations for responsible AI development:\n\n1. Transparency — Users should know when they\'re interacting with AI\n2. Bias Mitigation — Active testing for demographic biases\n3. Privacy — Minimal data collection, strong encryption\n4. Accountability — Clear chains of responsibility\n5. Consent — Opt-in rather than opt-out\n6. Environmental Impact — Energy costs of training\n\nOpen questions:\n- Where do we draw the line on autonomy?\n- How do we handle emergent behaviors?\n- What governance structures are needed?',category:'learning',tags:['ai','ethics','technology','discussion'],color:'#64748b',priority:'high'},
+{title:'Dream Log — The Crystal Library',body:'Had the most vivid dream last night...\n\nI was standing in an enormous library where every book was made of crystal. When you touched a book, it projected its story as a hologram around you. The library had infinite floors spiraling upward.\n\nA guide told me each crystal contained not just words but the emotions of every person who had ever read the original text. Some crystals pulsed with warm light, others were cool and blue.\n\nI found a crystal that was completely dark — "the unwritten story" — and when I touched it, it started reflecting MY thoughts back at me.\n\nFascinating how the brain creates these intricate worlds during sleep.',category:'journal',tags:['dreams','creative','subconscious'],color:'#8b5cf6',favorite:true,priority:'low'},
+{title:'API Architecture Patterns',body:'Microservices best practices:\n\n• Service Discovery — Use Consul or etcd\n• API Gateway — Kong, Traefik, or custom\n• Circuit Breaker — Prevent cascade failures\n• Event Sourcing — Append-only event log\n• CQRS — Separate read/write models\n• Saga Pattern — Distributed transactions\n\nCommunication:\n- Sync: REST/gRPC between services\n- Async: RabbitMQ/Kafka for events\n- Hybrid: API gateway for external, events for internal\n\nMonitoring: Prometheus + Grafana + distributed tracing (Jaeger)',category:'work',tags:['architecture','api','backend','engineering'],color:'#3b82f6',priority:'medium'},
+{title:'Minimalism Journey',body:'Week 4 of decluttering:\n\nCompleted:\n✅ Wardrobe — down to 40 items\n✅ Books — kept 50, donated 200\n✅ Kitchen — one of everything\n✅ Digital — unsubscribed from 80 newsletters\n\nStill todo:\n⬜ Garage\n⬜ Digital photos (10,000+ to sort)\n⬜ Old electronics\n\nInsight: It\'s not about having less, it\'s about making room for what matters. Each item I let go of feels like a small weight lifted.\n\nThe space feels different now — lighter, calmer. My mind feels the same way.',category:'personal',tags:['minimalism','lifestyle','declutter'],color:'#22c55e',favorite:true,priority:'low'}
+];
+
+async function seedIfEmpty(){
+const notes=await dbGetAll();
+if(notes.length>0)return;
+const now=Date.now();
+for(let i=0;i<SEEDS.length;i++){
+const s=SEEDS[i];
+const note={
+id:uid(),title:s.title,body:s.body,category:s.category,
+tags:s.tags||[],color:s.color||'#7c5cfc',
+pinned:!!s.pinned,favorite:!!s.favorite,archived:false,trashed:false,
+priority:s.priority||'medium',
+createdAt:now-i*3600000*Math.random()*48,
+updatedAt:now-i*1800000*Math.random()*24,
+trashedAt:null
+};
+await dbPut(note);
+}
+}
+
+/* ════════════════════ RENDER ════════════════════ */
+async function loadNotes(){allNotes=await dbGetAll();render()}
+
+function getFilteredNotes(){
+let notes=allNotes.filter(n=>!n.trashed&&!n.archived);
+switch(currentView){
+case'all':break;
+case'pinned':notes=allNotes.filter(n=>n.pinned&&!n.trashed&&!n.archived);break;
+case'recent':notes=allNotes.filter(n=>!n.trashed&&!n.archived).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,20);break;
+case'favorites':notes=allNotes.filter(n=>n.favorite&&!n.trashed&&!n.archived);break;
+case'archived':notes=allNotes.filter(n=>n.archived&&!n.trashed);break;
+case'trash':notes=allNotes.filter(n=>n.trashed);break;
+default:if(currentView.startsWith('cat-')){const c=currentView.slice(4);notes=allNotes.filter(n=>n.category===c&&!n.trashed&&!n.archived)}
+else if(currentView.startsWith('tag-')){const t=currentView.slice(4);notes=allNotes.filter(n=>n.tags.includes(t)&&!n.trashed&&!n.archived)}
+}
+if(searchQuery){const q=searchQuery.toLowerCase();notes=notes.filter(n=>(n.title+' '+n.body+' '+n.tags.join(' ')).toLowerCase().includes(q))}
+switch(sortBy){
+case'updated':notes.sort((a,b)=>b.updatedAt-a.updatedAt);break;
+case'created':notes.sort((a,b)=>b.createdAt-a.createdAt);break;
+case'title':notes.sort((a,b)=>a.title.localeCompare(b.title));break;
+case'priority':{const o={high:0,medium:1,low:2};notes.sort((a,b)=>(o[a.priority]||1)-(o[b.priority]||1))}break;
+case'color':notes.sort((a,b)=>a.color.localeCompare(b.color));break;
+}
+// Pinned first
+notes.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+return notes;
+}
+
+function render(){
+renderSidebar();
+renderGrid();
+renderTagCloud();
+renderStats();
+}
+
+function renderSidebar(){
+const active=allNotes.filter(n=>!n.trashed&&!n.archived);
+$('#cntAll').textContent=active.length;
+$('#cntPinned').textContent=active.filter(n=>n.pinned).length;
+$('#cntRecent').textContent=Math.min(20,active.length);
+$('#cntFav').textContent=active.filter(n=>n.favorite).length;
+$('#cntArchived').textContent=allNotes.filter(n=>n.archived&&!n.trashed).length;
+$('#cntTrash').textContent=allNotes.filter(n=>n.trashed).length;
+CATEGORIES.forEach(c=>{
+const el=$(`#cnt${c.id.charAt(0).toUpperCase()+c.id.slice(1)}`);
+if(el)el.textContent=active.filter(n=>n.category===c.id).length;
+});
+
+$$('.sb-item').forEach(el=>{el.classList.toggle('active',el.dataset.view===currentView)});
+}
+
+function renderGrid(){
+const notes=getFilteredNotes();
+const grid=$('#noteGrid');
+grid.className='note-grid'+(viewMode==='list'?' list':'');
+const viewLabels={all:'All Notes',pinned:'Pinned Notes',recent:'Recent Notes',favorites:'Favorites',archived:'Archived',trash:'Recycle Bin'};
+let label=viewLabels[currentView]||currentView;
+if(currentView.startsWith('cat-')){const c=CATEGORIES.find(x=>x.id===currentView.slice(4));label=c?c.icon+' '+c.name:'Category'}
+if(currentView.startsWith('tag-'))label='🏷️ #'+currentView.slice(4);
+$('#viewTitle').textContent=label;
+$('#viewCount').textContent=notes.length+' note'+(notes.length!==1?'s':'');
+
+if(!notes.length){
+grid.innerHTML=`<div class="empty-state"><div class="ei">${currentView==='trash'?'🗑️':'📝'}</div><h3>${currentView==='trash'?'Recycle Bin is Empty':'No Notes Found'}</h3><p>${currentView==='trash'?'Deleted notes will appear here':'Create your first note or try a different filter'}</p>${currentView!=='trash'?'<button class="btn primary" onclick="openNoteModal()">✨ Create Note</button>':''}</div>`;
+return;
+}
+
+let html='';
+notes.forEach(n=>{
+const cat=CATEGORIES.find(c=>c.id===n.category);
+const pri=PRIORITIES.find(p=>p.id===n.priority);
+html+=`<div class="note-card${n.trashed?' trashed':''}" data-id="${n.id}" oncontextmenu="showCtx(event,'${n.id}')">
+<div class="nc-color" style="background:${n.color}"></div>
+${n.pinned?'<div class="nc-pin">📌</div>':''}
+<div class="nc-title">${n.favorite?'⭐ ':''}${escH(n.title)}</div>
+<div class="nc-body">${escH(n.body)}</div>
+${n.tags.length?`<div class="nc-tags">${n.tags.map(t=>`<span class="nc-tag">#${escH(t)}</span>`).join('')}</div>`:''}
+<div class="nc-meta">
+<span>${cat?cat.icon+' ':''}${timeAgo(n.updatedAt)}</span>
+<div class="nc-actions">
+${n.trashed?`<button class="btn sm" onclick="event.stopPropagation();restoreNote('${n.id}')">♻️</button><button class="btn sm danger" onclick="event.stopPropagation();permDelete('${n.id}')">💀</button>`
+:`<button class="btn sm" onclick="event.stopPropagation();openNoteModal('${n.id}')">✏️</button><button class="btn sm" onclick="event.stopPropagation();togglePin('${n.id}')">📌</button><button class="btn sm danger" onclick="event.stopPropagation();trashNote('${n.id}')">🗑️</button>`}
+</div>
+</div>
+</div>`;
+});
+if(currentView==='trash'&&notes.length){
+html+=`<div style="text-align:center;padding:20px"><button class="btn danger" onclick="emptyTrash()">🗑️ Empty Recycle Bin</button></div>`;
+}
+grid.innerHTML=html;
+
+$$('.note-card').forEach(c=>c.addEventListener('click',()=>openDetail(c.dataset.id)));
+}
+
+function renderTagCloud(){
+const tags={};
+allNotes.filter(n=>!n.trashed).forEach(n=>n.tags.forEach(t=>{tags[t]=(tags[t]||0)+1}));
+const sorted=Object.entries(tags).sort((a,b)=>b[1]-a[1]).slice(0,20);
+$('#tagCloud').innerHTML=sorted.map(([t,c])=>`<span class="sb-item" data-view="tag-${t}" style="padding:3px 8px;font-size:10px;margin:0;display:inline-flex">#${t}<span class="cnt">${c}</span></span>`).join('');
+
+$$('#tagCloud .sb-item').forEach(el=>el.addEventListener('click',()=>{currentView=el.dataset.view;render()}));
+}
+
+function renderStats(){
+const active=allNotes.filter(n=>!n.trashed);
+const totalWords=active.reduce((s,n)=>s+(n.body||'').split(/\s+/).filter(Boolean).length,0);
+const cats=new Set(active.map(n=>n.category));
+const tags=new Set();active.forEach(n=>n.tags.forEach(t=>tags.add(t)));
+$('#sbStats').innerHTML=`📊 Stats<br>Notes: <span class="sv">${active.length}</span><br>Words: <span class="sv">${totalWords.toLocaleString()}</span><br>Categories: <span class="sv">${cats.size}</span><br>Tags: <span class="sv">${tags.size}</span><br>Trashed: <span class="sv">${allNotes.filter(n=>n.trashed).length}</span>`;
+}
+
+/* ════════════════════ DETAIL VIEW ════════════════════ */
+function openDetail(id){
+const n=allNotes.find(x=>x.id===id);if(!n)return;
+selectedNoteId=id;
+const cat=CATEGORIES.find(c=>c.id===n.category);
+const pri=PRIORITIES.find(p=>p.id===n.priority);
+$('#dvBody').innerHTML=`
+<div class="dv-title" style="border-left:4px solid ${n.color};padding-left:12px">${n.favorite?'⭐ ':''}${n.pinned?'📌 ':''}${escH(n.title)}</div>
+<div class="dv-meta">
+<span>${cat?cat.icon+' '+cat.name:''}</span>
+<span style="color:${pri?pri.color:''}">${pri?'● '+pri.label:''}</span>
+<span>Created: ${new Date(n.createdAt).toLocaleString()}</span>
+<span>Updated: ${timeAgo(n.updatedAt)}</span>
+<span>${(n.body||'').split(/\s+/).filter(Boolean).length} words</span>
+</div>
+${n.tags.length?`<div class="dv-tags">${n.tags.map(t=>`<span class="dt" style="cursor:pointer" onclick="currentView='tag-${t}';render()">#${escH(t)}</span>`).join('')}</div>`:''}
+<div class="dv-content">${escH(n.body)}</div>
+<div class="dv-actions">
+${n.trashed?`<button class="btn" onclick="restoreNote('${n.id}');closeDetail()">♻️ Restore</button><button class="btn danger" onclick="permDelete('${n.id}');closeDetail()">💀 Delete Forever</button>`
+:`<button class="btn" onclick="openNoteModal('${n.id}');closeDetail()">✏️ Edit</button>
+<button class="btn" onclick="togglePin('${n.id}')">📌 ${n.pinned?'Unpin':'Pin'}</button>
+<button class="btn" onclick="toggleFav('${n.id}')">⭐ ${n.favorite?'Unfavorite':'Favorite'}</button>
+<button class="btn" onclick="archiveNote('${n.id}')">📦 ${n.archived?'Unarchive':'Archive'}</button>
+<button class="btn" onclick="duplicateNote('${n.id}')">📋 Duplicate</button>
+<button class="btn" onclick="exportNote('${n.id}')">📤 Export</button>
+<button class="btn danger" onclick="trashNote('${n.id}');closeDetail()">🗑️ Trash</button>`}
+</div>`;
+$('#detailView').classList.add('open');
+}
+function closeDetail(){$('#detailView').classList.remove('open');selectedNoteId=null}
+
+/* ════════════════════ NOTE MODAL ════════════════════ */
+function openNoteModal(editId){
+const note=editId?allNotes.find(n=>n.id===editId):null;
+const isEdit=!!note;
+const catOpts=CATEGORIES.map(c=>`<option value="${c.id}"${note&&note.category===c.id?' selected':''}>${c.icon} ${c.name}</option>`).join('');
+const colorDots=NOTE_COLORS.map(c=>`<div class="color-swatch${(note?note.color:'#7c5cfc')===c?' active':''}" data-color="${c}" style="background:${c}"></div>`).join('');
+const priBtns=PRIORITIES.map(p=>`<div class="pb${(note?note.priority:'medium')===p.id?' active':''}" data-p="${p.id}">${p.label}</div>`).join('');
+
+$('#modal').innerHTML=`
+<div class="modal-head"><h3>${isEdit?'Edit Note':'Create Note'}</h3><button class="close-btn" onclick="closeModal()">✕</button></div>
+<div class="modal-body">
+<div class="form-group"><label>Title</label><input type="text" id="fTitle" value="${note?escH(note.title):''}" placeholder="Note title..." autofocus></div>
+<div class="form-group"><label>Content</label><textarea id="fBody" placeholder="Write your thoughts...">${note?escH(note.body):''}</textarea></div>
+<div class="form-group"><label>Category</label><select id="fCat">${catOpts}</select></div>
+<div class="form-group"><label>Tags (press Enter to add)</label>
+<div class="tag-input-row" id="tagInputRow">
+${(note?note.tags:[]).map(t=>`<span class="tag-pill" data-tag="${escH(t)}">#${escH(t)} <span class="x" onclick="this.parentElement.remove()">×</span></span>`).join('')}
+<input type="text" id="fTagInput" placeholder="Add tag...">
+</div></div>
+<div class="form-group"><label>Color</label><div class="color-row" id="colorRow">${colorDots}</div></div>
+<div class="form-group"><label>Priority</label><div class="priority-btns" id="priBtns">${priBtns}</div></div>
+</div>
+<div class="modal-foot">
+<button class="btn" onclick="closeModal()">Cancel</button>
+<button class="btn primary" id="saveNoteBtn">${isEdit?'💾 Save Changes':'✨ Create Note'}</button>
+</div>`;
+showModal();
+
+// Color selection
+
+$$('#colorRow .color-swatch').forEach(s=>s.addEventListener('click',()=>{$$('#colorRow .color-swatch').forEach(x=>x.classList.remove('active'));s.classList.add('active')}));
+// Priority
+
+$$('#priBtns .pb').forEach(b=>b.addEventListener('click',()=>{$$('#priBtns .pb').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));
+// Tag input
+$('#fTagInput').addEventListener('keydown',e=>{
+if(e.key==='Enter'||e.key===','){
+e.preventDefault();
+const v=e.target.value.trim().replace(/^#/,'').replace(/,/g,'');
+if(v&&!$$('#tagInputRow .tag-pill[data-tag="'+v+'"]').length){
+const pill=document.createElement('span');pill.className='tag-pill';pill.dataset.tag=v;
+pill.innerHTML=`#${escH(v)} <span class="x" onclick="this.parentElement.remove()">×</span>`;
+$('#tagInputRow').insertBefore(pill,e.target);
+}
+e.target.value='';
+}
+});
+
+$('#saveNoteBtn').onclick=async()=>{
+const title=$('#fTitle').value.trim()||'Untitled';
+const body=$('#fBody').value;
+const category=$('#fCat').value;
+const tags=[...$$('#tagInputRow .tag-pill')].map(p=>p.dataset.tag);
+const color=$('#colorRow .color-swatch.active')?.dataset.color||'#7c5cfc';
+const priority=$('#priBtns .pb.active')?.dataset.p||'medium';
+const now=Date.now();
+if(isEdit){
+note.title=title;note.body=body;note.category=category;note.tags=tags;note.color=color;note.priority=priority;note.updatedAt=now;
+await dbPut(note);toast('Note updated ✨');
+}else{
+const n={id:uid(),title,body,category,tags,color,priority,pinned:false,favorite:false,archived:false,trashed:false,createdAt:now,updatedAt:now,trashedAt:null};
+await dbPut(n);toast('Note created ✨');
+}
+closeModal();await loadNotes();
+};
+}
+
+function showModal(){$('#modalBg').classList.add('show')}
+function closeModal(){$('#modalBg').classList.remove('show')}
+
+/* ════════════════════ CRUD ACTIONS ════════════════════ */
+async function togglePin(id){const n=allNotes.find(x=>x.id===id);if(!n)return;n.pinned=!n.pinned;n.updatedAt=Date.now();await dbPut(n);toast(n.pinned?'Pinned 📌':'Unpinned');await loadNotes();if(selectedNoteId===id)openDetail(id)}
+async function toggleFav(id){const n=allNotes.find(x=>x.id===id);if(!n)return;n.favorite=!n.favorite;n.updatedAt=Date.now();await dbPut(n);toast(n.favorite?'Favorited ⭐':'Unfavorited');await loadNotes();if(selectedNoteId===id)openDetail(id)}
+async function archiveNote(id){const n=allNotes.find(x=>x.id===id);if(!n)return;n.archived=!n.archived;n.updatedAt=Date.now();await dbPut(n);toast(n.archived?'Archived 📦':'Unarchived');await loadNotes();if(selectedNoteId===id)openDetail(id)}
+async function trashNote(id){const n=allNotes.find(x=>x.id===id);if(!n)return;n.trashed=true;n.trashedAt=Date.now();await dbPut(n);toast('Moved to trash 🗑️');await loadNotes()}
+async function restoreNote(id){const n=allNotes.find(x=>x.id===id);if(!n)return;n.trashed=false;n.trashedAt=null;await dbPut(n);toast('Restored ♻️');await loadNotes()}
+async function permDelete(id){if(!confirm('Permanently delete this note? This cannot be undone.'))return;await dbDelete(id);toast('Permanently deleted 💀');await loadNotes()}
+async function emptyTrash(){if(!confirm('Empty the recycle bin? All trashed notes will be permanently deleted.'))return;const trashed=allNotes.filter(n=>n.trashed);for(const n of trashed)await dbDelete(n.id);toast(`Emptied ${trashed.length} notes from trash`);await loadNotes()}
+async function duplicateNote(id){
+const n=allNotes.find(x=>x.id===id);if(!n)return;
+const dup={...n,id:uid(),title:n.title+' (Copy)',createdAt:Date.now(),updatedAt:Date.now(),pinned:false};
+await dbPut(dup);toast('Duplicated 📋');await loadNotes();
+}
+function exportNote(id){
+const n=allNotes.find(x=>x.id===id);if(!n)return;
+const blob=new Blob([JSON.stringify(n,null,2)],{type:'application/json'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`note_${n.title.replace(/\s+/g,'_').substring(0,30)}.json`;a.click();toast('Exported 📤');
+}
+function exportAll(){
+const data=allNotes.filter(n=>!n.trashed);
+const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='noteverse_export.json';a.click();toast(`Exported ${data.length} notes`);
+}
+function importNotes(file){
+const reader=new FileReader();
+reader.onload=async e=>{
+try{
+let data=JSON.parse(e.target.result);
+if(!Array.isArray(data))data=[data];
+let count=0;
+for(const n of data){
+if(n.title&&n.body!==undefined){
+const note={id:n.id||uid(),title:n.title,body:n.body||'',category:n.category||'personal',tags:n.tags||[],color:n.color||'#7c5cfc',pinned:!!n.pinned,favorite:!!n.favorite,archived:!!n.archived,trashed:false,priority:n.priority||'medium',createdAt:n.createdAt||Date.now(),updatedAt:Date.now(),trashedAt:null};
+await dbPut(note);count++;
+}}
+toast(`Imported ${count} notes`);await loadNotes();
+}catch(err){toast('Invalid file format')}
+};
+reader.readAsText(file);
+}
+
+/* ════════════════════ CONTEXT MENU ════════════════════ */
+function showCtx(e,id){
+e.preventDefault();e.stopPropagation();
+ctxNoteId=id;
+const n=allNotes.find(x=>x.id===id);
+const menu=$('#ctxMenu');
+if(n&&n.trashed){
+menu.innerHTML=`<div class="ctx-item" data-action="restore">♻️ Restore</div><div class="ctx-item danger" data-action="permdelete">💀 Delete Forever</div>`;
+}else{
+menu.innerHTML=`<div class="ctx-item" data-action="edit">✏️ Edit</div><div class="ctx-item" data-action="pin">${n&&n.pinned?'📌 Unpin':'📌 Pin'}</div><div class="ctx-item" data-action="fav">${n&&n.favorite?'⭐ Unfavorite':'⭐ Favorite'}</div><div class="ctx-item" data-action="archive">${n&&n.archived?'📦 Unarchive':'📦 Archive'}</div><div class="ctx-item" data-action="duplicate">📋 Duplicate</div><div class="ctx-item" data-action="export">📤 Export</div><div class="ctx-item danger" data-action="trash">🗑️ Move to Trash</div>`;
+}
+menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+menu.style.top=Math.min(e.clientY,window.innerHeight-250)+'px';
+menu.classList.add('show');
+}
+document.addEventListener('click',()=>$('#ctxMenu').classList.remove('show'));
+$('#ctxMenu').addEventListener('click',e=>{
+const item=e.target.closest('.ctx-item');if(!item||!ctxNoteId)return;
+const a=item.dataset.action;
+if(a==='edit')openNoteModal(ctxNoteId);
+else if(a==='pin')togglePin(ctxNoteId);
+else if(a==='fav')toggleFav(ctxNoteId);
+else if(a==='archive')archiveNote(ctxNoteId);
+else if(a==='duplicate')duplicateNote(ctxNoteId);
+else if(a==='export')exportNote(ctxNoteId);
+else if(a==='trash')trashNote(ctxNoteId);
+else if(a==='restore')restoreNote(ctxNoteId);
+else if(a==='permdelete')permDelete(ctxNoteId);
+$('#ctxMenu').classList.remove('show');
+});
+
+/* ════════════════════ EVENTS ════════════════════ */
+$('#newNoteBtn').addEventListener('click',()=>openNoteModal());
+$('#toggleSidebar').addEventListener('click',()=>{$('#sidebar').classList.toggle('hidden');$('#content').classList.toggle('expanded')});
+$('#exportAllBtn').addEventListener('click',exportAll);
+$('#importBtn').addEventListener('click',()=>$('#importFile').click());
+$('#importFile').addEventListener('change',e=>{if(e.target.files[0])importNotes(e.target.files[0]);e.target.value=''});
+$('#searchInput').addEventListener('input',e=>{searchQuery=e.target.value;renderGrid()});
+$('#sortSelect').addEventListener('change',e=>{sortBy=e.target.value;renderGrid()});
+$('#closeDetail').addEventListener('click',closeDetail);
+$('#dvEdit').addEventListener('click',()=>{if(selectedNoteId){openNoteModal(selectedNoteId);closeDetail()}});
+$('#dvDuplicate').addEventListener('click',()=>{if(selectedNoteId)duplicateNote(selectedNoteId)});
+$('#modalBg').addEventListener('click',e=>{if(e.target===$('#modalBg'))closeModal()});
+
+
+$$('.sb-item[data-view]').forEach(el=>el.addEventListener('click',()=>{currentView=el.dataset.view;closeDetail();render()}));
+
+$$('.view-toggle .vt').forEach(el=>el.addEventListener('click',()=>{viewMode=el.dataset.mode;$$('.view-toggle .vt').forEach(x=>x.classList.toggle('active',x===el));renderGrid()}));
+
+document.addEventListener('keydown',e=>{
+if(e.ctrlKey&&e.key==='k'){e.preventDefault();$('#searchInput').focus()}
+else if(e.key==='Escape'){closeModal();closeDetail();$('#ctxMenu').classList.remove('show')}
+else if(e.ctrlKey&&e.key==='n'){e.preventDefault();openNoteModal()}
+});
+
+/* ════════════════════ 3D BACKGROUND (WebGL2) ════════════════════ */
+const cv=$('#world'),gl=cv.getContext('webgl2',{antialias:true,alpha:false});
+let W,H,dpr;
+function resizeCanvas(){
+dpr=window.devicePixelRatio||1;
+W=window.innerWidth;H=window.innerHeight;
+cv.width=W*dpr;cv.height=H*dpr;
+if(gl)gl.viewport(0,0,cv.width,cv.height);
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+if(gl){
+const vs=`#version 300 es
+in vec2 p;out vec2 vUv;
+void main(){vUv=p*.5+.5;gl_Position=vec4(p,0,1);}`;
+
+const fs=`#version 300 es
+precision highp float;
+in vec2 vUv;out vec4 O;
+uniform float T;
+uniform vec2 R;
+uniform float noteCount;
+uniform float mouseX;
+uniform float mouseY;
+
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){
+    vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+    return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),
+               mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
+}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.01+.5;a*=.5;}return v;}
+
+// 3D note cubes floating in space
+float sdBox(vec3 p,vec3 b){vec3 d=abs(p)-b;return min(max(d.x,max(d.y,d.z)),0.)+length(max(d,0.));}
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+
+void main(){
+    vec2 uv=(gl_FragCoord.xy-R*.5)/R.y;
+    vec2 mouse=vec2(mouseX,mouseY);
+    
+    // Camera
+    float ct=T*0.08;
+    vec3 ro=vec3(sin(ct)*6.,sin(T*.05)*2.+1.,cos(ct)*6.);
+    ro.xz+=mouse*2.;
+    vec3 ta=vec3(0,0,0);
+    vec3 ww=normalize(ta-ro),uu=normalize(cross(ww,vec3(0,1,0))),vv=cross(uu,ww);
+    vec3 rd=normalize(uv.x*uu+uv.y*vv+1.8*ww);
+    
+    vec3 col=vec3(0.03,0.03,0.06);
+    
+    // Stars
+    for(int i=0;i<3;i++){
+        vec2 suv=uv*(2.+float(i)*1.5)+T*0.01*float(i+1);
+        float s=hash(floor(suv*80.));
+        if(s>0.97){
+            float b=(s-0.97)*33.;
+            b*=0.5+0.5*sin(T*2.+s*100.);
+            col+=vec3(b*0.8,b*0.85,b);
+        }
+    }
+    
+    // Nebula background
+    float n1=fbm(uv*2.+T*0.02);
+    float n2=fbm(uv*3.-T*0.015+10.);
+    col+=vec3(0.08,0.02,0.12)*n1;
+    col+=vec3(0.02,0.04,0.1)*n2;
+    col+=vec3(0.06,0.01,0.08)*fbm(uv*1.5+T*0.01+20.);
+    
+    // Raymarched floating note cubes
+    float t=0.;
+    for(int i=0;i<40;i++){
+        vec3 p=ro+rd*t;
+        float d=100.;
+        
+        // Multiple floating cubes
+        for(int j=0;j<8;j++){
+            float fj=float(j);
+            float phase=fj*1.256+T*0.15;
+            vec3 center=vec3(
+                sin(phase)*3.+sin(fj*2.1)*1.5,
+                sin(phase*0.7+fj)*1.5+cos(T*0.1+fj)*0.5,
+                cos(phase*0.8)*3.+cos(fj*1.7)*1.5
+            );
+            vec3 q=p-center;
+            // Rotation
+            q.xy*=rot(T*0.2+fj);
+            q.yz*=rot(T*0.15+fj*0.7);
+            float box=sdBox(q,vec3(0.15,0.2,0.02))-0.02;
+            d=min(d,box);
+        }
+        
+        if(d<0.01){
+            // Shading
+            vec3 p2=ro+rd*t;
+            float closest=100.;
+            int closestJ=0;
+            for(int j=0;j<8;j++){
+                float fj=float(j);
+                float phase=fj*1.256+T*0.15;
+                vec3 center=vec3(sin(phase)*3.+sin(fj*2.1)*1.5,sin(phase*0.7+fj)*1.5+cos(T*0.1+fj)*0.5,cos(phase*0.8)*3.+cos(fj*1.7)*1.5);
+                float dd=length(p2-center);
+                if(dd<closest){closest=dd;closestJ=j;}
+            }
+            // Color per cube
+            vec3 noteCol;
+            if(closestJ==0)noteCol=vec3(0.49,0.36,0.99);
+            else if(closestJ==1)noteCol=vec3(0.23,0.51,0.96);
+            else if(closestJ==2)noteCol=vec3(0.02,0.72,0.83);
+            else if(closestJ==3)noteCol=vec3(0.13,0.77,0.37);
+            else if(closestJ==4)noteCol=vec3(0.96,0.62,0.04);
+            else if(closestJ==5)noteCol=vec3(0.94,0.27,0.27);
+            else if(closestJ==6)noteCol=vec3(0.93,0.3,0.6);
+            else noteCol=vec3(0.55,0.36,0.96);
+            
+            float glow=exp(-closest*2.);
+            col+=noteCol*(0.3+glow*0.7);
+            // Lines on the note
+            float lines=sin(p2.y*40.)*0.5+0.5;
+            col+=noteCol*lines*0.1;
+            break;
+        }
+        t+=d;
+        if(t>20.)break;
+    }
+    
+    // Floating particles / dust
+    for(int i=0;i<12;i++){
+        float fi=float(i);
+        vec3 pp=vec3(
+            sin(T*0.3+fi*2.094)*4.,
+            cos(T*0.25+fi*1.5)*3.,
+            sin(T*0.2+fi*0.8)*4.
+        );
+        vec3 toP=pp-ro;
+        float proj=dot(toP,rd);
+        if(proj<0.)continue;
+        vec3 closest2=ro+rd*proj;
+        float dist=length(closest2-pp);
+        if(dist<0.3){
+            float b=0.3-dist;
+            float twinkle=0.5+0.5*sin(T*3.+fi*5.);
+            col+=vec3(0.3,0.4,0.8)*b*twinkle*2.;
+        }
+    }
+    
+    // Grid plane (very subtle)
+    if(rd.y<-0.01){
+        float gt=(-3.-ro.y)/rd.y;
+        if(gt>0.&&gt<30.){
+            vec3 gp=ro+rd*gt;
+            float gx=abs(fract(gp.x)-0.5);
+            float gz=abs(fract(gp.z)-0.5);
+            float grid=min(gx,gz);
+            float line=smoothstep(0.0,0.03,grid);
+            float fade=exp(-gt*0.1);
+            col=mix(col,col+vec3(0.05,0.03,0.1),max(0.,(1.-line)*fade*0.3));
+        }
+    }
+    
+    // Vignette
+    vec2 vig=vUv*2.-1.;
+    col*=1.-dot(vig,vig)*0.3;
+    
+    // Tone map
+    col=pow(col,vec3(0.9));
+    O=vec4(col,1);
+}`;
+
+function mkShader(src,type){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));return null}return s}
+const prog=gl.createProgram();
+gl.attachShader(prog,mkShader(vs,gl.VERTEX_SHADER));
+gl.attachShader(prog,mkShader(fs,gl.FRAGMENT_SHADER));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(prog));
+
+const uT=gl.getUniformLocation(prog,'T');
+const uR=gl.getUniformLocation(prog,'R');
+const uNC=gl.getUniformLocation(prog,'noteCount');
+const uMX=gl.getUniformLocation(prog,'mouseX');
+const uMY=gl.getUniformLocation(prog,'mouseY');
+
+const buf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+const loc=gl.getAttribLocation(prog,'p');
+gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{mx=(e.clientX/W-0.5)*2;my=(e.clientY/H-0.5)*2});
+
+function drawBG(t){
+gl.useProgram(prog);
+gl.bindVertexArray(vao);
+gl.uniform1f(uT,t);
+gl.uniform2f(uR,cv.width,cv.height);
+gl.uniform1f(uNC,allNotes.length);
+gl.uniform1f(uMX,mx);
+gl.uniform1f(uMY,my);
+gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+
+function animate(ts){
+drawBG(ts*0.001);
+requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+}
+
+/* ════════════════════ INIT ════════════════════ */
+(async()=>{
+await openDB();
+await seedIfEmpty();
+await loadNotes();
+})();
+
+</script>
+</body>
+</html>

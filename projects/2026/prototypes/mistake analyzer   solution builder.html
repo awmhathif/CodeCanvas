@@ -1,0 +1,2063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mistake Analyzer & Solution Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-hover: #22222e;
+            --border: #2a2a3a;
+            --text: #e8e8f0;
+            --text-dim: #8888a0;
+            --text-muted: #5a5a70;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+
+        .logo-text h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Sessions List */
+        .sessions-section {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            padding: 0 10px;
+        }
+
+        .session-item {
+            padding: 12px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 5px;
+            border: 1px solid transparent;
+        }
+
+        .session-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .session-item.active {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+
+        .session-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .session-meta {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            display: flex;
+            gap: 10px;
+        }
+
+        .session-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-dot.in-progress { background: var(--warning); }
+        .status-dot.completed { background: var(--success); }
+
+        .new-session-btn {
+            margin: 15px;
+            padding: 12px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .new-session-btn:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chat Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+        }
+
+        .message.user .message-avatar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        .message-sender {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .message-content {
+            padding-left: 48px;
+        }
+
+        .message-text {
+            background: var(--bg-card);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            line-height: 1.7;
+        }
+
+        .message.assistant .message-text {
+            background: var(--bg-secondary);
+        }
+
+        /* Question Cards */
+        .question-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .question-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .question-text {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .question-hint {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Input Types */
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .text-input:focus {
+            border-color: var(--accent);
+        }
+
+        .text-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        textarea.text-input {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        /* Options */
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .option-btn {
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .option-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-hover);
+        }
+
+        .option-btn.selected {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .option-icon {
+            font-size: 1.2rem;
+        }
+
+        .option-text {
+            flex: 1;
+        }
+
+        .option-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .option-desc {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Scale Input */
+        .scale-container {
+            margin-bottom: 15px;
+        }
+
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .scale-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .scale-btn {
+            flex: 1;
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .scale-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .scale-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        /* Multi-select Tags */
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tag-btn {
+            padding: 8px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .tag-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .tag-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        /* Clarification */
+        .clarification-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .clarification-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: var(--warning);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .clarification-text {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+
+        .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            filter: brightness(1.1);
+        }
+
+        /* Progress Indicator */
+        .progress-container {
+            padding: 15px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .progress-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .progress-step {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-stages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .stage {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stage-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 2px solid var(--border);
+        }
+
+        .stage.completed .stage-dot {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .stage.active .stage-dot {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        /* Solution Card */
+        .solution-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(99, 102, 241, 0.1));
+            border: 1px solid var(--success);
+            border-radius: 16px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .solution-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .solution-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--success);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .solution-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .solution-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .solution-section {
+            margin-bottom: 20px;
+        }
+
+        .solution-section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .solution-list {
+            list-style: none;
+        }
+
+        .solution-list li {
+            padding: 10px 15px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .solution-list li::before {
+            content: '→';
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Analysis Box */
+        .analysis-box {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .analysis-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .analysis-item {
+            padding: 15px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+        }
+
+        .analysis-item-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+        }
+
+        .analysis-item-value {
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        /* Summary */
+        .summary-container {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .summary-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .summary-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .summary-subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .summary-sections {
+            display: grid;
+            gap: 20px;
+        }
+
+        .summary-section {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .summary-section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .summary-section-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .summary-section-icon.mistake { background: rgba(239, 68, 68, 0.2); }
+        .summary-section-icon.cause { background: rgba(245, 158, 11, 0.2); }
+        .summary-section-icon.impact { background: rgba(59, 130, 246, 0.2); }
+        .summary-section-icon.solution { background: rgba(16, 185, 129, 0.2); }
+        .summary-section-icon.action { background: rgba(99, 102, 241, 0.2); }
+
+        .summary-section-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .summary-content {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+
+        .summary-content ul {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .summary-content li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .summary-content li:last-child {
+            border-bottom: none;
+        }
+
+        .summary-content li::before {
+            content: '•';
+            color: var(--accent);
+        }
+
+        /* Export Options */
+        .export-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Thinking Indicator */
+        .thinking-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 20px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .thinking-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .thinking-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: thinking 1.4s infinite;
+        }
+
+        .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+        .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes thinking {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .thinking-text {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .empty-text {
+            color: var(--text-dim);
+            max-width: 400px;
+            margin-bottom: 25px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">🔍</div>
+                    <div class="logo-text">
+                        <h1>Mistake Analyzer</h1>
+                        <span>Learn & Improve Tool</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sessions-section">
+                <div class="section-label">Previous Sessions</div>
+                <div id="sessionsList"></div>
+            </div>
+
+            <button class="new-session-btn" onclick="startNewSession()">
+                <span>+</span> New Analysis
+            </button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-header">
+                    <span class="progress-title">Analysis Progress</span>
+                    <span class="progress-step" id="progressStep">Step 1 of 6</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-stages">
+                    <div class="stage active" id="stage1">
+                        <div class="stage-dot"></div>
+                        <span>Identify</span>
+                    </div>
+                    <div class="stage" id="stage2">
+                        <div class="stage-dot"></div>
+                        <span>Context</span>
+                    </div>
+                    <div class="stage" id="stage3">
+                        <div class="stage-dot"></div>
+                        <span>Causes</span>
+                    </div>
+                    <div class="stage" id="stage4">
+                        <div class="stage-dot"></div>
+                        <span>Impact</span>
+                    </div>
+                    <div class="stage" id="stage5">
+                        <div class="stage-dot"></div>
+                        <span>Solutions</span>
+                    </div>
+                    <div class="stage" id="stage6">
+                        <div class="stage-dot"></div>
+                        <span>Action</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-icon">🎯</div>
+                        <h2 class="empty-title">Mistake Analyzer & Solution Builder</h2>
+                        <p class="empty-text">
+                            A guided process to deeply understand any mistake, uncover root causes, 
+                            and build actionable solutions. Every question is designed to clarify and help you learn.
+                        </p>
+                        <button class="btn btn-primary" onclick="startNewSession()">
+                            Start New Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==================== STATE ====================
+        const state = {
+            currentSession: null,
+            sessions: [],
+            currentStep: 0,
+            responses: {},
+            isThinking: false
+        };
+
+        // ==================== QUESTIONS FLOW ====================
+        const analysisFlow = [
+            // Stage 1: Identify the Mistake
+            {
+                stage: 1,
+                id: 'mistake_type',
+                type: 'options',
+                question: "Let's start by understanding what type of mistake you're analyzing.",
+                hint: "Categorizing helps us ask the right follow-up questions.",
+                options: [
+                    { id: 'decision', icon: '🤔', title: 'Decision Error', desc: 'Chose the wrong option or path' },
+                    { id: 'action', icon: '⚡', title: 'Action Mistake', desc: 'Did something incorrectly' },
+                    { id: 'inaction', icon: '⏸️', title: 'Missed Opportunity', desc: 'Failed to act when I should have' },
+                    { id: 'communication', icon: '💬', title: 'Communication Failure', desc: 'Miscommunicated or misunderstood' },
+                    { id: 'judgment', icon: '⚖️', title: 'Judgment Error', desc: 'Misjudged a situation or person' },
+                    { id: 'technical', icon: '🔧', title: 'Technical/Process Error', desc: 'Made a procedural or technical mistake' }
+                ]
+            },
+            {
+                stage: 1,
+                id: 'mistake_description',
+                type: 'textarea',
+                question: "Describe what happened in your own words.",
+                hint: "Be as specific as possible. Include who was involved, what actions were taken, and what the outcome was.",
+                placeholder: "I made a mistake when I...",
+                clarifications: [
+                    { trigger: 'short', text: "Can you add more detail? What specifically happened step by step?" },
+                    { trigger: 'vague', text: "I want to make sure I understand. Who was involved and what was the exact situation?" }
+                ]
+            },
+            {
+                stage: 1,
+                id: 'mistake_when',
+                type: 'input',
+                question: "When did this mistake occur?",
+                hint: "This helps us understand the timeline and how much time has passed for reflection.",
+                placeholder: "e.g., Yesterday, Last week, 3 months ago",
+                followUp: {
+                    condition: 'recent',
+                    question: "Since this is recent, are emotions still affecting your analysis?"
+                }
+            },
+
+            // Stage 2: Context & Circumstances
+            {
+                stage: 2,
+                id: 'context_situation',
+                type: 'textarea',
+                question: "What was the broader situation or context when this happened?",
+                hint: "Understanding context helps identify if external factors contributed.",
+                placeholder: "The situation was...",
+                subQuestions: [
+                    "What was happening in your life/work at that time?",
+                    "Were there any unusual pressures or circumstances?",
+                    "What were you trying to achieve?"
+                ]
+            },
+            {
+                stage: 2,
+                id: 'context_state',
+                type: 'multiselect',
+                question: "What was your physical and mental state at the time?",
+                hint: "Our state significantly affects our decision-making and actions.",
+                options: [
+                    'Well-rested', 'Tired/Exhausted', 'Stressed', 'Anxious', 'Confident',
+                    'Rushed/Time pressure', 'Distracted', 'Emotional', 'Calm', 'Overconfident',
+                    'Uncertain', 'Frustrated', 'Excited', 'Under influence'
+                ]
+            },
+            {
+                stage: 2,
+                id: 'context_information',
+                type: 'options',
+                question: "How much information did you have when making this decision/action?",
+                hint: "Information availability is crucial in evaluating mistakes fairly.",
+                options: [
+                    { id: 'full', icon: '📊', title: 'Full Information', desc: 'I had all the facts I needed' },
+                    { id: 'partial', icon: '📉', title: 'Partial Information', desc: 'Some key information was missing' },
+                    { id: 'misleading', icon: '❌', title: 'Misleading Information', desc: 'I had wrong or misleading facts' },
+                    { id: 'ignored', icon: '🙈', title: 'Ignored Available Info', desc: 'Information was there but I didn\'t use it' }
+                ]
+            },
+
+            // Stage 3: Root Causes
+            {
+                stage: 3,
+                id: 'cause_initial',
+                type: 'textarea',
+                question: "What do you think caused this mistake?",
+                hint: "Share your initial thoughts. We'll dig deeper together.",
+                placeholder: "I think it happened because..."
+            },
+            {
+                stage: 3,
+                id: 'cause_why1',
+                type: 'textarea',
+                question: "Why did that cause lead to the mistake? (First Why)",
+                hint: "We're using the '5 Whys' technique to find root causes.",
+                placeholder: "Because...",
+                dynamic: true
+            },
+            {
+                stage: 3,
+                id: 'cause_why2',
+                type: 'textarea',
+                question: "And why was that the case? (Second Why)",
+                hint: "Keep digging. Surface causes often hide deeper issues.",
+                placeholder: "Because...",
+                dynamic: true
+            },
+            {
+                stage: 3,
+                id: 'cause_why3',
+                type: 'textarea',
+                question: "Why did that happen? (Third Why)",
+                hint: "We're getting closer to the root cause.",
+                placeholder: "Because...",
+                dynamic: true
+            },
+            {
+                stage: 3,
+                id: 'cause_category',
+                type: 'multiselect',
+                question: "Based on our analysis, which root cause categories apply?",
+                hint: "Select all that contributed. Most mistakes have multiple causes.",
+                options: [
+                    '🧠 Lack of knowledge/skill', '⏰ Time pressure', '😴 Fatigue/stress',
+                    '🎯 Unclear goals/priorities', '💬 Poor communication', '📊 Insufficient data',
+                    '🔄 Bad habits/patterns', '😤 Emotional reaction', '🤝 Wrong assumptions about others',
+                    '⚙️ Process/system failure', '🎭 Overconfidence/ego', '😨 Fear/avoidance',
+                    '📱 Distractions', '🎲 Took uncalculated risk', '👥 Peer pressure/influence'
+                ]
+            },
+
+            // Stage 4: Impact Assessment
+            {
+                stage: 4,
+                id: 'impact_immediate',
+                type: 'textarea',
+                question: "What were the immediate consequences of this mistake?",
+                hint: "Describe what happened right after the mistake was made or discovered.",
+                placeholder: "Immediately after, ..."
+            },
+            {
+                stage: 4,
+                id: 'impact_severity',
+                type: 'scale',
+                question: "On a scale of 1-10, how severe was/is the impact?",
+                hint: "1 = Minor inconvenience, 10 = Life-changing consequences",
+                labels: ['Minor', 'Moderate', 'Significant', 'Severe', 'Critical']
+            },
+            {
+                stage: 4,
+                id: 'impact_areas',
+                type: 'multiselect',
+                question: "Which areas of your life were affected?",
+                hint: "Select all areas that experienced any impact.",
+                options: [
+                    '💼 Work/Career', '💰 Financial', '❤️ Relationships', '🏠 Family',
+                    '🧘 Mental health', '💪 Physical health', '📈 Reputation', '⏰ Time',
+                    '🎯 Goals/Progress', '😊 Self-confidence', '🤝 Trust with others', '📚 Learning/Growth'
+                ]
+            },
+            {
+                stage: 4,
+                id: 'impact_others',
+                type: 'textarea',
+                question: "How were other people affected by this mistake?",
+                hint: "Consider everyone who might have been impacted, even indirectly.",
+                placeholder: "Others were affected because..."
+            },
+            {
+                stage: 4,
+                id: 'impact_reversible',
+                type: 'options',
+                question: "How reversible are the consequences?",
+                hint: "This helps prioritize recovery actions.",
+                options: [
+                    { id: 'fully', icon: '✅', title: 'Fully Reversible', desc: 'Can be completely fixed' },
+                    { id: 'mostly', icon: '🔄', title: 'Mostly Reversible', desc: 'Most effects can be undone' },
+                    { id: 'partially', icon: '⚖️', title: 'Partially Reversible', desc: 'Some lasting effects will remain' },
+                    { id: 'permanent', icon: '🔒', title: 'Permanent', desc: 'Cannot be undone, must adapt' }
+                ]
+            },
+
+            // Stage 5: Solution Building
+            {
+                stage: 5,
+                id: 'solution_tried',
+                type: 'textarea',
+                question: "What have you already tried to fix or address this mistake?",
+                hint: "Understanding what's been attempted helps avoid suggesting things that didn't work.",
+                placeholder: "So far I have tried..."
+            },
+            {
+                stage: 5,
+                id: 'solution_immediate',
+                type: 'textarea',
+                question: "What immediate actions could help address the current situation?",
+                hint: "Think short-term: what can be done today or this week?",
+                placeholder: "Immediately, I could..."
+            },
+            {
+                stage: 5,
+                id: 'solution_prevention',
+                type: 'textarea',
+                question: "What systems, habits, or changes would prevent this type of mistake in the future?",
+                hint: "Think about processes, reminders, skills to develop, or environments to change.",
+                placeholder: "To prevent this in future, I could..."
+            },
+            {
+                stage: 5,
+                id: 'solution_resources',
+                type: 'multiselect',
+                question: "What resources or support do you need to implement solutions?",
+                hint: "Be honest about what you need. Getting help is often the fastest path to improvement.",
+                options: [
+                    '📚 More knowledge/training', '👥 Help from others', '💰 Financial resources',
+                    '⏰ More time', '🛠️ Tools/Technology', '🎯 Clearer goals',
+                    '💪 Willpower/Discipline', '🧘 Emotional support', '📋 Better systems/processes',
+                    '👨‍🏫 Mentorship/Coaching', '🔄 Changed environment', '📊 Better information'
+                ]
+            },
+
+            // Stage 6: Action Plan
+            {
+                stage: 6,
+                id: 'action_commitment',
+                type: 'scale',
+                question: "How committed are you to making changes based on this analysis?",
+                hint: "Honest self-assessment helps create realistic action plans.",
+                labels: ['Not very', 'Somewhat', 'Moderately', 'Very', 'Completely']
+            },
+            {
+                stage: 6,
+                id: 'action_first_step',
+                type: 'input',
+                question: "What is the ONE first action you will take within 24 hours?",
+                hint: "Make it specific, small, and achievable. Success builds momentum.",
+                placeholder: "Within 24 hours, I will..."
+            },
+            {
+                stage: 6,
+                id: 'action_week',
+                type: 'textarea',
+                question: "What will you accomplish in the next week related to this?",
+                hint: "Set 2-3 concrete goals for the coming week.",
+                placeholder: "This week I will:\n1. \n2. \n3. "
+            },
+            {
+                stage: 6,
+                id: 'action_accountability',
+                type: 'options',
+                question: "How will you hold yourself accountable?",
+                hint: "Accountability significantly increases follow-through.",
+                options: [
+                    { id: 'share', icon: '👥', title: 'Share with Someone', desc: 'Tell a friend, family member, or colleague' },
+                    { id: 'schedule', icon: '📅', title: 'Schedule Check-ins', desc: 'Set calendar reminders to review progress' },
+                    { id: 'track', icon: '📊', title: 'Track Progress', desc: 'Keep a log or journal of actions taken' },
+                    { id: 'reward', icon: '🎁', title: 'Set Rewards/Consequences', desc: 'Create incentives for follow-through' }
+                ]
+            },
+            {
+                stage: 6,
+                id: 'lesson_learned',
+                type: 'textarea',
+                question: "Finally, what is the most important lesson you've learned from this entire experience?",
+                hint: "Distill everything into your key takeaway.",
+                placeholder: "The most important lesson is..."
+            }
+        ];
+
+        // ==================== DOM ELEMENTS ====================
+        const chatMessages = document.getElementById('chatMessages');
+        const emptyState = document.getElementById('emptyState');
+        const progressContainer = document.getElementById('progressContainer');
+        const sessionsList = document.getElementById('sessionsList');
+
+        // ==================== SESSION MANAGEMENT ====================
+        function loadSessions() {
+            const saved = localStorage.getItem('mistakeAnalyzerSessions');
+            if (saved) {
+                state.sessions = JSON.parse(saved);
+                renderSessionsList();
+            }
+        }
+
+        function saveSessions() {
+            localStorage.setItem('mistakeAnalyzerSessions', JSON.stringify(state.sessions));
+            renderSessionsList();
+        }
+
+        function renderSessionsList() {
+            sessionsList.innerHTML = '';
+            
+            state.sessions.slice().reverse().forEach((session, index) => {
+                const item = document.createElement('div');
+                item.className = `session-item ${state.currentSession?.id === session.id ? 'active' : ''}`;
+                item.onclick = () => loadSession(session.id);
+                
+                const statusClass = session.completed ? 'completed' : 'in-progress';
+                const statusText = session.completed ? 'Completed' : 'In Progress';
+                
+                item.innerHTML = `
+                    <div class="session-title">${session.title || 'Untitled Analysis'}</div>
+                    <div class="session-meta">
+                        <span>${formatDate(session.createdAt)}</span>
+                        <span class="session-status">
+                            <span class="status-dot ${statusClass}"></span>
+                            ${statusText}
+                        </span>
+                    </div>
+                `;
+                
+                sessionsList.appendChild(item);
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 86400000) return 'Today';
+            if (diff < 172800000) return 'Yesterday';
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+            
+            return date.toLocaleDateString();
+        }
+
+        function startNewSession() {
+            const session = {
+                id: Date.now(),
+                title: '',
+                createdAt: new Date().toISOString(),
+                completed: false,
+                responses: {},
+                currentStep: 0
+            };
+            
+            state.sessions.push(session);
+            state.currentSession = session;
+            state.currentStep = 0;
+            state.responses = {};
+            
+            saveSessions();
+            
+            emptyState.style.display = 'none';
+            progressContainer.style.display = 'block';
+            chatMessages.innerHTML = '';
+            
+            addAssistantMessage(
+                "👋 Welcome to the Mistake Analyzer & Solution Builder!",
+                "I'll guide you through a thorough analysis of any mistake to help you understand what happened, why it happened, and how to move forward. I'll ask clarifying questions to make sure I fully understand your situation. Let's begin."
+            );
+            
+            setTimeout(() => askQuestion(0), 1000);
+        }
+
+        function loadSession(sessionId) {
+            const session = state.sessions.find(s => s.id === sessionId);
+            if (!session) return;
+            
+            state.currentSession = session;
+            state.currentStep = session.currentStep;
+            state.responses = { ...session.responses };
+            
+            emptyState.style.display = 'none';
+            progressContainer.style.display = 'block';
+            chatMessages.innerHTML = '';
+            
+            // Rebuild conversation from responses
+            rebuildConversation();
+            
+            renderSessionsList();
+        }
+
+        function rebuildConversation() {
+            const responses = state.responses;
+            
+            addAssistantMessage(
+                "👋 Welcome back!",
+                "Let's continue your analysis from where you left off."
+            );
+            
+            // Replay questions and answers
+            for (let i = 0; i < state.currentStep; i++) {
+                const q = analysisFlow[i];
+                if (responses[q.id]) {
+                    // Show abbreviated version of previous Q&A
+                    addUserMessage(formatResponseDisplay(q, responses[q.id]));
+                }
+            }
+            
+            // Ask current question
+            if (state.currentStep < analysisFlow.length) {
+                askQuestion(state.currentStep);
+            } else {
+                showSummary();
+            }
+            
+            updateProgress();
+        }
+
+        // ==================== MESSAGING ====================
+        function addAssistantMessage(title, content, additionalHTML = '') {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="message-avatar">🔍</div>
+                    <span class="message-sender">Analyzer</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">
+                        <strong>${title}</strong><br><br>
+                        ${content}
+                    </div>
+                    ${additionalHTML}
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addUserMessage(content) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="message-avatar">👤</div>
+                    <span class="message-sender">You</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${content}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function showThinking(text = "Analyzing your response...") {
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.id = 'thinkingIndicator';
+            thinkingDiv.className = 'thinking-indicator';
+            thinkingDiv.innerHTML = `
+                <div class="thinking-dots">
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                </div>
+                <span class="thinking-text">${text}</span>
+            `;
+            
+            chatMessages.appendChild(thinkingDiv);
+            scrollToBottom();
+            state.isThinking = true;
+        }
+
+        function hideThinking() {
+            const indicator = document.getElementById('thinkingIndicator');
+            if (indicator) indicator.remove();
+            state.isThinking = false;
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // ==================== QUESTIONS ====================
+        function askQuestion(index) {
+            if (index >= analysisFlow.length) {
+                showSummary();
+                return;
+            }
+            
+            const question = analysisFlow[index];
+            state.currentStep = index;
+            
+            updateProgress();
+            
+            let questionHTML = buildQuestionHTML(question);
+            
+            addAssistantMessage(
+                question.question,
+                question.hint || '',
+                questionHTML
+            );
+        }
+
+        function buildQuestionHTML(question) {
+            let html = '<div class="question-card">';
+            html += `<div class="question-label">📝 Your Response</div>`;
+            
+            // Sub-questions if any
+            if (question.subQuestions) {
+                html += '<div class="question-hint"><strong>Consider:</strong><ul style="margin-top:8px;">';
+                question.subQuestions.forEach(sq => {
+                    html += `<li style="margin-bottom:4px;">${sq}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            switch (question.type) {
+                case 'options':
+                    html += '<div class="options-grid">';
+                    question.options.forEach(opt => {
+                        html += `
+                            <button class="option-btn" data-id="${opt.id}" onclick="selectOption('${question.id}', '${opt.id}', this)">
+                                <span class="option-icon">${opt.icon}</span>
+                                <div class="option-text">
+                                    <div class="option-title">${opt.title}</div>
+                                    <div class="option-desc">${opt.desc}</div>
+                                </div>
+                            </button>
+                        `;
+                    });
+                    html += '</div>';
+                    break;
+                    
+                case 'textarea':
+                    html += `
+                        <div class="input-group">
+                            <textarea class="text-input" id="input_${question.id}" 
+                                placeholder="${question.placeholder || 'Type your response...'}"
+                                rows="4"></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'input':
+                    html += `
+                        <div class="input-group">
+                            <input type="text" class="text-input" id="input_${question.id}" 
+                                placeholder="${question.placeholder || 'Type your response...'}">
+                        </div>
+                    `;
+                    break;
+                    
+                case 'scale':
+                    html += '<div class="scale-container">';
+                    html += '<div class="scale-labels">';
+                    question.labels.forEach((label, i) => {
+                        html += `<span>${label}</span>`;
+                    });
+                    html += '</div>';
+                    html += '<div class="scale-buttons">';
+                    for (let i = 1; i <= 10; i++) {
+                        html += `<button class="scale-btn" data-value="${i}" onclick="selectScale('${question.id}', ${i}, this)">${i}</button>`;
+                    }
+                    html += '</div></div>';
+                    break;
+                    
+                case 'multiselect':
+                    html += '<div class="tags-container">';
+                    question.options.forEach(opt => {
+                        html += `<button class="tag-btn" data-value="${opt}" onclick="toggleTag('${question.id}', '${opt}', this)">${opt}</button>`;
+                    });
+                    html += '</div>';
+                    html += `<input type="hidden" id="multiselect_${question.id}" value="[]">`;
+                    break;
+            }
+            
+            // Action buttons
+            html += '<div class="action-buttons">';
+            
+            if (question.type !== 'options') {
+                html += `<button class="btn btn-primary" onclick="submitResponse('${question.id}')">Continue →</button>`;
+            }
+            
+            html += `<button class="btn btn-secondary" onclick="askClarification('${question.id}')">I need clarification</button>`;
+            
+            if (state.currentStep > 0) {
+                html += `<button class="btn btn-secondary" onclick="goBack()">← Go Back</button>`;
+            }
+            
+            html += '</div></div>';
+            
+            return html;
+        }
+
+        // ==================== RESPONSE HANDLERS ====================
+        function selectOption(questionId, optionId, element) {
+            document.querySelectorAll(`[data-id]`).forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            
+            setTimeout(() => {
+                processResponse(questionId, optionId);
+            }, 300);
+        }
+
+        function selectScale(questionId, value, element) {
+            document.querySelectorAll('.scale-btn').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            
+            setTimeout(() => {
+                processResponse(questionId, value);
+            }, 300);
+        }
+
+        function toggleTag(questionId, value, element) {
+            element.classList.toggle('selected');
+            
+            const hiddenInput = document.getElementById(`multiselect_${questionId}`);
+            let selected = JSON.parse(hiddenInput.value);
+            
+            if (element.classList.contains('selected')) {
+                if (!selected.includes(value)) selected.push(value);
+            } else {
+                selected = selected.filter(v => v !== value);
+            }
+            
+            hiddenInput.value = JSON.stringify(selected);
+        }
+
+        function submitResponse(questionId) {
+            const question = analysisFlow.find(q => q.id === questionId);
+            let value;
+            
+            if (question.type === 'multiselect') {
+                const hiddenInput = document.getElementById(`multiselect_${questionId}`);
+                value = JSON.parse(hiddenInput.value);
+                
+                if (value.length === 0) {
+                    showClarification("Please select at least one option before continuing.");
+                    return;
+                }
+            } else {
+                const input = document.getElementById(`input_${questionId}`);
+                value = input.value.trim();
+                
+                if (!value) {
+                    showClarification("Please provide a response before continuing.");
+                    return;
+                }
+                
+                // Check if response needs clarification
+                if (question.type === 'textarea' && value.length < 20) {
+                    showClarification("Your response seems brief. Could you provide more detail to help me better understand the situation?");
+                    return;
+                }
+            }
+            
+            processResponse(questionId, value);
+        }
+
+        function processResponse(questionId, value) {
+            state.responses[questionId] = value;
+            
+            // Update session title from first description
+            if (questionId === 'mistake_description' && !state.currentSession.title) {
+                state.currentSession.title = value.substring(0, 50) + (value.length > 50 ? '...' : '');
+            }
+            
+            // Save progress
+            state.currentSession.responses = { ...state.responses };
+            state.currentSession.currentStep = state.currentStep + 1;
+            saveSessions();
+            
+            // Show user's response
+            const question = analysisFlow.find(q => q.id === questionId);
+            addUserMessage(formatResponseDisplay(question, value));
+            
+            // Show thinking
+            showThinking(getThinkingText(questionId));
+            
+            // Generate follow-up or move to next question
+            setTimeout(() => {
+                hideThinking();
+                
+                // Check if we should ask a clarifying follow-up
+                const followUp = generateFollowUp(questionId, value);
+                
+                if (followUp) {
+                    addAssistantMessage("🔍 Quick clarification:", followUp);
+                }
+                
+                // Move to next question
+                const nextIndex = state.currentStep + 1;
+                state.currentStep = nextIndex;
+                
+                setTimeout(() => {
+                    askQuestion(nextIndex);
+                }, followUp ? 2000 : 800);
+                
+            }, 1000 + Math.random() * 500);
+        }
+
+        function formatResponseDisplay(question, value) {
+            if (question.type === 'options') {
+                const option = question.options.find(o => o.id === value);
+                return option ? `${option.icon} ${option.title}` : value;
+            }
+            
+            if (question.type === 'multiselect' && Array.isArray(value)) {
+                return value.join(', ');
+            }
+            
+            if (question.type === 'scale') {
+                return `${value}/10`;
+            }
+            
+            return value;
+        }
+
+        function getThinkingText(questionId) {
+            const thinkingTexts = {
+                'mistake_type': 'Categorizing your situation...',
+                'mistake_description': 'Understanding the details...',
+                'cause_initial': 'Analyzing potential causes...',
+                'cause_why1': 'Digging deeper...',
+                'cause_why2': 'Finding patterns...',
+                'impact_severity': 'Assessing impact level...',
+                'solution_prevention': 'Generating prevention strategies...'
+            };
+            
+            return thinkingTexts[questionId] || 'Processing your response...';
+        }
+
+        function generateFollowUp(questionId, value) {
+            // Smart follow-ups based on responses
+            if (questionId === 'mistake_type' && value === 'communication') {
+                return "Communication issues often involve multiple perspectives. As we continue, try to consider how others might have perceived the situation.";
+            }
+            
+            if (questionId === 'context_information' && value === 'ignored') {
+                return "That's an important recognition. Understanding why we ignore available information is often key to preventing future mistakes.";
+            }
+            
+            if (questionId === 'impact_severity' && value >= 8) {
+                return "I understand this has been significant. Take your time with the following questions, and remember that even serious mistakes can lead to valuable growth.";
+            }
+            
+            if (questionId === 'action_commitment' && value <= 3) {
+                return "Lower commitment is okay and honest. Let's focus on very small, manageable first steps that don't require much motivation.";
+            }
+            
+            return null;
+        }
+
+        function showClarification(text) {
+            const card = document.querySelector('.question-card');
+            
+            // Remove existing clarification
+            const existing = card.querySelector('.clarification-box');
+            if (existing) existing.remove();
+            
+            const clarificationDiv = document.createElement('div');
+            clarificationDiv.className = 'clarification-box';
+            clarificationDiv.innerHTML = `
+                <div class="clarification-header">
+                    <span>⚠️</span> Clarification Needed
+                </div>
+                <div class="clarification-text">${text}</div>
+            `;
+            
+            card.insertBefore(clarificationDiv, card.querySelector('.action-buttons'));
+        }
+
+        function askClarification(questionId) {
+            const question = analysisFlow.find(q => q.id === questionId);
+            
+            let clarificationText = "I'm happy to clarify! Here are some ways to think about this question:\n\n";
+            
+            // Generate contextual clarification
+            switch (question.type) {
+                case 'options':
+                    clarificationText += "• Look at each option carefully - choose the one that BEST fits, even if not perfect\n";
+                    clarificationText += "• If multiple apply, choose the PRIMARY or most significant one\n";
+                    break;
+                case 'textarea':
+                    clarificationText += "• Try to include: What happened? Who was involved? What was the outcome?\n";
+                    clarificationText += "• Be specific - details help me ask better follow-up questions\n";
+                    clarificationText += "• Don't worry about perfect writing - just communicate clearly\n";
+                    break;
+                case 'multiselect':
+                    clarificationText += "• Select ALL options that apply, even partially\n";
+                    clarificationText += "• More selections = more comprehensive analysis\n";
+                    break;
+                case 'scale':
+                    clarificationText += "• 1-3: Minor impact, easily recoverable\n";
+                    clarificationText += "• 4-6: Moderate impact, requires effort to address\n";
+                    clarificationText += "• 7-8: Significant impact, major consequences\n";
+                    clarificationText += "• 9-10: Severe/life-changing impact\n";
+                    break;
+            }
+            
+            if (question.hint) {
+                clarificationText += `\n💡 Remember: ${question.hint}`;
+            }
+            
+            addAssistantMessage("📖 Let me clarify:", clarificationText.replace(/\n/g, '<br>'));
+        }
+
+        function goBack() {
+            if (state.currentStep > 0) {
+                state.currentStep--;
+                
+                // Remove last user message and question
+                const messages = chatMessages.querySelectorAll('.message');
+                if (messages.length >= 2) {
+                    messages[messages.length - 1].remove(); // Remove question
+                    messages[messages.length - 2].remove(); // Remove answer
+                }
+                
+                askQuestion(state.currentStep);
+            }
+        }
+
+        // ==================== PROGRESS ====================
+        function updateProgress() {
+            const question = analysisFlow[state.currentStep];
+            if (!question) return;
+            
+            const stage = question.stage;
+            const totalSteps = analysisFlow.length;
+            const progress = (state.currentStep / totalSteps) * 100;
+            
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressStep').textContent = `Step ${state.currentStep + 1} of ${totalSteps}`;
+            
+            // Update stages
+            for (let i = 1; i <= 6; i++) {
+                const stageEl = document.getElementById(`stage${i}`);
+                stageEl.classList.remove('active', 'completed');
+                
+                if (i < stage) {
+                    stageEl.classList.add('completed');
+                } else if (i === stage) {
+                    stageEl.classList.add('active');
+                }
+            }
+        }
+
+        // ==================== SUMMARY ====================
+        function showSummary() {
+            state.currentSession.completed = true;
+            state.currentSession.completedAt = new Date().toISOString();
+            saveSessions();
+            
+            // Update progress to complete
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('progressStep').textContent = 'Complete!';
+            
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`stage${i}`).classList.add('completed');
+                document.getElementById(`stage${i}`).classList.remove('active');
+            }
+            
+            // Generate comprehensive summary
+            const summary = generateSummary();
+            
+            addAssistantMessage(
+                "✅ Analysis Complete!",
+                "Here's your comprehensive mistake analysis and solution plan:",
+                summary
+            );
+        }
+
+        function generateSummary() {
+            const r = state.responses;
+            
+            // Get option labels
+            const mistakeTypeOption = analysisFlow[0].options.find(o => o.id === r.mistake_type);
+            const infoOption = analysisFlow.find(q => q.id === 'context_information')?.options.find(o => o.id === r.context_information);
+            const reversibleOption = analysisFlow.find(q => q.id === 'impact_reversible')?.options.find(o => o.id === r.impact_reversible);
+            const accountabilityOption = analysisFlow.find(q => q.id === 'action_accountability')?.options.find(o => o.id === r.action_accountability);
+            
+            let html = '<div class="summary-container">';
+            
+            html += `
+                <div class="summary-header">
+                    <h2 class="summary-title">📋 Your Mistake Analysis Report</h2>
+                    <p class="summary-subtitle">Generated on ${new Date().toLocaleDateString()}</p>
+                </div>
+            `;
+            
+            html += '<div class="summary-sections">';
+            
+            // The Mistake
+            html += `
+                <div class="summary-section">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon mistake">❌</div>
+                        <h3 class="summary-section-title">The Mistake</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p><strong>Type:</strong> ${mistakeTypeOption?.title || r.mistake_type}</p>
+                        <p><strong>When:</strong> ${r.mistake_when || 'Not specified'}</p>
+                        <p><strong>Description:</strong> ${r.mistake_description || 'Not provided'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Root Causes
+            html += `
+                <div class="summary-section">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon cause">🔍</div>
+                        <h3 class="summary-section-title">Root Causes Identified</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p><strong>Initial Cause:</strong> ${r.cause_initial || 'Not identified'}</p>
+                        <p><strong>Deeper Analysis (5 Whys):</strong></p>
+                        <ul>
+                            ${r.cause_why1 ? `<li>${r.cause_why1}</li>` : ''}
+                            ${r.cause_why2 ? `<li>${r.cause_why2}</li>` : ''}
+                            ${r.cause_why3 ? `<li>${r.cause_why3}</li>` : ''}
+                        </ul>
+                        <p><strong>Contributing Factors:</strong> ${Array.isArray(r.cause_category) ? r.cause_category.join(', ') : 'Not selected'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Impact
+            html += `
+                <div class="summary-section">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon impact">💥</div>
+                        <h3 class="summary-section-title">Impact Assessment</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p><strong>Severity:</strong> ${r.impact_severity}/10</p>
+                        <p><strong>Areas Affected:</strong> ${Array.isArray(r.impact_areas) ? r.impact_areas.join(', ') : 'Not specified'}</p>
+                        <p><strong>Impact on Others:</strong> ${r.impact_others || 'Not described'}</p>
+                        <p><strong>Reversibility:</strong> ${reversibleOption?.title || r.impact_reversible}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Solutions
+            html += `
+                <div class="summary-section">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon solution">💡</div>
+                        <h3 class="summary-section-title">Solutions & Prevention</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p><strong>Already Tried:</strong> ${r.solution_tried || 'Nothing yet'}</p>
+                        <p><strong>Immediate Actions:</strong> ${r.solution_immediate || 'Not specified'}</p>
+                        <p><strong>Prevention Strategy:</strong> ${r.solution_prevention || 'Not developed'}</p>
+                        <p><strong>Resources Needed:</strong> ${Array.isArray(r.solution_resources) ? r.solution_resources.join(', ') : 'None identified'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Action Plan
+            html += `
+                <div class="summary-section">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon action">🎯</div>
+                        <h3 class="summary-section-title">Action Plan</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p><strong>Commitment Level:</strong> ${r.action_commitment}/10</p>
+                        <p><strong>First Step (24 hours):</strong> ${r.action_first_step || 'Not set'}</p>
+                        <p><strong>This Week's Goals:</strong></p>
+                        <p style="white-space: pre-line; background: var(--bg-primary); padding: 10px; border-radius: 8px;">${r.action_week || 'Not defined'}</p>
+                        <p><strong>Accountability Method:</strong> ${accountabilityOption?.title || r.action_accountability}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Key Lesson
+            html += `
+                <div class="summary-section" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.2)); border: 1px solid var(--accent);">
+                    <div class="summary-section-header">
+                        <div class="summary-section-icon" style="background: var(--accent);">🌟</div>
+                        <h3 class="summary-section-title">Key Lesson Learned</h3>
+                    </div>
+                    <div class="summary-content">
+                        <p style="font-size: 1.1rem; font-style: italic;">"${r.lesson_learned || 'Reflection in progress...'}"</p>
+                    </div>
+                </div>
+            `;
+            
+            html += '</div>'; // Close summary-sections
+            
+            // Export Options
+            html += `
+                <div class="export-options">
+                    <button class="btn btn-primary" onclick="exportSummary('text')">📄 Export as Text</button>
+                    <button class="btn btn-secondary" onclick="exportSummary('json')">📊 Export as JSON</button>
+                    <button class="btn btn-secondary" onclick="startNewSession()">🔄 Start New Analysis</button>
+                </div>
+            `;
+            
+            html += '</div>'; // Close summary-container
+            
+            return html;
+        }
+
+        function exportSummary(format) {
+            const r = state.responses;
+            
+            if (format === 'text') {
+                let text = `MISTAKE ANALYSIS REPORT\n`;
+                text += `Generated: ${new Date().toLocaleString()}\n`;
+                text += `${'='.repeat(50)}\n\n`;
+                
+                text += `THE MISTAKE\n`;
+                text += `-`.repeat(30) + `\n`;
+                text += `Type: ${r.mistake_type}\n`;
+                text += `When: ${r.mistake_when}\n`;
+                text += `Description: ${r.mistake_description}\n\n`;
+                
+                text += `ROOT CAUSES\n`;
+                text += `-`.repeat(30) + `\n`;
+                text += `Initial Cause: ${r.cause_initial}\n`;
+                text += `Why #1: ${r.cause_why1}\n`;
+                text += `Why #2: ${r.cause_why2}\n`;
+                text += `Why #3: ${r.cause_why3}\n`;
+                text += `Categories: ${Array.isArray(r.cause_category) ? r.cause_category.join(', ') : ''}\n\n`;
+                
+                text += `IMPACT\n`;
+                text += `-`.repeat(30) + `\n`;
+                text += `Severity: ${r.impact_severity}/10\n`;
+                text += `Areas: ${Array.isArray(r.impact_areas) ? r.impact_areas.join(', ') : ''}\n`;
+                text += `Reversibility: ${r.impact_reversible}\n\n`;
+                
+                text += `ACTION PLAN\n`;
+                text += `-`.repeat(30) + `\n`;
+                text += `First Step: ${r.action_first_step}\n`;
+                text += `This Week: ${r.action_week}\n`;
+                text += `Accountability: ${r.action_accountability}\n\n`;
+                
+                text += `KEY LESSON\n`;
+                text += `-`.repeat(30) + `\n`;
+                text += `"${r.lesson_learned}"\n`;
+                
+                downloadFile(text, 'mistake-analysis.txt', 'text/plain');
+                
+            } else if (format === 'json') {
+                const data = {
+                    exportDate: new Date().toISOString(),
+                    session: state.currentSession,
+                    responses: state.responses
+                };
+                
+                downloadFile(JSON.stringify(data, null, 2), 'mistake-analysis.json', 'application/json');
+            }
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== INITIALIZE ====================
+        loadSessions();
+    </script>
+</body>
+</html>

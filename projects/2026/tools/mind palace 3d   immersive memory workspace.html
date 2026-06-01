@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mind Palace 3D — Immersive Memory Workspace</title>
+<style>
+:root {
+  --bg:#0d1117;--panel:rgba(15,20,30,0.92);--card:rgba(25,32,45,0.95);
+  --primary:#6366f1;--primary-glow:rgba(99,102,241,0.3);--primary-light:#818cf8;
+  --accent:#f59e0b;--accent-glow:rgba(245,158,11,0.3);
+  --success:#10b981;--danger:#ef4444;--cyan:#06b6d4;--pink:#ec4899;
+  --text:#e2e8f0;--muted:#94a3b8;--dim:#475569;
+  --border:rgba(148,163,184,0.15);
+  --glass:rgba(15,23,42,0.75);
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--font);background:#000;color:var(--text)}
+canvas#gl{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+
+/* === HUD LAYER === */
+#hud{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none}
+#hud *{pointer-events:auto}
+
+/* Top Bar */
+.top-bar{position:absolute;top:0;left:0;right:0;height:56px;background:var(--panel);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.15rem;color:var(--primary-light);letter-spacing:-0.5px}
+.brand svg{width:28px;height:28px}
+.top-center{display:flex;align-items:center;gap:12px}
+.location-badge{background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:var(--primary-light);padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;display:flex;align-items:center;gap:6px}
+.streak-badge{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:var(--accent);padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600}
+.top-actions{display:flex;gap:8px}
+.hbtn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--glass);backdrop-filter:blur(10px);color:var(--text);font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px}
+.hbtn:hover{background:rgba(99,102,241,0.15);border-color:var(--primary)}
+.hbtn.primary{background:rgba(99,102,241,0.25);border-color:var(--primary);color:var(--primary-light)}
+.hbtn.primary:hover{background:rgba(99,102,241,0.4)}
+
+/* Crosshair */
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;pointer-events:none;opacity:0.4;display:none}
+.crosshair::before,.crosshair::after{content:'';position:absolute;background:var(--text)}
+.crosshair::before{width:2px;height:100%;left:50%;transform:translateX(-50%)}
+.crosshair::after{height:2px;width:100%;top:50%;transform:translateY(-50%)}
+
+/* Compass */
+.compass{position:absolute;bottom:24px;right:24px;width:80px;height:80px;border-radius:50%;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+.compass-needle{width:3px;height:36px;background:linear-gradient(var(--danger) 50%,var(--text) 50%);border-radius:2px;transform-origin:center center;transition:transform 0.3s}
+.compass-label{position:absolute;font-size:9px;font-weight:700;color:var(--muted)}
+.compass-label.n{top:6px}.compass-label.s{bottom:6px}.compass-label.e{right:8px}.compass-label.w{left:8px}
+
+/* Room Info Panel (appears on room hover/click) */
+.room-panel{position:absolute;bottom:24px;left:24px;width:360px;max-height:70vh;background:var(--panel);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:16px;overflow:hidden;transform:translateY(120%);transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column}
+.room-panel.open{transform:translateY(0)}
+.room-panel-header{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.room-panel-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+.room-panel-info h2{font-size:1.15rem;font-weight:700;margin-bottom:2px}
+.room-panel-info p{font-size:0.8rem;color:var(--muted)}
+.room-panel-actions{padding:12px 20px;display:flex;gap:8px;border-bottom:1px solid var(--border)}
+.room-panel-body{flex:1;overflow-y:auto;padding:16px}
+.memory-item{padding:14px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;position:relative}
+.memory-item:hover{border-color:var(--primary);background:rgba(99,102,241,0.05);transform:translateX(4px)}
+.memory-item h4{font-size:0.9rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.memory-item p{font-size:0.8rem;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.memory-item .mastery{display:flex;gap:3px;margin-top:8px}
+.memory-item .mastery .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.memory-item .mastery .dot.on{background:var(--primary-light)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--dim)}
+.empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:0.3}
+.empty-state p{font-size:0.85rem}
+
+/* Editor Modal */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:100;display:flex;justify-content:center;align-items:center;opacity:0;pointer-events:none;transition:0.3s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.editor-modal{width:640px;max-height:80vh;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;transform:scale(0.95) translateY(20px);transition:0.3s;display:flex;flex-direction:column}
+.modal-overlay.open .editor-modal{transform:scale(1) translateY(0)}
+.editor-top{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.editor-top h3{font-size:1.1rem;font-weight:700}
+.close-btn{width:32px;height:32px;border:none;background:rgba(255,255,255,0.05);border-radius:8px;color:var(--muted);font-size:1rem;cursor:pointer;display:grid;place-items:center}
+.close-btn:hover{background:rgba(239,68,68,0.15);color:var(--danger)}
+.editor-body{padding:24px;flex:1;overflow-y:auto}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,0.3);color:var(--text);font-family:var(--font);font-size:0.9rem;outline:none;transition:0.2s}
+.field input:focus,.field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
+.field textarea{min-height:120px;resize:vertical;line-height:1.6}
+.icon-picker{display:flex;gap:6px;flex-wrap:wrap}
+.icon-pick{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);display:grid;place-items:center;cursor:pointer;font-size:1.1rem;transition:0.2s}
+.icon-pick:hover{border-color:var(--primary)}
+.icon-pick.sel{background:rgba(99,102,241,0.2);border-color:var(--primary)}
+.editor-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:600;background:rgba(99,102,241,0.15);color:var(--primary-light)}
+
+/* Quiz Overlay */
+.quiz-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);z-index:120;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:0.3s}
+.quiz-overlay.open{opacity:1;pointer-events:all}
+.quiz-card{width:520px;min-height:320px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:48px;text-align:center;cursor:pointer;position:relative;transition:0.4s;transform-style:preserve-3d;perspective:800px}
+.quiz-card.flipped{transform:rotateY(180deg)}
+.quiz-face{backface-visibility:hidden;position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;border-radius:24px}
+.quiz-face.front{background:var(--card)}
+.quiz-face.back{background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(6,182,212,0.1));transform:rotateY(180deg);border-radius:24px}
+.quiz-face h2{font-size:1.5rem;margin-bottom:12px}
+.quiz-face p{color:var(--muted);line-height:1.7}
+.quiz-hint{font-size:0.8rem;color:var(--dim);margin-top:16px}
+.quiz-progress{margin-top:24px;font-size:0.85rem;color:var(--muted)}
+.quiz-btns{margin-top:20px;display:flex;gap:10px;justify-content:center}
+
+/* Notification */
+.notif{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 20px;font-size:0.85rem;font-weight:600;z-index:200;opacity:0;pointer-events:none;transition:0.3s;backdrop-filter:blur(12px);display:flex;align-items:center;gap:8px}
+.notif.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.notif.success{border-color:rgba(16,185,129,0.4);color:var(--success)}
+.notif.info{border-color:rgba(99,102,241,0.4);color:var(--primary-light)}
+
+/* Controls Help */
+.controls-hint{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:12px;padding:8px 20px;font-size:0.75rem;color:var(--dim);display:flex;gap:16px;white-space:nowrap}
+.controls-hint kbd{background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:monospace;color:var(--muted);font-size:0.7rem}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px}
+
+/* Mobile */
+@media(max-width:768px){
+  .room-panel{left:8px;right:8px;width:auto;bottom:8px;max-height:50vh}
+  .controls-hint{display:none}
+  .editor-modal{width:95%;margin:0 10px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+
+<div id="hud">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-3.5 7.5S12 22 12 22s-2-3.5-3.5-5.5S5 12 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      Mind Palace 3D
+    </div>
+    <div class="top-center">
+      <div class="location-badge" id="location-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+        <span id="loc-text">Palace Grounds</span>
+      </div>
+      <div class="streak-badge" id="streak-badge">🔥 Day <span id="streak-num">1</span> Streak</div>
+    </div>
+    <div class="top-actions">
+      <button class="hbtn" id="btn-overview" title="Toggle overview">🗺 Overview</button>
+      <button class="hbtn" id="btn-quiz" title="Practice flashcards">🎓 Practice</button>
+      <button class="hbtn primary" id="btn-add" title="Add memory" style="display:none">✦ New Memory</button>
+    </div>
+  </div>
+
+  <!-- Crosshair -->
+  <div class="crosshair" id="crosshair"></div>
+
+  <!-- Compass -->
+  <div class="compass" id="compass">
+    <div class="compass-label n">N</div>
+    <div class="compass-label s">S</div>
+    <div class="compass-label e">E</div>
+    <div class="compass-label w">W</div>
+    <div class="compass-needle" id="compass-needle"></div>
+  </div>
+
+  <!-- Room Panel -->
+  <div class="room-panel" id="room-panel">
+    <div class="room-panel-header">
+      <div class="room-panel-icon" id="rp-icon" style="background:rgba(99,102,241,0.15)">📚</div>
+      <div class="room-panel-info">
+        <h2 id="rp-title">Library</h2>
+        <p id="rp-sub">0 memories stored</p>
+      </div>
+    </div>
+    <div class="room-panel-actions">
+      <button class="hbtn primary" id="rp-add">✦ Add Memory</button>
+      <button class="hbtn" id="rp-enter">🚪 Enter Room</button>
+      <button class="hbtn" id="rp-close-btn" style="margin-left:auto">✕</button>
+    </div>
+    <div class="room-panel-body" id="rp-body"></div>
+  </div>
+
+  <!-- Controls hint -->
+  <div class="controls-hint" id="controls-hint">
+    <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+    <span><kbd>Mouse</kbd> Look</span>
+    <span><kbd>Click</kbd> Select Room</span>
+    <span><kbd>Scroll</kbd> Zoom</span>
+    <span><kbd>Esc</kbd> Exit</span>
+  </div>
+</div>
+
+<!-- Editor Modal -->
+<div class="modal-overlay" id="editor-overlay">
+  <div class="editor-modal">
+    <div class="editor-top">
+      <h3 id="editor-heading">New Memory</h3>
+      <button class="close-btn" id="editor-close">✕</button>
+    </div>
+    <div class="editor-body">
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="ed-title" placeholder="Name this concept...">
+      </div>
+      <div class="field">
+        <label>Content / Description</label>
+        <textarea id="ed-content" placeholder="Describe what you want to remember..."></textarea>
+      </div>
+      <div class="field">
+        <label>Mnemonic Anchor</label>
+        <input type="text" id="ed-mnemonic" placeholder="Memory trick, acronym, association...">
+      </div>
+      <div class="field">
+        <label>Tags</label>
+        <input type="text" id="ed-tags" placeholder="Comma separated tags...">
+      </div>
+      <div class="field">
+        <label>Icon</label>
+        <div class="icon-picker" id="icon-picker"></div>
+      </div>
+    </div>
+    <div class="editor-foot">
+      <button class="hbtn" id="ed-cancel">Cancel</button>
+      <button class="hbtn" id="ed-delete" style="display:none;color:var(--danger)">🗑 Delete</button>
+      <button class="hbtn primary" id="ed-save">💾 Save to Palace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quiz Overlay -->
+<div class="quiz-overlay" id="quiz-overlay">
+  <div style="margin-bottom:20px;font-size:0.85rem;color:var(--dim)" id="quiz-header">Flashcard Practice</div>
+  <div class="quiz-card" id="quiz-card">
+    <div class="quiz-face front">
+      <div style="font-size:2.5rem;margin-bottom:16px" id="quiz-icon">📚</div>
+      <h2 id="quiz-q">Question</h2>
+      <p class="quiz-hint">Click to reveal answer</p>
+    </div>
+    <div class="quiz-face back">
+      <p id="quiz-a" style="font-size:1.05rem;line-height:1.7">Answer</p>
+      <div id="quiz-mnemonic" style="margin-top:12px;padding:8px 16px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:0.85rem;color:var(--accent);display:none"></div>
+    </div>
+  </div>
+  <div class="quiz-btns" style="margin-top:24px">
+    <button class="hbtn" id="quiz-hard" style="color:var(--danger)">😤 Hard</button>
+    <button class="hbtn" id="quiz-ok" style="color:var(--accent)">🤔 OK</button>
+    <button class="hbtn" id="quiz-easy" style="color:var(--success)">😊 Easy</button>
+    <button class="hbtn" id="quiz-exit" style="margin-left:16px">✕ Exit</button>
+  </div>
+  <div class="quiz-progress" id="quiz-progress">1 / 5</div>
+</div>
+
+<!-- Notification -->
+<div class="notif" id="notif"></div>
+
+<script>
+"use strict";
+// ===================== MINI 3D ENGINE (WebGL) =====================
+const PI=Math.PI,TAU=PI*2,DEG=PI/180;
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl2',{antialias:true,alpha:false});
+let W,H;
+
+function resize(){
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
+  gl.viewport(0,0,W,H);
+}
+window.addEventListener('resize',resize);
+resize();
+
+// ---------- Shader utils ----------
+function compileShader(src,type){
+  const s=gl.createShader(type);
+  gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));gl.deleteShader(s);return null;}
+  return s;
+}
+function createProgram(vs,fs){
+  const p=gl.createProgram();
+  gl.attachShader(p,compileShader(vs,gl.VERTEX_SHADER));
+  gl.attachShader(p,compileShader(fs,gl.FRAGMENT_SHADER));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)){console.error(gl.getProgramInfoLog(p));return null;}
+  return p;
+}
+
+// ---------- Math ----------
+function mat4Identity(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);}
+function mat4Multiply(a,b){
+  const r=new Float32Array(16);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    r[j*4+i]=0;
+    for(let k=0;k<4;k++)r[j*4+i]+=a[k*4+i]*b[j*4+k];
+  }
+  return r;
+}
+function mat4Perspective(fov,aspect,near,far){
+  const f=1/Math.tan(fov/2),nf=1/(near-far);
+  const m=new Float32Array(16);
+  m[0]=f/aspect;m[5]=f;m[10]=(far+near)*nf;m[11]=-1;m[14]=2*far*near*nf;
+  return m;
+}
+function mat4LookAt(eye,center,up){
+  let zx=eye[0]-center[0],zy=eye[1]-center[1],zz=eye[2]-center[2];
+  let zl=Math.sqrt(zx*zx+zy*zy+zz*zz);zx/=zl;zy/=zl;zz/=zl;
+  let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx;
+  let xl=Math.sqrt(xx*xx+xy*xy+xz*xz);xx/=xl;xy/=xl;xz/=xl;
+  let yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;
+  const m=new Float32Array(16);
+  m[0]=xx;m[1]=yx;m[2]=zx;m[4]=xy;m[5]=yy;m[6]=zy;m[8]=xz;m[9]=yz;m[10]=zz;
+  m[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+  m[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+  m[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+  m[15]=1;
+  return m;
+}
+function mat4Translate(m,v){
+  const t=mat4Identity();t[12]=v[0];t[13]=v[1];t[14]=v[2];
+  return mat4Multiply(m,t);
+}
+function mat4Scale(m,v){
+  const t=mat4Identity();t[0]=v[0];t[5]=v[1];t[10]=v[2];
+  return mat4Multiply(m,t);
+}
+function mat4RotateY(m,a){
+  const c=Math.cos(a),s=Math.sin(a),t=mat4Identity();
+  t[0]=c;t[2]=s;t[8]=-s;t[10]=c;
+  return mat4Multiply(m,t);
+}
+function mat4RotateX(m,a){
+  const c=Math.cos(a),s=Math.sin(a),t=mat4Identity();
+  t[5]=c;t[6]=s;t[9]=-s;t[10]=c;
+  return mat4Multiply(m,t);
+}
+
+function vec3Normalize(v){
+  const l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2])||1;
+  return [v[0]/l,v[1]/l,v[2]/l];
+}
+
+// ---------- Geometry Builders ----------
+function buildBox(sx,sy,sz){
+  const x=sx/2,y=sy/2,z=sz/2;
+  // 6 faces, each 2 triangles
+  const p=[],n=[],u=[];
+  function face(v,nm,uv){for(let i=0;i<6;i++){for(let j=0;j<3;j++)p.push(v[([0,1,2,0,2,3][i])][j]);for(let j=0;j<3;j++)n.push(nm[j]);for(let j=0;j<2;j++)u.push(uv[([0,1,2,0,2,3][i])][j]);}}
+  face([[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]],[0,0,1],[[0,0],[1,0],[1,1],[0,1]]);
+  face([[x,-y,-z],[-x,-y,-z],[-x,y,-z],[x,y,-z]],[0,0,-1],[[0,0],[1,0],[1,1],[0,1]]);
+  face([[-x,y,z],[x,y,z],[x,y,-z],[-x,y,-z]],[0,1,0],[[0,0],[1,0],[1,1],[0,1]]);
+  face([[-x,-y,-z],[x,-y,-z],[x,-y,z],[-x,-y,z]],[0,-1,0],[[0,0],[1,0],[1,1],[0,1]]);
+  face([[x,-y,z],[x,-y,-z],[x,y,-z],[x,y,z]],[1,0,0],[[0,0],[1,0],[1,1],[0,1]]);
+  face([[-x,-y,-z],[-x,-y,z],[-x,y,z],[-x,y,-z]],[-1,0,0],[[0,0],[1,0],[1,1],[0,1]]);
+  return {positions:new Float32Array(p),normals:new Float32Array(n),uvs:new Float32Array(u),count:36};
+}
+function buildPlane(w,d,segW,segD){
+  const p=[],n=[],u=[];
+  const hw=w/2,hd=d/2;
+  for(let iz=0;iz<segD;iz++)for(let ix=0;ix<segW;ix++){
+    const x0=-hw+ix*(w/segW),x1=-hw+(ix+1)*(w/segW);
+    const z0=-hd+iz*(d/segD),z1=-hd+(iz+1)*(d/segD);
+    const u0=ix/segW,u1=(ix+1)/segW,v0=iz/segD,v1=(iz+1)/segD;
+    p.push(x0,0,z0,x1,0,z0,x1,0,z1,x0,0,z0,x1,0,z1,x0,0,z1);
+    for(let i=0;i<6;i++){n.push(0,1,0);}
+    u.push(u0,v0,u1,v0,u1,v1,u0,v0,u1,v1,u0,v1);
+  }
+  return {positions:new Float32Array(p),normals:new Float32Array(n),uvs:new Float32Array(u),count:segW*segD*6};
+}
+function buildCylinder(r,h,seg){
+  const p=[],n=[],u=[];
+  for(let i=0;i<seg;i++){
+    const a0=i/seg*TAU,a1=(i+1)/seg*TAU;
+    const c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+    // Side
+    p.push(c0*r,0,s0*r, c1*r,0,s1*r, c1*r,h,s1*r, c0*r,0,s0*r, c1*r,h,s1*r, c0*r,h,s0*r);
+    for(let j=0;j<6;j++){const a=j<3?(j===0?a0:a1):(j===3?a0:(j===4?a1:a0));n.push(Math.cos(a),0,Math.sin(a));}
+    const u0=i/seg,u1=(i+1)/seg;
+    u.push(u0,0,u1,0,u1,1,u0,0,u1,1,u0,1);
+    // Top cap
+    p.push(0,h,0,c1*r,h,s1*r,c0*r,h,s0*r);
+    n.push(0,1,0,0,1,0,0,1,0);
+    u.push(0.5,0.5, 0.5+c1*0.5,0.5+s1*0.5, 0.5+c0*0.5,0.5+s0*0.5);
+  }
+  return {positions:new Float32Array(p),normals:new Float32Array(n),uvs:new Float32Array(u),count:seg*9};
+}
+function buildSphere(r,seg){
+  const p=[],n=[],u=[];
+  for(let lat=0;lat<seg;lat++)for(let lon=0;lon<seg*2;lon++){
+    const t0=lat/seg*PI,t1=(lat+1)/seg*PI;
+    const p0=lon/(seg*2)*TAU,p1=(lon+1)/(seg*2)*TAU;
+    function vert(t,ph){const st=Math.sin(t);return [r*st*Math.cos(ph),r*Math.cos(t),r*st*Math.sin(ph)];}
+    const v00=vert(t0,p0),v10=vert(t1,p0),v11=vert(t1,p1),v01=vert(t0,p1);
+    const n00=vec3Normalize(v00),n10=vec3Normalize(v10),n11=vec3Normalize(v11),n01=vec3Normalize(v01);
+    const verts=[v00,v10,v11,v00,v11,v01];
+    const norms=[n00,n10,n11,n00,n11,n01];
+    for(let i=0;i<6;i++){p.push(...verts[i]);n.push(...norms[i]);u.push(0,0);}
+  }
+  return {positions:new Float32Array(p),normals:new Float32Array(n),uvs:new Float32Array(u),count:seg*seg*2*6};
+}
+
+// ---------- Mesh Creation ----------
+function createMesh(geom){
+  const vao=gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const pb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,geom.positions,gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);gl.bufferData(gl.ARRAY_BUFFER,geom.normals,gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  const ub=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ub);gl.bufferData(gl.ARRAY_BUFFER,geom.uvs,gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,2,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);
+  return {vao,count:geom.count};
+}
+
+// ---------- Shaders ----------
+const VS=`#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNorm;
+layout(location=2) in vec2 aUV;
+uniform mat4 uProj,uView,uModel;
+out vec3 vPos,vNorm,vWorldPos;
+out vec2 vUV;
+void main(){
+  vec4 wp=uModel*vec4(aPos,1.0);
+  vWorldPos=wp.xyz;
+  vPos=(uView*wp).xyz;
+  vNorm=mat3(uModel)*aNorm;
+  vUV=aUV;
+  gl_Position=uProj*uView*wp;
+}`;
+const FS=`#version 300 es
+precision highp float;
+in vec3 vPos,vNorm,vWorldPos;
+in vec2 vUV;
+uniform vec3 uColor;
+uniform vec3 uLightDir;
+uniform vec3 uCamPos;
+uniform float uEmissive;
+uniform float uFogDensity;
+uniform vec3 uFogColor;
+uniform float uMetallic;
+uniform float uCheckerScale;
+out vec4 fragColor;
+void main(){
+  vec3 N=normalize(vNorm);
+  vec3 L=normalize(uLightDir);
+  vec3 V=normalize(uCamPos-vWorldPos);
+  vec3 H=normalize(L+V);
+  float diff=max(dot(N,L),0.0);
+  float spec=pow(max(dot(N,H),0.0),32.0+uMetallic*64.0);
+  float ambient=0.2;
+  // Checker pattern
+  vec3 col=uColor;
+  if(uCheckerScale>0.0){
+    float cx=floor(vWorldPos.x*uCheckerScale);
+    float cz=floor(vWorldPos.z*uCheckerScale);
+    float check=mod(cx+cz,2.0);
+    col=mix(col,col*0.85,check);
+  }
+  vec3 lit=col*(ambient+diff*0.7)+vec3(1.0)*spec*0.3*(0.5+uMetallic*0.5);
+  lit=mix(lit,col,uEmissive);
+  // Fog
+  float dist=length(vPos);
+  float fog=1.0-exp(-dist*uFogDensity);
+  lit=mix(lit,uFogColor,fog);
+  fragColor=vec4(lit,1.0);
+}`;
+
+const prog=createProgram(VS,FS);
+const uProj=gl.getUniformLocation(prog,'uProj');
+const uView=gl.getUniformLocation(prog,'uView');
+const uModel=gl.getUniformLocation(prog,'uModel');
+const uColor=gl.getUniformLocation(prog,'uColor');
+const uLightDir=gl.getUniformLocation(prog,'uLightDir');
+const uCamPos=gl.getUniformLocation(prog,'uCamPos');
+const uEmissive=gl.getUniformLocation(prog,'uEmissive');
+const uFogDensity=gl.getUniformLocation(prog,'uFogDensity');
+const uFogColor=gl.getUniformLocation(prog,'uFogColor');
+const uMetallic=gl.getUniformLocation(prog,'uMetallic');
+const uCheckerScale=gl.getUniformLocation(prog,'uCheckerScale');
+
+// ---------- Sky Shader ----------
+const SKY_VS=`#version 300 es
+layout(location=0) in vec3 aPos;
+out vec3 vDir;
+uniform mat4 uProj,uView;
+void main(){
+  vDir=aPos;
+  vec4 p=uProj*mat4(mat3(uView))*vec4(aPos,1.0);
+  gl_Position=p.xyww;
+}`;
+const SKY_FS=`#version 300 es
+precision highp float;
+in vec3 vDir;
+uniform float uTime;
+out vec4 fragColor;
+// Simple sky
+void main(){
+  vec3 d=normalize(vDir);
+  float y=d.y*0.5+0.5;
+  vec3 top=vec3(0.05,0.05,0.15);
+  vec3 mid=vec3(0.08,0.1,0.2);
+  vec3 bot=vec3(0.12,0.14,0.25);
+  vec3 col=mix(bot,mix(mid,top,smoothstep(0.3,0.8,y)),smoothstep(0.0,0.4,y));
+  // Stars
+  vec3 sd=floor(d*300.0);
+  float h=fract(sin(dot(sd,vec3(127.1,311.7,74.7)))*43758.5453);
+  if(h>0.997 && d.y>0.1) col+=vec3(h*0.6);
+  // Horizon glow
+  float hz=exp(-abs(d.y)*8.0);
+  col+=vec3(0.15,0.1,0.2)*hz;
+  fragColor=vec4(col,1.0);
+}`;
+const skyProg=createProgram(SKY_VS,SKY_FS);
+const skyBox=createMesh(buildBox(2,2,2));
+
+// ---------- Build Scene Meshes ----------
+const meshBox=createMesh(buildBox(1,1,1));
+const meshPlane=createMesh(buildPlane(200,200,1,1));
+const meshCylinder=createMesh(buildCylinder(1,1,24));
+const meshSphere=createMesh(buildSphere(1,12));
+
+// ===================== DATA =====================
+const STORAGE_KEY='mind_palace_3d_v2';
+const ICONS=['📚','🧪','🌿','🎨','🧠','🔧','🎭','🔭','🍳','🏛','💡','🎵','⚡','🗝','🌟','🔮','📐','🧩'];
+const ROOM_COLORS=[
+  [0.30,0.26,0.88],[0.06,0.72,0.51],[0.96,0.62,0.04],[0.93,0.27,0.27],
+  [0.55,0.36,0.96],[0.02,0.71,0.83],[0.93,0.23,0.51],[0.96,0.49,0.09],
+  [0.39,0.40,0.95]
+];
+
+let palace={rooms:[],streak:1,lastVisit:null};
+
+function loadData(){
+  try{
+    const d=localStorage.getItem(STORAGE_KEY);
+    if(d)palace=JSON.parse(d);
+    else createDefaultPalace();
+  }catch(e){createDefaultPalace();}
+  // Streak logic
+  const today=new Date().toDateString();
+  if(palace.lastVisit){
+    const last=new Date(palace.lastVisit);
+    const diff=Math.floor((new Date()-last)/(1000*60*60*24));
+    if(diff===1)palace.streak++;
+    else if(diff>1)palace.streak=1;
+  }
+  palace.lastVisit=today;
+  saveData();
+}
+function saveData(){localStorage.setItem(STORAGE_KEY,JSON.stringify(palace));}
+function createDefaultPalace(){
+  palace={
+    rooms:[
+      {id:'library',name:'Library',icon:'📚',colorIdx:0,pos:[0,0,-8],notes:[
+        {id:'n1',title:'The Pomodoro Technique',content:'A time management method. Work for 25 minutes, then take a 5 minute break. After 4 pomodoros, take a longer 15-30 min break. Named after a tomato-shaped kitchen timer.',mnemonic:'🍅 Tomato Timer = 25 min work',tags:['productivity','time'],icon:'⏰',mastery:3},
+        {id:'n2',title:'Feynman Technique',content:'Learn by teaching. 1. Choose concept. 2. Teach it to a child. 3. Identify gaps in your explanation. 4. Simplify and use analogies. If you can\'t explain it simply, you don\'t understand it.',mnemonic:'ELI5 = Explain Like I\'m 5',tags:['learning','science'],icon:'🎓',mastery:5},
+        {id:'n3',title:'Spaced Repetition',content:'Review information at increasing intervals. First after 1 day, then 3 days, then 7, then 14, etc. Exploits the spacing effect for long-term memory consolidation.',mnemonic:'1-3-7-14-30 day intervals',tags:['memory','study'],icon:'📅',mastery:2}
+      ]},
+      {id:'garden',name:'Garden',icon:'🌿',colorIdx:1,pos:[-12,0,-2],notes:[]},
+      {id:'workshop',name:'Workshop',icon:'🔧',colorIdx:2,pos:[12,0,-2],notes:[]},
+      {id:'lab',name:'Laboratory',icon:'🧪',colorIdx:3,pos:[-8,0,10],notes:[
+        {id:'n4',title:'Mitochondria Function',content:'The mitochondria is the powerhouse of the cell. It produces ATP through cellular respiration via the electron transport chain on its inner membrane.',mnemonic:'Mighty Mitochondria = Cell\'s Power Plant',tags:['biology','cell'],icon:'🔬',mastery:1}
+      ]},
+      {id:'gallery',name:'Art Gallery',icon:'🎨',colorIdx:4,pos:[8,0,10],notes:[]},
+      {id:'theater',name:'Theater',icon:'🎭',colorIdx:5,pos:[0,0,18],notes:[]},
+      {id:'observatory',name:'Observatory',icon:'🔭',colorIdx:6,pos:[-16,0,12],notes:[]},
+      {id:'gym',name:'Memory Gym',icon:'🧠',colorIdx:7,pos:[16,0,12],notes:[]},
+      {id:'shrine',name:'Shrine of Ideas',icon:'💡',colorIdx:8,pos:[0,0,28],notes:[]}
+    ],
+    streak:1,lastVisit:new Date().toDateString()
+  };
+}
+loadData();
+
+// ===================== CAMERA =====================
+let cam={
+  x:0, y:3, z:8,
+  yaw:PI, pitch:-0.2,
+  targetX:0,targetY:3,targetZ:8,
+  targetYaw:PI,targetPitch:-0.2,
+  mode:'orbit',// 'orbit' or 'first-person'
+  orbitDist:25,orbitAngle:0,orbitPitch:0.6,
+  targetOrbitAngle:0,targetOrbitPitch:0.6,targetOrbitDist:25
+};
+
+function updateCamera(dt){
+  const sm=1-Math.pow(0.001,dt);
+  if(cam.mode==='orbit'){
+    cam.orbitAngle+=(cam.targetOrbitAngle-cam.orbitAngle)*sm;
+    cam.orbitPitch+=(cam.targetOrbitPitch-cam.orbitPitch)*sm;
+    cam.orbitDist+=(cam.targetOrbitDist-cam.orbitDist)*sm;
+    cam.x=Math.sin(cam.orbitAngle)*Math.cos(cam.orbitPitch)*cam.orbitDist;
+    cam.y=Math.sin(cam.orbitPitch)*cam.orbitDist+2;
+    cam.z=Math.cos(cam.orbitAngle)*Math.cos(cam.orbitPitch)*cam.orbitDist+5;
+  }else{
+    cam.x+=(cam.targetX-cam.x)*sm;
+    cam.y+=(cam.targetY-cam.y)*sm;
+    cam.z+=(cam.targetZ-cam.z)*sm;
+    cam.yaw+=(cam.targetYaw-cam.yaw)*sm;
+    cam.pitch+=(cam.targetPitch-cam.pitch)*sm;
+  }
+}
+
+// ===================== INPUT =====================
+const keys={};
+let mouseDown=false,mouseDX=0,mouseDY=0,lastMX=0,lastMY=0;
+let pointerLocked=false;
+let hoveredRoom=null,selectedRoom=null;
+
+document.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')handleEscape();});
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
+canvas.addEventListener('mousedown',e=>{
+  mouseDown=true;lastMX=e.clientX;lastMY=e.clientY;
+});
+document.addEventListener('mouseup',()=>{mouseDown=false;});
+document.addEventListener('mousemove',e=>{
+  if(mouseDown){
+    mouseDX=e.clientX-lastMX;
+    mouseDY=e.clientY-lastMY;
+    lastMX=e.clientX;lastMY=e.clientY;
+    if(cam.mode==='orbit'){
+      cam.targetOrbitAngle-=mouseDX*0.005;
+      cam.targetOrbitPitch=Math.max(0.1,Math.min(1.4,cam.targetOrbitPitch+mouseDY*0.005));
+    }else{
+      cam.targetYaw-=mouseDX*0.003;
+      cam.targetPitch=Math.max(-1.2,Math.min(1.2,cam.targetPitch-mouseDY*0.003));
+    }
+    mouseDX=mouseDY=0;
+  }
+  // Raypick for room hover
+  checkRoomHover(e.clientX,e.clientY);
+});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(cam.mode==='orbit'){
+    cam.targetOrbitDist=Math.max(8,Math.min(60,cam.targetOrbitDist+e.deltaY*0.03));
+  }
+},{passive:false});
+
+canvas.addEventListener('click',e=>{
+  if(hoveredRoom!==null){
+    selectRoom(hoveredRoom);
+  }
+});
+
+// Touch support
+let touchStartX=0,touchStartY=0,touchDist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){mouseDown=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;touchStartX=lastMX;touchStartY=lastMY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;touchDist=Math.sqrt(dx*dx+dy*dy);}
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&mouseDown){
+    const dx=e.touches[0].clientX-lastMX,dy=e.touches[0].clientY-lastMY;
+    lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;
+    cam.targetOrbitAngle-=dx*0.005;
+    cam.targetOrbitPitch=Math.max(0.1,Math.min(1.4,cam.targetOrbitPitch+dy*0.005));
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+    const nd=Math.sqrt(dx*dx+dy*dy);
+    if(touchDist>0)cam.targetOrbitDist=Math.max(8,Math.min(60,cam.targetOrbitDist*(touchDist/nd)));
+    touchDist=nd;
+  }
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  mouseDown=false;
+  // Tap detection
+  if(e.changedTouches.length===1){
+    const dx=e.changedTouches[0].clientX-touchStartX;
+    const dy=e.changedTouches[0].clientY-touchStartY;
+    if(Math.abs(dx)<10&&Math.abs(dy)<10){
+      checkRoomHover(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+      if(hoveredRoom!==null)selectRoom(hoveredRoom);
+    }
+  }
+},{passive:true});
+
+function handleEscape(){
+  if(document.querySelector('.modal-overlay.open')){closeEditor();return;}
+  if(document.querySelector('.quiz-overlay.open')){closeQuiz();return;}
+  if(selectedRoom!==null){deselectRoom();return;}
+}
+
+// WASD movement (orbit mode: rotate; first-person: walk)
+function processInput(dt){
+  if(cam.mode==='orbit'){
+    const spd=2*dt;
+    if(keys['a']||keys['arrowleft'])cam.targetOrbitAngle+=spd;
+    if(keys['d']||keys['arrowright'])cam.targetOrbitAngle-=spd;
+    if(keys['w']||keys['arrowup'])cam.targetOrbitDist=Math.max(8,cam.targetOrbitDist-spd*8);
+    if(keys['s']||keys['arrowdown'])cam.targetOrbitDist=Math.min(60,cam.targetOrbitDist+spd*8);
+  }
+}
+
+// ===================== ROOM RAY PICKING =====================
+function checkRoomHover(mx,my){
+  const projM=mat4Perspective(60*DEG,W/H,0.1,200);
+  let viewM;
+  if(cam.mode==='orbit'){
+    viewM=mat4LookAt([cam.x,cam.y,cam.z],[0,0,5],[0,1,0]);
+  }else{
+    const lx=cam.x+Math.sin(cam.yaw)*Math.cos(cam.pitch);
+    const ly=cam.y+Math.sin(cam.pitch);
+    const lz=cam.z+Math.cos(cam.yaw)*Math.cos(cam.pitch);
+    viewM=mat4LookAt([cam.x,cam.y,cam.z],[lx,ly,lz],[0,1,0]);
+  }
+
+  // Unproject mouse to ray
+  const ndcX=(mx/W)*2-1;
+  const ndcY=1-(my/H)*2;
+  // We'll use a simpler screen-space distance check for room positions
+  hoveredRoom=null;
+  let bestDist=60;
+  for(let i=0;i<palace.rooms.length;i++){
+    const r=palace.rooms[i];
+    const wp=[r.pos[0],2.5,r.pos[2]];
+    // Project to screen
+    const sp=projectToScreen(wp,projM,viewM);
+    if(!sp)continue;
+    const dx=sp[0]-mx,dy=sp[1]-my;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<bestDist&&dist<80){
+      bestDist=dist;
+      hoveredRoom=i;
+    }
+  }
+  canvas.style.cursor=hoveredRoom!==null?'pointer':'grab';
+}
+
+function projectToScreen(p,proj,view){
+  // p is [x,y,z]
+  let v=[p[0],p[1],p[2],1];
+  // View transform
+  let vt=[0,0,0,0];
+  for(let i=0;i<4;i++){vt[i]=view[i]*v[0]+view[4+i]*v[1]+view[8+i]*v[2]+view[12+i]*v[3];}
+  // Proj transform
+  let pt=[0,0,0,0];
+  for(let i=0;i<4;i++){pt[i]=proj[i]*vt[0]+proj[4+i]*vt[1]+proj[8+i]*vt[2]+proj[12+i]*vt[3];}
+  if(pt[3]<=0)return null;
+  let nx=pt[0]/pt[3],ny=pt[1]/pt[3];
+  return [(nx*0.5+0.5)*W,(1-(ny*0.5+0.5))*H];
+}
+
+// ===================== ROOM SELECTION =====================
+function selectRoom(idx){
+  selectedRoom=idx;
+  const r=palace.rooms[idx];
+  const rc=ROOM_COLORS[r.colorIdx%ROOM_COLORS.length];
+  document.getElementById('rp-icon').textContent=r.icon;
+  document.getElementById('rp-icon').style.background=`rgba(${rc[0]*255|0},${rc[1]*255|0},${rc[2]*255|0},0.15)`;
+  document.getElementById('rp-title').textContent=r.name;
+  document.getElementById('rp-sub').textContent=r.notes.length+' memories stored';
+  document.getElementById('loc-text').textContent=r.name;
+  document.getElementById('btn-add').style.display='flex';
+  renderNotesList();
+  document.getElementById('room-panel').classList.add('open');
+
+  // Animate camera toward room
+  if(cam.mode==='orbit'){
+    const angle=Math.atan2(r.pos[0],r.pos[2]+5);
+    cam.targetOrbitAngle=angle;
+    cam.targetOrbitDist=Math.min(cam.targetOrbitDist,18);
+  }
+}
+function deselectRoom(){
+  selectedRoom=null;
+  document.getElementById('room-panel').classList.remove('open');
+  document.getElementById('loc-text').textContent='Palace Grounds';
+  document.getElementById('btn-add').style.display='none';
+}
+function renderNotesList(){
+  const body=document.getElementById('rp-body');
+  if(selectedRoom===null){body.innerHTML='';return;}
+  const room=palace.rooms[selectedRoom];
+  if(room.notes.length===0){
+    body.innerHTML=`<div class="empty-state"><p>No memories yet.<br>Add your first memory to this room!</p></div>`;
+    return;
+  }
+  body.innerHTML=room.notes.map(n=>{
+    let dots='';
+    for(let i=0;i<5;i++)dots+=`<div class="dot ${i<n.mastery?'on':''}"></div>`;
+    const tagHtml=n.tags?n.tags.map(t=>`<span class="tag">${t}</span>`).join(''):'';
+    return `
+      <div class="memory-item" data-nid="${n.id}">
+        <h4>${n.icon||'📝'} ${n.title}</h4>
+        <p>${n.content}</p>
+        <div class="mastery">${dots}</div>
+        ${tagHtml?`<div class="tag-row">${tagHtml}</div>`:''}
+      </div>`;
+  }).join('');
+  body.querySelectorAll('.memory-item').forEach(el=>{
+    el.addEventListener('click',()=>openEditorForNote(el.dataset.nid));
+  });
+}
+
+// ===================== EDITOR =====================
+let editingNoteId=null,editorIcon='📝';
+
+function openEditor(){
+  editingNoteId=null;
+  editorIcon='📝';
+  document.getElementById('editor-heading').textContent='New Memory';
+  document.getElementById('ed-title').value='';
+  document.getElementById('ed-content').value='';
+  document.getElementById('ed-mnemonic').value='';
+  document.getElementById('ed-tags').value='';
+  document.getElementById('ed-delete').style.display='none';
+  buildIconPicker();
+  document.getElementById('editor-overlay').classList.add('open');
+}
+function openEditorForNote(nid){
+  if(selectedRoom===null)return;
+  const room=palace.rooms[selectedRoom];
+  const note=room.notes.find(n=>n.id===nid);
+  if(!note)return;
+  editingNoteId=nid;
+  editorIcon=note.icon||'📝';
+  document.getElementById('editor-heading').textContent='Edit Memory';
+  document.getElementById('ed-title').value=note.title;
+  document.getElementById('ed-content').value=note.content;
+  document.getElementById('ed-mnemonic').value=note.mnemonic||'';
+  document.getElementById('ed-tags').value=(note.tags||[]).join(', ');
+  document.getElementById('ed-delete').style.display='inline-flex';
+  buildIconPicker();
+  document.getElementById('editor-overlay').classList.add('open');
+}
+function closeEditor(){document.getElementById('editor-overlay').classList.remove('open');}
+function saveEditor(){
+  const title=document.getElementById('ed-title').value.trim();
+  if(!title){notify('Memory needs a title!','info');return;}
+  const content=document.getElementById('ed-content').value.trim();
+  const mnemonic=document.getElementById('ed-mnemonic').value.trim();
+  const tags=document.getElementById('ed-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  if(selectedRoom===null)return;
+  const room=palace.rooms[selectedRoom];
+  if(editingNoteId){
+    const note=room.notes.find(n=>n.id===editingNoteId);
+    if(note){note.title=title;note.content=content;note.mnemonic=mnemonic;note.tags=tags;note.icon=editorIcon;}
+  }else{
+    room.notes.push({id:Date.now().toString(36)+Math.random().toString(36).substr(2,4),title,content,mnemonic,tags,icon:editorIcon,mastery:1});
+  }
+  saveData();renderNotesList();closeEditor();
+  document.getElementById('rp-sub').textContent=room.notes.length+' memories stored';
+  notify('Memory saved to Palace!','success');
+}
+function deleteNote(){
+  if(selectedRoom===null||!editingNoteId)return;
+  const room=palace.rooms[selectedRoom];
+  room.notes=room.notes.filter(n=>n.id!==editingNoteId);
+  saveData();renderNotesList();closeEditor();
+  document.getElementById('rp-sub').textContent=room.notes.length+' memories stored';
+  notify('Memory removed','info');
+}
+function buildIconPicker(){
+  const picker=document.getElementById('icon-picker');
+  picker.innerHTML=ICONS.map(ic=>`<div class="icon-pick ${ic===editorIcon?'sel':''}" data-ic="${ic}">${ic}</div>`).join('');
+  picker.querySelectorAll('.icon-pick').forEach(el=>{
+    el.addEventListener('click',()=>{
+      editorIcon=el.dataset.ic;
+      picker.querySelectorAll('.icon-pick').forEach(e=>e.classList.remove('sel'));
+      el.classList.add('sel');
+    });
+  });
+}
+
+// ===================== QUIZ =====================
+let quizQueue=[],quizIdx=0;
+function startQuiz(){
+  const allNotes=palace.rooms.flatMap(r=>r.notes.map(n=>({...n,room:r.name,roomIcon:r.icon})));
+  if(allNotes.length===0){notify('Add memories first!','info');return;}
+  quizQueue=shuffle([...allNotes]);
+  quizIdx=0;
+  showQuizCard();
+  document.getElementById('quiz-overlay').classList.add('open');
+}
+function showQuizCard(){
+  if(quizIdx>=quizQueue.length){closeQuiz();notify('Practice session complete! 🎉','success');return;}
+  const n=quizQueue[quizIdx];
+  document.getElementById('quiz-icon').textContent=n.icon||'📝';
+  document.getElementById('quiz-q').textContent=n.title;
+  document.getElementById('quiz-a').textContent=n.content;
+  const mn=document.getElementById('quiz-mnemonic');
+  if(n.mnemonic){mn.textContent='💡 '+n.mnemonic;mn.style.display='block';}else{mn.style.display='none';}
+  document.getElementById('quiz-progress').textContent=`${quizIdx+1} / ${quizQueue.length}`;
+  document.getElementById('quiz-card').classList.remove('flipped');
+  document.getElementById('quiz-header').textContent=`${n.roomIcon} ${n.room}`;
+}
+function quizRate(rating){
+  // Update mastery
+  const n=quizQueue[quizIdx];
+  for(const r of palace.rooms){
+    const note=r.notes.find(x=>x.id===n.id);
+    if(note){
+      if(rating==='easy')note.mastery=Math.min(5,note.mastery+1);
+      else if(rating==='hard')note.mastery=Math.max(1,note.mastery-1);
+      break;
+    }
+  }
+  saveData();
+  quizIdx++;
+  showQuizCard();
+}
+function closeQuiz(){document.getElementById('quiz-overlay').classList.remove('open');}
+
+function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+
+// ===================== NOTIFICATION =====================
+let notifTimer=null;
+function notify(msg,type='info'){
+  const el=document.getElementById('notif');
+  el.textContent=(type==='success'?'✓ ':'ℹ ')+msg;
+  el.className='notif show '+type;
+  clearTimeout(notifTimer);
+  notifTimer=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ===================== UI WIRING =====================
+document.getElementById('btn-quiz').addEventListener('click',startQuiz);
+document.getElementById('btn-add').addEventListener('click',openEditor);
+document.getElementById('rp-add').addEventListener('click',openEditor);
+document.getElementById('rp-enter').addEventListener('click',()=>{
+  if(selectedRoom===null)return;
+  // Zoom closer to room
+  const r=palace.rooms[selectedRoom];
+  cam.targetOrbitAngle=Math.atan2(r.pos[0],r.pos[2]+5);
+  cam.targetOrbitDist=10;
+  cam.targetOrbitPitch=0.4;
+});
+document.getElementById('rp-close-btn').addEventListener('click',deselectRoom);
+document.getElementById('editor-close').addEventListener('click',closeEditor);
+document.getElementById('ed-cancel').addEventListener('click',closeEditor);
+document.getElementById('ed-save').addEventListener('click',saveEditor);
+document.getElementById('ed-delete').addEventListener('click',deleteNote);
+document.getElementById('quiz-card').addEventListener('click',()=>document.getElementById('quiz-card').classList.toggle('flipped'));
+document.getElementById('quiz-easy').addEventListener('click',e=>{e.stopPropagation();quizRate('easy');});
+document.getElementById('quiz-ok').addEventListener('click',e=>{e.stopPropagation();quizRate('ok');});
+document.getElementById('quiz-hard').addEventListener('click',e=>{e.stopPropagation();quizRate('hard');});
+document.getElementById('quiz-exit').addEventListener('click',e=>{e.stopPropagation();closeQuiz();});
+document.getElementById('btn-overview').addEventListener('click',()=>{
+  cam.targetOrbitDist=35;cam.targetOrbitPitch=1.0;
+  notify('Overview mode','info');
+});
+
+// Streak
+document.getElementById('streak-num').textContent=palace.streak;
+
+// ===================== RENDER LOOP =====================
+let time=0,lastT=0;
+const lightDir=vec3Normalize([0.4,0.8,-0.3]);
+
+function drawMesh(mesh,model,color,emissive=0,metallic=0,checker=0){
+  gl.uniformMatrix4fv(uModel,false,model);
+  gl.uniform3fv(uColor,color);
+  gl.uniform1f(uEmissive,emissive);
+  gl.uniform1f(uMetallic,metallic);
+  gl.uniform1f(uCheckerScale,checker);
+  gl.bindVertexArray(mesh.vao);
+  gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+}
+
+function renderScene(t){
+  const dt=Math.min(t-lastT,0.05);
+  lastT=t;time=t;
+
+  processInput(dt);
+  updateCamera(dt);
+
+  gl.clearColor(0.05,0.05,0.12,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+
+  const proj=mat4Perspective(60*DEG,W/H,0.1,200);
+  let view;
+  if(cam.mode==='orbit'){
+    view=mat4LookAt([cam.x,cam.y,cam.z],[0,0,5],[0,1,0]);
+  }else{
+    const lx=cam.x+Math.sin(cam.yaw)*Math.cos(cam.pitch);
+    const ly=cam.y+Math.sin(cam.pitch);
+    const lz=cam.z+Math.cos(cam.yaw)*Math.cos(cam.pitch);
+    view=mat4LookAt([cam.x,cam.y,cam.z],[lx,ly,lz],[0,1,0]);
+  }
+
+  // Sky
+  gl.depthFunc(gl.LEQUAL);
+  gl.useProgram(skyProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(skyProg,'uProj'),false,proj);
+  gl.uniformMatrix4fv(gl.getUniformLocation(skyProg,'uView'),false,view);
+  gl.uniform1f(gl.getUniformLocation(skyProg,'uTime'),t);
+  gl.bindVertexArray(skyBox.vao);
+  gl.drawArrays(gl.TRIANGLES,0,skyBox.count);
+  gl.depthFunc(gl.LESS);
+
+  // Scene
+  gl.useProgram(prog);
+  gl.uniformMatrix4fv(uProj,false,proj);
+  gl.uniformMatrix4fv(uView,false,view);
+  gl.uniform3fv(uLightDir,lightDir);
+  gl.uniform3f(uCamPos,cam.x,cam.y,cam.z);
+  gl.uniform1f(uFogDensity,0.008);
+  gl.uniform3f(uFogColor,0.06,0.06,0.12);
+
+  // Ground
+  let gm=mat4Identity();
+  drawMesh(meshPlane,gm,[0.08,0.10,0.14],0,0,0.5);
+
+  // Pathways between rooms
+  for(let i=0;i<palace.rooms.length-1;i++){
+    const r1=palace.rooms[i],r2=palace.rooms[i+1];
+    const mx=(r1.pos[0]+r2.pos[0])/2;
+    const mz=(r1.pos[2]+r2.pos[2])/2;
+    const dx=r2.pos[0]-r1.pos[0],dz=r2.pos[2]-r1.pos[2];
+    const len=Math.sqrt(dx*dx+dz*dz);
+    const ang=Math.atan2(dx,dz);
+    let pm=mat4Identity();
+    pm=mat4Translate(pm,[mx,0.02,mz]);
+    pm=mat4RotateY(pm,ang);
+    pm=mat4Scale(pm,[0.8,0.05,len]);
+    drawMesh(meshBox,pm,[0.12,0.13,0.18],0,0,0);
+  }
+
+  // Rooms
+  for(let i=0;i<palace.rooms.length;i++){
+    const r=palace.rooms[i];
+    const rc=ROOM_COLORS[r.colorIdx%ROOM_COLORS.length];
+    const isHovered=hoveredRoom===i;
+    const isSelected=selectedRoom===i;
+    const pulse=isSelected?Math.sin(t*3)*0.1+0.2:(isHovered?0.15:0);
+
+    // Platform
+    let pm=mat4Identity();
+    pm=mat4Translate(pm,[r.pos[0],0.15,r.pos[2]]);
+    const platScale=isHovered||isSelected?3.2:3.0;
+    pm=mat4Scale(pm,[platScale,0.3,platScale]);
+    drawMesh(meshBox,pm,[rc[0]*0.3+pulse,rc[1]*0.3+pulse,rc[2]*0.3+pulse],0,0.5,0);
+
+    // Main building
+    const bh=2.5+r.notes.length*0.3;
+    let bm=mat4Identity();
+    const bobY=Math.sin(t*1.5+i)*0.1;
+    bm=mat4Translate(bm,[r.pos[0],0.3+bobY,r.pos[2]]);
+    bm=mat4RotateY(bm,t*0.2+i*0.7);
+    bm=mat4Scale(bm,[2,bh,2]);
+    drawMesh(meshBox,bm,[rc[0]*0.5+pulse,rc[1]*0.5+pulse,rc[2]*0.5+pulse],pulse*0.5,0.3,0);
+
+    // Roof / top ornament
+    let rm=mat4Identity();
+    rm=mat4Translate(rm,[r.pos[0],0.3+bh+bobY,r.pos[2]]);
+    rm=mat4RotateY(rm,t*0.2+i*0.7);
+    rm=mat4Scale(rm,[1.2,0.8,1.2]);
+    drawMesh(meshSphere,rm,[rc[0]+pulse,rc[1]+pulse,rc[2]+pulse],0.3+pulse,0.6,0);
+
+    // Glow pillar if selected
+    if(isSelected){
+      let gm=mat4Identity();
+      gm=mat4Translate(gm,[r.pos[0],0,r.pos[2]]);
+      gm=mat4Scale(gm,[0.15,8+Math.sin(t*4)*0.5,0.15]);
+      drawMesh(meshCylinder,gm,[rc[0],rc[1],rc[2]],0.8,0,0);
+    }
+
+    // Floating memory orbs
+    for(let j=0;j<Math.min(r.notes.length,6);j++){
+      const angle=t*0.5+j*(TAU/Math.min(r.notes.length,6));
+      const orR=2.5;
+      const ox=r.pos[0]+Math.cos(angle)*orR;
+      const oz=r.pos[2]+Math.sin(angle)*orR;
+      const oy=1.5+Math.sin(t*2+j)*0.3;
+      let om=mat4Identity();
+      om=mat4Translate(om,[ox,oy,oz]);
+      om=mat4Scale(om,[0.2,0.2,0.2]);
+      const mast=r.notes[j].mastery/5;
+      drawMesh(meshSphere,om,[rc[0]*0.5+mast*0.5,rc[1]*0.5+mast*0.3,rc[2]*0.5+mast*0.5],0.5,0,0);
+    }
+  }
+
+  // Ambient decoration: pillars at palace edges
+  for(let i=0;i<12;i++){
+    const a=i/12*TAU;
+    const pr=35;
+    let pm=mat4Identity();
+    pm=mat4Translate(pm,[Math.cos(a)*pr,0,Math.sin(a)*pr+5]);
+    pm=mat4Scale(pm,[0.4,4+Math.sin(t+i)*0.5,0.4]);
+    drawMesh(meshCylinder,pm,[0.15,0.15,0.2],0,0.5,0);
+    // Top sphere
+    let sm=mat4Identity();
+    sm=mat4Translate(sm,[Math.cos(a)*pr,4+Math.sin(t+i)*0.5,Math.sin(a)*pr+5]);
+    sm=mat4Scale(sm,[0.5,0.5,0.5]);
+    drawMesh(meshSphere,sm,[0.3,0.2,0.5],0.3+Math.sin(t*2+i)*0.1,0,0);
+  }
+
+  // Update compass
+  const compassAngle=cam.mode==='orbit'?-cam.orbitAngle:-cam.yaw;
+  document.getElementById('compass-needle').style.transform=`rotate(${compassAngle/DEG}deg)`;
+
+  // FPS display in title (debug)
+  requestAnimationFrame(renderScene);
+}
+
+requestAnimationFrame(renderScene);
+
+// ===================== INIT =====================
+</script>
+</body>
+</html>

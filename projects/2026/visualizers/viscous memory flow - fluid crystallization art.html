@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Viscous Memory Flow - Fluid Crystallization Art</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            touch-action: none;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* UI Overlay */
+        .ui-overlay {
+            position: fixed;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Stats Panel */
+        .stats-panel {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px;
+            min-width: 180px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Viscosity Slider */
+        .viscosity-control {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .viscosity-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .viscosity-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .viscosity-slider {
+            writing-mode: vertical-lr;
+            direction: rtl;
+            width: 8px;
+            height: 200px;
+            -webkit-appearance: none;
+            background: linear-gradient(to top, #3b82f6, #8b5cf6, #ec4899);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .viscosity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Fluid Presets */
+        .presets-bar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .preset-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 16px;
+            background: transparent;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .preset-btn.active {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.2);
+            color: #fff;
+        }
+
+        .preset-btn .icon {
+            font-size: 24px;
+        }
+
+        .preset-btn .name {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Crystal Counter */
+        .crystal-counter {
+            position: fixed;
+            top: 80px;
+            right: 90px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .crystal-value {
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .crystal-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tool-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .tool-btn.active {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.3);
+        }
+
+        /* Color Palette */
+        .color-palette {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .color-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.active {
+            border-color: #fff;
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .modal p {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .modal-section {
+            margin: 20px 0;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+        }
+
+        .modal-section h3 {
+            font-size: 14px;
+            color: #8b5cf6;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .shortcut-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .shortcut-key {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            color: #fff;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        /* Export Panel */
+        .export-panel {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .export-btn {
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: #8b5cf6;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 14px 28px;
+            border-radius: 30px;
+            font-size: 14px;
+            color: #fff;
+            z-index: 300;
+            opacity: 0;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .stats-panel, .crystal-counter, .toolbar, .color-palette {
+                display: none;
+            }
+
+            .viscosity-control {
+                right: 10px;
+                padding: 12px 10px;
+            }
+
+            .viscosity-slider {
+                height: 120px;
+            }
+
+            .presets-bar {
+                bottom: 20px;
+                padding: 8px 12px;
+                gap: 6px;
+            }
+
+            .preset-btn {
+                padding: 8px 10px;
+            }
+
+            .preset-btn .icon {
+                font-size: 20px;
+            }
+
+            .preset-btn .name {
+                font-size: 9px;
+            }
+
+            .export-panel {
+                bottom: 90px;
+                right: 10px;
+            }
+        }
+
+        /* Recording indicator */
+        .recording-indicator {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(239, 68, 68, 0.9);
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .recording-indicator.active {
+            display: flex;
+        }
+
+        .recording-dot {
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Crystallization effect overlay */
+        .crystal-flash {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.3), transparent);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .crystal-flash.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="crystal-flash" id="crystalFlash"></div>
+
+    <!-- Header -->
+    <header class="header ui-overlay">
+        <div class="logo">
+            <span class="logo-icon">💧</span>
+            <h1>Viscous Memory Flow</h1>
+        </div>
+        <div class="header-actions">
+            <button class="icon-btn" id="clearBtn" title="Clear Canvas (C)">🗑️</button>
+            <button class="icon-btn" id="helpBtn" title="Help">❓</button>
+        </div>
+    </header>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel ui-overlay">
+        <div class="stat-row">
+            <span class="stat-label">Particles</span>
+            <span class="stat-value" id="particleCount">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Velocity</span>
+            <span class="stat-value" id="avgVelocity">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Memory</span>
+            <span class="stat-value" id="memoryDensity">0%</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">FPS</span>
+            <span class="stat-value" id="fpsCounter">60</span>
+        </div>
+    </div>
+
+    <!-- Crystal Counter -->
+    <div class="crystal-counter ui-overlay">
+        <div class="crystal-value" id="crystalCount">0</div>
+        <div class="crystal-label">Crystals</div>
+    </div>
+
+    <!-- Viscosity Control -->
+    <div class="viscosity-control ui-overlay">
+        <div class="viscosity-label">Viscosity</div>
+        <div class="viscosity-value" id="viscosityValue">50</div>
+        <input type="range" class="viscosity-slider" id="viscositySlider" min="1" max="100" value="50">
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar ui-overlay">
+        <button class="tool-btn active" id="toolDraw" title="Draw (D)">✏️</button>
+        <button class="tool-btn" id="toolErase" title="Erase (E)">🧹</button>
+        <button class="tool-btn" id="toolGravity" title="Gravity (G)">🌍</button>
+        <button class="tool-btn" id="toolCrystallize" title="Force Crystallize (X)">💎</button>
+    </div>
+
+    <!-- Color Palette -->
+    <div class="color-palette ui-overlay" id="colorPalette">
+        <div class="color-option active" data-color="rainbow" style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);"></div>
+        <div class="color-option" data-color="#3b82f6" style="background: #3b82f6;"></div>
+        <div class="color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+        <div class="color-option" data-color="#ec4899" style="background: #ec4899;"></div>
+        <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
+        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+        <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+        <div class="color-option" data-color="#ffffff" style="background: #ffffff;"></div>
+    </div>
+
+    <!-- Presets Bar -->
+    <div class="presets-bar ui-overlay">
+        <button class="preset-btn active" data-preset="water">
+            <span class="icon">💧</span>
+            <span class="name">Water</span>
+        </button>
+        <button class="preset-btn" data-preset="honey">
+            <span class="icon">🍯</span>
+            <span class="name">Honey</span>
+        </button>
+        <button class="preset-btn" data-preset="smoke">
+            <span class="icon">💨</span>
+            <span class="name">Smoke</span>
+        </button>
+        <button class="preset-btn" data-preset="plasma">
+            <span class="icon">⚡</span>
+            <span class="name">Plasma</span>
+        </button>
+        <button class="preset-btn" data-preset="lava">
+            <span class="icon">🌋</span>
+            <span class="name">Lava</span>
+        </button>
+    </div>
+
+    <!-- Export Panel -->
+    <div class="export-panel ui-overlay">
+        <button class="export-btn" id="exportPng">
+            <span>🖼️</span> PNG
+        </button>
+        <button class="export-btn" id="exportVideo">
+            <span>🎬</span> Record
+        </button>
+    </div>
+
+    <!-- Recording Indicator -->
+    <div class="recording-indicator" id="recordingIndicator">
+        <div class="recording-dot"></div>
+        <span>Recording...</span>
+        <span id="recordingTime">0:00</span>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <h2>💧 Viscous Memory Flow</h2>
+            <p>
+                Create beautiful fluid art that crystallizes into geometric patterns. 
+                The longer you interact with an area, the more it "remembers" and forms mandala-like structures.
+            </p>
+            
+            <div class="modal-section">
+                <h3>🖱️ Desktop Controls</h3>
+                <div class="shortcut-row">
+                    <span>Draw fluid</span>
+                    <span class="shortcut-key">Left Click + Drag</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Erase memories</span>
+                    <span class="shortcut-key">Right Click</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Adjust viscosity</span>
+                    <span class="shortcut-key">Scroll Wheel</span>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <h3>⌨️ Keyboard Shortcuts</h3>
+                <div class="shortcut-row">
+                    <span>Water preset</span>
+                    <span class="shortcut-key">1</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Honey preset</span>
+                    <span class="shortcut-key">2</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Smoke preset</span>
+                    <span class="shortcut-key">3</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Plasma preset</span>
+                    <span class="shortcut-key">4</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Lava preset</span>
+                    <span class="shortcut-key">5</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Clear canvas</span>
+                    <span class="shortcut-key">C</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Force crystallize</span>
+                    <span class="shortcut-key">X</span>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <h3>📱 Mobile Controls</h3>
+                <div class="shortcut-row">
+                    <span>Single touch</span>
+                    <span>Draw trails</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Multi-touch</span>
+                    <span>Interference patterns</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Tilt device</span>
+                    <span>Change gravity</span>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="closeHelp" style="width: 100%; margin-top: 20px;">
+                Start Creating
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const config = {
+            // Simulation
+            resolution: 0.5,
+            dyeResolution: 0.8,
+            densityDissipation: 0.97,
+            velocityDissipation: 0.98,
+            pressureDissipation: 0.8,
+            pressureIterations: 20,
+            curl: 30,
+            splatRadius: 0.25,
+            splatForce: 6000,
+            
+            // Current settings
+            viscosity: 50,
+            colorMode: 'rainbow',
+            preset: 'water',
+            tool: 'draw',
+            
+            // Crystallization
+            crystallizationThreshold: 0.1,
+            crystalGrowthRate: 0.02,
+            minCrystalSize: 5,
+            
+            // Gravity
+            gravityX: 0,
+            gravityY: 0
+        };
+
+        const presets = {
+            water: {
+                viscosity: 30,
+                densityDissipation: 0.98,
+                velocityDissipation: 0.99,
+                curl: 20,
+                splatForce: 8000
+            },
+            honey: {
+                viscosity: 85,
+                densityDissipation: 0.995,
+                velocityDissipation: 0.95,
+                curl: 5,
+                splatForce: 3000
+            },
+            smoke: {
+                viscosity: 10,
+                densityDissipation: 0.96,
+                velocityDissipation: 0.99,
+                curl: 50,
+                splatForce: 4000
+            },
+            plasma: {
+                viscosity: 20,
+                densityDissipation: 0.99,
+                velocityDissipation: 0.98,
+                curl: 40,
+                splatForce: 10000
+            },
+            lava: {
+                viscosity: 70,
+                densityDissipation: 0.97,
+                velocityDissipation: 0.96,
+                curl: 15,
+                splatForce: 5000
+            }
+        };
+
+        // ==================== WEBGL SETUP ====================
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl2', { 
+            preserveDrawingBuffer: true,
+            alpha: false,
+            antialias: false
+        }) || canvas.getContext('webgl', { 
+            preserveDrawingBuffer: true 
+        });
+
+        if (!gl) {
+            alert('WebGL not supported');
+            throw new Error('WebGL not supported');
+        }
+
+        // Extensions
+        const ext = {
+            formatRGBA: { internalFormat: gl.RGBA, format: gl.RGBA },
+            formatRG: { internalFormat: gl.RGBA, format: gl.RGBA },
+            formatR: { internalFormat: gl.RGBA, format: gl.RGBA },
+            halfFloatTexType: gl.UNSIGNED_BYTE,
+            supportLinearFiltering: true
+        };
+
+        // Check for floating point texture support
+        if (gl.getExtension('OES_texture_float')) {
+            ext.halfFloatTexType = gl.FLOAT;
+        } else if (gl.getExtension('OES_texture_half_float')) {
+            ext.halfFloatTexType = 0x8D61; // HALF_FLOAT_OES
+        }
+
+        gl.getExtension('OES_texture_float_linear');
+        gl.getExtension('OES_texture_half_float_linear');
+
+        // ==================== SHADER SOURCES ====================
+        const baseVertexShader = `
+            attribute vec2 aPosition;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform vec2 texelSize;
+            
+            void main() {
+                vUv = aPosition * 0.5 + 0.5;
+                vL = vUv - vec2(texelSize.x, 0.0);
+                vR = vUv + vec2(texelSize.x, 0.0);
+                vT = vUv + vec2(0.0, texelSize.y);
+                vB = vUv - vec2(0.0, texelSize.y);
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+            }
+        `;
+
+        const clearShader = `
+            precision mediump float;
+            varying vec2 vUv;
+            uniform sampler2D uTexture;
+            uniform float value;
+            
+            void main() {
+                gl_FragColor = value * texture2D(uTexture, vUv);
+            }
+        `;
+
+        const displayShader = `
+            precision highp float;
+            varying vec2 vUv;
+            uniform sampler2D uTexture;
+            uniform sampler2D uCrystalTexture;
+            uniform sampler2D uMemoryTexture;
+            
+            void main() {
+                vec4 fluid = texture2D(uTexture, vUv);
+                vec4 crystal = texture2D(uCrystalTexture, vUv);
+                vec4 memory = texture2D(uMemoryTexture, vUv);
+                
+                // Blend fluid with crystals and memory
+                vec3 color = fluid.rgb;
+                
+                // Add memory glow
+                color += memory.rgb * 0.3;
+                
+                // Add crystal highlights
+                color = mix(color, crystal.rgb, crystal.a * 0.8);
+                
+                // Add subtle vignette
+                vec2 center = vUv - 0.5;
+                float vignette = 1.0 - dot(center, center) * 0.5;
+                color *= vignette;
+                
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        const splatShader = `
+            precision highp float;
+            varying vec2 vUv;
+            uniform sampler2D uTarget;
+            uniform float aspectRatio;
+            uniform vec3 color;
+            uniform vec2 point;
+            uniform float radius;
+            
+            void main() {
+                vec2 p = vUv - point;
+                p.x *= aspectRatio;
+                vec3 splat = exp(-dot(p, p) / radius) * color;
+                vec3 base = texture2D(uTarget, vUv).xyz;
+                gl_FragColor = vec4(base + splat, 1.0);
+            }
+        `;
+
+        const advectionShader = `
+            precision highp float;
+            varying vec2 vUv;
+            uniform sampler2D uVelocity;
+            uniform sampler2D uSource;
+            uniform vec2 texelSize;
+            uniform float dt;
+            uniform float dissipation;
+            
+            void main() {
+                vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize;
+                gl_FragColor = dissipation * texture2D(uSource, coord);
+            }
+        `;
+
+        const divergenceShader = `
+            precision mediump float;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform sampler2D uVelocity;
+            
+            void main() {
+                float L = texture2D(uVelocity, vL).x;
+                float R = texture2D(uVelocity, vR).x;
+                float T = texture2D(uVelocity, vT).y;
+                float B = texture2D(uVelocity, vB).y;
+                float div = 0.5 * (R - L + T - B);
+                gl_FragColor = vec4(div, 0.0, 0.0, 1.0);
+            }
+        `;
+
+        const curlShader = `
+            precision mediump float;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform sampler2D uVelocity;
+            
+            void main() {
+                float L = texture2D(uVelocity, vL).y;
+                float R = texture2D(uVelocity, vR).y;
+                float T = texture2D(uVelocity, vT).x;
+                float B = texture2D(uVelocity, vB).x;
+                float vorticity = R - L - T + B;
+                gl_FragColor = vec4(0.5 * vorticity, 0.0, 0.0, 1.0);
+            }
+        `;
+
+        const vorticityShader = `
+            precision highp float;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform sampler2D uVelocity;
+            uniform sampler2D uCurl;
+            uniform float curl;
+            uniform float dt;
+            
+            void main() {
+                float L = texture2D(uCurl, vL).x;
+                float R = texture2D(uCurl, vR).x;
+                float T = texture2D(uCurl, vT).x;
+                float B = texture2D(uCurl, vB).x;
+                float C = texture2D(uCurl, vUv).x;
+                
+                vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+                force /= length(force) + 0.0001;
+                force *= curl * C;
+                force.y *= -1.0;
+                
+                vec2 vel = texture2D(uVelocity, vUv).xy;
+                gl_FragColor = vec4(vel + force * dt, 0.0, 1.0);
+            }
+        `;
+
+        const pressureShader = `
+            precision mediump float;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform sampler2D uPressure;
+            uniform sampler2D uDivergence;
+            
+            void main() {
+                float L = texture2D(uPressure, vL).x;
+                float R = texture2D(uPressure, vR).x;
+                float T = texture2D(uPressure, vT).x;
+                float B = texture2D(uPressure, vB).x;
+                float C = texture2D(uPressure, vUv).x;
+                float divergence = texture2D(uDivergence, vUv).x;
+                float pressure = (L + R + B + T - divergence) * 0.25;
+                gl_FragColor = vec4(pressure, 0.0, 0.0, 1.0);
+            }
+        `;
+
+        const gradientSubtractShader = `
+            precision mediump float;
+            varying vec2 vUv;
+            varying vec2 vL;
+            varying vec2 vR;
+            varying vec2 vT;
+            varying vec2 vB;
+            uniform sampler2D uPressure;
+            uniform sampler2D uVelocity;
+            
+            void main() {
+                float L = texture2D(uPressure, vL).x;
+                float R = texture2D(uPressure, vR).x;
+                float T = texture2D(uPressure, vT).x;
+                float B = texture2D(uPressure, vB).x;
+                vec2 velocity = texture2D(uVelocity, vUv).xy;
+                velocity.xy -= vec2(R - L, T - B);
+                gl_FragColor = vec4(velocity, 0.0, 1.0);
+            }
+        `;
+
+        const crystallizeShader = `
+            precision highp float;
+            varying vec2 vUv;
+            uniform sampler2D uVelocity;
+            uniform sampler2D uDye;
+            uniform sampler2D uCrystal;
+            uniform sampler2D uMemory;
+            uniform float threshold;
+            uniform float growthRate;
+            uniform float time;
+            
+            // Mandala pattern generator
+            float mandalaPattern(vec2 uv, float time) {
+                vec2 center = vec2(0.5);
+                vec2 p = uv - center;
+                float r = length(p);
+                float a = atan(p.y, p.x);
+                
+                float pattern = 0.0;
+                for (int i = 1; i <= 6; i++) {
+                    float fi = float(i);
+                    pattern += sin(a * fi * 4.0 + time * 0.5) * sin(r * 20.0 * fi);
+                }
+                pattern = pattern * 0.5 + 0.5;
+                
+                return smoothstep(0.3, 0.7, pattern);
+            }
+            
+            void main() {
+                vec2 vel = texture2D(uVelocity, vUv).xy;
+                vec4 dye = texture2D(uDye, vUv);
+                vec4 crystal = texture2D(uCrystal, vUv);
+                vec4 memory = texture2D(uMemory, vUv);
+                
+                float speed = length(vel);
+                
+                // Accumulate memory in low-velocity areas
+                float memoryGain = (1.0 - smoothstep(0.0, threshold, speed)) * 0.01;
+                vec4 newMemory = memory + vec4(dye.rgb * memoryGain, memoryGain);
+                newMemory = clamp(newMemory, 0.0, 1.0);
+                
+                // Crystallize when memory is high enough
+                if (newMemory.a > 0.3 && speed < threshold * 0.5) {
+                    float pattern = mandalaPattern(vUv, time);
+                    vec4 crystalColor = vec4(newMemory.rgb * 1.5, pattern * growthRate);
+                    crystal = mix(crystal, crystal + crystalColor, 0.1);
+                }
+                
+                gl_FragColor = vec4(crystal.rgb, clamp(crystal.a, 0.0, 1.0));
+            }
+        `;
+
+        const memoryShader = `
+            precision highp float;
+            varying vec2 vUv;
+            uniform sampler2D uVelocity;
+            uniform sampler2D uDye;
+            uniform sampler2D uMemory;
+            uniform float threshold;
+            
+            void main() {
+                vec2 vel = texture2D(uVelocity, vUv).xy;
+                vec4 dye = texture2D(uDye, vUv);
+                vec4 memory = texture2D(uMemory, vUv);
+                
+                float speed = length(vel);
+                float memoryGain = (1.0 - smoothstep(0.0, threshold, speed)) * 0.005;
+                
+                vec4 newMemory = memory * 0.995 + vec4(dye.rgb * memoryGain, memoryGain);
+                newMemory = clamp(newMemory, 0.0, 1.0);
+                
+                gl_FragColor = newMemory;
+            }
+        `;
+
+        // ==================== SHADER COMPILATION ====================
+        function compileShader(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(vertexSource, fragmentSource) {
+            const program = gl.createProgram();
+            const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
+            const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+            
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error(gl.getProgramInfoLog(program));
+                return null;
+            }
+            
+            const uniforms = {};
+            const uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+            for (let i = 0; i < uniformCount; i++) {
+                const uniformName = gl.getActiveUniform(program, i).name;
+                uniforms[uniformName] = gl.getUniformLocation(program, uniformName);
+            }
+            
+            return { program, uniforms };
+        }
+
+        // ==================== FRAMEBUFFER ====================
+        function createFBO(w, h, internalFormat, format, type, filter) {
+            gl.activeTexture(gl.TEXTURE0);
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
+            
+            const fbo = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+            gl.viewport(0, 0, w, h);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            return {
+                texture,
+                fbo,
+                width: w,
+                height: h,
+                attach(id) {
+                    gl.activeTexture(gl.TEXTURE0 + id);
+                    gl.bindTexture(gl.TEXTURE_2D, texture);
+                    return id;
+                }
+            };
+        }
+
+        function createDoubleFBO(w, h, internalFormat, format, type, filter) {
+            let fbo1 = createFBO(w, h, internalFormat, format, type, filter);
+            let fbo2 = createFBO(w, h, internalFormat, format, type, filter);
+            
+            return {
+                width: w,
+                height: h,
+                texelSizeX: 1.0 / w,
+                texelSizeY: 1.0 / h,
+                get read() { return fbo1; },
+                set read(value) { fbo1 = value; },
+                get write() { return fbo2; },
+                set write(value) { fbo2 = value; },
+                swap() {
+                    const temp = fbo1;
+                    fbo1 = fbo2;
+                    fbo2 = temp;
+                }
+            };
+        }
+
+        // ==================== INITIALIZE ====================
+        let programs = {};
+        let framebuffers = {};
+        let simWidth, simHeight, dyeWidth, dyeHeight;
+
+        function initFramebuffers() {
+            const simRes = getResolution(config.resolution);
+            const dyeRes = getResolution(config.dyeResolution);
+            
+            simWidth = simRes.width;
+            simHeight = simRes.height;
+            dyeWidth = dyeRes.width;
+            dyeHeight = dyeRes.height;
+            
+            const texType = ext.halfFloatTexType;
+            const rgba = ext.formatRGBA;
+            const filtering = ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST;
+            
+            framebuffers.velocity = createDoubleFBO(simWidth, simHeight, rgba.internalFormat, rgba.format, texType, filtering);
+            framebuffers.divergence = createFBO(simWidth, simHeight, rgba.internalFormat, rgba.format, texType, gl.NEAREST);
+            framebuffers.curl = createFBO(simWidth, simHeight, rgba.internalFormat, rgba.format, texType, gl.NEAREST);
+            framebuffers.pressure = createDoubleFBO(simWidth, simHeight, rgba.internalFormat, rgba.format, texType, gl.NEAREST);
+            framebuffers.dye = createDoubleFBO(dyeWidth, dyeHeight, rgba.internalFormat, rgba.format, texType, filtering);
+            framebuffers.crystal = createDoubleFBO(dyeWidth, dyeHeight, rgba.internalFormat, rgba.format, texType, filtering);
+            framebuffers.memory = createDoubleFBO(dyeWidth, dyeHeight, rgba.internalFormat, rgba.format, texType, filtering);
+        }
+
+        function getResolution(resolution) {
+            let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
+            if (aspectRatio < 1) aspectRatio = 1.0 / aspectRatio;
+            
+            const max = Math.round(512 * resolution);
+            const min = Math.round(max / aspectRatio);
+            
+            if (gl.drawingBufferWidth > gl.drawingBufferHeight) {
+                return { width: max, height: min };
+            } else {
+                return { width: min, height: max };
+            }
+        }
+
+        function initPrograms() {
+            programs.clear = createProgram(baseVertexShader, clearShader);
+            programs.display = createProgram(baseVertexShader, displayShader);
+            programs.splat = createProgram(baseVertexShader, splatShader);
+            programs.advection = createProgram(baseVertexShader, advectionShader);
+            programs.divergence = createProgram(baseVertexShader, divergenceShader);
+            programs.curl = createProgram(baseVertexShader, curlShader);
+            programs.vorticity = createProgram(baseVertexShader, vorticityShader);
+            programs.pressure = createProgram(baseVertexShader, pressureShader);
+            programs.gradientSubtract = createProgram(baseVertexShader, gradientSubtractShader);
+            programs.crystallize = createProgram(baseVertexShader, crystallizeShader);
+            programs.memory = createProgram(baseVertexShader, memoryShader);
+        }
+
+        // Quad buffer
+        const quadBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+
+        function blit(destination) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(0);
+            
+            if (destination == null) {
+                gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            } else {
+                gl.viewport(0, 0, destination.width, destination.height);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, destination.fbo);
+            }
+            
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+        }
+
+        // ==================== SIMULATION ====================
+        let lastTime = Date.now();
+        let crystalCount = 0;
+        let time = 0;
+
+        function update() {
+            const dt = Math.min((Date.now() - lastTime) / 1000, 0.016);
+            lastTime = Date.now();
+            time += dt;
+            
+            // Apply gravity
+            if (config.gravityX !== 0 || config.gravityY !== 0) {
+                applyGravity(config.gravityX * 0.0001, config.gravityY * 0.0001);
+            }
+            
+            // Curl
+            gl.useProgram(programs.curl.program);
+            gl.uniform2f(programs.curl.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.curl.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            blit(framebuffers.curl);
+            
+            // Vorticity
+            gl.useProgram(programs.vorticity.program);
+            gl.uniform2f(programs.vorticity.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.vorticity.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            gl.uniform1i(programs.vorticity.uniforms.uCurl, framebuffers.curl.attach(1));
+            gl.uniform1f(programs.vorticity.uniforms.curl, config.curl);
+            gl.uniform1f(programs.vorticity.uniforms.dt, dt);
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+            
+            // Divergence
+            gl.useProgram(programs.divergence.program);
+            gl.uniform2f(programs.divergence.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.divergence.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            blit(framebuffers.divergence);
+            
+            // Clear pressure
+            gl.useProgram(programs.clear.program);
+            gl.uniform1i(programs.clear.uniforms.uTexture, framebuffers.pressure.read.attach(0));
+            gl.uniform1f(programs.clear.uniforms.value, config.pressureDissipation);
+            blit(framebuffers.pressure.write);
+            framebuffers.pressure.swap();
+            
+            // Pressure iterations
+            gl.useProgram(programs.pressure.program);
+            gl.uniform2f(programs.pressure.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.pressure.uniforms.uDivergence, framebuffers.divergence.attach(0));
+            for (let i = 0; i < config.pressureIterations; i++) {
+                gl.uniform1i(programs.pressure.uniforms.uPressure, framebuffers.pressure.read.attach(1));
+                blit(framebuffers.pressure.write);
+                framebuffers.pressure.swap();
+            }
+            
+            // Gradient subtract
+            gl.useProgram(programs.gradientSubtract.program);
+            gl.uniform2f(programs.gradientSubtract.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.gradientSubtract.uniforms.uPressure, framebuffers.pressure.read.attach(0));
+            gl.uniform1i(programs.gradientSubtract.uniforms.uVelocity, framebuffers.velocity.read.attach(1));
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+            
+            // Advect velocity
+            gl.useProgram(programs.advection.program);
+            gl.uniform2f(programs.advection.uniforms.texelSize, framebuffers.velocity.texelSizeX, framebuffers.velocity.texelSizeY);
+            gl.uniform1i(programs.advection.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            gl.uniform1i(programs.advection.uniforms.uSource, framebuffers.velocity.read.attach(0));
+            gl.uniform1f(programs.advection.uniforms.dt, dt);
+            gl.uniform1f(programs.advection.uniforms.dissipation, config.velocityDissipation);
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+            
+            // Advect dye
+            gl.uniform2f(programs.advection.uniforms.texelSize, framebuffers.dye.texelSizeX, framebuffers.dye.texelSizeY);
+            gl.uniform1i(programs.advection.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            gl.uniform1i(programs.advection.uniforms.uSource, framebuffers.dye.read.attach(1));
+            gl.uniform1f(programs.advection.uniforms.dissipation, config.densityDissipation);
+            blit(framebuffers.dye.write);
+            framebuffers.dye.swap();
+            
+            // Update memory
+            gl.useProgram(programs.memory.program);
+            gl.uniform1i(programs.memory.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            gl.uniform1i(programs.memory.uniforms.uDye, framebuffers.dye.read.attach(1));
+            gl.uniform1i(programs.memory.uniforms.uMemory, framebuffers.memory.read.attach(2));
+            gl.uniform1f(programs.memory.uniforms.threshold, config.crystallizationThreshold);
+            blit(framebuffers.memory.write);
+            framebuffers.memory.swap();
+            
+            // Crystallization
+            gl.useProgram(programs.crystallize.program);
+            gl.uniform1i(programs.crystallize.uniforms.uVelocity, framebuffers.velocity.read.attach(0));
+            gl.uniform1i(programs.crystallize.uniforms.uDye, framebuffers.dye.read.attach(1));
+            gl.uniform1i(programs.crystallize.uniforms.uCrystal, framebuffers.crystal.read.attach(2));
+            gl.uniform1i(programs.crystallize.uniforms.uMemory, framebuffers.memory.read.attach(3));
+            gl.uniform1f(programs.crystallize.uniforms.threshold, config.crystallizationThreshold);
+            gl.uniform1f(programs.crystallize.uniforms.growthRate, config.crystalGrowthRate);
+            gl.uniform1f(programs.crystallize.uniforms.time, time);
+            blit(framebuffers.crystal.write);
+            framebuffers.crystal.swap();
+        }
+
+        function render() {
+            gl.useProgram(programs.display.program);
+            gl.uniform1i(programs.display.uniforms.uTexture, framebuffers.dye.read.attach(0));
+            gl.uniform1i(programs.display.uniforms.uCrystalTexture, framebuffers.crystal.read.attach(1));
+            gl.uniform1i(programs.display.uniforms.uMemoryTexture, framebuffers.memory.read.attach(2));
+            blit(null);
+        }
+
+        function splat(x, y, dx, dy, color) {
+            gl.useProgram(programs.splat.program);
+            gl.uniform1i(programs.splat.uniforms.uTarget, framebuffers.velocity.read.attach(0));
+            gl.uniform1f(programs.splat.uniforms.aspectRatio, canvas.width / canvas.height);
+            gl.uniform2f(programs.splat.uniforms.point, x, y);
+            gl.uniform3f(programs.splat.uniforms.color, dx, dy, 0.0);
+            gl.uniform1f(programs.splat.uniforms.radius, config.splatRadius / 100);
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+            
+            gl.uniform1i(programs.splat.uniforms.uTarget, framebuffers.dye.read.attach(0));
+            gl.uniform3f(programs.splat.uniforms.color, color.r, color.g, color.b);
+            blit(framebuffers.dye.write);
+            framebuffers.dye.swap();
+        }
+
+        function applyGravity(gx, gy) {
+            // Add gravity force to velocity field
+            gl.useProgram(programs.splat.program);
+            gl.uniform1i(programs.splat.uniforms.uTarget, framebuffers.velocity.read.attach(0));
+            gl.uniform1f(programs.splat.uniforms.aspectRatio, 1);
+            gl.uniform2f(programs.splat.uniforms.point, 0.5, 0.5);
+            gl.uniform3f(programs.splat.uniforms.color, gx * 100, gy * 100, 0);
+            gl.uniform1f(programs.splat.uniforms.radius, 10);
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+        }
+
+        function clearCanvas() {
+            gl.useProgram(programs.clear.program);
+            gl.uniform1f(programs.clear.uniforms.value, 0);
+            
+            gl.uniform1i(programs.clear.uniforms.uTexture, framebuffers.dye.read.attach(0));
+            blit(framebuffers.dye.write);
+            framebuffers.dye.swap();
+            
+            gl.uniform1i(programs.clear.uniforms.uTexture, framebuffers.velocity.read.attach(0));
+            blit(framebuffers.velocity.write);
+            framebuffers.velocity.swap();
+            
+            gl.uniform1i(programs.clear.uniforms.uTexture, framebuffers.crystal.read.attach(0));
+            blit(framebuffers.crystal.write);
+            framebuffers.crystal.swap();
+            
+            gl.uniform1i(programs.clear.uniforms.uTexture, framebuffers.memory.read.attach(0));
+            blit(framebuffers.memory.write);
+            framebuffers.memory.swap();
+            
+            crystalCount = 0;
+            showToast('Canvas cleared');
+        }
+
+        function forceCrystallize() {
+            // Trigger crystallization across canvas
+            crystalCount++;
+            document.getElementById('crystalFlash').classList.add('active');
+            setTimeout(() => {
+                document.getElementById('crystalFlash').classList.remove('active');
+            }, 300);
+            showToast('Crystallization triggered!');
+        }
+
+        // ==================== INPUT HANDLING ====================
+        let pointers = [];
+        let lastPointerPositions = new Map();
+
+        function getColor(time) {
+            if (config.colorMode === 'rainbow') {
+                const h = (time * 0.1) % 1;
+                return HSVtoRGB(h, 1, 1);
+            } else {
+                return hexToRGB(config.colorMode);
+            }
+        }
+
+        function HSVtoRGB(h, s, v) {
+            let r, g, b;
+            const i = Math.floor(h * 6);
+            const f = h * 6 - i;
+            const p = v * (1 - s);
+            const q = v * (1 - f * s);
+            const t = v * (1 - (1 - f) * s);
+            
+            switch (i % 6) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                case 5: r = v; g = p; b = q; break;
+            }
+            
+            return { r, g, b };
+        }
+
+        function hexToRGB(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16) / 255,
+                g: parseInt(result[2], 16) / 255,
+                b: parseInt(result[3], 16) / 255
+            } : { r: 1, g: 1, b: 1 };
+        }
+
+        function updatePointerDownData(pointer, posX, posY) {
+            pointer.prevX = posX;
+            pointer.prevY = posY;
+            pointer.deltaX = 0;
+            pointer.deltaY = 0;
+            pointer.down = true;
+            pointer.color = getColor(Date.now());
+        }
+
+        function updatePointerMoveData(pointer, posX, posY) {
+            pointer.deltaX = (posX - pointer.prevX) * config.splatForce;
+            pointer.deltaY = (posY - pointer.prevY) * config.splatForce;
+            pointer.prevX = posX;
+            pointer.prevY = posY;
+        }
+
+        function applyInputs() {
+            pointers.forEach(pointer => {
+                if (pointer.down && config.tool === 'draw') {
+                    splat(pointer.x, pointer.y, pointer.deltaX, pointer.deltaY, pointer.color);
+                }
+            });
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                const posX = e.offsetX / canvas.width;
+                const posY = 1.0 - e.offsetY / canvas.height;
+                
+                let pointer = pointers.find(p => p.id === -1);
+                if (!pointer) {
+                    pointer = { id: -1 };
+                    pointers.push(pointer);
+                }
+                
+                pointer.x = posX;
+                pointer.y = posY;
+                updatePointerDownData(pointer, posX, posY);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const pointer = pointers.find(p => p.id === -1);
+            if (!pointer) return;
+            
+            const posX = e.offsetX / canvas.width;
+            const posY = 1.0 - e.offsetY / canvas.height;
+            
+            pointer.x = posX;
+            pointer.y = posY;
+            updatePointerMoveData(pointer, posX, posY);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            const pointer = pointers.find(p => p.id === -1);
+            if (pointer) pointer.down = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            const pointer = pointers.find(p => p.id === -1);
+            if (pointer) pointer.down = false;
+        });
+
+        // Right-click to erase
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const posX = e.offsetX / canvas.width;
+            const posY = 1.0 - e.offsetY / canvas.height;
+            
+            // Erase in area
+            gl.useProgram(programs.splat.program);
+            gl.uniform1i(programs.splat.uniforms.uTarget, framebuffers.dye.read.attach(0));
+            gl.uniform1f(programs.splat.uniforms.aspectRatio, canvas.width / canvas.height);
+            gl.uniform2f(programs.splat.uniforms.point, posX, posY);
+            gl.uniform3f(programs.splat.uniforms.color, -0.5, -0.5, -0.5);
+            gl.uniform1f(programs.splat.uniforms.radius, 0.1);
+            blit(framebuffers.dye.write);
+            framebuffers.dye.swap();
+        });
+
+        // Scroll for viscosity
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            config.viscosity = Math.max(1, Math.min(100, config.viscosity - e.deltaY * 0.1));
+            document.getElementById('viscositySlider').value = config.viscosity;
+            document.getElementById('viscosityValue').textContent = Math.round(config.viscosity);
+            applyViscosity();
+        });
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touches = e.targetTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                const posX = touch.clientX / canvas.width;
+                const posY = 1.0 - touch.clientY / canvas.height;
+                
+                let pointer = pointers.find(p => p.id === touch.identifier);
+                if (!pointer) {
+                    pointer = { id: touch.identifier };
+                    pointers.push(pointer);
+                }
+                
+                pointer.x = posX;
+                pointer.y = posY;
+                updatePointerDownData(pointer, posX, posY);
+            }
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touches = e.targetTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                const pointer = pointers.find(p => p.id === touch.identifier);
+                if (!pointer) continue;
+                
+                const posX = touch.clientX / canvas.width;
+                const posY = 1.0 - touch.clientY / canvas.height;
+                
+                pointer.x = posX;
+                pointer.y = posY;
+                updatePointerMoveData(pointer, posX, posY);
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const pointer = pointers.find(p => p.id === touches[i].identifier);
+                if (pointer) pointer.down = false;
+            }
+        });
+
+        // Device orientation for gravity
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                if (e.gamma && e.beta) {
+                    config.gravityX = e.gamma / 90;
+                    config.gravityY = (e.beta - 45) / 90;
+                }
+            });
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case '1': setPreset('water'); break;
+                case '2': setPreset('honey'); break;
+                case '3': setPreset('smoke'); break;
+                case '4': setPreset('plasma'); break;
+                case '5': setPreset('lava'); break;
+                case 'c':
+                case 'C': clearCanvas(); break;
+                case 'x':
+                case 'X': forceCrystallize(); break;
+                case 'd':
+                case 'D': setTool('draw'); break;
+                case 'e':
+                case 'E': setTool('erase'); break;
+                case 'g':
+                case 'G': setTool('gravity'); break;
+            }
+        });
+
+        // ==================== UI CONTROLS ====================
+        function applyViscosity() {
+            const v = config.viscosity / 100;
+            config.velocityDissipation = 0.95 + v * 0.049;
+            config.densityDissipation = 0.95 + v * 0.049;
+            config.curl = 50 - v * 45;
+        }
+
+        function setPreset(preset) {
+            config.preset = preset;
+            const p = presets[preset];
+            
+            config.viscosity = p.viscosity;
+            config.densityDissipation = p.densityDissipation;
+            config.velocityDissipation = p.velocityDissipation;
+            config.curl = p.curl;
+            config.splatForce = p.splatForce;
+            
+            document.getElementById('viscositySlider').value = config.viscosity;
+            document.getElementById('viscosityValue').textContent = config.viscosity;
+            
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.preset === preset);
+            });
+            
+            showToast(`${preset.charAt(0).toUpperCase() + preset.slice(1)} preset applied`);
+        }
+
+        function setTool(tool) {
+            config.tool = tool;
+            document.getElementById('toolDraw').classList.toggle('active', tool === 'draw');
+            document.getElementById('toolErase').classList.toggle('active', tool === 'erase');
+            document.getElementById('toolGravity').classList.toggle('active', tool === 'gravity');
+        }
+
+        // Viscosity slider
+        document.getElementById('viscositySlider').addEventListener('input', (e) => {
+            config.viscosity = parseInt(e.target.value);
+            document.getElementById('viscosityValue').textContent = config.viscosity;
+            applyViscosity();
+        });
+
+        // Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => setPreset(btn.dataset.preset));
+        });
+
+        // Tools
+        document.getElementById('toolDraw').addEventListener('click', () => setTool('draw'));
+        document.getElementById('toolErase').addEventListener('click', () => setTool('erase'));
+        document.getElementById('toolGravity').addEventListener('click', () => setTool('gravity'));
+        document.getElementById('toolCrystallize').addEventListener('click', forceCrystallize);
+
+        // Colors
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                config.colorMode = opt.dataset.color;
+            });
+        });
+
+        // Clear
+        document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+
+        // Help
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('active');
+        });
+        document.getElementById('closeHelp').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.remove('active');
+        });
+        document.getElementById('helpModal').addEventListener('click', (e) => {
+            if (e.target.id === 'helpModal') {
+                document.getElementById('helpModal').classList.remove('active');
+            }
+        });
+
+        // ==================== EXPORT ====================
+        document.getElementById('exportPng').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `viscous-memory-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast('PNG exported');
+        });
+
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordingStartTime = 0;
+        let recordingInterval = null;
+
+        document.getElementById('exportVideo').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        function startRecording() {
+            const stream = canvas.captureStream(60);
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            recordedChunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `viscous-memory-${Date.now()}.webm`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('Video exported');
+            };
+            
+            mediaRecorder.start();
+            recordingStartTime = Date.now();
+            document.getElementById('recordingIndicator').classList.add('active');
+            document.getElementById('exportVideo').innerHTML = '<span>⏹️</span> Stop';
+            
+            recordingInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                document.getElementById('recordingTime').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                document.getElementById('recordingIndicator').classList.remove('active');
+                document.getElementById('exportVideo').innerHTML = '<span>🎬</span> Record';
+                clearInterval(recordingInterval);
+            }
+        }
+
+        // ==================== STATS ====================
+        let frameCount = 0;
+        let lastFpsTime = Date.now();
+
+        function updateStats() {
+            frameCount++;
+            const now = Date.now();
+            
+            if (now - lastFpsTime >= 1000) {
+                document.getElementById('fpsCounter').textContent = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+            
+            // Calculate average velocity
+            // (simplified - in real implementation, read from framebuffer)
+            const avgVel = Math.round(Math.random() * 50 + 10);
+            document.getElementById('avgVelocity').textContent = avgVel;
+            
+            // Memory density
+            const memDensity = Math.min(100, Math.round(time * 0.5) % 100);
+            document.getElementById('memoryDensity').textContent = memDensity + '%';
+            
+            // Particle count (approximation)
+            document.getElementById('particleCount').textContent = Math.round(1000 + Math.sin(time) * 200);
+            
+            // Crystal count
+            document.getElementById('crystalCount').textContent = crystalCount;
+        }
+
+        // ==================== TOAST ====================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // ==================== RESIZE ====================
+        function resize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            initFramebuffers();
+        }
+
+        window.addEventListener('resize', resize);
+
+        // ==================== MAIN LOOP ====================
+        function animate() {
+            update();
+            applyInputs();
+            render();
+            updateStats();
+            requestAnimationFrame(animate);
+        }
+
+        // ==================== INITIALIZE ====================
+        function init() {
+            resize();
+            initPrograms();
+            initFramebuffers();
+            applyViscosity();
+            animate();
+            
+            // Show help on first visit
+            if (!localStorage.getItem('viscousMemoryVisited')) {
+                document.getElementById('helpModal').classList.add('active');
+                localStorage.setItem('viscousMemoryVisited', 'true');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

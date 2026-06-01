@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShatterMind — Focus Fragmentation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#06050e;--bg2:#0c0a1a;--bg3:#14102a;
+--text:#d4d0e8;--text2:#8880a8;--text3:#504870;
+--focus:#50e8c0;--focus2:#30c8a0;--focus3:#20a080;
+--shatter:#f04868;--shatter2:#e03050;
+--warn:#f0a030;--calm:#4080f0;--gold:#f0d050;
+--panel:rgba(12,10,26,.95);--border:rgba(80,232,192,.12)
+}
+html,body{height:100%;overflow:hidden;font-family:'SF Mono','Consolas',monospace;background:var(--bg);color:var(--text)}
+canvas#world{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;cursor:none}
+.ui{position:fixed;z-index:10;pointer-events:none}.ui>*{pointer-events:auto}
+
+.top-bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;padding:8px 16px;gap:12px;background:var(--panel);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);z-index:20}
+.logo{font-size:15px;font-weight:800;letter-spacing:-.5px}.logo .a{color:var(--focus)}.logo .b{color:var(--shatter)}
+.sep{width:1px;height:18px;background:var(--border)}
+.stat{font-size:10px;color:var(--text2)}.stat .v{font-weight:700}
+.stat .v.green{color:var(--focus)}.stat .v.red{color:var(--shatter)}.stat .v.gold{color:var(--gold)}.stat .v.blue{color:var(--calm)}
+
+.focus-bar-wrap{flex:1;max-width:300px;height:12px;background:rgba(255,255,255,.04);border-radius:6px;overflow:hidden;position:relative}
+.focus-bar-fill{height:100%;border-radius:6px;transition:width .3s,background .3s;position:relative}
+.focus-bar-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:barShine 2s infinite}
+@keyframes barShine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.focus-pct{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:rgba(255,255,255,.7);z-index:1}
+
+.btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:rgba(20,16,42,.8);color:var(--text2);cursor:pointer;font-size:10px;font-family:inherit;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--focus);color:var(--text)}
+
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:6px 12px;gap:8px;background:var(--panel);border-top:1px solid var(--border);backdrop-filter:blur(12px);z-index:20;flex-wrap:wrap}
+
+.side-panel{position:fixed;top:36px;right:0;bottom:32px;width:280px;background:var(--panel);border-left:1px solid var(--border);z-index:15;overflow-y:auto;padding:12px;transform:translateX(100%);transition:transform .3s;backdrop-filter:blur(12px)}
+.side-panel.open{transform:translateX(0)}
+.side-panel::-webkit-scrollbar{width:3px}
+.side-panel::-webkit-scrollbar-thumb{background:var(--focus);border-radius:3px}
+.side-panel h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:12px 0 6px;font-weight:600}
+.sp-row{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.02)}
+.sp-row .l{color:var(--text3)}.sp-row .r{color:var(--text2);font-weight:600}
+.sp-card{background:rgba(20,16,42,.6);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px}
+.sp-card .title{font-size:11px;font-weight:700;margin-bottom:4px}
+.meter{height:3px;border-radius:2px;background:rgba(255,255,255,.04);overflow:hidden;margin-top:3px}
+.meter .fill{height:100%;border-radius:2px;transition:width .3s}
+
+.center-msg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:12;pointer-events:none;opacity:0;transition:opacity .5s}
+.center-msg.show{opacity:1}
+.center-msg .big{font-size:32px;font-weight:800;margin-bottom:6px}
+.center-msg .sub{font-size:12px;color:var(--text2);line-height:1.6}
+
+.toast{position:fixed;top:52px;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 20px;font-size:11px;z-index:100;opacity:0;transition:all .3s;pointer-events:none;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.distraction-label{position:fixed;pointer-events:none;z-index:11;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(240,72,104,.15);color:var(--shatter);border:1px solid rgba(240,72,104,.2);animation:driftIn .3s ease;white-space:nowrap}
+@keyframes driftIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<div class="ui">
+<div class="top-bar">
+<div class="logo"><span class="a">Shatter</span><span class="b">Mind</span></div>
+<div class="sep"></div>
+<div class="focus-bar-wrap"><div class="focus-bar-fill" id="focusBar" style="width:100%;background:var(--focus)"></div><span class="focus-pct" id="focusPct">100%</span></div>
+<div class="sep"></div>
+<div class="stat">Fragments: <span class="v red" id="fragCount">1</span></div>
+<div class="stat">Recovered: <span class="v green" id="recCount">0</span></div>
+<div class="stat">Distractions: <span class="v gold" id="distCount">0</span></div>
+<div class="stat">Session: <span class="v blue" id="sessionTime">0:00</span></div>
+<div style="flex:1"></div>
+<button class="btn" id="btnPanel">◧ Stats</button>
+<button class="btn" id="btnHelp">? Help</button>
+</div>
+<div class="bottom-bar">
+<div class="stat" style="font-size:11px;color:var(--text3)">Hold mouse still to focus · Move to attract fragments · Distractions shatter your focus</div>
+<div class="sep" style="height:16px"></div>
+<button class="btn" id="btnReset">↺ Reset</button>
+<button class="btn" id="btnZen">🧘 Zen Mode</button>
+<button class="btn" id="btnChaos">⚡ Chaos Mode</button>
+<button class="btn" id="btnNormal">◉ Normal</button>
+</div>
+<div class="side-panel" id="sidePanel"></div>
+<div class="center-msg" id="centerMsg"><div class="big" id="cmBig"></div><div class="sub" id="cmSub"></div></div>
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+const cv=document.getElementById('world'),ctx=cv.getContext('2d');
+let W,H,dpr;
+function resize(){dpr=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+
+const PI=Math.PI,TAU=PI*2,sin=Math.sin,cos=Math.cos,abs=Math.abs,sqrt=Math.sqrt,min=Math.min,max=Math.max,floor=Math.floor,random=Math.random;
+function lerp(a,b,t){return a+(b-a)*t}
+function clamp(v,a,b){return max(a,min(b,v))}
+function dist(a,b){return sqrt((a.x-b.x)**2+(a.y-b.y)**2)}
+function hsl(h,s,l,a){return`hsla(${h},${s}%,${l}%,${a??1})`}
+function pick(a){return a[floor(random()*a.length)]}
+
+/* ════════════════ DISTRACTIONS DATABASE ════════════════ */
+const DISTRACTIONS=[
+{type:'notification',icon:'🔔',label:'New notification',color:'#f04868',magnitude:0.12,speed:3},
+{type:'email',icon:'📧',label:'Unread email',color:'#f07030',magnitude:0.10,speed:2.5},
+{type:'social',icon:'💬',label:'Social media ping',color:'#e040a0',magnitude:0.15,speed:3.5},
+{type:'news',icon:'📰',label:'Breaking news alert',color:'#f0a030',magnitude:0.08,speed:2},
+{type:'thought',icon:'💭',label:'Random thought',color:'#8060d0',magnitude:0.06,speed:1.8},
+{type:'phone',icon:'📱',label:'Phone buzzing',color:'#50a0f0',magnitude:0.14,speed:3.2},
+{type:'hunger',icon:'🍕',label:'Sudden hunger',color:'#f0c040',magnitude:0.05,speed:1.5},
+{type:'noise',icon:'🔊',label:'Background noise',color:'#f06060',magnitude:0.07,speed:2.2},
+{type:'tab',icon:'🌐',label:'"Quick" browser tab',color:'#40c0e0',magnitude:0.13,speed:2.8},
+{type:'meeting',icon:'📅',label:'Upcoming meeting anxiety',color:'#e04040',magnitude:0.11,speed:2.5},
+{type:'music',icon:'🎵',label:'Catchy song stuck in head',color:'#c050e0',magnitude:0.04,speed:1.6},
+{type:'weather',icon:'🌤️',label:'Checked the weather again',color:'#60c0a0',magnitude:0.03,speed:1.4},
+{type:'scroll',icon:'📜',label:'Doom scrolling urge',color:'#f08050',magnitude:0.16,speed:3.8},
+{type:'procrastination',icon:'⏰',label:'Productive procrastination',color:'#d0a040',magnitude:0.09,speed:2.0},
+{type:'daydream',icon:'☁️',label:'Daydream drift',color:'#80a0d0',magnitude:0.07,speed:1.7},
+{type:'snack',icon:'🍿',label:'Snack break calling',color:'#e0b060',magnitude:0.04,speed:1.3},
+{type:'existential',icon:'🌀',label:'Existential pondering',color:'#7050c0',magnitude:0.08,speed:2.1},
+{type:'typo',icon:'⌨️',label:'Noticed a typo somewhere',color:'#a0a0b0',magnitude:0.03,speed:1.2},
+{type:'pet',icon:'🐱',label:'Pet wants attention',color:'#f0a080',magnitude:0.06,speed:1.9},
+{type:'gossip',icon:'👀',label:'Overheard gossip',color:'#e070a0',magnitude:0.10,speed:2.6}
+];
+
+/* ════════════════ FRAGMENT CLASS ════════════════ */
+class Fragment{
+constructor(x,y,size,hue,parent){
+this.x=x;this.y=y;
+this.vx=(random()-.5)*4;this.vy=(random()-.5)*4;
+this.size=size;this.baseSize=size;
+this.hue=hue;this.alpha=1;
+this.rotation=random()*TAU;this.rotSpeed=(random()-.5)*2;
+this.vertices=this.generateShape();
+this.recovering=false;this.recoverTimer=0;
+this.pulse=random()*TAU;
+this.trail=[];this.maxTrail=20;
+this.age=0;this.merged=false;
+this.glow=0;this.parent=parent;
+this.attractForce=0;
+}
+generateShape(){
+const pts=[];const n=3+floor(random()*5);
+for(let i=0;i<n;i++){
+const a=i/n*TAU;
+const r=0.5+random()*0.5;
+pts.push({x:cos(a)*r,y:sin(a)*r});
+}
+return pts;
+}
+update(dt,mouse,focusCenter,recovering){
+this.age+=dt;this.pulse+=dt*2;
+this.rotation+=this.rotSpeed*dt;
+// Physics
+const friction=0.97;
+this.vx*=friction;this.vy*=friction;
+// Attraction to focus center when mouse is still
+if(recovering&&!this.merged){
+const dx=focusCenter.x-this.x;
+const dy=focusCenter.y-this.y;
+const d=sqrt(dx*dx+dy*dy)+1;
+const force=clamp(0.8/d*100,0,3)*this.attractForce;
+this.vx+=dx/d*force*dt*60;
+this.vy+=dy/d*force*dt*60;
+this.glow=lerp(this.glow,0.5,dt*2);
+}else{
+this.glow=lerp(this.glow,0,dt*3);
+}
+// Mouse attraction (gentle)
+if(mouse.active){
+const dx=mouse.x-this.x;
+const dy=mouse.y-this.y;
+const d=sqrt(dx*dx+dy*dy)+1;
+if(d<200){
+const force=0.3*(1-d/200);
+this.vx+=dx/d*force;
+this.vy+=dy/d*force;
+}
+}
+this.x+=this.vx*dt*60;
+this.y+=this.vy*dt*60;
+// Boundary bounce
+const margin=this.size;
+if(this.x<margin){this.x=margin;this.vx=abs(this.vx)*0.7}
+if(this.x>W-margin){this.x=W-margin;this.vx=-abs(this.vx)*0.7}
+if(this.y<40+margin){this.y=40+margin;this.vy=abs(this.vy)*0.7}
+if(this.y>H-40-margin){this.y=H-40-margin;this.vy=-abs(this.vy)*0.7}
+// Trail
+this.trail.push({x:this.x,y:this.y});
+if(this.trail.length>this.maxTrail)this.trail.shift();
+// Attract force ramp
+this.attractForce=lerp(this.attractForce,recovering?1:0,dt*1.5);
+}
+draw(ctx){
+if(this.merged)return;
+const pulseSz=1+sin(this.pulse)*0.08;
+const sz=this.size*pulseSz;
+// Trail
+if(this.trail.length>1){
+for(let i=1;i<this.trail.length;i++){
+const a=(i/this.trail.length)*0.15*this.alpha;
+ctx.strokeStyle=hsl(this.hue,60,55,a);
+ctx.lineWidth=sz*0.3*(i/this.trail.length);
+ctx.beginPath();
+ctx.moveTo(this.trail[i-1].x,this.trail[i-1].y);
+ctx.lineTo(this.trail[i].x,this.trail[i].y);
+ctx.stroke();
+}
+}
+ctx.save();
+ctx.translate(this.x,this.y);
+ctx.rotate(this.rotation);
+// Glow
+if(this.glow>0.01){
+const gr=sz*3;
+const grad=ctx.createRadialGradient(0,0,0,0,0,gr);
+grad.addColorStop(0,hsl(this.hue,70,60,this.glow*0.3));
+grad.addColorStop(1,hsl(this.hue,70,60,0));
+ctx.fillStyle=grad;
+ctx.beginPath();ctx.arc(0,0,gr,0,TAU);ctx.fill();
+}
+// Fragment shape
+ctx.beginPath();
+const v=this.vertices;
+ctx.moveTo(v[0].x*sz,v[0].y*sz);
+for(let i=1;i<v.length;i++)ctx.lineTo(v[i].x*sz,v[i].y*sz);
+ctx.closePath();
+const fGrad=ctx.createRadialGradient(-sz*0.2,-sz*0.2,0,0,0,sz);
+fGrad.addColorStop(0,hsl(this.hue,65,70,this.alpha*0.9));
+fGrad.addColorStop(1,hsl(this.hue,55,40,this.alpha*0.6));
+ctx.fillStyle=fGrad;
+ctx.fill();
+ctx.strokeStyle=hsl(this.hue,50,80,this.alpha*0.3);
+ctx.lineWidth=0.5;
+ctx.stroke();
+// Crack lines
+ctx.strokeStyle=hsl(this.hue,30,30,this.alpha*0.2);
+ctx.lineWidth=0.3;
+for(let i=0;i<v.length;i++){
+ctx.beginPath();ctx.moveTo(0,0);
+ctx.lineTo(v[i].x*sz*0.9,v[i].y*sz*0.9);ctx.stroke();
+}
+ctx.restore();
+}
+}
+
+/* ════════════════ DISTRACTION ENTITY ════════════════ */
+class Distraction{
+constructor(data){
+this.data=data;
+const side=floor(random()*4);
+if(side===0){this.x=-30;this.y=random()*H}
+else if(side===1){this.x=W+30;this.y=random()*H}
+else if(side===2){this.x=random()*W;this.y=-30}
+else{this.x=random()*W;this.y=H+30}
+const tx=W*0.3+random()*W*0.4;
+const ty=H*0.3+random()*H*0.4;
+const dx=tx-this.x,dy=ty-this.y;
+const d=sqrt(dx*dx+dy*dy);
+this.vx=dx/d*data.speed;
+this.vy=dy/d*data.speed;
+this.size=16+data.magnitude*80;
+this.life=1;this.age=0;
+this.hit=false;this.hitTimer=0;
+this.particles=[];
+this.labelEl=null;
+}
+update(dt){
+this.age+=dt;
+if(!this.hit){
+this.x+=this.vx*dt*60;
+this.y+=this.vy*dt*60;
+// Wobble
+this.x+=sin(this.age*3)*0.5;
+this.y+=cos(this.age*2.7)*0.5;
+}else{
+this.hitTimer+=dt;
+this.life=max(0,1-this.hitTimer*2);
+}
+this.particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.08;p.life-=0.025});
+this.particles=this.particles.filter(p=>p.life>0);
+return this.life>0;
+}
+draw(ctx){
+const a=this.life;
+// Warning ring
+if(!this.hit){
+const ringA=0.1+sin(this.age*6)*0.05;
+ctx.strokeStyle=this.data.color+Math.floor(ringA*255).toString(16).padStart(2,'0');
+ctx.lineWidth=1;
+ctx.setLineDash([4,4]);
+ctx.beginPath();ctx.arc(this.x,this.y,this.size+10+sin(this.age*4)*5,0,TAU);ctx.stroke();
+ctx.setLineDash([]);
+}
+// Body glow
+const gr=this.size*2;
+const grad=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,gr);
+grad.addColorStop(0,this.data.color+Math.floor(a*0.2*255).toString(16).padStart(2,'0'));
+grad.addColorStop(1,this.data.color+'00');
+ctx.fillStyle=grad;
+ctx.beginPath();ctx.arc(this.x,this.y,gr,0,TAU);ctx.fill();
+// Core
+ctx.globalAlpha=a;
+ctx.fillStyle=this.data.color;
+ctx.beginPath();ctx.arc(this.x,this.y,this.size*0.5,0,TAU);ctx.fill();
+ctx.font=`${floor(this.size*0.8)}px serif`;
+ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillText(this.data.icon,this.x,this.y);
+ctx.globalAlpha=1;
+// Hit particles
+this.particles.forEach(p=>{
+ctx.globalAlpha=p.life;
+ctx.fillStyle=this.data.color;
+ctx.beginPath();ctx.arc(p.x,p.y,2,0,TAU);ctx.fill();
+});
+ctx.globalAlpha=1;
+}
+explode(){
+this.hit=true;
+for(let i=0;i<20;i++){
+const a=random()*TAU;
+this.particles.push({x:this.x,y:this.y,vx:cos(a)*(2+random()*4),vy:sin(a)*(2+random()*4),life:1});
+}
+}
+}
+
+/* ════════════════ SHATTER EFFECT ════════════════ */
+let shatterFlash={active:false,time:0,x:0,y:0,color:'#f04868',lines:[]};
+function triggerShatter(x,y,color){
+shatterFlash={active:true,time:0,x,y,color,
+lines:Array.from({length:12},()=>({angle:random()*TAU,length:50+random()*150,speed:2+random()*4}))};
+// Screen shake
+screenShake=0.3;
+}
+let screenShake=0;
+function drawShatter(dt){
+if(!shatterFlash.active)return;
+shatterFlash.time+=dt;
+const t=shatterFlash.time;
+const a=max(0,1-t*2);
+if(a<=0){shatterFlash.active=false;return}
+shatterFlash.lines.forEach(l=>{
+const len=l.length*min(1,t*l.speed*3);
+const x2=shatterFlash.x+cos(l.angle)*len;
+const y2=shatterFlash.y+sin(l.angle)*len;
+ctx.strokeStyle=shatterFlash.color+Math.floor(a*0.6*255).toString(16).padStart(2,'0');
+ctx.lineWidth=2*(1-t*1.5);
+ctx.beginPath();
+ctx.moveTo(shatterFlash.x+cos(l.angle)*len*0.3,shatterFlash.y+sin(l.angle)*len*0.3);
+ctx.lineTo(x2,y2);ctx.stroke();
+});
+// Flash ring
+ctx.strokeStyle=shatterFlash.color+Math.floor(a*0.3*255).toString(16).padStart(2,'0');
+ctx.lineWidth=3*a;
+ctx.beginPath();ctx.arc(shatterFlash.x,shatterFlash.y,t*400,0,TAU);ctx.stroke();
+}
+
+/* ════════════════ GAME STATE ════════════════ */
+let fragments=[],distractions=[],activeLabels=[];
+let focusLevel=1,focusPeak=1,totalDistractions=0,totalRecovered=0,totalShattered=0;
+let sessionStart=Date.now();
+let mode='normal'; // normal, zen, chaos
+let mouseStillTime=0,isRecovering=false,recoverProgress=0;
+let mouse={x:W/2,y:H/2,px:W/2,py:H/2,active:false,still:false};
+let focusCenter={x:W/2,y:H/2};
+let distractionTimer=0,distractionInterval=3;
+let breathPhase=0;
+let historyLog=[];
+
+function init(){
+fragments=[new Fragment(W/2,H/2,40,160,null)];
+distractions=[];activeLabels=[];
+focusLevel=1;focusPeak=1;totalDistractions=0;totalRecovered=0;totalShattered=0;
+sessionStart=Date.now();mouseStillTime=0;isRecovering=false;recoverProgress=0;
+distractionTimer=0;historyLog=[];
+focusCenter={x:W/2,y:H/2};
+showCenterMsg('ShatterMind','Hold still to focus. Move gently to gather fragments.\nDistractions will come. They always do.',4000);
+}
+
+/* ════════════════ CORE MECHANICS ════════════════ */
+function shatterFragment(frag,magnitude){
+if(frag.merged||frag.size<4)return[];
+const pieces=2+floor(magnitude*4);
+const newFrags=[];
+for(let i=0;i<pieces;i++){
+const angle=random()*TAU;
+const newSize=frag.size*(0.3+random()*0.3);
+if(newSize<3)continue;
+const nf=new Fragment(
+frag.x+cos(angle)*frag.size*0.5,
+frag.y+sin(angle)*frag.size*0.5,
+newSize,
+frag.hue+(random()-0.5)*30,
+frag
+);
+nf.vx=cos(angle)*(3+magnitude*10);
+nf.vy=sin(angle)*(3+magnitude*10);
+newFrags.push(nf);
+}
+frag.merged=true;
+totalShattered++;
+return newFrags;
+}
+
+function mergeFragments(a,b){
+if(a.merged||b.merged)return null;
+const newSize=sqrt(a.size*a.size+b.size*b.size);
+const nx=(a.x*a.size+b.x*b.size)/(a.size+b.size);
+const ny=(a.y*a.size+b.y*b.size)/(a.size+b.size);
+const nf=new Fragment(nx,ny,newSize,(a.hue+b.hue)/2,null);
+nf.vx=(a.vx+b.vx)*0.5;
+nf.vy=(a.vy+b.vy)*0.5;
+nf.glow=1;
+a.merged=true;b.merged=true;
+totalRecovered++;
+return nf;
+}
+
+function spawnDistraction(){
+const data=pick(DISTRACTIONS);
+const d=new Distraction(data);
+distractions.push(d);
+totalDistractions++;
+// Floating label
+const el=document.createElement('div');
+el.className='distraction-label';
+el.textContent=`${data.icon} ${data.label}`;
+el.style.left=clamp(d.x,10,W-180)+'px';
+el.style.top=clamp(d.y,50,H-50)+'px';
+document.body.appendChild(el);
+activeLabels.push({el,life:2.5,distraction:d});
+historyLog.push({time:Date.now()-sessionStart,type:data.type,label:data.label,magnitude:data.magnitude});
+return d;
+}
+
+/* ════════════════ UPDATE ════════════════ */
+function update(dt){
+breathPhase+=dt*0.8;
+// Mouse stillness detection
+const mouseDelta=sqrt((mouse.x-mouse.px)**2+(mouse.y-mouse.py)**2);
+if(mouseDelta<1.5){
+mouseStillTime+=dt;
+mouse.still=true;
+}else{
+mouseStillTime=0;
+mouse.still=false;
+}
+isRecovering=mouseStillTime>0.8;
+if(isRecovering){
+recoverProgress=min(1,(mouseStillTime-0.8)/2);
+focusCenter.x=lerp(focusCenter.x,mouse.x,dt*2);
+focusCenter.y=lerp(focusCenter.y,mouse.y,dt*2);
+}else{
+recoverProgress=0;
+}
+// Distraction spawning
+const intervals={normal:3.5,zen:8,chaos:1.2};
+distractionInterval=intervals[mode]||3.5;
+distractionTimer+=dt;
+if(distractionTimer>distractionInterval){
+distractionTimer=0;
+spawnDistraction();
+}
+// Update distractions
+distractions=distractions.filter(d=>{
+const alive=d.update(dt);
+if(!d.hit){
+// Check collision with fragments
+const activeFrags=fragments.filter(f=>!f.merged);
+for(const frag of activeFrags){
+if(dist(d,frag)<d.size+frag.size){
+d.explode();
+triggerShatter(frag.x,frag.y,d.data.color);
+const newPieces=shatterFragment(frag,d.data.magnitude);
+fragments.push(...newPieces);
+focusLevel=max(0,focusLevel-d.data.magnitude);
+showToast(`${d.data.icon} ${d.data.label} — Focus shattered!`);
+break;
+}
+}
+// Check if distraction went off screen
+if(d.x<-100||d.x>W+100||d.y<-100||d.y>H+100){
+d.hit=true;d.life=0;
+}
+}
+return alive;
+});
+// Update fragments
+fragments.forEach(f=>f.update(dt,mouse,focusCenter,isRecovering));
+fragments=fragments.filter(f=>!f.merged);
+// Merge nearby fragments when recovering
+if(isRecovering&&recoverProgress>0.3){
+const active=fragments.filter(f=>!f.merged);
+for(let i=0;i<active.length;i++){
+for(let j=i+1;j<active.length;j++){
+const a=active[i],b=active[j];
+if(a.merged||b.merged)continue;
+const d2=dist(a,b);
+if(d2<a.size+b.size+5){
+const merged=mergeFragments(a,b);
+if(merged){
+fragments.push(merged);
+// Check focus recovery
+const activeNow=fragments.filter(f=>!f.merged);
+if(activeNow.length===1){
+focusLevel=min(1,focusLevel+0.2);
+if(focusLevel>focusPeak)focusPeak=focusLevel;
+}
+}
+}
+}
+}
+}
+// Focus level from fragment count
+const activeCount=fragments.filter(f=>!f.merged).length;
+const idealFocus=1/max(1,activeCount);
+focusLevel=lerp(focusLevel,idealFocus,dt*0.5);
+// Update labels
+activeLabels.forEach(l=>{
+l.life-=dt;
+if(l.life>0){
+l.el.style.left=clamp(l.distraction.x,10,W-180)+'px';
+l.el.style.top=clamp(l.distraction.y-30,50,H-50)+'px';
+l.el.style.opacity=min(1,l.life);
+}
+});
+activeLabels=activeLabels.filter(l=>{if(l.life<=0){l.el.remove();return false}return true});
+// Screen shake decay
+screenShake*=0.9;
+// Update HUD
+updateHUD();
+}
+
+/* ════════════════ RENDER ════════════════ */
+function render(dt){
+// Screen shake offset
+const sx=screenShake*(random()-.5)*20;
+const sy=screenShake*(random()-.5)*20;
+ctx.save();
+ctx.translate(sx,sy);
+// Background
+ctx.fillStyle='#06050e';
+ctx.fillRect(-20,-20,W+40,H+40);
+// Background neural network effect
+drawNeuralBG(dt);
+// Focus zone visualization
+if(isRecovering){
+const pr=recoverProgress;
+const rad=60+pr*100;
+const grad=ctx.createRadialGradient(focusCenter.x,focusCenter.y,0,focusCenter.x,focusCenter.y,rad);
+grad.addColorStop(0,hsl(160,70,50,pr*0.08));
+grad.addColorStop(0.7,hsl(160,60,40,pr*0.03));
+grad.addColorStop(1,'rgba(0,0,0,0)');
+ctx.fillStyle=grad;
+ctx.beginPath();ctx.arc(focusCenter.x,focusCenter.y,rad,0,TAU);ctx.fill();
+// Breathing ring
+const breathR=rad*(0.8+sin(breathPhase)*0.2);
+ctx.strokeStyle=hsl(160,60,50,pr*0.2);
+ctx.lineWidth=1.5;
+ctx.beginPath();ctx.arc(focusCenter.x,focusCenter.y,breathR,0,TAU);ctx.stroke();
+}
+// Connection lines between fragments
+const active=fragments.filter(f=>!f.merged);
+for(let i=0;i<active.length;i++){
+for(let j=i+1;j<active.length;j++){
+const d=dist(active[i],active[j]);
+if(d<150){
+const a=0.05*(1-d/150);
+ctx.strokeStyle=hsl(active[i].hue,40,50,a);
+ctx.lineWidth=0.5;
+ctx.beginPath();
+ctx.moveTo(active[i].x,active[i].y);
+ctx.lineTo(active[j].x,active[j].y);
+ctx.stroke();
+}
+}
+}
+// Draw fragments
+active.forEach(f=>f.draw(ctx));
+// Draw distractions
+distractions.forEach(d=>d.draw(ctx));
+// Shatter effect
+drawShatter(dt);
+// Custom cursor
+drawCursor();
+ctx.restore();
+}
+
+function drawNeuralBG(dt){
+const t=performance.now()*0.0002;
+ctx.strokeStyle='rgba(80,60,120,.03)';
+ctx.lineWidth=0.5;
+for(let i=0;i<30;i++){
+const x1=(sin(t+i*1.3)*0.5+0.5)*W;
+const y1=(cos(t*0.8+i*2.1)*0.5+0.5)*H;
+const x2=(sin(t*1.1+i*0.7+2)*0.5+0.5)*W;
+const y2=(cos(t*0.9+i*1.5+3)*0.5+0.5)*H;
+ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+ctx.fillStyle='rgba(80,60,120,.02)';
+ctx.beginPath();ctx.arc(x1,y1,2,0,TAU);ctx.fill();
+}
+// Flowing particles in bg
+for(let i=0;i<15;i++){
+const px=(sin(t*1.2+i*7)*0.5+0.5)*W;
+const py=(cos(t*0.9+i*4.3)*0.5+0.5)*H;
+const a=0.03+sin(t*3+i)*0.015;
+ctx.fillStyle=hsl(160+i*8,30,50,a);
+ctx.beginPath();ctx.arc(px,py,1.5,0,TAU);ctx.fill();
+}
+}
+
+function drawCursor(){
+const cx=mouse.x,cy=mouse.y;
+const focusA=isRecovering?0.4+recoverProgress*0.4:0.2;
+const pulseR=8+sin(breathPhase*2)*2;
+ctx.strokeStyle=hsl(isRecovering?160:280,60,60,focusA);
+ctx.lineWidth=1.5;
+ctx.beginPath();ctx.arc(cx,cy,pulseR,0,TAU);ctx.stroke();
+if(isRecovering){
+const outerR=pulseR+4+recoverProgress*8;
+ctx.strokeStyle=hsl(160,50,50,recoverProgress*0.3);
+ctx.lineWidth=1;
+ctx.setLineDash([3,3]);
+ctx.beginPath();ctx.arc(cx,cy,outerR,breathPhase,breathPhase+PI*1.5);ctx.stroke();
+ctx.setLineDash([]);
+}
+// Center dot
+ctx.fillStyle=hsl(isRecovering?160:280,70,70,focusA+0.2);
+ctx.beginPath();ctx.arc(cx,cy,2,0,TAU);ctx.fill();
+}
+
+/* ════════════════ HUD ════════════════ */
+function updateHUD(){
+const pct=floor(focusLevel*100);
+const bar=document.getElementById('focusBar');
+const barCol=focusLevel>0.7?'var(--focus)':focusLevel>0.4?'var(--warn)':'var(--shatter)';
+bar.style.width=pct+'%';bar.style.background=barCol;
+document.getElementById('focusPct').textContent=pct+'%';
+const activeCount=fragments.filter(f=>!f.merged).length;
+document.getElementById('fragCount').textContent=activeCount;
+document.getElementById('recCount').textContent=totalRecovered;
+document.getElementById('distCount').textContent=totalDistractions;
+const elapsed=floor((Date.now()-sessionStart)/1000);
+const m=floor(elapsed/60);const s=elapsed%60;
+document.getElementById('sessionTime').textContent=m+':'+s.toString().padStart(2,'0');
+}
+
+/* ════════════════ SIDE PANEL ════════════════ */
+function renderSidePanel(){
+const activeCount=fragments.filter(f=>!f.merged).length;
+const elapsed=floor((Date.now()-sessionStart)/1000);
+const dpm=elapsed>0?(totalDistractions/(elapsed/60)).toFixed(1):'0';
+const typeCounts={};
+historyLog.forEach(h=>{typeCounts[h.type]=(typeCounts[h.type]||0)+1});
+const sorted=Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]);
+const recentLog=historyLog.slice(-8).reverse();
+let html=`
+<h4>Focus Analytics</h4>
+<div class="sp-card">
+<div class="sp-row"><span class="l">Focus Level</span><span class="r" style="color:${focusLevel>.7?'var(--focus)':focusLevel>.4?'var(--warn)':'var(--shatter)'}">${floor(focusLevel*100)}%</span></div>
+<div class="sp-row"><span class="l">Peak Focus</span><span class="r" style="color:var(--focus)">${floor(focusPeak*100)}%</span></div>
+<div class="sp-row"><span class="l">Active Fragments</span><span class="r">${activeCount}</span></div>
+<div class="sp-row"><span class="l">Times Recovered</span><span class="r">${totalRecovered}</span></div>
+<div class="sp-row"><span class="l">Times Shattered</span><span class="r">${totalShattered}</span></div>
+<div class="sp-row"><span class="l">Distractions/min</span><span class="r">${dpm}</span></div>
+<div class="sp-row"><span class="l">Mouse State</span><span class="r">${isRecovering?'🧘 Focusing':mouse.still?'⏳ Settling':'👆 Moving'}</span></div>
+<div class="sp-row"><span class="l">Mode</span><span class="r">${mode.charAt(0).toUpperCase()+mode.slice(1)}</span></div>
+</div>
+<h4>Distraction Breakdown</h4>
+<div class="sp-card">${sorted.length?sorted.map(([type,count])=>{
+const d=DISTRACTIONS.find(x=>x.type===type);
+return`<div class="sp-row"><span class="l">${d?d.icon:''} ${d?d.label:type}</span><span class="r">${count}</span></div>`;
+}).join(''):'<div style="color:var(--text3);font-size:10px">No distractions yet</div>'}</div>
+<h4>Recent Events</h4>
+<div class="sp-card">${recentLog.length?recentLog.map(h=>{
+const d=DISTRACTIONS.find(x=>x.type===h.type);
+const t=floor(h.time/1000);
+const tm=floor(t/60)+':'+String(t%60).padStart(2,'0');
+return`<div class="sp-row"><span class="l">${d?d.icon:''} ${h.label}</span><span class="r">${tm}</span></div>`;
+}).join(''):'<div style="color:var(--text3);font-size:10px">—</div>'}</div>
+<h4>The Philosophy</h4>
+<div class="sp-card" style="font-style:italic;font-size:10px;color:var(--text3);line-height:1.6">
+Focus is not a monolith — it is a fragile crystal that shatters under the constant bombardment of modern distractions. Each notification, each urge, each stray thought splinters your attention into smaller, weaker pieces.<br><br>
+But focus can be restored. Stillness attracts the fragments back. Patience reassembles what was broken. The cycle continues — shatter, recover, shatter again — and in that repetition, something beautiful emerges: the pattern of a mind learning to be present.<br><br>
+"The mind is not a vessel to be filled, but a fire to be kindled." — Plutarch
+</div>`;
+document.getElementById('sidePanel').innerHTML=html;
+}
+
+/* ════════════════ UI HELPERS ════════════════ */
+let toastTimer=0;
+function showToast(text){
+const t=document.getElementById('toast');t.textContent=text;t.classList.add('show');
+clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+let centerMsgTimer=0;
+function showCenterMsg(big,sub,dur){
+document.getElementById('cmBig').textContent=big;
+document.getElementById('cmSub').textContent=sub;
+const el=document.getElementById('centerMsg');el.classList.add('show');
+clearTimeout(centerMsgTimer);
+centerMsgTimer=setTimeout(()=>el.classList.remove('show'),dur||3000);
+}
+
+/* ════════════════ EVENTS ════════════════ */
+cv.addEventListener('mousemove',e=>{mouse.px=mouse.x;mouse.py=mouse.y;mouse.x=e.clientX;mouse.y=e.clientY;mouse.active=true});
+cv.addEventListener('touchmove',e=>{const t=e.touches[0];mouse.px=mouse.x;mouse.py=mouse.y;mouse.x=t.clientX;mouse.y=t.clientY;mouse.active=true},{passive:true});
+cv.addEventListener('touchstart',e=>{const t=e.touches[0];mouse.x=t.clientX;mouse.y=t.clientY;mouse.px=t.clientX;mouse.py=t.clientY;mouse.active=true},{passive:true});
+
+document.getElementById('btnPanel').addEventListener('click',()=>{
+const p=document.getElementById('sidePanel');
+p.classList.toggle('open');renderSidePanel();
+});
+document.getElementById('btnHelp').addEventListener('click',()=>{
+showCenterMsg('How to Play',
+'Hold your mouse still to enter Focus mode — fragments attract and merge.\n'+
+'Move gently to guide fragments together.\n'+
+'Distractions arrive and shatter your focus into pieces.\n'+
+'Rebuild. Repeat. Find beauty in the cycle.\n\n'+
+'Keys: Z=Zen, C=Chaos, N=Normal, R=Reset, S=Stats',5000);
+});
+document.getElementById('btnReset').addEventListener('click',()=>{init()});
+document.getElementById('btnZen').addEventListener('click',()=>{mode='zen';showToast('🧘 Zen Mode — Fewer distractions')});
+document.getElementById('btnChaos').addEventListener('click',()=>{mode='chaos';showToast('⚡ Chaos Mode — Maximum distractions')});
+document.getElementById('btnNormal').addEventListener('click',()=>{mode='normal';showToast('◉ Normal Mode')});
+
+document.addEventListener('keydown',e=>{
+if(e.key==='z')document.getElementById('btnZen').click();
+if(e.key==='c')document.getElementById('btnChaos').click();
+if(e.key==='n')document.getElementById('btnNormal').click();
+if(e.key==='r')document.getElementById('btnReset').click();
+if(e.key==='s')document.getElementById('btnPanel').click();
+});
+
+/* ════════════════ MAIN LOOP ════════════════ */
+let lastT=0,panelTimer=0;
+function animate(ts){
+const dt=min((ts-lastT)/1000,0.05);lastT=ts;
+update(dt);
+render(dt);
+panelTimer+=dt;
+if(panelTimer>1&&document.getElementById('sidePanel').classList.contains('open')){
+panelTimer=0;renderSidePanel();
+}
+requestAnimationFrame(animate);
+}
+init();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

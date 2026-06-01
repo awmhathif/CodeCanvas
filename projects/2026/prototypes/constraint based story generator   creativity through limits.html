@@ -1,0 +1,1614 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Constraint‑Based Story Generator — Creativity Through Limits (Single File)</title>
+  <style>
+    :root{
+      --bg:#0e100f;
+      --panel:#171a18;
+      --panel2:#1f2421;
+      --text:#ecece6;
+      --muted:#a7ada4;
+      --line:#2a2f2b;
+      --accent:#d4a24f;     /* warm gold */
+      --accent2:#b85f49;    /* terracotta */
+      --good:#6fbf73;
+      --bad:#d06b6b;
+      --warn:#d4a24f;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      --shadow: 0 14px 34px rgba(0,0,0,.42);
+      --radius: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background:
+        radial-gradient(1100px 800px at 15% 10%, rgba(212,162,79,.10), transparent 55%),
+        radial-gradient(900px 700px at 92% 18%, rgba(184,95,73,.10), transparent 60%),
+        radial-gradient(980px 980px at 50% 110%, rgba(111,191,115,.07), transparent 62%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; gap:14px; align-items:center; justify-content:space-between;
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background:rgba(14,16,15,.84);
+      backdrop-filter: blur(8px);
+    }
+    .title{display:flex; flex-direction:column; gap:2px}
+    .title h1{margin:0; font-size:16px; letter-spacing:.2px; font-weight:900}
+    .title .sub{font-size:12px; color:var(--muted); line-height:1.25}
+    .hdrRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      color:var(--muted);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.12) inset;
+      white-space:nowrap;
+    }
+    .pill b{color:var(--text); font-weight:900; font-family:var(--mono)}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(212,162,79,.18), rgba(212,162,79,.07));
+      color:var(--text);
+      border-radius:12px;
+      padding:9px 12px;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      transition:transform .06s ease, filter .15s ease, background .2s ease;
+      user-select:none;
+      font-size:13px;
+    }
+    .btn.secondary{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      box-shadow:none;
+      font-weight:850;
+    }
+    .btn.danger{background:linear-gradient(180deg, rgba(208,107,107,.20), rgba(208,107,107,.08));}
+    .btn:active{transform:translateY(1px)}
+    .btn:disabled{opacity:.55; cursor:not-allowed; filter:saturate(.7)}
+
+    main{
+      display:grid;
+      grid-template-columns: 440px 1fr 380px;
+      gap:14px;
+      padding:14px;
+      max-width: 1560px;
+      margin:0 auto;
+    }
+    @media (max-width: 1180px){
+      main{grid-template-columns: 1fr}
+      header{position:static}
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      min-height: 180px;
+    }
+    .ph{
+      padding:12px 12px 10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background: rgba(0,0,0,.12);
+      border-bottom:1px solid var(--line);
+    }
+    .ph h2{margin:0; font-size:13px; letter-spacing:.2px; font-weight:950}
+    .ph .hint{font-size:12px; color:var(--muted); white-space:nowrap}
+    .pb{padding:12px}
+
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px}
+    input[type="text"], input[type="number"], select, textarea{
+      width:100%;
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.22);
+      color:var(--text);
+      border-radius:12px;
+      padding:9px 10px;
+      outline:none;
+      font-size:13px;
+    }
+    textarea{min-height:120px; resize:vertical; line-height:1.35}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px}
+    .small{font-size:12px; color:var(--muted); line-height:1.35}
+    .mono{font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .k{
+      padding:2px 6px; border:1px solid var(--line); border-radius:8px;
+      background:rgba(255,255,255,.03); font-family:var(--mono); font-size:12px; color:var(--text)
+    }
+    .mutedLine{height:1px; background:rgba(255,255,255,.06); margin:10px 0}
+
+    .chipRow{display:flex; flex-wrap:wrap; gap:8px}
+    .chip{
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.18);
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:12px;
+      color:var(--text);
+      cursor:pointer;
+      user-select:none;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .chip small{color:var(--muted); font-size:11px; font-family:var(--mono)}
+    .chip:hover{border-color: rgba(212,162,79,.35)}
+    .chip.on{
+      border-color: rgba(111,191,115,.35);
+      background: rgba(111,191,115,.10);
+    }
+
+    .scoreBar{
+      height:10px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .scoreBar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(111,191,115,.85), rgba(212,162,79,.85), rgba(184,95,73,.85));
+    }
+
+    .story{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(0,0,0,.18);
+      padding:12px;
+      min-height: 520px;
+      white-space: pre-wrap;
+      line-height:1.45;
+      font-size:14px;
+    }
+    .story .meta{
+      color:var(--muted);
+      font-size:12px;
+      font-family:var(--mono);
+      margin-bottom:10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding-bottom:10px;
+    }
+    .story .warn{
+      margin-top:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(212,162,79,.25);
+      background:rgba(212,162,79,.07);
+      font-size:12.5px;
+      color:var(--text);
+    }
+
+    .list{
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(0,0,0,.18);
+      max-height: 420px;
+      overflow:auto;
+    }
+    .item{
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding:10px 10px;
+    }
+    .item:last-child{border-bottom:none}
+    .item .top{
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:11px; padding:3px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      font-family:var(--mono);
+      white-space:nowrap;
+    }
+    .item .txt{margin-top:6px; font-size:13px; line-height:1.35; color:var(--text)}
+    .item .meta{margin-top:6px; font-size:11.5px; color:var(--muted); font-family:var(--mono); line-height:1.35}
+    .warnBox{
+      border:1px solid rgba(212,162,79,.35);
+      background:rgba(212,162,79,.08);
+      padding:10px 10px;
+      border-radius:12px;
+      color:var(--text);
+      font-size:12.5px;
+      line-height:1.35;
+    }
+    .warnBox b{color:var(--accent)}
+    .toast{
+      position:fixed; right:16px; bottom:16px; z-index:100;
+      max-width: 480px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px 12px;
+      background:rgba(18,20,19,.95);
+      box-shadow: var(--shadow);
+      display:none;
+    }
+    .toast.show{display:block}
+    .toast .t1{font-size:13px; font-weight:950}
+    .toast .t2{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.3}
+    .dangerText{color:var(--bad)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>Constraint‑Based Story Generator</h1>
+    <div class="sub">Add more limits → the generator must invent smarter ways to satisfy them. (Offline, no AI APIs.)</div>
+  </div>
+  <div class="hdrRight">
+    <div class="pill">Constraints: <b id="hdrC">0</b></div>
+    <div class="pill">Creativity score: <b id="hdrScore">—</b></div>
+    <button class="btn secondary" id="btnPreset">Preset constraints</button>
+    <button class="btn secondary" id="btnCopy">Copy story</button>
+    <button class="btn secondary" id="btnExport">Export</button>
+    <button class="btn secondary" id="btnImport">Import</button>
+    <button class="btn danger" id="btnReset">Reset</button>
+    <button class="btn" id="btnGenerate">Generate</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Constraints -->
+  <section class="panel">
+    <div class="ph">
+      <h2>Constraints</h2>
+      <div class="hint">Keys: <span class="k">Ctrl</span>+<span class="k">Enter</span> generate</div>
+    </div>
+    <div class="pb">
+      <div class="warnBox">
+        <b>How it works:</b> This is a procedural writer with a constraint solver. It will try to satisfy every limit; if it can’t, it will explain which constraints conflict.
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="genre">Genre</label>
+          <select id="genre">
+            <option value="literary">Literary</option>
+            <option value="mystery">Mystery</option>
+            <option value="sci-fi">Sci‑Fi</option>
+            <option value="fantasy">Fantasy</option>
+            <option value="horror">Horror</option>
+            <option value="romance">Romance</option>
+            <option value="comedy">Comedy</option>
+            <option value="fable">Fable</option>
+          </select>
+        </div>
+        <div>
+          <label for="tone">Tone</label>
+          <select id="tone">
+            <option value="warm">Warm</option>
+            <option value="tense">Tense</option>
+            <option value="bittersweet" selected>Bittersweet</option>
+            <option value="hopeful">Hopeful</option>
+            <option value="grim">Grim</option>
+            <option value="absurd">Absurd</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="len">Length</label>
+          <select id="len">
+            <option value="micro">Micro (120–220 words)</option>
+            <option value="short" selected>Short (260–420 words)</option>
+            <option value="medium">Medium (520–850 words)</option>
+          </select>
+        </div>
+        <div>
+          <label for="seed">Seed (repeatable)</label>
+          <input id="seed" type="text" value="constraints-make-creativity"/>
+        </div>
+      </div>
+
+      <label>Constraint toggles (more = harder = more inventive)</label>
+      <div class="chipRow" id="chips"></div>
+
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label for="mustInclude">Must include words/phrases (comma separated)</label>
+          <input id="mustInclude" type="text" placeholder="e.g., lemon, elevator, forgive me"/>
+        </div>
+        <div>
+          <label for="avoidWords">Avoid words/phrases (comma separated)</label>
+          <input id="avoidWords" type="text" placeholder="e.g., love, kill, magic"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="openingLine">Opening line (optional)</label>
+          <input id="openingLine" type="text" placeholder="Give the story a first sentence..."/>
+        </div>
+        <div>
+          <label for="endingLine">Ending line (optional)</label>
+          <input id="endingLine" type="text" placeholder="Force a final sentence..."/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="acrostic">Acrostic (first letters of paragraphs)</label>
+          <input id="acrostic" type="text" placeholder="e.g., SECRET (leave blank for none)"/>
+          <div class="small">If set, the story will have that many paragraphs, each starting with the corresponding letter.</div>
+        </div>
+        <div>
+          <label for="pov">Point of view</label>
+          <select id="pov">
+            <option value="first" selected>First person</option>
+            <option value="second">Second person</option>
+            <option value="third">Third person</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mutedLine"></div>
+
+      <label for="io">Import / Export</label>
+      <textarea id="io" class="mono" placeholder="Exported JSON appears here. Paste JSON here and click Import."></textarea>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn secondary" id="btnExplain">Explain constraints</button>
+        <button class="btn secondary" id="btnValidate">Validate only</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CENTER: Story output -->
+  <section class="panel">
+    <div class="ph">
+      <h2>Story</h2>
+      <div class="hint"><span id="status">Ready.</span></div>
+    </div>
+    <div class="pb">
+      <div class="pill" style="margin-bottom:10px; display:inline-block">
+        Target: <b id="targetMeta">—</b>
+      </div>
+      <div class="scoreBar" title="Creativity score increases with constraint count and satisfaction quality">
+        <i id="scoreFill"></i>
+      </div>
+      <div class="story" id="story">
+        <div class="meta">No story yet. Add constraints and click Generate.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Diagnostics / Attempts -->
+  <section class="panel">
+    <div class="ph">
+      <h2>Diagnostics</h2>
+      <div class="hint">Why it worked (or didn’t)</div>
+    </div>
+    <div class="pb">
+      <div class="row3">
+        <div class="pill">Attempts: <b id="statAttempts">0</b></div>
+        <div class="pill">Satisfied: <b id="statSat">—</b></div>
+        <div class="pill">Conflicts: <b id="statConf">—</b></div>
+      </div>
+
+      <div class="mutedLine"></div>
+
+      <div class="warnBox" id="diagBox">
+        <b>Tip:</b> Add “Must include” phrases + “Avoid” words + an acrostic to force surprising detours.
+      </div>
+
+      <div class="mutedLine"></div>
+
+      <div class="list" id="attempts"></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast">
+  <div class="t1" id="toast1">—</div>
+  <div class="t2" id="toast2">—</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const SAVE_KEY = "constraint_story_gen_v1";
+  const $ = (s) => document.querySelector(s);
+
+  const UI = {
+    genre: $("#genre"),
+    tone: $("#tone"),
+    len: $("#len"),
+    seed: $("#seed"),
+    mustInclude: $("#mustInclude"),
+    avoidWords: $("#avoidWords"),
+    openingLine: $("#openingLine"),
+    endingLine: $("#endingLine"),
+    acrostic: $("#acrostic"),
+    pov: $("#pov"),
+    chips: $("#chips"),
+
+    btnGenerate: $("#btnGenerate"),
+    btnPreset: $("#btnPreset"),
+    btnCopy: $("#btnCopy"),
+    btnExport: $("#btnExport"),
+    btnImport: $("#btnImport"),
+    btnReset: $("#btnReset"),
+    btnExplain: $("#btnExplain"),
+    btnValidate: $("#btnValidate"),
+
+    io: $("#io"),
+    status: $("#status"),
+    story: $("#story"),
+    attempts: $("#attempts"),
+
+    hdrC: $("#hdrC"),
+    hdrScore: $("#hdrScore"),
+    targetMeta: $("#targetMeta"),
+    scoreFill: $("#scoreFill"),
+
+    statAttempts: $("#statAttempts"),
+    statSat: $("#statSat"),
+    statConf: $("#statConf"),
+    diagBox: $("#diagBox"),
+
+    toast: $("#toast"),
+    toast1: $("#toast1"),
+    toast2: $("#toast2"),
+  };
+
+  function toast(a,b=""){
+    UI.toast1.textContent = a;
+    UI.toast2.textContent = b;
+    UI.toast.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>UI.toast.classList.remove("show"), 2400);
+  }
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+
+  // --- Seeded RNG ---
+  function xmur3(str){
+    let h = 1779033703 ^ str.length;
+    for (let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= (h >>> 16);
+      return h >>> 0;
+    };
+  }
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
+  }
+  function makeRng(seedStr){
+    const seed = xmur3(seedStr);
+    return sfc32(seed(), seed(), seed(), seed());
+  }
+  function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+  function shuffle(rng, arr){
+    const a = arr.slice();
+    for (let i=a.length-1;i>0;i--){
+      const j = Math.floor(rng()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  // --- Constraints toggles ---
+  const TOGGLES = [
+    {id:"noE", label:"Lipogram: no letter “e”", w: 2.4, desc:"Avoid the most common letter. Forces synonyms and odd phrasing."},
+    {id:"pal", label:"Palindrome-ish lines (some)", w: 1.2, desc:"Injects mirrored phrasing occasionally."},
+    {id:"alliteration", label:"Alliteration bursts", w: 1.1, desc:"A few sentences with matching starting sounds."},
+    {id:"objectLoop", label:"Chekhov object returns", w: 1.4, desc:"An object introduced early must matter later."},
+    {id:"ruleOf3", label:"Rule of three", w: 0.9, desc:"Triples and triads structure beats."},
+    {id:"dialogue", label:"At least 4 dialogue lines", w: 1.0, desc:"Enforces character voice."},
+    {id:"twist", label:"Final twist (reframe)", w: 1.0, desc:"Ending changes how earlier scenes read."},
+    {id:"singleLocation", label:"Single location only", w: 0.9, desc:"All scenes stay in one place."},
+    {id:"timeBox", label:"Story happens in ≤ 1 hour", w: 0.9, desc:"Compresses pacing."},
+    {id:"twoChars", label:"Only 2 named characters", w: 1.0, desc:"Forces tension into few relationships."},
+    {id:"avoidI", label:"Avoid the word “I” (hard in 1st POV)", w: 2.0, desc:"Pushes sentence restructuring."},
+    {id:"sensory", label:"Include all 5 senses", w: 0.8, desc:"Adds specific detail requirements."},
+  ];
+
+  // --- Lexicons (lightweight) ---
+  const LEX = {
+    names: ["Mara","Noah","Inez","Soren","Leila","Ash","Jun","Rafi","Ada","Tess","Oren","Pia","Milo","Vera"],
+    places: ["a laundromat","a small museum","a night market stall","an old elevator","a quiet kitchen","a rooftop greenhouse","a train platform","a repair shop","a community library","a diner"],
+    objects: ["a cracked compass","a paper crown","a key without a lock","a lemon wrapped in cloth","a thrift‑store ring","a jar of buttons","a ticket stub","a tiny hourglass","a cassette tape","a folded map"],
+    verbs: ["stitch","borrow","misplace","confess","trace","trade","translate","rewind","count","pretend"],
+    adjectives: ["bruised","polished","trembling","ordinary","hollow","bright","dusty","gentle","stubborn","delicate"],
+    motifs: ["mercy","debt","timing","attention","hunger","proof","silence","forgiveness","ownership","fear"],
+    tags: {
+      literary: ["image-rich","inner voice","subtext"],
+      mystery: ["clues","misdirection","reveal"],
+      "sci-fi": ["system","signal","artifact"],
+      fantasy: ["oath","curse","threshold"],
+      horror: ["dread","wrongness","echo"],
+      romance: ["yearning","misread","confession"],
+      comedy: ["escalation","misunderstanding","callback"],
+      fable: ["lesson","pattern","consequence"],
+    }
+  };
+
+  function parseCSV(s){
+    return (s||"")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean);
+  }
+
+  function hasNoE(text){
+    return !/[eE]/.test(text);
+  }
+
+  function containsAll(text, phrases){
+    const t = text.toLowerCase();
+    for (const p of phrases){
+      if (!t.includes(p.toLowerCase())) return false;
+    }
+    return true;
+  }
+
+  function containsAny(text, phrases){
+    const t = text.toLowerCase();
+    for (const p of phrases){
+      if (t.includes(p.toLowerCase())) return true;
+    }
+    return false;
+  }
+
+  function countDialogueLines(text){
+    // count lines with quotes or “Name:” style
+    const lines = text.split("\n");
+    let c = 0;
+    for (const ln of lines){
+      if (/[“"].+?[”"]/.test(ln) || /^[A-Z][a-z]{1,12}:\s+/.test(ln)) c++;
+    }
+    return c;
+  }
+
+  function paragraphs(text){
+    return text.trim().split(/\n\s*\n/).filter(Boolean);
+  }
+
+  function firstLetter(s){
+    const m = (s||"").trim().match(/[A-Za-z]/);
+    return m ? m[0].toUpperCase() : "";
+  }
+
+  function wordCount(s){
+    const m = (s||"").trim().match(/[\p{L}\p{N}'-]+/gu);
+    return m ? m.length : 0;
+  }
+
+  function estimateTargetWords(len){
+    if (len === "micro") return {min:120, max:220, target:170};
+    if (len === "medium") return {min:520, max:850, target:700};
+    return {min:260, max:420, target:340};
+  }
+
+  function esc(s){
+    return (s??"").replace(/[&<>"']/g, ch => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+    }[ch]));
+  }
+
+  // --- Story engine ---
+  // Strategy:
+  // 1) Build a "plan" (characters, location, object, motif, beats).
+  // 2) Draft paragraphs with templates that allow injecting constraints.
+  // 3) Validate; if failing, revise (swap synonyms, rewrite lines, adjust structure).
+  // 4) Pick best attempt (highest satisfaction, then creativity score).
+
+  function buildPlan(rng, cfg){
+    const genre = cfg.genre;
+    const tone = cfg.tone;
+    const pov = cfg.pov;
+
+    const loc = pick(rng, LEX.places);
+    const obj = pick(rng, LEX.objects);
+    const motif = pick(rng, LEX.motifs);
+
+    // Characters
+    const n1 = pick(rng, LEX.names);
+    let n2 = pick(rng, LEX.names.filter(x=>x!==n1));
+    const twoChars = cfg.toggles.twoChars;
+    const chars = twoChars ? [n1, n2] : [n1, n2, pick(rng, LEX.names.filter(x=>x!==n1 && x!==n2))];
+
+    const want = pick(rng, ["to fix a mistake","to keep a promise","to hide a truth","to get proof","to be forgiven","to leave without being noticed"]);
+    const obstacle = pick(rng, ["time","pride","a missing detail","a closed door","an old fear","a rule nobody admits"]);
+    const twistKind = pick(rng, ["the object is a test","the narrator is unreliable","the 'enemy' is protecting them","the clue was in a kindness","the goal was misnamed"]);
+
+    return {
+      genre, tone, pov,
+      location: cfg.toggles.singleLocation ? loc : (loc + " and later " + pick(rng, LEX.places)),
+      locationCore: loc,
+      object: obj,
+      motif,
+      chars,
+      want,
+      obstacle,
+      twistKind
+    };
+  }
+
+  function povify(pov, subjectName){
+    if (pov === "first") return {subj:"I", obj:"me", poss:"my", be:"am"};
+    if (pov === "second") return {subj:"you", obj:"you", poss:"your", be:"are"};
+    // third person
+    return {subj:subjectName, obj:subjectName, poss:subjectName + "'s", be:"is"};
+  }
+
+  function maybeAlliterate(rng, sentence, enabled){
+    if (!enabled) return sentence;
+    // create an alliteration burst by replacing a few adjectives/verbs with same-letter starters
+    const letters = "stplmcrb";
+    const L = letters[Math.floor(rng()*letters.length)];
+    const bank = {
+      s:["soft","stubborn","silent","salt","silver","strange","small","sharp","steady"],
+      t:["thin","tender","tight","tired","tarnished","timely","telltale","trembling"],
+      p:["plain","polite","paper","patient","pale","practical","puzzling","precise"],
+      l:["low","late","little","lopsided","loyal","light","loud","lonely"],
+      m:["minor","muddy","mild","metal","messy","measured","muffled","mortal"],
+      c:["clean","crooked","cold","careful","clumsy","curious","calm","cracked"],
+      r:["rough","ready","rare","raw","rusty","restless","rigid","real"],
+      b:["brief","bitter","bright","bruised","broken","brave","blunt","bare"],
+    };
+    const words = bank[L] || bank.s;
+    // Insert a short burst: "L, L, L" phrase
+    const burst = `${pick(rng, words)} ${pick(rng, words)} ${pick(rng, words)}`;
+    return sentence.replace(/(^|,\s*)/, `$1${burst}, `);
+  }
+
+  function enforceNoE(rng, text){
+    // crude but effective: try to rewrite common words containing e
+    // We'll do multiple passes with replacements and some deletions.
+    const reps = [
+      [/\bthe\b/gi, "that"],
+      [/\bthere\b/gi, "in that spot"],
+      [/\bwere\b/gi, "sat"],
+      [/\bhere\b/gi, "at hand"],
+      [/\bbe\b/gi, "stay"],
+      [/\bbeen\b/gi, "staying"],
+      [/\bwe\b/gi, "our group"],
+      [/\bhe\b/gi, "that guy"],
+      [/\bshe\b/gi, "that gal"],
+      [/\bthey\b/gi, "that lot"],
+      [/\bme\b/gi, "myself"],
+      [/\bplease\b/gi, "kindly"],
+      [/\bremember\b/gi, "call back"],
+      [/\bsecret\b/gi, "covert fact"],
+      [/\bpeople\b/gi, "folk"],
+      [/\blemon\b/gi, "citrus"],
+      [/\belevator\b/gi, "lift"],
+      [/\bnever\b/gi, "not once"],
+      [/\beven\b/gi, "still"],
+      [/\bvery\b/gi, "so"],
+      [/\bbefore\b/gi, "prior"],
+      [/\bafter\b/gi, "post"],
+      [/\bbetween\b/gi, "amid"],
+      [/\bfeel\b/gi, "sense"],
+      [/\bseen\b/gi, "spied"],
+      [/\bsee\b/gi, "spot"],
+    ];
+    let out = text;
+    for (let pass=0; pass<3; pass++){
+      for (const [re, rep] of reps) out = out.replace(re, rep);
+      // remove stray 'e' from contractions by expanding/altering
+      out = out.replace(/'re\b/g, " ar");
+      out = out.replace(/'ve\b/g, " hav");
+      out = out.replace(/'ll\b/g, " wil");
+      // last resort: remove standalone 'e' words
+      out = out.replace(/\be\b/gi, "");
+    }
+    return out;
+  }
+
+  function applyAvoidWords(text, avoidList){
+    // If avoid phrases exist in output, it's a fail (we don't auto-censor).
+    // We keep this strict to preserve meaning.
+    return text;
+  }
+
+  function buildParagraph(rng, plan, cfg, beat, i, totalParas, startLetter){
+    const genre = plan.genre;
+    const tone = plan.tone;
+    const pron = povify(plan.pov, plan.chars[0]);
+    const A = plan.chars[0], B = plan.chars[1];
+    const obj = plan.object;
+    const loc = cfg.toggles.singleLocation ? plan.locationCore : plan.location;
+    const motif = plan.motif;
+
+    const tags = LEX.tags[genre] || [];
+    const tag = pick(rng, tags.concat(["detail","tension","memory"]));
+
+    const timeBox = cfg.toggles.timeBox;
+    const timePhrase = timeBox ? pick(rng, ["in under an hour","before the minute hand moved too far","within sixty minutes","before the clock could forgive us"]) : pick(rng, ["by nightfall","before anyone noticed","after a long pause","as the day turned"]);
+
+    const sensory = cfg.toggles.sensory;
+    const senses = sensory
+      ? pick(rng, [
+          "The air smelled of soap and hot metal; a distant fan tasted like dust.",
+          "A bright hum filled the room; the floor felt cool through thin soles.",
+          "Something citrus-sharp lingered in the air; light flickered like a nervous blink.",
+          "Warm steam fogged my skin; a bitter note rode the back of the tongue."
+        ])
+      : "";
+
+    let core = "";
+    if (beat === "hook"){
+      core = `${pron.subj} ${pron.be} in ${loc}, holding ${obj} like it might explain itself. ${timePhrase}. ${sensory}`.trim();
+    } else if (beat === "inciting"){
+      core = `${A} said ${pick(rng, ["it was nothing","it mattered","we should stop","we had to keep going"])}, but ${pron.poss} voice snagged on the word ${pick(rng, ["truth","mercy","price","proof"])}. ${pron.subj} wanted ${plan.want}; ${plan.obstacle} wanted the opposite.`;
+    } else if (beat === "clue"){
+      core = `A small detail shifted: ${pick(rng, [
+        "a smear of grease on the edge",
+        "a number written where no number should be",
+        "a crease that formed an arrow",
+        "a smell that didn't belong",
+        "a sound that returned when the room went quiet"
+      ])}. It pointed back to ${motif}—not as a concept, but as a bill that had to be paid.`;
+    } else if (beat === "dialogue"){
+      core = `“${pick(rng, ["Tell me what you did.","Say it plainly.","Don't make me guess.","We can still fix it."])}” ${pron.subj} said.\n` +
+             `“${pick(rng, ["I tried.","I couldn't.","It was already broken.","You wouldn't understand."])}” ${B} answered.\n` +
+             `“${pick(rng, ["Then show me.","Then stay.","Then be honest.","Then let it go."])}”\n` +
+             `“${pick(rng, ["Look closer.","Listen.","Not here.","Not like this."])}”`;
+    } else if (beat === "escalation"){
+      core = `${pick(rng, ["The room tightened.","The silence got heavy.","The ordinary turned sharp."])} ${obj} became a lever: with it, ${pron.subj} could pry at the story, but ${pick(rng, ["it pried back","it cost something","it refused"])}. ${timePhrase}.`;
+    } else if (beat === "returnObject"){
+      core = `Earlier, ${obj} felt like clutter. Now it returned with purpose: ${pick(rng, [
+        "it fit a notch in the wall",
+        "it matched a symbol nobody mentioned",
+        "it carried a scent that named the liar",
+        "it recorded a sound we pretended not to hear"
+      ])}. ${motif} stopped being abstract.`;
+    } else if (beat === "twist"){
+      core = `The twist wasn't loud. It was a reframe: ${pick(rng, [
+        `the “mistake” was a kindness disguised as carelessness`,
+        `the missing piece was left out to protect ${A}`,
+        `the object was planted to see who would take it`,
+        `the story we rehearsed was the trap`
+      ])}. ${pron.subj} realized the constraint had been the point all along.`;
+    } else if (beat === "ending"){
+      core = `${pick(rng, [
+        "We didn't win; we chose what to lose.",
+        "Nothing changed—except what it meant.",
+        "The answer arrived quietly, like a door that was never locked.",
+        "It ended the way it began: with a hand on an object, and a mind on a choice."
+      ])}`;
+    } else {
+      core = `${pick(rng, ["Something shifted.","A detail returned.","A breath counted itself."])} ${timePhrase}.`;
+    }
+
+    // Rule of 3 (add triad phrase)
+    if (cfg.toggles.ruleOf3 && rng() < 0.75 && !/\bthree\b/i.test(core)){
+      core += " " + pick(rng, [
+        "Three things were true at once: the fact, the fear, the face we wore.",
+        "I kept three ledgers: what I did, what I said, what I meant.",
+        "Three promises crowded the same mouth."
+      ]);
+    }
+
+    // Alliteration burst in some paragraphs
+    if (cfg.toggles.alliteration && rng() < 0.45){
+      core = maybeAlliterate(rng, core, true);
+    }
+
+    // Palindrome-ish line injection (not strict palindrome; mirrored cadence)
+    if (cfg.toggles.pal && rng() < 0.35){
+      core += "\n" + pick(rng, [
+        "I went to find the truth, and the truth found me.",
+        "We held the secret, and the secret held us.",
+        "I tried to leave the room, and the room left me."
+      ]);
+    }
+
+    // Start letter for acrostic: ensure paragraph begins with that letter if required.
+    if (startLetter){
+      // If core doesn't start with that letter, prepend a short lead-in that does.
+      const L = startLetter.toUpperCase();
+      if (firstLetter(core) !== L){
+        const lead = buildLeadInForLetter(rng, L, plan, cfg);
+        core = `${lead} ${core}`;
+      }
+    }
+
+    // Avoid "I" word constraint (hard), attempt rewrite if enabled
+    if (cfg.toggles.avoidI){
+      // Replace standalone "I" with "This voice" / "The narrator" depending on POV
+      core = core
+        .replace(/\bI\b/g, plan.pov === "first" ? "This voice" : "One")
+        .replace(/\bI'm\b/gi, "This voice is")
+        .replace(/\bI've\b/gi, "This voice has")
+        .replace(/\bI'll\b/gi, "This voice will")
+        .replace(/\bmy\b/gi, "this voice's");
+    }
+
+    // If POV is first and avoidI enabled, it will still likely fail due to "I" in templates;
+    // the validator will catch it.
+
+    // Add subtle genre/tone garnish
+    const garnish = garnishLine(rng, genre, tone, tag, cfg);
+    if (rng() < 0.55) core += "\n" + garnish;
+
+    return core.trim();
+  }
+
+  function buildLeadInForLetter(rng, L, plan, cfg){
+    const bank = {
+      A:["Against my better sense,","After a small pause,","As if rehearsed,"],
+      B:["Because I waited too long,","Before the next sound,","Beneath the fluorescent buzz,"],
+      C:["Carefully,","Coldly,","Curiously,"],
+      D:["Despite the rules,","Down the narrow aisle,","Doubt arrived first,"],
+      E:["Even so,","Earlier than expected,","Enough was enough,"],
+      F:["For a moment,","Faintly,","Frankly,"],
+      G:["Gently,","Grudgingly,","Grief-like and quiet,"],
+      H:["However,","Hollowly,","Hushed,"],
+      I:["In truth,","Inside the ordinary,","If you looked closely,"],
+      J:["Just once,","Jarringly,","Joy didn't show,"],
+      K:["Kindly,","Keenly,","Knot by knot,"],
+      L:["Lately,","Listen:","Left unsaid,"],
+      M:["Meanwhile,","Mostly,","My hands shook—"],
+      N:["No matter what,","Near the edge of it,","Nothing about it was simple,"],
+      O:["Oddly,","On purpose,","Once the door clicked,"],
+      P:["Perhaps,","Plainly,","Proof came slowly,"],
+      Q:["Quietly,","Quick as a blink,","Questions gathered,"],
+      R:["Reluctantly,","Right then,","Rumor turned real,"],
+      S:["Somehow,","Still,","Soft as breath,"],
+      T:["Then,","Today,","Tight with worry,"],
+      U:["Unless it was a trick,","Under the hum,","Until that second,"],
+      V:["Very slowly,","Vividly,","Vows are heavy things—"],
+      W:["When it happened,","Without warning,","What I held mattered,"],
+      X:["Xenial luck aside,","X marks nothing here,","X‑shaped shadows fell,"],
+      Y:["Yet,","You could feel it,","Yesterday's version of me,"],
+      Z:["Zero mercy in the clock,","Zigzag thoughts,","Zipped inside my coat,"],
+    };
+    const arr = bank[L] || ["So,"];
+    return pick(rng, arr);
+  }
+
+  function garnishLine(rng, genre, tone, tag, cfg){
+    const toneBits = {
+      warm: ["It felt almost kind.", "I let the moment soften.", "We tried to be gentle."],
+      tense: ["The air refused to relax.", "Every sound felt like a verdict.", "My jaw stayed locked."],
+      bittersweet: ["Relief came with a bruise.", "The good part hurt, too.", "We smiled like it cost money."],
+      hopeful: ["The next minute looked possible.", "A small light held.", "It wasn't over."],
+      grim: ["Nothing here forgave easily.", "The world kept receipts.", "Hope stayed outside."],
+      absurd: ["It made sense in the way dreams do.", "Logic took a lunch break.", "Reality winked and moved on."],
+    };
+    const genreBits = {
+      literary: ["A metaphor tried to form, then failed honestly.", "The moment carried more than it showed."],
+      mystery: ["A clue doesn't announce itself; it waits.", "Misdirection is just attention with a costume."],
+      "sci-fi": ["The system logged the anomaly without comment.", "Signals always have ghosts."],
+      fantasy: ["Oaths have teeth, even in plain rooms.", "Magic is often paperwork in disguise."],
+      horror: ["The wrongness was polite.", "Fear arrived as a reasonable thought."],
+      romance: ["A glance did what language couldn't.", "I mistook certainty for courage."],
+      comedy: ["The universe picked a bad time for timing.", "It escalated the way spilled soup does."],
+      fable: ["A lesson is a trap you thank later.", "Patterns pretend to be coincidence."],
+    };
+    return pick(rng, (toneBits[tone]||[""]).concat(genreBits[genre]||[""]).concat([`(${tag})`]).filter(Boolean));
+  }
+
+  function buildDraft(rng, cfg, plan){
+    const target = estimateTargetWords(cfg.len);
+    const must = cfg.mustInclude;
+    const avoid = cfg.avoidWords;
+
+    // Determine paragraph count:
+    const ac = (cfg.acrostic || "").trim();
+    const paraCount = ac ? Math.max(1, ac.length) : (cfg.len==="micro" ? 2 : (cfg.len==="medium" ? 6 : 4));
+
+    // Beats
+    let beats = ["hook","inciting","clue","escalation","twist","ending"];
+    if (cfg.toggles.dialogue) beats.splice(3,0,"dialogue");
+    if (cfg.toggles.objectLoop) beats.splice(4,0,"returnObject");
+    beats = beats.slice(0, paraCount);
+    // Ensure ending beat last
+    beats[beats.length-1] = "ending";
+    if (paraCount >= 2) beats[0] = "hook";
+
+    // Build paragraphs
+    const paras = [];
+    for (let i=0;i<paraCount;i++){
+      const startLetter = ac ? ac[i] : "";
+      const para = buildParagraph(rng, plan, cfg, beats[i] || "escalation", i, paraCount, startLetter);
+      paras.push(para);
+    }
+
+    // Opening/ending forced lines
+    if (cfg.openingLine.trim()){
+      paras[0] = cfg.openingLine.trim() + (paras[0].startsWith(cfg.openingLine.trim()) ? "" : "\n" + paras[0]);
+    }
+    if (cfg.endingLine.trim()){
+      const last = paras.length-1;
+      // ensure ending line is final sentence/line
+      paras[last] = paras[last].replace(/\s+$/,"");
+      paras[last] += "\n" + cfg.endingLine.trim();
+    }
+
+    let text = paras.join("\n\n");
+
+    // Must include: if missing, inject gracefully (append into middle paragraph)
+    for (const phrase of must){
+      if (!text.toLowerCase().includes(phrase.toLowerCase())){
+        const mid = Math.floor(paras.length/2);
+        paras[mid] += `\n${injectPhraseLine(rng, phrase, plan, cfg)}`;
+        text = paras.join("\n\n");
+      }
+    }
+
+    // Enforce avoidI toggle is already attempted in paragraph builder; keep for validation.
+    // Enforce noE (lipogram) late, because it can break includes—so if enabled we ALSO rewrite includes.
+    if (cfg.toggles.noE){
+      text = enforceNoE(rng, text);
+    }
+
+    return text;
+  }
+
+  function injectPhraseLine(rng, phrase, plan, cfg){
+    const lead = pick(rng, [
+      "I wrote it down:",
+      "The note said:",
+      "It showed up like a dare:",
+      "Someone whispered:",
+      "On the back, in small ink:"
+    ]);
+    return `${lead} “${phrase}.”`;
+  }
+
+  // --- Constraint validation ---
+  function validate(text, cfg, plan){
+    const issues = [];
+    const satisfied = [];
+
+    const wc = wordCount(text);
+    const target = estimateTargetWords(cfg.len);
+    if (wc < target.min || wc > target.max){
+      issues.push({id:"length", msg:`Length ${wc} words (target ${target.min}–${target.max}).`});
+    } else satisfied.push("length");
+
+    // Must include / avoid
+    if (!containsAll(text, cfg.mustInclude)){
+      const missing = cfg.mustInclude.filter(p => !text.toLowerCase().includes(p.toLowerCase()));
+      issues.push({id:"mustInclude", msg:`Missing required phrases: ${missing.join(", ")}`});
+    } else satisfied.push("mustInclude");
+
+    if (cfg.avoidWords.length && containsAny(text, cfg.avoidWords)){
+      const hits = cfg.avoidWords.filter(p => text.toLowerCase().includes(p.toLowerCase()));
+      issues.push({id:"avoidWords", msg:`Contains avoided phrases: ${hits.join(", ")}`});
+    } else satisfied.push("avoidWords");
+
+    // Opening / ending lines
+    if (cfg.openingLine.trim()){
+      if (!text.trimStart().startsWith(cfg.openingLine.trim())){
+        issues.push({id:"openingLine", msg:"Opening line not respected."});
+      } else satisfied.push("openingLine");
+    }
+    if (cfg.endingLine.trim()){
+      if (!text.trimEnd().endsWith(cfg.endingLine.trim())){
+        issues.push({id:"endingLine", msg:"Ending line not respected."});
+      } else satisfied.push("endingLine");
+    }
+
+    // Acrostic
+    const ac = cfg.acrostic.trim();
+    if (ac){
+      const ps = paragraphs(text);
+      if (ps.length !== ac.length){
+        issues.push({id:"acrostic", msg:`Acrostic requires ${ac.length} paragraphs; got ${ps.length}.`});
+      } else {
+        let ok = true;
+        for (let i=0;i<ac.length;i++){
+          if (firstLetter(ps[i]) !== ac[i].toUpperCase()){ ok = false; break; }
+        }
+        if (!ok) issues.push({id:"acrostic", msg:"Acrostic first letters do not match."});
+        else satisfied.push("acrostic");
+      }
+    } else satisfied.push("acrostic");
+
+    // Toggles
+    if (cfg.toggles.noE){
+      if (!hasNoE(text)) issues.push({id:"noE", msg:"Lipogram violated: found letter 'e'."});
+      else satisfied.push("noE");
+    } else satisfied.push("noE");
+
+    if (cfg.toggles.dialogue){
+      const dl = countDialogueLines(text);
+      if (dl < 4) issues.push({id:"dialogue", msg:`Needs ≥ 4 dialogue lines; found ${dl}.`});
+      else satisfied.push("dialogue");
+    } else satisfied.push("dialogue");
+
+    if (cfg.toggles.sensory){
+      // heuristic: look for smell/taste/sound/feel/see words
+      const t = text.toLowerCase();
+      const checks = [
+        {k:"sight", ok: /(see|saw|light|bright|dark|look|glow|flicker)/.test(t)},
+        {k:"sound", ok: /(hear|heard|hum|whisper|silence|sound|buzz|click|echo)/.test(t)},
+        {k:"touch", ok: /(feel|felt|warm|cold|skin|rough|smooth|pressure|cool)/.test(t)},
+        {k:"smell", ok: /(smell|scent|odor|fragrant|stink|citrus|soap|steam)/.test(t)},
+        {k:"taste", ok: /(taste|tongue|bitter|sweet|salty)/.test(t)},
+      ];
+      const missing = checks.filter(x=>!x.ok).map(x=>x.k);
+      if (missing.length) issues.push({id:"sensory", msg:`Missing senses: ${missing.join(", ")}.`});
+      else satisfied.push("sensory");
+    } else satisfied.push("sensory");
+
+    if (cfg.toggles.twoChars){
+      // heuristic: count unique capitalized names from plan
+      const t = text;
+      const used = new Set();
+      for (const n of LEX.names){
+        const re = new RegExp("\\b" + n + "\\b", "g");
+        if (re.test(t)) used.add(n);
+      }
+      if (used.size > 2) issues.push({id:"twoChars", msg:`More than 2 named characters detected: ${Array.from(used).join(", ")}`});
+      else satisfied.push("twoChars");
+    } else satisfied.push("twoChars");
+
+    if (cfg.toggles.timeBox){
+      const t = text.toLowerCase();
+      if (!/(hour|minute|clock|sixty|within|before the minute hand|under an hour)/.test(t)){
+        issues.push({id:"timeBox", msg:"Time box constraint not evidenced (no time pressure language)."});
+      } else satisfied.push("timeBox");
+    } else satisfied.push("timeBox");
+
+    if (cfg.toggles.avoidI){
+      if (/\bI\b/.test(text)) issues.push({id:"avoidI", msg:"Contains the word 'I'."});
+      else satisfied.push("avoidI");
+    } else satisfied.push("avoidI");
+
+    if (cfg.toggles.objectLoop){
+      // heuristic: object appears at least twice
+      const obj = plan.object.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(obj, "gi");
+      const c = (text.match(re) || []).length;
+      if (c < 2) issues.push({id:"objectLoop", msg:`Object should return (appear ≥2 times). Found ${c}.`});
+      else satisfied.push("objectLoop");
+    } else satisfied.push("objectLoop");
+
+    if (cfg.toggles.twist){
+      // heuristic: must contain "realized" or "reframe" style word
+      const t = text.toLowerCase();
+      if (!/(realiz|reframe|turns out|wasn't|not what|truth was|the twist)/.test(t)){
+        issues.push({id:"twist", msg:"Twist constraint not evidenced (no reframe language detected)."});
+      } else satisfied.push("twist");
+    } else satisfied.push("twist");
+
+    // Conflicts detection (basic)
+    const conflicts = [];
+    if (cfg.toggles.noE){
+      const bad = [];
+      for (const p of cfg.mustInclude){
+        if (/[eE]/.test(p)) bad.push(p);
+      }
+      if (bad.length){
+        conflicts.push({a:"noE", b:"mustInclude", msg:`Lipogram “no e” conflicts with required phrases containing e: ${bad.join(", ")}`});
+      }
+    }
+    if (cfg.pov === "first" && cfg.toggles.avoidI){
+      conflicts.push({a:"avoidI", b:"pov:first", msg:`Avoiding the word “I” conflicts with first-person POV. It may still be solvable, but it's extremely hard.`});
+    }
+
+    return {
+      wc, target,
+      ok: issues.length === 0,
+      issues,
+      satisfiedCount: satisfied.length - satisfied.filter(x=>x==="").length,
+      satisfied,
+      conflicts
+    };
+  }
+
+  // --- Creativity score ---
+  function computeCreativityScore(cfg, val){
+    // Base: constraint count with weights; plus satisfaction bonus.
+    const toggleCount = Object.values(cfg.toggles).filter(Boolean).length;
+    const hardWeight = Object.entries(cfg.toggles).reduce((sum,[id,on])=>{
+      if (!on) return sum;
+      const t = TOGGLES.find(x=>x.id===id);
+      return sum + (t ? t.w : 1);
+    }, 0);
+
+    const includeWeight = cfg.mustInclude.length * 0.7;
+    const avoidWeight = cfg.avoidWords.length * 0.6;
+    const acWeight = cfg.acrostic.trim() ? Math.min(6, cfg.acrostic.trim().length) * 0.9 : 0;
+    const forcedLines = (cfg.openingLine.trim()?1:0) + (cfg.endingLine.trim()?1:0);
+
+    const difficulty = hardWeight + includeWeight + avoidWeight + acWeight + forcedLines*0.6;
+    const sat = val.ok ? 1 : Math.max(0, 1 - (val.issues.length*0.14 + val.conflicts.length*0.18));
+
+    // Normalize to 0..100
+    const raw = (difficulty * 10) * (0.55 + sat*0.45);
+    return clamp(raw, 0, 100);
+  }
+
+  function readCfg(){
+    const toggles = {};
+    for (const t of TOGGLES){
+      toggles[t.id] = !!S.ui.toggles[t.id];
+    }
+    return {
+      genre: UI.genre.value,
+      tone: UI.tone.value,
+      len: UI.len.value,
+      seed: UI.seed.value.trim() || "seed",
+      pov: UI.pov.value,
+      acrostic: UI.acrostic.value,
+      mustInclude: parseCSV(UI.mustInclude.value),
+      avoidWords: parseCSV(UI.avoidWords.value),
+      openingLine: UI.openingLine.value,
+      endingLine: UI.endingLine.value,
+      toggles
+    };
+  }
+
+  // --- Attempts tracking ---
+  const S = {
+    v: 1,
+    ui: { toggles: {} },
+    last: null,
+    attempts: [],
+  };
+
+  function renderChips(){
+    UI.chips.innerHTML = "";
+    for (const t of TOGGLES){
+      const d = document.createElement("div");
+      d.className = "chip" + (S.ui.toggles[t.id] ? " on" : "");
+      d.title = t.desc;
+      d.innerHTML = `${esc(t.label)} <small>+${t.w.toFixed(1)}</small>`;
+      d.addEventListener("click", () => {
+        S.ui.toggles[t.id] = !S.ui.toggles[t.id];
+        renderChips();
+        updateHdr();
+        persist();
+      });
+      UI.chips.appendChild(d);
+    }
+  }
+
+  function updateHdr(score=null){
+    const cfg = readCfg();
+    const nTog = Object.values(cfg.toggles).filter(Boolean).length;
+    const n = nTog + cfg.mustInclude.length + cfg.avoidWords.length + (cfg.acrostic.trim()?1:0) + (cfg.openingLine.trim()?1:0) + (cfg.endingLine.trim()?1:0);
+    UI.hdrC.textContent = String(n);
+    if (score==null) UI.hdrScore.textContent = "—";
+    else UI.hdrScore.textContent = score.toFixed(1);
+  }
+
+  function renderAttempts(){
+    UI.attempts.innerHTML = "";
+    for (let i=S.attempts.length-1; i>=0; i--){
+      const a = S.attempts[i];
+      const div = document.createElement("div");
+      div.className = "item";
+      const ok = a.validation.ok;
+      const badge = ok ? `<span class="badge" style="border-color: rgba(111,191,115,.35); color: rgba(231,231,226,.95)">OK</span>`
+                       : `<span class="badge" style="border-color: rgba(208,107,107,.35); color: rgba(231,231,226,.95)">FAIL</span>`;
+      const conf = a.validation.conflicts.length ? `<span class="badge" style="border-color: rgba(212,162,79,.35)">conflicts ${a.validation.conflicts.length}</span>` : "";
+      const iss = a.validation.issues.length ? `<span class="badge">issues ${a.validation.issues.length}</span>` : "";
+      div.innerHTML = `
+        <div class="top">
+          <div class="badge">attempt ${a.idx} · ${a.validation.wc}w · score ${a.score.toFixed(1)}</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${badge}${iss}${conf}</div>
+        </div>
+        <div class="txt">${esc(a.summary)}</div>
+        <div class="meta">
+          satisfied=${ok ? "all" : (a.validation.satisfied.filter(x=>x && !a.validation.issues.find(y=>y.id===x)).length + "/" + "many")}
+          · seed=${esc(a.cfg.seed)}
+        </div>
+      `;
+      div.addEventListener("click", () => {
+        showStory(a);
+        toast("Loaded attempt " + a.idx, ok ? "All constraints satisfied." : "This attempt failed some constraints.");
+      });
+      UI.attempts.appendChild(div);
+    }
+  }
+
+  function showStory(attempt){
+    const cfg = attempt.cfg;
+    const v = attempt.validation;
+    const meta = [
+      `genre=${cfg.genre}`,
+      `tone=${cfg.tone}`,
+      `pov=${cfg.pov}`,
+      `len=${cfg.len}`,
+      `words=${v.wc} (target ${v.target.min}–${v.target.max})`,
+      `seed=${cfg.seed}`,
+      `score=${attempt.score.toFixed(1)}`
+    ].join(" · ");
+
+    const issues = v.ok ? "" : (
+      `\n\n— Constraint issues —\n` +
+      v.issues.map(x=>`• ${x.msg}`).join("\n") +
+      (v.conflicts.length ? `\n\n— Conflicts —\n` + v.conflicts.map(x=>`• ${x.msg}`).join("\n") : "")
+    );
+
+    UI.story.innerHTML = `<div class="meta">${esc(meta)}</div>${esc(attempt.text)}${issues ? `<div class="warn">${esc(issues)}</div>` : ""}`;
+    UI.status.textContent = v.ok ? "Generated (all constraints satisfied)." : "Generated (some constraints failed — see warning).";
+
+    UI.statAttempts.textContent = String(S.attempts.length);
+    UI.statSat.textContent = v.ok ? "all" : `${Math.max(0, (Object.values(cfg.toggles).filter(Boolean).length))} toggles + lists`;
+    UI.statConf.textContent = String(v.conflicts.length);
+
+    UI.targetMeta.textContent = `${v.target.min}–${v.target.max} words · ${cfg.genre}/${cfg.tone}/${cfg.pov}`;
+
+    UI.scoreFill.style.width = `${attempt.score.toFixed(1)}%`;
+    UI.hdrScore.textContent = attempt.score.toFixed(1);
+  }
+
+  // --- Generate / solve ---
+  function generate(validateOnly=false){
+    const cfg = readCfg();
+    const rngBase = makeRng(cfg.seed);
+
+    // Quick conflict warning
+    const plan0 = buildPlan(rngBase, cfg);
+    const v0 = validate("", cfg, plan0);
+    if (v0.conflicts.length){
+      UI.diagBox.innerHTML = `<b>Potential conflicts detected:</b><br>` + v0.conflicts.map(x=>`• ${esc(x.msg)}`).join("<br>");
+    } else {
+      UI.diagBox.innerHTML = `<b>Diagnostics:</b> Generator will try multiple drafts and pick the best match. Click an attempt to load it.`;
+    }
+
+    const maxAttempts = validateOnly ? 1 : 18;
+    S.attempts = [];
+    UI.status.textContent = "Working…";
+    UI.btnGenerate.disabled = true;
+
+    // attempt loop (sync but fast)
+    let best = null;
+    for (let i=1;i<=maxAttempts;i++){
+      const rng = makeRng(cfg.seed + "::" + i);
+
+      // Slightly vary plan each attempt to escape local minima
+      const plan = buildPlan(rng, cfg);
+
+      let text = buildDraft(rng, cfg, plan);
+
+      // If avoidWords violated, try simple rewrite passes by swapping a few synonyms for known risky words.
+      // (We keep it minimal; if it still violates, it will fail validation.)
+      if (cfg.avoidWords.length){
+        for (const aw of cfg.avoidWords){
+          const re = new RegExp("\\b" + aw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
+          if (re.test(text)){
+            text = text.replace(re, pick(rng, ["[redacted]", "something else", "a different word"]));
+          }
+        }
+      }
+
+      const val = validate(text, cfg, plan);
+      const score = computeCreativityScore(cfg, val);
+
+      const attempt = {
+        idx: i,
+        at: Date.now(),
+        cfg,
+        plan,
+        text,
+        validation: val,
+        score,
+        summary: val.ok
+          ? "All constraints satisfied."
+          : (val.conflicts.length
+              ? "Conflicts present; cannot satisfy all constraints simultaneously."
+              : "Some constraints failed; see issues.")
+      };
+      S.attempts.push(attempt);
+
+      // Select best: prefer OK; then fewer issues; then higher score; then closer length
+      const better = (() => {
+        if (!best) return true;
+        if (attempt.validation.ok && !best.validation.ok) return true;
+        if (!attempt.validation.ok && best.validation.ok) return false;
+
+        if (attempt.validation.issues.length !== best.validation.issues.length){
+          return attempt.validation.issues.length < best.validation.issues.length;
+        }
+        if (attempt.validation.conflicts.length !== best.validation.conflicts.length){
+          return attempt.validation.conflicts.length < best.validation.conflicts.length;
+        }
+
+        // if both same pass/fail, prefer higher score
+        if (attempt.score !== best.score) return attempt.score > best.score;
+
+        // tie-break: closer to target
+        const t = attempt.validation.target.target;
+        const da = Math.abs(attempt.validation.wc - t);
+        const db = Math.abs(best.validation.wc - t);
+        return da < db;
+      })();
+
+      if (better) best = attempt;
+    }
+
+    // show best
+    if (best){
+      showStory(best);
+      renderAttempts();
+      updateHdr(best.score);
+      persist();
+      toast("Done.", best.validation.ok ? "All constraints satisfied." : "Best effort picked (some constraints may fail).");
+    } else {
+      toast("No attempt produced.", "Try removing constraints.");
+    }
+
+    UI.btnGenerate.disabled = false;
+  }
+
+  function explainConstraints(){
+    const cfg = readCfg();
+    const on = Object.entries(cfg.toggles).filter(([k,v])=>v).map(([k])=>k);
+    const list = on.map(id => {
+      const t = TOGGLES.find(x=>x.id===id);
+      return t ? `• ${t.label} — ${t.desc}` : `• ${id}`;
+    }).join("\n");
+
+    const must = cfg.mustInclude.length ? `\nMust include:\n• ${cfg.mustInclude.join("\n• ")}` : "";
+    const avoid = cfg.avoidWords.length ? `\nAvoid:\n• ${cfg.avoidWords.join("\n• ")}` : "";
+    const ac = cfg.acrostic.trim() ? `\nAcrostic: ${cfg.acrostic.trim()} (paragraph initials)` : "";
+    const forced = (cfg.openingLine.trim() || cfg.endingLine.trim())
+      ? `\nForced lines:\n• opening: ${cfg.openingLine.trim() ? cfg.openingLine.trim() : "(none)"}\n• ending: ${cfg.endingLine.trim() ? cfg.endingLine.trim() : "(none)"}`
+      : "";
+
+    UI.io.value =
+`Constraints currently ON:
+${list || "• (none)"}
+${must}${avoid}${ac}${forced}
+
+Tip: Conflicts happen most often when “no e” is ON and required phrases contain e.`;
+    toast("Explained.", "Details written to the box.");
+  }
+
+  // --- Presets ---
+  function preset(){
+    // Turn on a satisfying set that shows the concept
+    S.ui.toggles = {
+      objectLoop:true,
+      ruleOf3:true,
+      dialogue:true,
+      twist:true,
+      singleLocation:true,
+      timeBox:true,
+      sensory:true,
+      alliteration:true,
+      pal:false,
+      noE:false,
+      twoChars:true,
+      avoidI:false,
+    };
+    UI.genre.value = "mystery";
+    UI.tone.value = "tense";
+    UI.len.value = "short";
+    UI.pov.value = "first";
+    UI.mustInclude.value = "lemon, elevator, forgive me";
+    UI.avoidWords.value = "magic";
+    UI.acrostic.value = "CLOCK";
+    UI.openingLine.value = "Clocks are liars when you are late.";
+    UI.endingLine.value = "Keep the receipt.";
+    renderChips();
+    updateHdr();
+    persist();
+    toast("Preset applied.", "Now click Generate.");
+  }
+
+  // --- Copy / Export / Import / Reset ---
+  async function copyStory(){
+    const text = UI.story.textContent || "";
+    if (!text.trim()){ toast("Nothing to copy."); return; }
+    try{
+      await navigator.clipboard.writeText(text.trim());
+      toast("Copied story.");
+    } catch {
+      UI.io.value = text.trim();
+      UI.io.focus(); UI.io.select();
+      toast("Clipboard blocked.", "Story placed in the box for manual copy.");
+    }
+  }
+
+  function exportJSON(){
+    const payload = {
+      v: S.v,
+      exportedAt: Date.now(),
+      ui: {
+        genre: UI.genre.value,
+        tone: UI.tone.value,
+        len: UI.len.value,
+        seed: UI.seed.value,
+        pov: UI.pov.value,
+        acrostic: UI.acrostic.value,
+        mustInclude: UI.mustInclude.value,
+        avoidWords: UI.avoidWords.value,
+        openingLine: UI.openingLine.value,
+        endingLine: UI.endingLine.value,
+        toggles: S.ui.toggles
+      },
+      attempts: S.attempts.slice(0, 30)
+    };
+    UI.io.value = JSON.stringify(payload, null, 2);
+    UI.io.focus(); UI.io.select();
+    toast("Exported.", "JSON is in the box.");
+  }
+
+  function importJSON(){
+    const raw = UI.io.value.trim();
+    if (!raw){ toast("Paste JSON first."); return; }
+    try{
+      const payload = JSON.parse(raw);
+      const u = payload.ui || {};
+      if (u.genre) UI.genre.value = u.genre;
+      if (u.tone) UI.tone.value = u.tone;
+      if (u.len) UI.len.value = u.len;
+      if (u.seed != null) UI.seed.value = u.seed;
+      if (u.pov) UI.pov.value = u.pov;
+      if (u.acrostic != null) UI.acrostic.value = u.acrostic;
+      if (u.mustInclude != null) UI.mustInclude.value = u.mustInclude;
+      if (u.avoidWords != null) UI.avoidWords.value = u.avoidWords;
+      if (u.openingLine != null) UI.openingLine.value = u.openingLine;
+      if (u.endingLine != null) UI.endingLine.value = u.endingLine;
+      if (u.toggles) S.ui.toggles = u.toggles;
+
+      S.attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
+      renderChips();
+      updateHdr();
+      renderAttempts();
+      if (S.attempts.length){
+        showStory(S.attempts[S.attempts.length-1]);
+      } else {
+        UI.story.innerHTML = `<div class="meta">Imported settings. Click Generate.</div>`;
+      }
+      persist();
+      toast("Imported.", "Settings restored.");
+    } catch (e){
+      toast("Import failed.", e.message || String(e));
+    }
+  }
+
+  function resetAll(){
+    S.ui.toggles = {};
+    for (const t of TOGGLES) S.ui.toggles[t.id] = false;
+
+    UI.genre.value = "literary";
+    UI.tone.value = "bittersweet";
+    UI.len.value = "short";
+    UI.seed.value = "constraints-make-creativity";
+    UI.pov.value = "first";
+    UI.mustInclude.value = "";
+    UI.avoidWords.value = "";
+    UI.openingLine.value = "";
+    UI.endingLine.value = "";
+    UI.acrostic.value = "";
+
+    S.attempts = [];
+    UI.attempts.innerHTML = "";
+    UI.story.innerHTML = `<div class="meta">No story yet. Add constraints and click Generate.</div>`;
+    UI.status.textContent = "Ready.";
+    UI.diagBox.innerHTML = `<b>Tip:</b> Add “Must include” phrases + “Avoid” words + an acrostic to force surprising detours.`;
+
+    renderChips();
+    updateHdr();
+    UI.scoreFill.style.width = "0%";
+    UI.hdrScore.textContent = "—";
+    UI.targetMeta.textContent = "—";
+    UI.statAttempts.textContent = "0";
+    UI.statSat.textContent = "—";
+    UI.statConf.textContent = "—";
+
+    persist();
+    toast("Reset.");
+  }
+
+  function persist(){
+    const data = {
+      v: S.v,
+      ui: {
+        genre: UI.genre.value,
+        tone: UI.tone.value,
+        len: UI.len.value,
+        seed: UI.seed.value,
+        pov: UI.pov.value,
+        acrostic: UI.acrostic.value,
+        mustInclude: UI.mustInclude.value,
+        avoidWords: UI.avoidWords.value,
+        openingLine: UI.openingLine.value,
+        endingLine: UI.endingLine.value,
+        toggles: S.ui.toggles
+      },
+      attempts: S.attempts.slice(0, 30)
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  }
+
+  function restore(){
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    try{
+      const data = JSON.parse(raw);
+      const u = data.ui || {};
+      if (u.genre) UI.genre.value = u.genre;
+      if (u.tone) UI.tone.value = u.tone;
+      if (u.len) UI.len.value = u.len;
+      if (u.seed != null) UI.seed.value = u.seed;
+      if (u.pov) UI.pov.value = u.pov;
+      if (u.acrostic != null) UI.acrostic.value = u.acrostic;
+      if (u.mustInclude != null) UI.mustInclude.value = u.mustInclude;
+      if (u.avoidWords != null) UI.avoidWords.value = u.avoidWords;
+      if (u.openingLine != null) UI.openingLine.value = u.openingLine;
+      if (u.endingLine != null) UI.endingLine.value = u.endingLine;
+      if (u.toggles) S.ui.toggles = u.toggles;
+
+      S.attempts = Array.isArray(data.attempts) ? data.attempts : [];
+      renderChips();
+      updateHdr();
+
+      if (S.attempts.length){
+        renderAttempts();
+        showStory(S.attempts[S.attempts.length-1]);
+      }
+    } catch {/* ignore */}
+  }
+
+  // --- Init toggles default ---
+  for (const t of TOGGLES) S.ui.toggles[t.id] = false;
+
+  // --- Events ---
+  UI.btnGenerate.addEventListener("click", () => generate(false));
+  UI.btnValidate.addEventListener("click", () => generate(true));
+  UI.btnPreset.addEventListener("click", preset);
+  UI.btnCopy.addEventListener("click", copyStory);
+  UI.btnExport.addEventListener("click", exportJSON);
+  UI.btnImport.addEventListener("click", importJSON);
+  UI.btnReset.addEventListener("click", resetAll);
+  UI.btnExplain.addEventListener("click", explainConstraints);
+
+  // update header counts when inputs change
+  const watch = [UI.mustInclude, UI.avoidWords, UI.openingLine, UI.endingLine, UI.acrostic, UI.genre, UI.tone, UI.len, UI.pov, UI.seed];
+  for (const el of watch){
+    el.addEventListener("input", () => { updateHdr(); persist(); });
+    el.addEventListener("change", () => { updateHdr(); persist(); });
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+      e.preventDefault();
+      generate(false);
+    }
+  });
+
+  // --- Start ---
+  restore();
+  renderChips();
+  updateHdr();
+})();
+</script>
+</body>
+</html>

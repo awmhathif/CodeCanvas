@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID — Existential Dread Simulator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#8a9bae}
+canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#dread-text{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:20;pointer-events:none;max-width:80vw;transition:opacity 2s}
+#dread-text h1{font-size:clamp(14px,2.5vw,28px);font-weight:300;letter-spacing:0.3em;text-transform:uppercase;color:#4a6a8a;margin-bottom:20px;opacity:0;animation:fadeIn 4s 1s forwards}
+#dread-text .fact{font-size:clamp(12px,1.8vw,20px);color:#2a4a6a;line-height:1.8;opacity:0;animation:fadeIn 3s 2s forwards;margin-bottom:15px}
+#dread-text .quote{font-size:clamp(11px,1.4vw,16px);color:#1a3a5a;font-style:italic;opacity:0;animation:fadeIn 3s 4s forwards}
+#you-marker{position:fixed;z-index:25;pointer-events:none;opacity:0;transition:opacity 1s}
+#you-marker .dot{width:3px;height:3px;background:#ff4444;border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+#you-marker .label{position:absolute;top:10px;left:10px;font-size:9px;color:#ff4444;white-space:nowrap;letter-spacing:0.2em}
+#you-marker .ring{position:absolute;width:40px;height:40px;border:1px solid rgba(255,68,68,0.3);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);animation:pulseRing 3s infinite}
+#controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:30;display:flex;gap:8px;pointer-events:all;opacity:0;animation:fadeIn 3s 6s forwards}
+#controls button{background:rgba(10,15,25,0.8);border:1px solid #1a2a3a;color:#4a6a8a;padding:6px 14px;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;letter-spacing:0.15em;transition:all 0.4s;text-transform:uppercase}
+#controls button:hover{border-color:#4a6a8a;color:#8aabca;background:rgba(20,30,50,0.9)}
+#controls button.active{border-color:#4a8aca;color:#6aabea;box-shadow:0 0 15px rgba(74,138,202,0.15)}
+#phase-label{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:30;font-size:10px;letter-spacing:0.4em;text-transform:uppercase;color:#2a3a4a;opacity:0;animation:fadeIn 3s 5s forwards;pointer-events:none}
+#cosmic-clock{position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:30;font-size:9px;letter-spacing:0.2em;color:#1a2a3a;opacity:0;animation:fadeIn 3s 5.5s forwards;pointer-events:none;text-align:center}
+#scale-bar{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:30;opacity:0;animation:fadeIn 3s 7s forwards;pointer-events:none;text-align:center}
+#scale-bar .bar{width:200px;height:1px;background:linear-gradient(90deg,transparent,#2a3a4a,transparent);margin:0 auto 5px}
+#scale-bar .label{font-size:8px;letter-spacing:0.3em;color:#2a3a4a}
+#stats{position:fixed;top:20px;right:20px;z-index:30;font-size:9px;letter-spacing:0.15em;color:#1a2a3a;text-align:right;opacity:0;animation:fadeIn 3s 6s forwards;pointer-events:none;line-height:1.8}
+#thought-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:15;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.floating-thought{position:absolute;font-size:clamp(9px,1vw,13px);color:rgba(40,60,90,0.4);pointer-events:none;white-space:nowrap;animation:drift 20s linear forwards}
+#heartbeat{position:fixed;left:20px;bottom:20px;z-index:30;opacity:0;animation:fadeIn 3s 7s forwards;pointer-events:none}
+#heartbeat .line{width:80px;height:20px}
+#intro-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;transition:opacity 2s}
+#intro-overlay h1{font-size:clamp(20px,4vw,48px);font-weight:200;letter-spacing:0.6em;color:#2a3a4a;margin-bottom:30px}
+#intro-overlay p{font-size:12px;color:#1a2a3a;letter-spacing:0.3em;animation:pulse 2s infinite}
+#intro-overlay .warning{font-size:10px;color:#3a2020;margin-top:40px;letter-spacing:0.2em}
+.vignette{position:fixed;top:0;left:0;width:100%;height:100%;z-index:5;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.7) 100%)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:0.7}}
+@keyframes pulseRing{0%{transform:translate(-50%,-50%) scale(1);opacity:0.5}100%{transform:translate(-50%,-50%) scale(3);opacity:0}}
+@keyframes drift{0%{opacity:0;transform:translateY(0)}10%{opacity:0.4}90%{opacity:0.4}100%{opacity:0;transform:translateY(-100px)}}
+</style>
+</head>
+<body>
+<div id="intro-overlay" onclick="startExperience()">
+<h1>VOID</h1>
+<p>CLICK TO CONFRONT INFINITY</p>
+<div class="warning">This experience explores the scale of cosmic time and space</div>
+</div>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+<div id="ui"></div>
+<div id="dread-text">
+<h1 id="main-title"></h1>
+<div class="fact" id="main-fact"></div>
+<div class="quote" id="main-quote"></div>
+</div>
+<div id="you-marker"><div class="ring"></div><div class="dot"></div><div class="label">← YOU ARE HERE</div></div>
+<div id="phase-label"></div>
+<div id="cosmic-clock"></div>
+<div id="controls">
+<button onclick="setPhase(0)" id="b0">I. SCALE</button>
+<button onclick="setPhase(1)" id="b1">II. TIME</button>
+<button onclick="setPhase(2)" id="b2">III. VOID</button>
+<button onclick="setPhase(3)" id="b3">IV. ENTROPY</button>
+<button onclick="setPhase(4)" id="b4">V. YOU</button>
+<button onclick="setPhase(5)" id="b5">VI. SILENCE</button>
+</div>
+<div id="scale-bar"><div class="bar"></div><div class="label" id="scale-label"></div></div>
+<div id="stats" id="stat-text"></div>
+<div id="thought-overlay" id="thoughts"></div>
+<div id="heartbeat"><svg class="line" viewBox="0 0 80 20"><polyline id="hb-line" fill="none" stroke="#331111" stroke-width="0.5" points="0,10 80,10"/></svg></div>
+<script>
+// ===== VOID — Existential Dread Simulator =====
+const C = document.getElementById('c');
+const GL = C.getContext('webgl2', {antialias:true,alpha:false});
+if(!GL){document.body.innerHTML='<p style="color:#333;padding:40px">WebGL2 required</p>';throw'no gl';}
+
+let W, H, started = false, phase = 0, phaseT = 0, globalT = 0, mouseX = 0.5, mouseY = 0.5;
+let targetPhase = 0, phaseBlend = 0, scrollAccum = 0;
+const DPR = Math.min(window.devicePixelRatio, 2);
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  C.width = W * DPR; C.height = H * DPR;
+  GL.viewport(0, 0, C.width, C.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===== COSMIC DATA =====
+const FACTS = {
+  scale: [
+    { title: "YOUR BODY", fact: "You contain approximately 7,000,000,000,000,000,000,000,000,000 atoms. Each one was forged in a star that died before you were born.", scale: "1.7m" },
+    { title: "EARTH", fact: "A pale blue dot. 12,742 km across. The entire history of human civilization occupies a thin film of moisture on its surface.", scale: "12,742 km" },
+    { title: "THE SUN", fact: "1.3 million Earths could fit inside it. It has burned for 4.6 billion years and is perfectly ordinary. One of 200 billion stars in this galaxy alone.", scale: "1.39 million km" },
+    { title: "SOLAR SYSTEM", fact: "Light takes 5.5 hours to cross it. Voyager 1 has been traveling for 47 years and has covered 0.0006% of the distance to the nearest star.", scale: "287.46 billion km" },
+    { title: "NEAREST STAR", fact: "Proxima Centauri is 4.24 light-years away. At the speed of the fastest spacecraft ever built, it would take 73,000 years to reach it.", scale: "4.24 light-years" },
+    { title: "MILKY WAY", fact: "100,000 light-years across. Contains 200-400 billion stars. You have never seen it from outside. No human ever will.", scale: "100,000 light-years" },
+    { title: "LOCAL GROUP", fact: "Our galaxy cluster spans 10 million light-years. It contains about 80 galaxies. This is our cosmic neighborhood. It is vanishingly small.", scale: "10 million ly" },
+    { title: "OBSERVABLE UNIVERSE", fact: "93 billion light-years across. Contains 2 trillion galaxies. And this is only what light has had time to reach us from. The rest is forever unknowable.", scale: "93 billion light-years" },
+    { title: "BEYOND", fact: "The unobservable universe may be 10²³ times larger. Or infinite. Regions of space are receding from us faster than light. They are gone forever.", scale: "∞" }
+  ],
+  time: [
+    { title: "PLANCK TIME", fact: "The smallest meaningful unit of time: 5.39 × 10⁻⁴⁴ seconds. Before this, the concept of 'before' has no meaning.", time: "10⁻⁴⁴ s" },
+    { title: "YOUR HEARTBEAT", fact: "0.8 seconds. In cosmic terms, this is already an eternity compared to the Planck time — yet it is the metronome of your entire conscious experience.", time: "0.8 s" },
+    { title: "A HUMAN LIFE", fact: "About 80 years. You will experience roughly 2.5 billion heartbeats. Then silence. The universe will not notice.", time: "80 years" },
+    { title: "HUMAN CIVILIZATION", fact: "10,000 years of recorded history. The entire sum of human achievement, art, love, and war — a rounding error in geological time.", time: "10,000 years" },
+    { title: "EARTH'S AGE", fact: "4.54 billion years. If Earth's history were compressed to 24 hours, all of human existence would occupy the final 1.5 seconds before midnight.", time: "4.54 billion years" },
+    { title: "THE UNIVERSE NOW", fact: "13.8 billion years old. Stars are still being born. This is the only era in which the universe is recognizable. It will not last.", time: "13.8 billion years" },
+    { title: "LAST STARS DIE", fact: "In 100 trillion years, the last red dwarf will exhaust its fuel. No new stars will form. The Stelliferous Era — the age of starlight — will end forever.", time: "10¹⁴ years" },
+    { title: "PROTON DECAY", fact: "In 10⁴⁰ years, protons themselves may decay. All matter — every atom that was ever part of anything — will dissolve into radiation.", time: "10⁴⁰ years" },
+    { title: "BLACK HOLE ERA", fact: "The last black holes will evaporate via Hawking radiation in 10¹⁰⁰ years. After that, nothing. No structure, no complexity, no memory.", time: "10¹⁰⁰ years" },
+    { title: "HEAT DEATH", fact: "Maximum entropy. The universe reaches thermodynamic equilibrium. Temperature approaches absolute zero everywhere. Nothing can ever happen again. Forever.", time: "10¹⁰⁰⁰⁺ years" }
+  ],
+  void: [
+    "The average density of the universe is approximately 6 protons per cubic meter. Space is almost entirely nothing.",
+    "Between galaxies lie voids spanning hundreds of millions of light-years containing effectively zero matter. The Boötes Void is 330 million light-years across.",
+    "99.9999999999996% of every atom is empty space. You are made almost entirely of nothing.",
+    "If the nucleus of an atom were a marble in the center of a football stadium, the nearest electron would be in the parking lot.",
+    "The nearest galaxy to ours, Andromeda, is 2.537 million light-years away. When its light left, Homo erectus was learning to use fire.",
+    "In the cosmic microwave background, we hear the echo of the Big Bang — the last light emitted when the universe was only 380,000 years old. It has been traveling for 13.8 billion years to reach your eyes.",
+    "There are more stars in the observable universe than grains of sand on every beach on Earth. Yet each star is separated by light-years of absolute nothing.",
+    "You are a pattern of atoms that briefly became aware of itself before dissolving back into the void."
+  ],
+  entropy: [
+    "The second law of thermodynamics guarantees that disorder always increases. Every moment, the universe becomes slightly more disordered. This is irreversible.",
+    "Your memories are stored as electrochemical patterns that require constant energy to maintain. When the energy stops, the patterns dissolve. Your experience of continuity is a beautiful illusion.",
+    "In the Degenerate Era, the only remaining objects will be white dwarfs, neutron stars, and black holes — slowly cooling in an expanding darkness.",
+    "The arrow of time points only one way. You cannot go back. No one can. The past exists only as imperfect electrochemical reconstructions in decaying minds.",
+    "Eventually, even iron — the most stable element — will quantum tunnel into new configurations over timescales of 10^1500 years. Stability itself is temporary.",
+    "The light from distant galaxies is redshifting. The universe is expanding. Galaxies are accelerating away from each other. In 100 billion years, the night sky will be empty."
+  ],
+  you: [
+    "You are a collection of atoms that will be completely replaced within 10 years. You are not the same matter you were. You are a pattern perpetuating itself.",
+    "The odds of you specifically existing — this particular arrangement of atoms, this specific consciousness — are estimated at 1 in 10^2,685,000.",
+    "Every atom in your body was forged in the heart of a dying star billions of years ago. You are stellar ash that learned to contemplate itself.",
+    "In 100 years, no one who currently exists will be alive. In 1,000 years, almost no one alive today will be remembered. In 10,000 years, our entire civilization may be a geological curiosity.",
+    "Your field of conscious experience — everything you see, feel, think, and are — arises from approximately 86 billion neurons firing in specific patterns. When they stop firing, you stop.",
+    "Right now, photons that left distant stars millions of years ago are entering your eyes. You are literally seeing the past. The present is always already gone."
+  ],
+  silence: [
+    "The eternal silence of these infinite spaces frightens me. — Blaise Pascal",
+    "The most merciful thing in the world is the inability of the human mind to correlate all its contents. — H.P. Lovecraft",
+    "The universe is under no obligation to make sense to you. — Neil deGrasse Tyson",
+    "We are a way for the cosmos to know itself. — Carl Sagan",
+    "In the vast cosmic arena, the Earth is a very small stage. — Carl Sagan",
+    "Man is equally incapable of seeing the nothingness from which he emerges and the infinity in which he is engulfed. — Blaise Pascal",
+    "The nitrogen in our DNA, the calcium in our teeth, the iron in our blood, the carbon in our apple pies were made in the interiors of collapsing stars. We are made of starstuff. — Carl Sagan",
+    "One must imagine Sisyphus happy. — Albert Camus"
+  ]
+};
+
+const FLOATING_THOUGHTS = [
+  "where does it end", "you were not always here", "you will not always be here",
+  "nothing lasts", "the light is old", "entropy increases", "the void expands",
+  "silence", "who remembers", "all things dissolve", "the stars are dying",
+  "you are so small", "time does not stop", "already gone", "always falling",
+  "what was before", "heat death", "the spaces between", "alone",
+  "10²⁶ meters", "10⁻⁴⁴ seconds", "2 trillion galaxies", "10¹⁰⁰ years",
+  "temporary", "borrowed atoms", "echoes fade", "light escapes",
+  "pattern dissolution", "maximum entropy", "the last photon", "no return"
+];
+
+// ===== SHADER PROGRAMS =====
+function compileShader(src, type){
+  const s = GL.createShader(type);
+  GL.shaderSource(s, src);
+  GL.compileShader(s);
+  if(!GL.getShaderParameter(s, GL.COMPILE_STATUS)){
+    console.error(GL.getShaderInfoLog(s));
+    return null;
+  }
+  return s;
+}
+function createProgram(vs, fs){
+  const p = GL.createProgram();
+  GL.attachShader(p, compileShader(vs, GL.VERTEX_SHADER));
+  GL.attachShader(p, compileShader(fs, GL.FRAGMENT_SHADER));
+  GL.linkProgram(p);
+  if(!GL.getProgramParameter(p, GL.LINK_STATUS)){
+    console.error(GL.getProgramInfoLog(p));
+    return null;
+  }
+  return p;
+}
+
+const QUAD_VS = `#version 300 es
+in vec2 a_pos;
+out vec2 vUv;
+void main(){
+  vUv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`;
+
+const MAIN_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform float uTime;
+uniform float uPhase;       // 0-5 continuous
+uniform vec2 uResolution;
+uniform vec2 uMouse;
+uniform float uDread;       // 0-1 accumulated dread
+uniform float uZoom;        // zoom level for scale phase
+
+// ===== NOISE FUNCTIONS =====
+float hash(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float hash(vec3 p){
+  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+}
+float noise2d(vec2 p){
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f*f*(3.0-2.0*f);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x),
+             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+}
+float noise3d(vec3 p){
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f*f*(3.0-2.0*f);
+  float n000 = hash(i);
+  float n100 = hash(i+vec3(1,0,0));
+  float n010 = hash(i+vec3(0,1,0));
+  float n110 = hash(i+vec3(1,1,0));
+  float n001 = hash(i+vec3(0,0,1));
+  float n101 = hash(i+vec3(1,0,1));
+  float n011 = hash(i+vec3(0,1,1));
+  float n111 = hash(i+vec3(1,1,1));
+  return mix(mix(mix(n000,n100,f.x),mix(n010,n110,f.x),f.y),
+             mix(mix(n001,n101,f.x),mix(n011,n111,f.x),f.y),f.z);
+}
+float fbm(vec2 p, int oct){
+  float v=0.0, a=0.5;
+  mat2 rot = mat2(0.8,0.6,-0.6,0.8);
+  for(int i=0;i<8;i++){
+    if(i>=oct) break;
+    v += a * noise2d(p);
+    p = rot * p * 2.0;
+    a *= 0.5;
+  }
+  return v;
+}
+float fbm3(vec3 p, int oct){
+  float v=0.0, a=0.5;
+  for(int i=0;i<6;i++){
+    if(i>=oct) break;
+    v += a * noise3d(p);
+    p = p * 2.01 + vec3(0.1);
+    a *= 0.5;
+  }
+  return v;
+}
+
+// ===== STARS =====
+vec3 starfield(vec2 uv, float density, float depth){
+  vec3 col = vec3(0.0);
+  for(float layer = 0.0; layer < 4.0; layer++){
+    vec2 grid = uv * (30.0 + layer * 40.0) * density;
+    vec2 id = floor(grid);
+    vec2 gv = fract(grid) - 0.5;
+    for(int y=-1; y<=1; y++){
+      for(int x=-1; x<=1; x++){
+        vec2 offs = vec2(float(x), float(y));
+        vec2 cellId = id + offs;
+        float h = hash(cellId + layer * 100.0);
+        if(h > 0.85 - depth*0.1){
+          vec2 starPos = offs + vec2(hash(cellId*1.3+layer*7.0), hash(cellId*2.1+layer*13.0)) - 0.5 - gv;
+          float d = length(starPos);
+          float brightness = smoothstep(0.04 + layer*0.01, 0.0, d);
+          brightness *= 0.3 + 0.7 * sin(uTime * (1.0 + h * 3.0) + h * 6.28) * 0.5 + 0.5;
+          float temp = h;
+          vec3 starCol = temp < 0.33 ? vec3(0.7,0.8,1.0) : temp < 0.66 ? vec3(1.0,0.95,0.8) : vec3(1.0,0.7,0.5);
+          col += starCol * brightness * (1.0 - layer * 0.2);
+        }
+      }
+    }
+  }
+  return col;
+}
+
+// ===== NEBULA =====
+vec3 nebula(vec2 uv, float t){
+  float n1 = fbm(uv * 2.0 + t * 0.02, 6);
+  float n2 = fbm(uv * 3.0 - t * 0.015 + 100.0, 5);
+  float n3 = fbm(uv * 1.5 + t * 0.01 + 200.0, 4);
+  vec3 c1 = vec3(0.05, 0.02, 0.15) * n1;
+  vec3 c2 = vec3(0.02, 0.05, 0.12) * n2;
+  vec3 c3 = vec3(0.08, 0.01, 0.05) * n3;
+  return (c1 + c2 + c3) * 0.8;
+}
+
+// ===== GALAXY SPIRAL =====
+vec3 galaxy(vec2 uv, float t){
+  vec2 center = uv - 0.5;
+  float r = length(center);
+  float angle = atan(center.y, center.x);
+  float spiral = sin(angle * 2.0 - r * 15.0 + t * 0.1) * 0.5 + 0.5;
+  float arm = smoothstep(0.0, 0.3, spiral) * exp(-r * 3.0);
+  float core = exp(-r * 20.0);
+  vec3 armCol = vec3(0.1, 0.15, 0.3) * arm;
+  vec3 coreCol = vec3(0.3, 0.25, 0.15) * core;
+  return armCol + coreCol;
+}
+
+// ===== VOID RENDER =====
+vec3 theVoid(vec2 uv, float t){
+  float d = length(uv - 0.5);
+  float darkness = smoothstep(0.0, 0.5, d);
+  float pulse = sin(t * 0.3) * 0.5 + 0.5;
+  float voidNoise = fbm(uv * 5.0 + t * 0.05, 6);
+  vec3 edge = vec3(0.02, 0.01, 0.04) * (1.0 - darkness) * voidNoise;
+  float abyssPulse = smoothstep(0.4, 0.0, d) * pulse * 0.03;
+  return edge + vec3(abyssPulse * 0.2, 0.0, abyssPulse);
+}
+
+// ===== ENTROPY VISUALIZATION =====
+vec3 entropy(vec2 uv, float t){
+  float dissolve = uDread;
+  vec2 distorted = uv + vec2(
+    fbm(uv * 4.0 + t * 0.1, 4) - 0.5,
+    fbm(uv * 4.0 + t * 0.1 + 50.0, 4) - 0.5
+  ) * dissolve * 0.3;
+  float structure = fbm(distorted * 3.0, 6);
+  structure = smoothstep(0.3 + dissolve * 0.3, 0.7, structure);
+  vec3 col = mix(vec3(0.05, 0.08, 0.15), vec3(0.0), dissolve);
+  col += vec3(0.1, 0.05, 0.02) * structure * (1.0 - dissolve);
+  float particle = 0.0;
+  for(float i=0.0;i<20.0;i++){
+    vec2 p = vec2(hash(vec2(i,0.0)), hash(vec2(0.0,i)));
+    p = fract(p + t * 0.01 * (1.0 + dissolve));
+    float d = length(uv - p);
+    particle += smoothstep(0.01, 0.0, d) * (1.0 - dissolve);
+  }
+  col += vec3(0.15, 0.1, 0.05) * particle;
+  return col;
+}
+
+// ===== YOU (tiny human perspective) =====
+vec3 youPhase(vec2 uv, float t){
+  vec3 stars = starfield(uv, 1.5, 0.3);
+  float d = length(uv - uMouse);
+  float awareness = exp(-d * 8.0) * 0.05;
+  vec3 glow = vec3(0.15, 0.04, 0.02) * awareness;
+  float breathe = sin(t * 0.8) * 0.5 + 0.5;
+  float heartGlow = exp(-d * 30.0) * breathe * 0.03;
+  glow += vec3(0.2, 0.02, 0.02) * heartGlow;
+  return stars * 0.3 + glow;
+}
+
+// ===== SILENCE =====
+vec3 silence(vec2 uv, float t){
+  float fade = sin(t * 0.1) * 0.5 + 0.5;
+  float n = fbm(uv * 2.0, 3) * 0.02 * fade;
+  return vec3(n * 0.5, n * 0.3, n);
+}
+
+void main(){
+  vec2 uv = vUv;
+  vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+  float t = uTime;
+  
+  int ph = int(floor(uPhase));
+  float blend = fract(uPhase);
+  
+  vec3 col = vec3(0.0);
+  
+  // Phase 0: SCALE — zoom through cosmic scales with starfield
+  if(ph == 0){
+    float zoom = uZoom;
+    vec2 suv = (uv - 0.5) * aspect / max(zoom, 0.001) + 0.5;
+    vec3 stars = starfield(suv, 1.0 + zoom * 0.5, 0.2);
+    vec3 neb = nebula(suv, t);
+    col = stars + neb;
+    // Show a tiny marker for scale reference
+    float markerD = length(uv - 0.5);
+    float marker = smoothstep(0.003, 0.001, markerD);
+    col += vec3(0.4, 0.1, 0.1) * marker * (sin(t*2.0)*0.5+0.5);
+  }
+  // Phase 1: TIME — flowing timeline, cosmic clock
+  else if(ph == 1){
+    vec2 flowUv = uv;
+    flowUv.x += t * 0.02;
+    vec3 timeNeb = nebula(flowUv, t);
+    vec3 stars = starfield(flowUv, 0.8, 0.1);
+    // Time stream
+    float stream = sin(uv.y * 30.0 + t * 2.0 + fbm(uv * 5.0, 3) * 5.0) * 0.5 + 0.5;
+    stream = smoothstep(0.7, 1.0, stream) * 0.05;
+    vec3 timeCol = vec3(0.02, 0.05, 0.12) * stream;
+    // Arrow of time
+    float arrow = smoothstep(0.502, 0.498, abs(uv.y - 0.5));
+    arrow *= (sin(uv.x * 50.0 - t * 5.0) * 0.5 + 0.5);
+    col = stars * 0.4 + timeNeb + timeCol + vec3(0.02, 0.01, 0.04) * arrow;
+  }
+  // Phase 2: VOID
+  else if(ph == 2){
+    col = theVoid(uv, t);
+    vec3 distantStars = starfield(uv * 0.3, 0.3, 0.05);
+    col += distantStars * 0.15;
+  }
+  // Phase 3: ENTROPY
+  else if(ph == 3){
+    col = entropy(uv, t);
+  }
+  // Phase 4: YOU
+  else if(ph == 4){
+    col = youPhase(uv, t);
+  }
+  // Phase 5: SILENCE
+  else if(ph == 5){
+    col = silence(uv, t);
+  }
+  
+  // Global vignette
+  float vig = 1.0 - smoothstep(0.3, 0.85, length((uv - 0.5) * vec2(1.2, 1.0)));
+  col *= vig * 0.8 + 0.2;
+  
+  // Dread tint — shifts color as dread accumulates
+  col = mix(col, col * vec3(0.7, 0.8, 1.2), uDread * 0.3);
+  
+  // Film grain
+  float grain = hash(uv * uResolution + fract(t) * 1000.0) * 0.02;
+  col += grain;
+  
+  // Ensure we don't over-brighten
+  col = clamp(col, 0.0, 1.0);
+  
+  fragColor = vec4(col, 1.0);
+}`;
+
+// Create program and get uniforms
+const prog = createProgram(QUAD_VS, MAIN_FS);
+const uTime = GL.getUniformLocation(prog, 'uTime');
+const uPhase = GL.getUniformLocation(prog, 'uPhase');
+const uRes = GL.getUniformLocation(prog, 'uResolution');
+const uMouse = GL.getUniformLocation(prog, 'uMouse');
+const uDread = GL.getUniformLocation(prog, 'uDread');
+const uZoom = GL.getUniformLocation(prog, 'uZoom');
+
+// Fullscreen quad
+const quad = GL.createBuffer();
+GL.bindBuffer(GL.ARRAY_BUFFER, quad);
+GL.bufferData(GL.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), GL.STATIC_DRAW);
+const aPos = GL.getAttribLocation(prog, 'a_pos');
+
+// ===== STATE =====
+let dread = 0;
+let zoom = 1.0;
+let targetZoom = 1.0;
+let scaleIndex = 0;
+let timeIndex = 0;
+let voidIndex = 0;
+let entropyIndex = 0;
+let youIndex = 0;
+let silenceIndex = 0;
+let textFadeT = 0;
+let textVisible = true;
+let lastTextChange = 0;
+let thoughtTimer = 0;
+let hbPhase = 0;
+let autoAdvance = true;
+
+const PHASE_NAMES = ['I. THE SCALE OF SPACE', 'II. THE DEPTH OF TIME', 'III. THE VOID BETWEEN', 'IV. ENTROPY\'S ARROW', 'V. YOU ARE HERE', 'VI. THE SILENCE AFTER'];
+const PHASE_INTERVALS = [8000, 10000, 9000, 9000, 10000, 12000]; // ms between fact changes per phase
+
+// ===== DOM ELEMENTS =====
+const mainTitle = document.getElementById('main-title');
+const mainFact = document.getElementById('main-fact');
+const mainQuote = document.getElementById('main-quote');
+const phaseLabel = document.getElementById('phase-label');
+const cosmicClock = document.getElementById('cosmic-clock');
+const scaleLabel = document.getElementById('scale-label');
+const youMarker = document.getElementById('you-marker');
+const statsDiv = document.getElementById('stats');
+const hbLine = document.getElementById('hb-line');
+const dreadText = document.getElementById('dread-text');
+const thoughtOverlay = document.getElementById('thought-overlay');
+
+// ===== PHASE LOGIC =====
+function setPhase(p){
+  if(!started) return;
+  phase = p;
+  phaseT = 0;
+  lastTextChange = -99999;
+  updateButtons();
+  updatePhaseLabel();
+  updateContent(true);
+  // Reset indices
+  if(p === 0) scaleIndex = 0;
+  if(p === 1) timeIndex = 0;
+  if(p === 2) voidIndex = 0;
+  if(p === 3) entropyIndex = 0;
+  if(p === 4) youIndex = 0;
+  if(p === 5) silenceIndex = 0;
+}
+
+function updateButtons(){
+  for(let i=0;i<6;i++){
+    const b = document.getElementById('b'+i);
+    b.classList.toggle('active', i === phase);
+  }
+}
+
+function updatePhaseLabel(){
+  phaseLabel.textContent = PHASE_NAMES[phase];
+  phaseLabel.style.opacity = '1';
+}
+
+function updateContent(force){
+  const now = performance.now();
+  const interval = PHASE_INTERVALS[phase];
+  if(!force && now - lastTextChange < interval) return;
+  lastTextChange = now;
+  
+  // Fade out, change, fade in
+  dreadText.style.opacity = '0';
+  setTimeout(() => {
+    let data, idx;
+    switch(phase){
+      case 0:
+        data = FACTS.scale[scaleIndex % FACTS.scale.length];
+        mainTitle.textContent = data.title;
+        mainFact.textContent = data.fact;
+        mainQuote.textContent = '';
+        scaleLabel.textContent = data.scale;
+        targetZoom = Math.pow(0.5, scaleIndex);
+        scaleIndex = (scaleIndex + 1) % FACTS.scale.length;
+        break;
+      case 1:
+        data = FACTS.time[timeIndex % FACTS.time.length];
+        mainTitle.textContent = data.title;
+        mainFact.textContent = data.fact;
+        mainQuote.textContent = data.time;
+        scaleLabel.textContent = data.time;
+        timeIndex = (timeIndex + 1) % FACTS.time.length;
+        break;
+      case 2:
+        data = FACTS.void[voidIndex % FACTS.void.length];
+        mainTitle.textContent = 'THE VOID';
+        mainFact.textContent = data;
+        mainQuote.textContent = '';
+        scaleLabel.textContent = '∅';
+        voidIndex = (voidIndex + 1) % FACTS.void.length;
+        break;
+      case 3:
+        data = FACTS.entropy[entropyIndex % FACTS.entropy.length];
+        mainTitle.textContent = 'ENTROPY';
+        mainFact.textContent = data;
+        mainQuote.textContent = 'S → S_max';
+        scaleLabel.textContent = 'ΔS ≥ 0';
+        entropyIndex = (entropyIndex + 1) % FACTS.entropy.length;
+        break;
+      case 4:
+        data = FACTS.you[youIndex % FACTS.you.length];
+        mainTitle.textContent = 'YOU';
+        mainFact.textContent = data;
+        mainQuote.textContent = '';
+        scaleLabel.textContent = '1 / ∞';
+        youIndex = (youIndex + 1) % FACTS.you.length;
+        break;
+      case 5:
+        data = FACTS.silence[silenceIndex % FACTS.silence.length];
+        mainTitle.textContent = '';
+        mainFact.textContent = '';
+        mainQuote.textContent = data;
+        scaleLabel.textContent = '...';
+        silenceIndex = (silenceIndex + 1) % FACTS.silence.length;
+        break;
+    }
+    dreadText.style.opacity = '1';
+  }, 1000);
+}
+
+// ===== FLOATING THOUGHTS =====
+function spawnThought(){
+  const el = document.createElement('div');
+  el.className = 'floating-thought';
+  el.textContent = FLOATING_THOUGHTS[Math.floor(Math.random() * FLOATING_THOUGHTS.length)];
+  el.style.left = (10 + Math.random() * 80) + '%';
+  el.style.top = (60 + Math.random() * 30) + '%';
+  el.style.animationDuration = (15 + Math.random() * 15) + 's';
+  el.style.fontSize = (8 + Math.random() * 5) + 'px';
+  thoughtOverlay.appendChild(el);
+  setTimeout(() => el.remove(), 30000);
+}
+
+// ===== HEARTBEAT =====
+function updateHeartbeat(t){
+  let points = '';
+  for(let x = 0; x < 80; x++){
+    let y = 10;
+    const phase4 = phase === 4;
+    const freq = phase4 ? 1.0 : 0.3;
+    const amp = phase4 ? 6 : 2;
+    const px = (x / 80) * Math.PI * 8;
+    const beat = Math.exp(-((px % (Math.PI*2)) - 1.0) * ((px % (Math.PI*2)) - 1.0) * 2.0);
+    y -= beat * amp * Math.sin(t * freq * 5 + px * 3) * (1.0 - dread * 0.5);
+    points += x + ',' + y.toFixed(1) + ' ';
+  }
+  hbLine.setAttribute('points', points.trim());
+  hbLine.setAttribute('stroke', phase === 4 ? '#441111' : '#221111');
+}
+
+// ===== YOU MARKER =====
+function updateYouMarker(){
+  if(phase === 4 || phase === 0){
+    youMarker.style.opacity = '1';
+    youMarker.style.left = (W/2 - 20) + 'px';
+    youMarker.style.top = (H/2 - 20) + 'px';
+  } else {
+    youMarker.style.opacity = '0';
+  }
+}
+
+// ===== COSMIC CLOCK =====
+function updateCosmicClock(t){
+  const age = 13.8e9; // universe age in years
+  const elapsed = age + t * 1000; // pretend seconds = millennia for drama
+  const heat = 1e100;
+  const pct = (elapsed / heat * 100);
+  
+  let timeStr = '';
+  if(phase === 1){
+    const era = t < 10 ? 'Stelliferous Era' : t < 30 ? 'Degenerate Era' : t < 50 ? 'Black Hole Era' : 'Dark Era';
+    timeStr = `COSMIC AGE: 13,800,000,000 years<br>ERA: ${era}<br>REMAINING: effectively ∞`;
+  } else if(phase === 3){
+    timeStr = `ENTROPY: increasing<br>STRUCTURE: dissolving<br>DREAD LEVEL: ${(dread*100).toFixed(1)}%`;
+  } else if(phase === 4){
+    timeStr = `YOUR LIFETIME: ~2.5 billion heartbeats<br>ELAPSED: ${Math.floor(t*80).toLocaleString()}<br>REMAINING: unknown`;
+  } else if(phase === 5){
+    timeStr = `...`;
+  } else {
+    timeStr = `OBSERVABLE: 93 billion ly<br>ZOOM: ${zoom.toExponential(2)}<br>SCALE INDEX: ${scaleIndex}/${FACTS.scale.length}`;
+  }
+  cosmicClock.innerHTML = timeStr;
+}
+
+// ===== STATS =====
+function updateStats(){
+  const elapsed = ((performance.now() - startTime) / 1000).toFixed(0);
+  statsDiv.innerHTML = `RUNTIME: ${elapsed}s<br>PHASE: ${phase + 1}/6<br>DREAD: ${(dread*100).toFixed(1)}%<br>THOUGHTS: ${thoughtOverlay.children.length}`;
+}
+
+// ===== MOUSE =====
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX / W;
+  mouseY = 1.0 - e.clientY / H;
+});
+
+document.addEventListener('wheel', e => {
+  if(phase === 0){
+    scrollAccum += e.deltaY * 0.001;
+    targetZoom = Math.max(0.001, Math.min(10, targetZoom * (1 - e.deltaY * 0.002)));
+  }
+}, {passive:true});
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if(!started) { startExperience(); return; }
+  const k = e.key;
+  if(k >= '1' && k <= '6') setPhase(parseInt(k) - 1);
+  if(k === 'ArrowRight'){
+    if(phase < 5) setPhase(phase + 1);
+  }
+  if(k === 'ArrowLeft'){
+    if(phase > 0) setPhase(phase - 1);
+  }
+  if(k === ' '){
+    autoAdvance = !autoAdvance;
+    e.preventDefault();
+  }
+});
+
+// ===== START =====
+let startTime = 0;
+
+function startExperience(){
+  if(started) return;
+  started = true;
+  startTime = performance.now();
+  const intro = document.getElementById('intro-overlay');
+  intro.style.opacity = '0';
+  setTimeout(() => intro.style.display = 'none', 2000);
+  setPhase(0);
+  requestAnimationFrame(loop);
+}
+
+// ===== MAIN LOOP =====
+function loop(now){
+  if(!started) { requestAnimationFrame(loop); return; }
+  
+  const dt = 1/60;
+  globalT = (now - startTime) / 1000;
+  phaseT += dt;
+  
+  // Dread accumulates over time
+  dread = Math.min(1.0, dread + dt * 0.003 * (1 + phase * 0.5));
+  
+  // Zoom interpolation
+  zoom += (targetZoom - zoom) * 0.02;
+  
+  // Auto-advance content
+  if(autoAdvance){
+    updateContent(false);
+  }
+  
+  // Floating thoughts
+  thoughtTimer += dt;
+  if(thoughtTimer > 4 + Math.random() * 3){
+    thoughtTimer = 0;
+    if(thoughtOverlay.children.length < 12) spawnThought();
+  }
+  
+  // ===== RENDER =====
+  GL.clearColor(0, 0, 0, 1);
+  GL.clear(GL.COLOR_BUFFER_BIT);
+  
+  GL.useProgram(prog);
+  GL.uniform1f(uTime, globalT);
+  GL.uniform1f(uPhase, phase);
+  GL.uniform2f(uRes, C.width, C.height);
+  GL.uniform2f(uMouse, mouseX, mouseY);
+  GL.uniform1f(uDread, dread);
+  GL.uniform1f(uZoom, zoom);
+  
+  GL.bindBuffer(GL.ARRAY_BUFFER, quad);
+  GL.enableVertexAttribArray(aPos);
+  GL.vertexAttribPointer(aPos, 2, GL.FLOAT, false, 0, 0);
+  GL.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
+  
+  // DOM updates (throttled)
+  if(Math.floor(globalT * 4) !== Math.floor((globalT - dt) * 4)){
+    updateCosmicClock(globalT);
+    updateStats();
+    updateYouMarker();
+  }
+  updateHeartbeat(globalT);
+  
+  requestAnimationFrame(loop);
+}
+
+// Pre-start idle render
+requestAnimationFrame(function idle(now){
+  if(started) return;
+  GL.clearColor(0,0,0,1);
+  GL.clear(GL.COLOR_BUFFER_BIT);
+  
+  GL.useProgram(prog);
+  GL.uniform1f(uTime, now/1000);
+  GL.uniform1f(uPhase, 5); // silence by default
+  GL.uniform2f(uRes, C.width, C.height);
+  GL.uniform2f(uMouse, 0.5, 0.5);
+  GL.uniform1f(uDread, 0);
+  GL.uniform1f(uZoom, 1);
+  
+  GL.bindBuffer(GL.ARRAY_BUFFER, quad);
+  GL.enableVertexAttribArray(aPos);
+  GL.vertexAttribPointer(aPos, 2, GL.FLOAT, false, 0, 0);
+  GL.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
+  
+  requestAnimationFrame(idle);
+});
+</script>
+</body>
+</html>

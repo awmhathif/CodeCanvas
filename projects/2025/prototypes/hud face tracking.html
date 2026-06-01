@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HUD Face Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #video {
+            position: absolute;
+            transform: scaleX(-1);
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            position: absolute;
+            transform: scaleX(-1);
+            width: 100%;
+            height: 100%;
+        }
+
+        .hud-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .corner {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px solid #0ff;
+        }
+
+        .corner.tl {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner.tr {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner.bl {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner.br {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .stats {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            color: #0ff;
+            font-size: 11px;
+            line-height: 1.8;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        .bio {
+            position: fixed;
+            top: 30px;
+            right: 100px;
+            color: #0ff;
+            font-size: 11px;
+            text-align: right;
+            line-height: 1.8;
+        }
+
+        .label {
+            color: #0f8;
+        }
+
+        .scan {
+            position: fixed;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.5), transparent);
+            animation: scan 3s linear infinite;
+            z-index: 6;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ff;
+            font-size: 20px;
+            z-index: 1000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #f08;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #f08;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading" id="loading">INITIALIZING HUD...</div>
+    <div class="error" id="error">CAMERA ACCESS REQUIRED<br><small>Allow camera and reload</small></div>
+    <div id="container"><video id="video" autoplay playsinline></video><canvas id="canvas"></canvas></div>
+    <div class="hud-overlay">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="stats"><span class="label">STATUS:</span> <span id="status">SCANNING</span><br><span
+                class="label">FPS:</span> <span id="fps">60</span><br><span class="label">MODE:</span> TRACKING</div>
+        <div class="bio"><span class="label">HEART:</span> <span id="hr">72 BPM</span><br><span
+                class="label">FOCUS:</span> <span id="focus">98%</span><br><span class="label">THREAT:</span> NONE</div>
+    </div>
+    <div class="scan"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script>
+        const video = document.getElementById('video'), canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+        let fps = 0, frames = 0, lastTime = performance.now();
+        const faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        faceMesh.onResults(r => {
+            frames++; const now = performance.now();
+            if (now - lastTime >= 1000) { fps = frames; frames = 0; lastTime = now; document.getElementById('fps').textContent = fps; }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (r.multiFaceLandmarks?.length) {
+                document.getElementById('status').textContent = 'LOCKED';
+                document.getElementById('status').style.color = '#0f8';
+                const lm = r.multiFaceLandmarks[0];
+                ctx.strokeStyle = 'rgba(0,255,255,0.25)'; ctx.lineWidth = 1; ctx.beginPath();
+                for (let i = 0; i < 468; i += 3) { if (i + 1 < 468) { ctx.moveTo(lm[i].x * canvas.width, lm[i].y * canvas.height); ctx.lineTo(lm[i + 1].x * canvas.width, lm[i + 1].y * canvas.height); } }
+                ctx.stroke();
+                [[33, 133, 160, 159, 158, 144, 145, 153], [362, 263, 387, 386, 385, 373, 374, 380]].forEach(eye => {
+                    let cx = 0, cy = 0; eye.forEach(i => { cx += lm[i].x; cy += lm[i].y; });
+                    cx = cx / eye.length * canvas.width; cy = cy / eye.length * canvas.height;
+                    ctx.strokeStyle = '#f08'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx - 35, cy); ctx.lineTo(cx - 12, cy); ctx.moveTo(cx + 12, cy); ctx.lineTo(cx + 35, cy);
+                    ctx.moveTo(cx, cy - 35); ctx.lineTo(cx, cy - 12); ctx.moveTo(cx, cy + 12); ctx.lineTo(cx, cy + 35); ctx.stroke();
+                });
+                if (Math.random() > 0.95) { document.getElementById('hr').textContent = (68 + Math.floor(Math.random() * 10)) + ' BPM'; document.getElementById('focus').textContent = (95 + Math.floor(Math.random() * 5)) + '%'; }
+            } else { document.getElementById('status').textContent = 'SCANNING'; document.getElementById('status').style.color = '#f08'; }
+        });
+        (async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' } });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                    const cam = new Camera(video, { onFrame: async () => await faceMesh.send({ image: video }), width: 1280, height: 720 });
+                    cam.start(); setTimeout(() => document.getElementById('loading').style.display = 'none', 2000);
+                };
+            } catch (e) { document.getElementById('loading').style.display = 'none'; document.getElementById('error').style.display = 'block'; }
+        })();
+    </script>
+</body>
+
+</html>

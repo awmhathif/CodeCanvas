@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neuro-Evolutionary Terrarium</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace}
+canvas{display:block;width:100%;height:100%}
+#ui{position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:10}
+#topBar{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:linear-gradient(180deg,rgba(0,0,0,0.85),rgba(0,0,0,0.4));pointer-events:auto}
+#topBar h1{font-size:14px;color:#0ef;letter-spacing:1px;text-shadow:0 0 8px rgba(0,238,255,0.4)}
+#controls{display:flex;gap:6px;align-items:center}
+.btn{background:rgba(0,238,255,0.08);border:1px solid rgba(0,238,255,0.25);color:#0ef;padding:5px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;transition:all .2s}
+.btn:hover{background:rgba(0,238,255,0.18);box-shadow:0 0 8px rgba(0,238,255,0.2)}
+.btn.active{background:rgba(0,238,255,0.2);border-color:#0ef}
+#stats{font-size:10px;color:#8af;display:flex;gap:12px}
+#stats span{opacity:0.8}
+#brainOverlay{position:absolute;bottom:12px;right:12px;width:280px;height:220px;background:rgba(0,5,15,0.92);border:1px solid rgba(0,238,255,0.2);border-radius:8px;pointer-events:auto;cursor:pointer;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.6)}
+#brainOverlay.hidden{display:none}
+#brainCanvas{width:100%;height:100%}
+#brainLabel{position:absolute;top:4px;left:8px;font-size:9px;color:#0ef;opacity:0.7}
+#creatureInfo{position:absolute;bottom:12px;left:12px;background:rgba(0,5,15,0.88);border:1px solid rgba(0,238,255,0.15);border-radius:8px;padding:10px 14px;font-size:10px;color:#9be;pointer-events:auto;min-width:200px}
+#creatureInfo.hidden{display:none}
+#creatureInfo h4{color:#0ef;font-size:11px;margin-bottom:6px}
+#creatureInfo .row{display:flex;justify-content:space-between;margin-bottom:2px}
+#creatureInfo .val{color:#fff}
+#genBar{position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,5,15,0.8);border:1px solid rgba(0,238,255,0.12);border-radius:6px;padding:6px 16px;font-size:10px;color:#8af;text-align:center;pointer-events:none}
+#genBar .gen{color:#0ef;font-size:13px;font-weight:bold}
+</style>
+</head>
+<body>
+<canvas id="mainCanvas"></canvas>
+<div id="ui">
+  <div id="topBar">
+    <h1>🧬 NEURO-EVOLUTIONARY TERRARIUM</h1>
+    <div id="controls">
+      <button class="btn" id="btnPause" onclick="togglePause()">⏸ Pause</button>
+      <button class="btn" id="btnSpeed" onclick="cycleSpeed()">1×</button>
+      <button class="btn" id="btnBrain" onclick="toggleBrain()">🧠 Brain</button>
+      <button class="btn" id="btnReset" onclick="resetSim()">↺ Reset</button>
+      <button class="btn" id="btnCam" onclick="cycleCam()">🎥 Orbit</button>
+    </div>
+    <div id="stats">
+      <span id="statFPS">FPS: --</span>
+      <span id="statPop">Pop: 0</span>
+      <span id="statBest">Best: 0.0</span>
+    </div>
+  </div>
+  <div id="genBar"><span class="gen" id="genNum">Gen 1</span><br><span id="genPhase">Evaluating...</span></div>
+  <div id="brainOverlay"><canvas id="brainCanvas"></canvas><div id="brainLabel">Neural Activity — Click creature to select</div></div>
+  <div id="creatureInfo" class="hidden">
+    <h4 id="cName">Creature #0</h4>
+    <div class="row"><span>Fitness</span><span class="val" id="cFit">0.00</span></div>
+    <div class="row"><span>Joints</span><span class="val" id="cJoints">0</span></div>
+    <div class="row"><span>Limbs</span><span class="val" id="cLimbs">0</span></div>
+    <div class="row"><span>Neurons</span><span class="val" id="cNeurons">0</span></div>
+    <div class="row"><span>Distance</span><span class="val" id="cDist">0.00</span></div>
+    <div class="row"><span>Generation</span><span class="val" id="cGen">0</span></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const CFG = {
+  POP_SIZE: 12,
+  EVAL_TIME: 600,       // frames per evaluation
+  MUTATION_RATE: 0.15,
+  MUTATION_STRENGTH: 0.4,
+  CROSSOVER_RATE: 0.7,
+  ELITISM: 2,
+  GRAVITY: -9.8,
+  GROUND_Y: 0,
+  DT: 1/60,
+  SUBSTEPS: 4,
+  MAX_LIMBS: 6,
+  MIN_LIMBS: 2,
+  JOINT_STRENGTH: 120,
+  JOINT_DAMPING: 8,
+  FRICTION: 0.6,
+  RESTITUTION: 0.2,
+  NN_HIDDEN: 8,
+  GRID_SIZE: 40,
+  SPACING: 6,
+};
+
+// ============================================================
+// PRNG (Mulberry32, seedable)
+// ============================================================
+let seed = Date.now() & 0xFFFFFFFF;
+function mulberry32() {
+  seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+const rng = () => mulberry32();
+const rngRange = (a,b) => a + rng() * (b - a);
+const rngInt = (a,b) => Math.floor(rngRange(a, b));
+const rngGaussian = () => { let u=0,v=0; while(!u) u=rng(); while(!v) v=rng(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+
+// ============================================================
+// VECTOR / MATRIX MATH
+// ============================================================
+const V3 = {
+  create: (x=0,y=0,z=0) => [x,y,z],
+  add: (a,b) => [a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sub: (a,b) => [a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  scale: (a,s) => [a[0]*s,a[1]*s,a[2]*s],
+  dot: (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross: (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]],
+  len: (a) => Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]),
+  norm: (a) => { const l=V3.len(a)||1; return [a[0]/l,a[1]/l,a[2]/l]; },
+  lerp: (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t],
+  copy: (a) => [a[0],a[1],a[2]],
+  addScaled: (a,b,s) => [a[0]+b[0]*s, a[1]+b[1]*s, a[2]+b[2]*s],
+  dist: (a,b) => V3.len(V3.sub(a,b)),
+};
+
+// 4x4 matrix operations
+const M4 = {
+  identity: () => [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+  perspective: (fov, aspect, near, far) => {
+    const f = 1/Math.tan(fov/2), nf = 1/(near-far);
+    return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
+  },
+  lookAt: (eye, center, up) => {
+    const z = V3.norm(V3.sub(eye, center));
+    const x = V3.norm(V3.cross(up, z));
+    const y = V3.cross(z, x);
+    return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0,
+      -V3.dot(x,eye),-V3.dot(y,eye),-V3.dot(z,eye),1];
+  },
+  multiply: (a, b) => {
+    const r = new Array(16);
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) {
+      r[j*4+i] = a[i]*b[j*4] + a[4+i]*b[j*4+1] + a[8+i]*b[j*4+2] + a[12+i]*b[j*4+3];
+    }
+    return r;
+  },
+  translate: (m, v) => {
+    const t = M4.identity();
+    t[12]=v[0]; t[13]=v[1]; t[14]=v[2];
+    return M4.multiply(m, t);
+  },
+  rotateY: (m, rad) => {
+    const c=Math.cos(rad), s=Math.sin(rad);
+    const r = M4.identity();
+    r[0]=c; r[2]=-s; r[8]=s; r[10]=c;
+    return M4.multiply(m, r);
+  },
+  rotateX: (m, rad) => {
+    const c=Math.cos(rad), s=Math.sin(rad);
+    const r = M4.identity();
+    r[5]=c; r[6]=s; r[9]=-s; r[10]=c;
+    return M4.multiply(m, r);
+  },
+  scale: (m, v) => {
+    const s = M4.identity();
+    s[0]=v[0]; s[5]=v[1]; s[10]=v[2];
+    return M4.multiply(m, s);
+  },
+  transformPoint: (m, p) => {
+    const w = m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];
+    return [(m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12])/w,
+            (m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13])/w,
+            (m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14])/w];
+  }
+};
+
+// ============================================================
+// WEBGL RENDERER
+// ============================================================
+const canvas = document.getElementById('mainCanvas');
+let gl, useWebGL2 = false;
+
+// Shader sources
+const VS_MAIN = `
+  attribute vec3 aPos;
+  attribute vec3 aNormal;
+  attribute vec3 aColor;
+  uniform mat4 uMVP;
+  uniform mat4 uModel;
+  uniform vec3 uLightDir;
+  uniform float uSelected;
+  varying vec3 vColor;
+  varying float vLight;
+  varying vec3 vWorldPos;
+  void main() {
+    gl_Position = uMVP * vec4(aPos, 1.0);
+    vec3 worldNormal = normalize(mat3(uModel) * aNormal);
+    float diff = max(dot(worldNormal, uLightDir), 0.0);
+    float ambient = 0.25;
+    vLight = ambient + diff * 0.75;
+    vColor = aColor;
+    if (uSelected > 0.5) vColor = mix(aColor, vec3(0.0, 1.0, 1.0), 0.15);
+    vWorldPos = (uModel * vec4(aPos, 1.0)).xyz;
+  }
+`;
+
+const FS_MAIN = `
+  precision mediump float;
+  varying vec3 vColor;
+  varying float vLight;
+  varying vec3 vWorldPos;
+  uniform float uFogDensity;
+  uniform vec3 uFogColor;
+  void main() {
+    vec3 lit = vColor * vLight;
+    float d = length(vWorldPos.xz);
+    float fog = 1.0 - exp(-d * d * uFogDensity);
+    vec3 final = mix(lit, uFogColor, clamp(fog, 0.0, 0.85));
+    gl_FragColor = vec4(final, 1.0);
+  }
+`;
+
+// Ground shader with grid pattern
+const VS_GROUND = `
+  attribute vec3 aPos;
+  uniform mat4 uMVP;
+  varying vec3 vWorldPos;
+  void main() {
+    gl_Position = uMVP * vec4(aPos, 1.0);
+    vWorldPos = aPos;
+  }
+`;
+
+const FS_GROUND = `
+  precision mediump float;
+  varying vec3 vWorldPos;
+  uniform float uFogDensity;
+  uniform vec3 uFogColor;
+  void main() {
+    vec2 grid = fract(vWorldPos.xz * 0.5);
+    float line = step(0.96, grid.x) + step(0.96, grid.y);
+    vec3 baseColor = mix(vec3(0.04, 0.06, 0.08), vec3(0.08, 0.12, 0.16), line * 0.3);
+    // Radial gradient for arena feel
+    float r = length(vWorldPos.xz) / 30.0;
+    baseColor = mix(baseColor, vec3(0.02, 0.03, 0.05), clamp(r, 0.0, 1.0));
+    float d = length(vWorldPos.xz);
+    float fog = 1.0 - exp(-d * d * uFogDensity);
+    vec3 final = mix(baseColor, uFogColor, clamp(fog, 0.0, 0.95));
+    gl_FragColor = vec4(final, 1.0);
+  }
+`;
+
+let mainProgram, groundProgram;
+let groundVBO;
+let sphereVBO, sphereIBO, sphereIndexCount;
+let cylinderVBO, cylinderIBO, cylinderIndexCount;
+
+function compileShader(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error('Shader error:', gl.getShaderInfoLog(s));
+    return null;
+  }
+  return s;
+}
+
+function createProgram(vsSrc, fsSrc) {
+  const vs = compileShader(vsSrc, gl.VERTEX_SHADER);
+  const fs = compileShader(fsSrc, gl.FRAGMENT_SHADER);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error('Link error:', gl.getProgramInfoLog(prog));
+    return null;
+  }
+  prog.u = {};
+  const nu = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < nu; i++) {
+    const info = gl.getActiveUniform(prog, i);
+    prog.u[info.name] = gl.getUniformLocation(prog, info.name);
+  }
+  return prog;
+}
+
+// Generate sphere geometry
+function createSphere(segments, rings) {
+  const verts = [], indices = [], normals = [], colors = [];
+  for (let r = 0; r <= rings; r++) {
+    const phi = (r / rings) * Math.PI;
+    for (let s = 0; s <= segments; s++) {
+      const theta = (s / segments) * Math.PI * 2;
+      const x = Math.sin(phi) * Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(theta);
+      verts.push(x, y, z);
+      normals.push(x, y, z);
+      colors.push(1, 1, 1); // will be overridden per-instance via uniform
+    }
+  }
+  for (let r = 0; r < rings; r++) {
+    for (let s = 0; s < segments; s++) {
+      const a = r * (segments + 1) + s;
+      const b = a + segments + 1;
+      indices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  return { verts: new Float32Array(verts), normals: new Float32Array(normals),
+           colors: new Float32Array(colors), indices: new Uint16Array(indices) };
+}
+
+// Generate cylinder geometry
+function createCylinder(segments) {
+  const verts = [], indices = [], normals = [], colors = [];
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * Math.PI * 2;
+    const x = Math.cos(theta), z = Math.sin(theta);
+    // Bottom
+    verts.push(x, 0, z); normals.push(x, 0, z); colors.push(1,1,1);
+    // Top
+    verts.push(x, 1, z); normals.push(x, 0, z); colors.push(1,1,1);
+  }
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+    indices.push(a, c, b, b, c, d);
+  }
+  return { verts: new Float32Array(verts), normals: new Float32Array(normals),
+           colors: new Float32Array(colors), indices: new Uint16Array(indices) };
+}
+
+function createVBO(data) {
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  return buf;
+}
+
+function createIBO(data) {
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  return buf;
+}
+
+function initGL() {
+  gl = canvas.getContext('webgl', { antialias: true, alpha: false });
+  if (!gl) { alert('WebGL not supported'); return false; }
+
+  mainProgram = createProgram(VS_MAIN, FS_MAIN);
+  groundProgram = createProgram(VS_GROUND, FS_GROUND);
+  if (!mainProgram || !groundProgram) return false;
+
+  // Sphere mesh
+  const sphere = createSphere(12, 8);
+  sphereVBO = createVBO(new Float32Array([...sphere.verts, ...sphere.normals, ...sphere.colors]));
+  sphereIBO = createIBO(sphere.indices);
+  sphereIndexCount = sphere.indices.length;
+  // Store vertex count for attribute setup
+  sphere._vertCount = sphere.verts.length / 3;
+
+  // Cylinder mesh
+  const cyl = createCylinder(8);
+  cylinderVBO = createVBO(new Float32Array([...cyl.verts, ...cyl.normals, ...cyl.colors]));
+  cylinderIBO = createIBO(cyl.indices);
+  cylinderIndexCount = cyl.indices.length;
+  cyl._vertCount = cyl.verts.length / 3;
+
+  // Store vert counts for attribute offsets
+  sphereVBO._vc = sphere._vertCount;
+  cylinderVBO._vc = cyl._vertCount;
+
+  // Ground plane
+  const gs = CFG.GRID_SIZE;
+  const groundVerts = [-gs,0,-gs, gs,0,-gs, gs,0,gs, -gs,0,-gs, gs,0,gs, -gs,0,gs];
+  groundVBO = createVBO(new Float32Array(groundVerts));
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  gl.clearColor(0.02, 0.03, 0.05, 1);
+
+  return true;
+}
+
+function resizeCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+
+function bindMesh(vbo, ibo, prog, vertCount) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  const stride = 0;
+  const posLoc = gl.getAttribLocation(prog, 'aPos');
+  const normLoc = gl.getAttribLocation(prog, 'aNormal');
+  const colLoc = gl.getAttribLocation(prog, 'aColor');
+  const floatBytes = 4;
+  const vc = vertCount;
+  // Layout: [positions (vc*3)] [normals (vc*3)] [colors (vc*3)]
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+  if (normLoc >= 0) {
+    gl.enableVertexAttribArray(normLoc);
+    gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, vc * 3 * floatBytes);
+  }
+  if (colLoc >= 0) {
+    gl.enableVertexAttribArray(colLoc);
+    gl.vertexAttribPointer(colLoc, 3, gl.FLOAT, false, 0, vc * 6 * floatBytes);
+  }
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+}
+
+// Draw a sphere at position with scale and color
+function drawSphere(mvp, model, color, selected) {
+  gl.useProgram(mainProgram);
+  bindMesh(sphereVBO, sphereIBO, mainProgram, sphereVBO._vc);
+  gl.uniformMatrix4fv(mainProgram.u.uMVP, false, mvp);
+  gl.uniformMatrix4fv(mainProgram.u.uModel, false, model);
+  gl.uniform3fv(mainProgram.u.uLightDir, V3.norm([0.4, 0.8, 0.3]));
+  gl.uniform1f(mainProgram.u.uSelected, selected ? 1 : 0);
+  gl.uniform1f(mainProgram.u.uFogDensity, 0.0008);
+  gl.uniform3fv(mainProgram.u.uFogColor, [0.02, 0.03, 0.05]);
+  // Override colors via attribute (would need per-vertex color, but we use a trick:
+  // set color via light modulation)
+  gl.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
+}
+
+function drawCylinder(mvp, model, selected) {
+  gl.useProgram(mainProgram);
+  bindMesh(cylinderVBO, cylinderIBO, mainProgram, cylinderVBO._vc);
+  gl.uniformMatrix4fv(mainProgram.u.uMVP, false, mvp);
+  gl.uniformMatrix4fv(mainProgram.u.uModel, false, model);
+  gl.uniform3fv(mainProgram.u.uLightDir, V3.norm([0.4, 0.8, 0.3]));
+  gl.uniform1f(mainProgram.u.uSelected, selected ? 1 : 0);
+  gl.uniform1f(mainProgram.u.uFogDensity, 0.0008);
+  gl.uniform3fv(mainProgram.u.uFogColor, [0.02, 0.03, 0.05]);
+  gl.drawElements(gl.TRIANGLES, cylinderIndexCount, gl.UNSIGNED_SHORT, 0);
+}
+
+function drawGround(viewProj) {
+  gl.useProgram(groundProgram);
+  gl.bindBuffer(gl.ARRAY_BUFFER, groundVBO);
+  const posLoc = gl.getAttribLocation(groundProgram, 'aPos');
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+  gl.uniformMatrix4fv(groundProgram.u.uMVP, false, viewProj);
+  gl.uniform1f(groundProgram.u.uFogDensity, 0.0008);
+  gl.uniform3fv(groundProgram.u.uFogColor, [0.02, 0.03, 0.05]);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+// ============================================================
+// NEURAL NETWORK (from scratch, simple feedforward)
+// ============================================================
+class NeuralNetwork {
+  constructor(inputSize, hiddenSize, outputSize) {
+    this.inputSize = inputSize;
+    this.hiddenSize = hiddenSize;
+    this.outputSize = outputSize;
+    // Weights and biases stored as flat arrays for compact genome encoding
+    this.wIH = new Float32Array(inputSize * hiddenSize);  // input → hidden
+    this.bH = new Float32Array(hiddenSize);                // hidden bias
+    this.wHO = new Float32Array(hiddenSize * outputSize);  // hidden → output
+    this.bO = new Float32Array(outputSize);                // output bias
+    // Activation caches for visualization
+    this.lastInput = new Float32Array(inputSize);
+    this.lastHidden = new Float32Array(hiddenSize);
+    this.lastOutput = new Float32Array(outputSize);
+    this.totalWeights = this.wIH.length + this.bH.length + this.wHO.length + this.bO.length;
+  }
+
+  // Initialize with random weights
+  randomize() {
+    const xavier_ih = Math.sqrt(2 / (this.inputSize + this.hiddenSize));
+    const xavier_ho = Math.sqrt(2 / (this.hiddenSize + this.outputSize));
+    for (let i = 0; i < this.wIH.length; i++) this.wIH[i] = rngGaussian() * xavier_ih;
+    for (let i = 0; i < this.bH.length; i++) this.bH[i] = rngGaussian() * 0.1;
+    for (let i = 0; i < this.wHO.length; i++) this.wHO[i] = rngGaussian() * xavier_ho;
+    for (let i = 0; i < this.bO.length; i++) this.bO[i] = rngGaussian() * 0.1;
+  }
+
+  // Get all weights as single array (genome)
+  getWeights() {
+    const w = new Float32Array(this.totalWeights);
+    let off = 0;
+    w.set(this.wIH, off); off += this.wIH.length;
+    w.set(this.bH, off); off += this.bH.length;
+    w.set(this.wHO, off); off += this.wHO.length;
+    w.set(this.bO, off);
+    return w;
+  }
+
+  // Set all weights from genome array
+  setWeights(w) {
+    let off = 0;
+    this.wIH.set(w.subarray(off, off + this.wIH.length)); off += this.wIH.length;
+    this.bH.set(w.subarray(off, off + this.bH.length)); off += this.bH.length;
+    this.wHO.set(w.subarray(off, off + this.wHO.length)); off += this.wHO.length;
+    this.bO.set(w.subarray(off, off + this.bO.length));
+  }
+
+  // Forward pass: tanh activations for hidden, tanh for output (joint angles)
+  forward(input) {
+    this.lastInput.set(input);
+    // Hidden layer
+    for (let h = 0; h < this.hiddenSize; h++) {
+      let sum = this.bH[h];
+      for (let i = 0; i < this.inputSize; i++) {
+        sum += input[i] * this.wIH[i * this.hiddenSize + h];
+      }
+      this.lastHidden[h] = Math.tanh(sum);
+    }
+    // Output layer
+    for (let o = 0; o < this.outputSize; o++) {
+      let sum = this.bO[o];
+      for (let h = 0; h < this.hiddenSize; h++) {
+        sum += this.lastHidden[h] * this.wHO[h * this.outputSize + o];
+      }
+      this.lastOutput[o] = Math.tanh(sum);
+    }
+    return this.lastOutput;
+  }
+}
+
+// ============================================================
+// PHYSICS ENGINE (simple rigid body with joint constraints)
+// ============================================================
+class PhysicsBody {
+  constructor(x, y, z, mass, radius) {
+    this.pos = [x, y, z];
+    this.prevPos = [x, y, z];
+    this.vel = [0, 0, 0];
+    this.force = [0, 0, 0];
+    this.mass = mass;
+    this.invMass = mass > 0 ? 1 / mass : 0;
+    this.radius = radius;
+    this.grounded = false;
+  }
+
+  applyForce(f) {
+    this.force[0] += f[0];
+    this.force[1] += f[1];
+    this.force[2] += f[2];
+  }
+
+  integrate(dt) {
+    if (this.invMass === 0) return;
+    // Semi-implicit Euler integration
+    this.vel[0] += this.force[0] * this.invMass * dt;
+    this.vel[1] += (this.force[1] + CFG.GRAVITY * this.mass) * this.invMass * dt;
+    this.vel[2] += this.force[2] * this.invMass * dt;
+    // Damping
+    this.vel[0] *= 0.998;
+    this.vel[1] *= 0.998;
+    this.vel[2] *= 0.998;
+    this.prevPos = V3.copy(this.pos);
+    this.pos[0] += this.vel[0] * dt;
+    this.pos[1] += this.vel[1] * dt;
+    this.pos[2] += this.vel[2] * dt;
+    // Reset force accumulator
+    this.force = [0, 0, 0];
+  }
+
+  resolveGround() {
+    const ground = CFG.GROUND_Y + this.radius;
+    if (this.pos[1] < ground) {
+      this.pos[1] = ground;
+      if (this.vel[1] < 0) {
+        this.vel[1] *= -CFG.RESTITUTION;
+      }
+      // Friction
+      this.vel[0] *= (1 - CFG.FRICTION * 0.1);
+      this.vel[2] *= (1 - CFG.FRICTION * 0.1);
+      this.grounded = true;
+    } else {
+      this.grounded = false;
+    }
+  }
+}
+
+class Joint {
+  constructor(bodyA, bodyB, restLength, strength, damping) {
+    this.bodyA = bodyA;
+    this.bodyB = bodyB;
+    this.restLength = restLength;
+    this.strength = strength;
+    this.damping = damping;
+    this.targetAngle = 0;  // controlled by neural network
+    this.minAngle = -Math.PI * 0.4;
+    this.maxAngle = Math.PI * 0.4;
+  }
+
+  solve(dt) {
+    const a = this.bodyA, b = this.bodyB;
+    const delta = V3.sub(b.pos, a.pos);
+    const dist = V3.len(delta);
+    if (dist < 0.001) return;
+    const dir = V3.scale(delta, 1/dist);
+    const diff = dist - this.restLength;
+
+    // Spring-damper constraint
+    const relVel = V3.dot(V3.sub(b.vel, a.vel), dir);
+    const force = diff * this.strength + relVel * this.damping;
+    const impulse = V3.scale(dir, force * dt);
+
+    if (a.invMass > 0) {
+      a.vel = V3.addScaled(a.vel, impulse, a.invMass);
+    }
+    if (b.invMass > 0) {
+      b.vel = V3.addScaled(b.vel, impulse, -b.invMass);
+    }
+
+    // Motor torque (simplified: apply forces perpendicular to limb axis)
+    const targetLen = this.restLength + Math.sin(this.targetAngle) * this.restLength * 0.5;
+    const motorDiff = dist - targetLen;
+    const motorForce = motorDiff * this.strength * 0.5;
+    const motorImpulse = V3.scale(dir, motorForce * dt);
+
+    // Apply perpendicular force for actual rotation
+    const perp = V3.norm(V3.cross(dir, [0, 1, 0]));
+    const torqueForce = V3.scale(perp, Math.sin(this.targetAngle) * this.strength * 0.3 * dt);
+    if (a.invMass > 0) a.applyForce(V3.scale(torqueForce, -1));
+    if (b.invMass > 0) b.applyForce(torqueForce);
+  }
+}
+
+// ============================================================
+// CREATURE: Procedural body + Neural Net controller
+// ============================================================
+class Creature {
+  constructor() {
+    this.bodies = [];
+    this.joints = [];
+    this.nn = null;
+    this.genome = null;
+    this.fitness = 0;
+    this.startX = 0;
+    this.startZ = 0;
+    this.color = [rng(), rng() * 0.5 + 0.3, rng() * 0.5 + 0.5];
+    this.limbColor = [this.color[0] * 0.7, this.color[1] * 0.7, this.color[2] * 0.7];
+    this.generation = 0;
+    this.id = rngInt(0, 99999);
+    this.alive = true;
+    this.selected = false;
+    this.morphology = null; // store body plan for reconstruction
+  }
+
+  // Generate random creature morphology
+  static generateMorphology() {
+    const numLimbs = rngInt(CFG.MIN_LIMBS, CFG.MAX_LIMBS + 1);
+    const bodyRadius = rngRange(0.3, 0.6);
+    const bodyMass = rngRange(2, 5);
+    const limbs = [];
+
+    for (let i = 0; i < numLimbs; i++) {
+      const angle = (i / numLimbs) * Math.PI * 2 + rngRange(-0.3, 0.3);
+      const segments = rngInt(1, 3); // 1-2 segments per limb
+      const limb = {
+        angle,
+        segments: [],
+      };
+      for (let s = 0; s < segments; s++) {
+        limb.segments.push({
+          length: rngRange(0.4, 1.0),
+          radius: rngRange(0.08, 0.18) * (1 - s * 0.3),
+          mass: rngRange(0.3, 1.0) * (1 - s * 0.2),
+          strength: rngRange(60, 150),
+        });
+      }
+      limbs.push(limb);
+    }
+
+    return { bodyRadius, bodyMass, limbs, numLimbs };
+  }
+
+  // Build physics bodies from morphology at given position
+  build(morphology, posX, posZ) {
+    this.morphology = morphology;
+    this.bodies = [];
+    this.joints = [];
+    this.startX = posX;
+    this.startZ = posZ;
+
+    const m = morphology;
+    const bodyY = m.bodyRadius + 0.5; // start above ground
+
+    // Central body
+    const core = new PhysicsBody(posX, bodyY, posZ, m.bodyMass, m.bodyRadius);
+    this.bodies.push(core);
+
+    // Build limbs
+    let totalJoints = 0;
+    for (const limb of m.limbs) {
+      let parent = core;
+      const dir = [Math.cos(limb.angle), -0.3, Math.sin(limb.angle)];
+      let attachPos = V3.addScaled(core.pos, dir, m.bodyRadius);
+
+      for (const seg of limb.segments) {
+        const endPos = V3.addScaled(attachPos, V3.norm(dir), seg.length);
+        endPos[1] = Math.max(seg.radius + 0.01, endPos[1] - seg.length * 0.3);
+        const body = new PhysicsBody(endPos[0], endPos[1], endPos[2], seg.mass, seg.radius);
+        this.bodies.push(body);
+
+        const joint = new Joint(parent, body, seg.length, seg.strength, CFG.JOINT_DAMPING);
+        this.joints.push(joint);
+        totalJoints++;
+
+        parent = body;
+        attachPos = endPos;
+      }
+    }
+
+    // Neural Network: inputs = (joint angles + body height + sin/cos timer + ground contacts)
+    // Each joint has 1 angle input + 1 angular velocity approximation
+    const numInputs = totalJoints * 2 + 3; // +height, +sin(t), +cos(t)
+    const numOutputs = totalJoints; // one motor signal per joint
+    this.nn = new NeuralNetwork(numInputs, CFG.NN_HIDDEN, numOutputs);
+    this.nn.randomize();
+    this.genome = this.nn.getWeights();
+  }
+
+  // Reset creature to starting position (for new evaluation)
+  reset() {
+    if (!this.morphology) return;
+    const m = this.morphology;
+    const bodyY = m.bodyRadius + 0.5;
+
+    this.bodies[0].pos = [this.startX, bodyY, this.startZ];
+    this.bodies[0].vel = [0, 0, 0];
+    this.bodies[0].force = [0, 0, 0];
+
+    let bi = 1;
+    for (const limb of m.limbs) {
+      const dir = [Math.cos(limb.angle), -0.3, Math.sin(limb.angle)];
+      let attachPos = V3.addScaled(this.bodies[0].pos, dir, m.bodyRadius);
+      for (const seg of limb.segments) {
+        const endPos = V3.addScaled(attachPos, V3.norm(dir), seg.length);
+        endPos[1] = Math.max(seg.radius + 0.01, endPos[1] - seg.length * 0.3);
+        if (bi < this.bodies.length) {
+          this.bodies[bi].pos = V3.copy(endPos);
+          this.bodies[bi].prevPos = V3.copy(endPos);
+          this.bodies[bi].vel = [0, 0, 0];
+          this.bodies[bi].force = [0, 0, 0];
+        }
+        bi++;
+        attachPos = endPos;
+      }
+    }
+
+    this.fitness = 0;
+    this.nn.setWeights(this.genome);
+  }
+
+  // Step the creature's brain and physics
+  step(time, dt) {
+    if (!this.alive) return;
+
+    // Build neural network inputs
+    const inputs = [];
+    for (let j = 0; j < this.joints.length; j++) {
+      const joint = this.joints[j];
+      const delta = V3.sub(joint.bodyB.pos, joint.bodyA.pos);
+      const dist = V3.len(delta);
+      const angle = Math.atan2(delta[1], Math.sqrt(delta[0]*delta[0]+delta[2]*delta[2]));
+      inputs.push(angle / Math.PI); // normalized angle
+      // Angular velocity approximation
+      const prevDelta = V3.sub(joint.bodyB.prevPos, joint.bodyA.prevPos);
+      const prevAngle = Math.atan2(prevDelta[1], Math.sqrt(prevDelta[0]*prevDelta[0]+prevDelta[2]*prevDelta[2]));
+      inputs.push((angle - prevAngle) / (Math.PI * dt + 0.001));
+    }
+    // Body height
+    inputs.push((this.bodies[0].pos[1] - 1) / 2);
+    // Oscillator inputs for rhythmic gaits
+    inputs.push(Math.sin(time * 4));
+    inputs.push(Math.cos(time * 4));
+
+    // Forward pass
+    const outputs = this.nn.forward(new Float32Array(inputs));
+
+    // Apply motor signals to joints
+    for (let j = 0; j < this.joints.length; j++) {
+      this.joints[j].targetAngle = outputs[j] * Math.PI * 0.5;
+    }
+
+    // Physics substeps
+    const subDt = dt / CFG.SUBSTEPS;
+    for (let s = 0; s < CFG.SUBSTEPS; s++) {
+      // Apply joint constraints
+      for (const joint of this.joints) {
+        joint.solve(subDt);
+      }
+      // Integrate bodies
+      for (const body of this.bodies) {
+        body.integrate(subDt);
+        body.resolveGround();
+      }
+    }
+
+    // Fitness = distance traveled along positive X axis from start
+    this.fitness = this.bodies[0].pos[0] - this.startX;
+    // Penalize falling over (body too low)
+    if (this.bodies[0].pos[1] < this.morphology.bodyRadius * 0.5) {
+      this.fitness -= 2;
+    }
+  }
+
+  // Get center of mass position
+  getCenter() {
+    let cx = 0, cy = 0, cz = 0, totalMass = 0;
+    for (const b of this.bodies) {
+      cx += b.pos[0] * b.mass;
+      cy += b.pos[1] * b.mass;
+      cz += b.pos[2] * b.mass;
+      totalMass += b.mass;
+    }
+    return [cx/totalMass, cy/totalMass, cz/totalMass];
+  }
+
+  // Render the creature
+  render(viewProj) {
+    const sel = this.selected;
+    for (const body of this.bodies) {
+      const model = M4.translate(M4.identity(), body.pos);
+      const scaledModel = M4.scale(model, [body.radius, body.radius, body.radius]);
+      const mvp = M4.multiply(viewProj, scaledModel);
+
+      // Override colors by modifying the VBO colors temporarily (simplified: use uniform approach)
+      drawSphere(mvp, scaledModel, this.color, sel);
+    }
+
+    // Draw limb connections as lines/cylinders
+    for (const joint of this.joints) {
+      const a = joint.bodyA.pos, b = joint.bodyB.pos;
+      const delta = V3.sub(b, a);
+      const len = V3.len(delta);
+      if (len < 0.001) continue;
+
+      // Simple cylinder between two points
+      const mid = V3.lerp(a, b, 0.5);
+      const dir = V3.norm(delta);
+      // Create model matrix that orients cylinder along the limb
+      let model = M4.translate(M4.identity(), a);
+      // Rotation to align Y-axis with delta direction
+      const up = [0, 1, 0];
+      const angle = Math.acos(Math.max(-1, Math.min(1, V3.dot(up, dir))));
+      const axis = V3.norm(V3.cross(up, dir));
+      if (V3.len(axis) > 0.001) {
+        // Rodrigues rotation - simplified using lookAt trick
+        const rotMat = M4.identity();
+        const c = Math.cos(angle), s = Math.sin(angle), t = 1 - c;
+        const x = axis[0], y = axis[1], z = axis[2];
+        rotMat[0]=t*x*x+c;   rotMat[1]=t*x*y+s*z; rotMat[2]=t*x*z-s*y;
+        rotMat[4]=t*x*y-s*z; rotMat[5]=t*y*y+c;   rotMat[6]=t*y*z+s*x;
+        rotMat[8]=t*x*z+s*y; rotMat[9]=t*y*z-s*x; rotMat[10]=t*z*z+c;
+        model = M4.multiply(model, rotMat);
+      }
+      const thickness = 0.06;
+      const scaledModel = M4.scale(model, [thickness, len, thickness]);
+      const mvp = M4.multiply(viewProj, scaledModel);
+      drawCylinder(mvp, scaledModel, sel);
+    }
+  }
+}
+
+// ============================================================
+// GENETIC ALGORITHM
+// ============================================================
+function crossover(parentA, parentB) {
+  const a = parentA.genome, b = parentB.genome;
+  const child = new Float32Array(a.length);
+  // Two-point crossover
+  const p1 = rngInt(0, a.length);
+  const p2 = rngInt(p1, a.length);
+  for (let i = 0; i < a.length; i++) {
+    child[i] = (i >= p1 && i < p2) ? b[i] : a[i];
+  }
+  return child;
+}
+
+function mutate(genome) {
+  const child = new Float32Array(genome);
+  for (let i = 0; i < child.length; i++) {
+    if (rng() < CFG.MUTATION_RATE) {
+      child[i] += rngGaussian() * CFG.MUTATION_STRENGTH;
+    }
+  }
+  return child;
+}
+
+function tournamentSelect(population, tournamentSize = 3) {
+  let best = null;
+  for (let i = 0; i < tournamentSize; i++) {
+    const idx = rngInt(0, population.length);
+    if (!best || population[idx].fitness > best.fitness) {
+      best = population[idx];
+    }
+  }
+  return best;
+}
+
+function evolve(population) {
+  // Sort by fitness descending
+  population.sort((a, b) => b.fitness - a.fitness);
+
+  const newGenomes = [];
+
+  // Elitism: keep top performers
+  for (let i = 0; i < CFG.ELITISM && i < population.length; i++) {
+    newGenomes.push(new Float32Array(population[i].genome));
+  }
+
+  // Fill rest with crossover + mutation
+  while (newGenomes.length < population.length) {
+    const parentA = tournamentSelect(population);
+    if (rng() < CFG.CROSSOVER_RATE) {
+      const parentB = tournamentSelect(population);
+      const childGenome = crossover(parentA, parentB);
+      newGenomes.push(mutate(childGenome));
+    } else {
+      newGenomes.push(mutate(new Float32Array(parentA.genome)));
+    }
+  }
+
+  // Apply new genomes and reset creatures
+  for (let i = 0; i < population.length; i++) {
+    population[i].genome = newGenomes[i];
+    population[i].generation++;
+    population[i].reset();
+  }
+
+  return population[0].fitness; // return best fitness of previous gen
+}
+
+// ============================================================
+// SIMULATION STATE
+// ============================================================
+const SIM = {
+  creatures: [],
+  generation: 1,
+  evalFrame: 0,
+  bestFitness: 0,
+  bestEver: 0,
+  paused: false,
+  speed: 1,
+  selectedCreature: null,
+  time: 0,
+  cameraMode: 'orbit',
+  camAngle: 0,
+  camPitch: 0.4,
+  camDist: 18,
+  camTarget: [0, 1, 0],
+};
+
+function initPopulation() {
+  SIM.creatures = [];
+  SIM.generation = 1;
+  SIM.evalFrame = 0;
+  SIM.bestFitness = 0;
+
+  // Arrange creatures in a grid
+  const cols = Math.ceil(Math.sqrt(CFG.POP_SIZE));
+  for (let i = 0; i < CFG.POP_SIZE; i++) {
+    const creature = new Creature();
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const x = (col - cols / 2) * CFG.SPACING;
+    const z = (row - cols / 2 + 0.5) * CFG.SPACING;
+    const morphology = Creature.generateMorphology();
+    creature.build(morphology, x, z);
+    creature.reset();
+    SIM.creatures.push(creature);
+  }
+
+  if (SIM.creatures.length > 0) {
+    SIM.selectedCreature = SIM.creatures[0];
+    SIM.selectedCreature.selected = true;
+  }
+}
+
+function simStep() {
+  if (SIM.paused) return;
+
+  for (let sp = 0; sp < SIM.speed; sp++) {
+    SIM.time += CFG.DT;
+    SIM.evalFrame++;
+
+    // Step all creatures
+    for (const c of SIM.creatures) {
+      c.step(SIM.time, CFG.DT);
+    }
+
+    // Check if evaluation period is over
+    if (SIM.evalFrame >= CFG.EVAL_TIME) {
+      // Record best fitness
+      const sorted = [...SIM.creatures].sort((a, b) => b.fitness - a.fitness);
+      SIM.bestFitness = sorted[0].fitness;
+      if (SIM.bestFitness > SIM.bestEver) SIM.bestEver = SIM.bestFitness;
+
+      // Evolve to next generation
+      // Note: we keep same morphologies but evolve NN weights
+      evolve(SIM.creatures);
+      SIM.generation++;
+      SIM.evalFrame = 0;
+
+      document.getElementById('genNum').textContent = `Gen ${SIM.generation}`;
+      document.getElementById('genPhase').textContent = `Best: ${SIM.bestFitness.toFixed(2)} | All-time: ${SIM.bestEver.toFixed(2)}`;
+    }
+  }
+}
+
+// ============================================================
+// CAMERA
+// ============================================================
+function getViewProjection() {
+  const aspect = canvas.width / canvas.height;
+  const proj = M4.perspective(Math.PI / 4, aspect, 0.1, 200);
+
+  let eye, target;
+  if (SIM.cameraMode === 'orbit') {
+    SIM.camAngle += 0.002 * SIM.speed;
+    target = SIM.camTarget;
+    eye = [
+      target[0] + Math.sin(SIM.camAngle) * SIM.camDist * Math.cos(SIM.camPitch),
+      target[1] + SIM.camDist * Math.sin(SIM.camPitch),
+      target[2] + Math.cos(SIM.camAngle) * SIM.camDist * Math.cos(SIM.camPitch)
+    ];
+  } else if (SIM.cameraMode === 'follow' && SIM.selectedCreature) {
+    const cc = SIM.selectedCreature.getCenter();
+    target = V3.lerp(SIM.camTarget, cc, 0.05);
+    SIM.camTarget = target;
+    eye = [target[0] - 5, target[1] + 4, target[2] + 5];
+  } else if (SIM.cameraMode === 'top') {
+    target = [0, 0, 0];
+    eye = [0, 30, 0.01];
+  } else {
+    target = SIM.camTarget;
+    eye = [target[0] + 15, target[1] + 10, target[2] + 15];
+  }
+
+  const view = M4.lookAt(eye, target, [0, 1, 0]);
+  return M4.multiply(proj, view);
+}
+
+// ============================================================
+// BRAIN VISUALIZATION (picture-in-picture)
+// ============================================================
+const brainCanvas = document.getElementById('brainCanvas');
+const brainCtx = brainCanvas.getContext('2d');
+
+function renderBrain() {
+  const c = SIM.selectedCreature;
+  if (!c || !c.nn) return;
+
+  const w = brainCanvas.width = brainCanvas.clientWidth * 2;
+  const h = brainCanvas.height = brainCanvas.clientHeight * 2;
+  brainCtx.fillStyle = 'rgba(0, 5, 15, 0.95)';
+  brainCtx.fillRect(0, 0, w, h);
+
+  const nn = c.nn;
+  const layers = [
+    { neurons: nn.inputSize, values: nn.lastInput, label: 'IN' },
+    { neurons: nn.hiddenSize, values: nn.lastHidden, label: 'HID' },
+    { neurons: nn.outputSize, values: nn.lastOutput, label: 'OUT' },
+  ];
+
+  const layerX = [w * 0.15, w * 0.5, w * 0.85];
+  const maxDisplay = 12; // max neurons to display per layer
+
+  // Draw connections first (behind neurons)
+  for (let l = 0; l < layers.length - 1; l++) {
+    const from = layers[l], to = layers[l + 1];
+    const fromCount = Math.min(from.neurons, maxDisplay);
+    const toCount = Math.min(to.neurons, maxDisplay);
+    const weights = l === 0 ? nn.wIH : nn.wHO;
+
+    for (let i = 0; i < fromCount; i++) {
+      const fy = h * 0.12 + (i / Math.max(1, fromCount - 1)) * h * 0.76;
+      for (let j = 0; j < toCount; j++) {
+        const ty = h * 0.12 + (j / Math.max(1, toCount - 1)) * h * 0.76;
+        const wIdx = l === 0 ? (i * nn.hiddenSize + j) : (i * nn.outputSize + j);
+        const wVal = wIdx < weights.length ? weights[wIdx] : 0;
+        const strength = Math.abs(wVal);
+        const alpha = Math.min(0.6, strength * 0.3);
+
+        if (alpha > 0.02) {
+          brainCtx.beginPath();
+          brainCtx.moveTo(layerX[l], fy);
+          brainCtx.lineTo(layerX[l + 1], ty);
+          brainCtx.strokeStyle = wVal > 0
+            ? `rgba(0, 200, 255, ${alpha})`
+            : `rgba(255, 80, 120, ${alpha})`;
+          brainCtx.lineWidth = Math.min(2, strength * 0.5);
+          brainCtx.stroke();
+        }
+      }
+    }
+  }
+
+  // Draw neurons
+  for (let l = 0; l < layers.length; l++) {
+    const layer = layers[l];
+    const count = Math.min(layer.neurons, maxDisplay);
+    const x = layerX[l];
+
+    // Layer label
+    brainCtx.fillStyle = '#4a8';
+    brainCtx.font = `${w * 0.035}px monospace`;
+    brainCtx.textAlign = 'center';
+    brainCtx.fillText(layer.label, x, h * 0.06);
+
+    for (let i = 0; i < count; i++) {
+      const y = h * 0.12 + (i / Math.max(1, count - 1)) * h * 0.76;
+      const val = i < layer.values.length ? layer.values[i] : 0;
+      const absVal = Math.abs(val);
+      const radius = w * 0.018 + absVal * w * 0.012;
+
+      // Neuron glow
+      if (absVal > 0.1) {
+        const grad = brainCtx.createRadialGradient(x, y, 0, x, y, radius * 3);
+        const glowColor = val > 0 ? '0, 230, 255' : '255, 100, 140';
+        grad.addColorStop(0, `rgba(${glowColor}, ${absVal * 0.3})`);
+        grad.addColorStop(1, 'transparent');
+        brainCtx.fillStyle = grad;
+        brainCtx.fillRect(x - radius * 3, y - radius * 3, radius * 6, radius * 6);
+      }
+
+      // Neuron circle
+      brainCtx.beginPath();
+      brainCtx.arc(x, y, radius, 0, Math.PI * 2);
+      const brightness = 30 + absVal * 70;
+      if (val > 0) {
+        brainCtx.fillStyle = `hsl(185, 80%, ${brightness}%)`;
+      } else {
+        brainCtx.fillStyle = `hsl(340, 70%, ${brightness}%)`;
+      }
+      brainCtx.fill();
+      brainCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+      brainCtx.lineWidth = 0.5;
+      brainCtx.stroke();
+
+      // Value text
+      if (count <= 10) {
+        brainCtx.fillStyle = 'rgba(255,255,255,0.5)';
+        brainCtx.font = `${w * 0.02}px monospace`;
+        brainCtx.textAlign = 'center';
+        brainCtx.fillText(val.toFixed(1), x, y + radius + w * 0.03);
+      }
+    }
+
+    // Show "..." if truncated
+    if (layer.neurons > maxDisplay) {
+      brainCtx.fillStyle = '#556';
+      brainCtx.font = `${w * 0.03}px monospace`;
+      brainCtx.textAlign = 'center';
+      brainCtx.fillText(`... +${layer.neurons - maxDisplay}`, x, h * 0.95);
+    }
+  }
+
+  // Fitness display
+  brainCtx.fillStyle = '#0ef';
+  brainCtx.font = `bold ${w * 0.03}px monospace`;
+  brainCtx.textAlign = 'left';
+  brainCtx.fillText(`Fitness: ${c.fitness.toFixed(2)}`, w * 0.03, h - w * 0.02);
+}
+
+// ============================================================
+// CREATURE SELECTION (click to select)
+// ============================================================
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width;
+  const my = (e.clientY - rect.top) / rect.height;
+
+  // Simple screen-space picking: project creature centers and find nearest
+  const viewProj = getViewProjection();
+  let closest = null, closestDist = Infinity;
+
+  for (const c of SIM.creatures) {
+    const center = c.getCenter();
+    const clip = M4.transformPoint(viewProj, center);
+    const sx = (clip[0] * 0.5 + 0.5);
+    const sy = (1 - (clip[1] * 0.5 + 0.5));
+    const dx = sx - mx, dy = sy - my;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < closestDist && d < 0.15) {
+      closestDist = d;
+      closest = c;
+    }
+  }
+
+  if (closest) {
+    if (SIM.selectedCreature) SIM.selectedCreature.selected = false;
+    SIM.selectedCreature = closest;
+    closest.selected = true;
+    updateCreatureInfo();
+    document.getElementById('creatureInfo').classList.remove('hidden');
+  }
+});
+
+// Mouse drag for camera orbit
+let isDragging = false, lastMX = 0, lastMY = 0;
+canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
+  SIM.camAngle -= dx * 0.005;
+  SIM.camPitch = Math.max(0.1, Math.min(1.4, SIM.camPitch + dy * 0.005));
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  SIM.camDist = Math.max(5, Math.min(60, SIM.camDist + e.deltaY * 0.02));
+}, { passive: false });
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!isDragging || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - lastMX, dy = e.touches[0].clientY - lastMY;
+  SIM.camAngle -= dx * 0.005;
+  SIM.camPitch = Math.max(0.1, Math.min(1.4, SIM.camPitch + dy * 0.005));
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+function updateCreatureInfo() {
+  const c = SIM.selectedCreature;
+  if (!c) return;
+  document.getElementById('cName').textContent = `Creature #${c.id}`;
+  document.getElementById('cFit').textContent = c.fitness.toFixed(2);
+  document.getElementById('cJoints').textContent = c.joints.length;
+  document.getElementById('cLimbs').textContent = c.morphology ? c.morphology.numLimbs : 0;
+  document.getElementById('cNeurons').textContent = c.nn ? (c.nn.inputSize + c.nn.hiddenSize + c.nn.outputSize) : 0;
+  document.getElementById('cDist').textContent = (c.bodies[0].pos[0] - c.startX).toFixed(2);
+  document.getElementById('cGen').textContent = c.generation;
+}
+
+// ============================================================
+// UI CONTROLS
+// ============================================================
+function togglePause() {
+  SIM.paused = !SIM.paused;
+  document.getElementById('btnPause').textContent = SIM.paused ? '▶ Play' : '⏸ Pause';
+  document.getElementById('btnPause').classList.toggle('active', SIM.paused);
+}
+
+function cycleSpeed() {
+  const speeds = [1, 2, 5, 10];
+  const labels = ['1×', '2×', '5×', '10×'];
+  const idx = speeds.indexOf(SIM.speed);
+  const next = (idx + 1) % speeds.length;
+  SIM.speed = speeds[next];
+  document.getElementById('btnSpeed').textContent = labels[next];
+}
+
+function toggleBrain() {
+  document.getElementById('brainOverlay').classList.toggle('hidden');
+}
+
+function resetSim() {
+  seed = Date.now() & 0xFFFFFFFF;
+  SIM.bestEver = 0;
+  SIM.time = 0;
+  initPopulation();
+  document.getElementById('genNum').textContent = 'Gen 1';
+}
+
+function cycleCam() {
+  const modes = ['orbit', 'follow', 'top', 'overview'];
+  const labels = ['🎥 Orbit', '🎥 Follow', '🎥 Top', '🎥 Overview'];
+  const idx = modes.indexOf(SIM.cameraMode);
+  const next = (idx + 1) % modes.length;
+  SIM.cameraMode = modes[next];
+  document.getElementById('btnCam').textContent = labels[next];
+  if (SIM.cameraMode === 'orbit') { SIM.camDist = 18; SIM.camPitch = 0.4; SIM.camTarget = [0, 1, 0]; }
+  if (SIM.cameraMode === 'top') { SIM.camDist = 30; }
+  if (SIM.cameraMode === 'overview') { SIM.camDist = 35; SIM.camPitch = 0.6; SIM.camTarget = [0, 0, 0]; }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  switch(e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); togglePause(); break;
+    case 's': cycleSpeed(); break;
+    case 'b': toggleBrain(); break;
+    case 'r': resetSim(); break;
+    case 'c': cycleCam(); break;
+  }
+});
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastFrame = 0, frameCount = 0, fpsTime = 0, displayFPS = 0;
+
+function mainLoop(timestamp) {
+  requestAnimationFrame(mainLoop);
+
+  // FPS
+  frameCount++;
+  if (timestamp - fpsTime > 1000) {
+    displayFPS = frameCount;
+    frameCount = 0;
+    fpsTime = timestamp;
+    document.getElementById('statFPS').textContent = `FPS: ${displayFPS}`;
+  }
+
+  // Simulation step
+  simStep();
+
+  // Render
+  resizeCanvas();
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const viewProj = getViewProjection();
+
+  // Ground
+  drawGround(viewProj);
+
+  // Creatures
+  for (const c of SIM.creatures) {
+    c.render(viewProj);
+  }
+
+  // Brain overlay
+  if (!document.getElementById('brainOverlay').classList.contains('hidden')) {
+    renderBrain();
+  }
+
+  // Update stats
+  const alive = SIM.creatures.filter(c => c.alive);
+  document.getElementById('statPop').textContent = `Pop: ${alive.length}`;
+  const sorted = [...SIM.creatures].sort((a, b) => b.fitness - a.fitness);
+  document.getElementById('statBest').textContent = `Best: ${sorted[0]?.fitness.toFixed(2) || '0'}`;
+
+  // Update selected creature info periodically
+  if (frameCount % 15 === 0 && SIM.selectedCreature) {
+    updateCreatureInfo();
+  }
+
+  // Evolution progress bar update
+  const progress = SIM.evalFrame / CFG.EVAL_TIME;
+  document.getElementById('genPhase').textContent =
+    `Eval: ${Math.floor(progress * 100)}% | Best: ${SIM.bestFitness.toFixed(2)} | Record: ${SIM.bestEver.toFixed(2)}`;
+
+  lastFrame = timestamp;
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+function boot() {
+  if (!initGL()) {
+    document.body.innerHTML = '<h1 style="color:red;padding:40px">WebGL not supported. Please use a modern browser.</h1>';
+    return;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  initPopulation();
+
+  requestAnimationFrame(mainLoop);
+  console.log('Neuro-Evolutionary Terrarium initialized');
+  console.log(`Population: ${CFG.POP_SIZE}, Eval time: ${CFG.EVAL_TIME} frames, Hidden neurons: ${CFG.NN_HIDDEN}`);
+}
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,2074 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Idle Civilization Builder — Single File</title>
+  <style>
+    :root{
+      --bg:#070b12;
+      --panel: rgba(16,22,36,.72);
+      --panel2: rgba(24,32,52,.72);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf1ff;
+      --muted:#a4b4d6;
+      --good:#5dffb0;
+      --warn:#ffd65a;
+      --bad:#ff5a7b;
+      --accent:#6aa8ff;
+      --accent2:#b86cff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --shadow: rgba(0,0,0,.35);
+    }
+    html,body{height:100%; margin:0; background: radial-gradient(1200px 800px at 40% 0%, #13204b 0%, #070b12 55%, #04060b 100%); color:var(--text); font-family:var(--sans); overflow:hidden;}
+    *{box-sizing:border-box}
+    #app{position:fixed; inset:0; display:grid; grid-template-columns: 360px 1fr 360px; grid-template-rows:auto 1fr auto; gap:12px; padding:12px;}
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow:hidden;
+      min-height:0;
+    }
+    #topbar{grid-column:1/4; grid-row:1; display:flex; gap:10px; align-items:center; padding:10px 12px;}
+    #brand{display:flex; flex-direction:column; gap:2px; min-width: 320px}
+    #brand b{letter-spacing:.4px}
+    #brand small{color:var(--muted)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:8px}
+    .btn{
+      appearance:none; border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:700;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+      font-size:13px;
+    }
+    .btn:hover{background: rgba(106,168,255,.18); border-color: rgba(106,168,255,.40)}
+    .btn:active{transform: scale(.98)}
+    .btn.primary{background: rgba(106,168,255,.22); border-color: rgba(106,168,255,.55)}
+    .btn.danger{background: rgba(255,90,123,.16); border-color: rgba(255,90,123,.45)}
+    .chip{
+      padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      font-size:12px; color:var(--muted);
+      display:flex; align-items:center; gap:8px;
+      font-family: var(--mono);
+    }
+    #left{grid-column:1; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #mid{grid-column:2; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #right{grid-column:3; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #footer{grid-column:1/4; grid-row:3; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .scroll{overflow:auto; padding:12px; min-height:0}
+    .sectionTitle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; border-bottom:1px solid var(--line)}
+    .sectionTitle b{letter-spacing:.3px}
+    .tiny{font-size:11px; color:var(--muted); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:10px 0}
+    .kv{display:grid; grid-template-columns: 1fr auto; gap:6px 10px; font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .kv b{color:var(--text); font-weight:800}
+    .bar{
+      height:10px; border-radius:999px; border:1px solid var(--line);
+      background: rgba(0,0,0,.25); overflow:hidden;
+    }
+    .bar > i{display:block; height:100%; width:0%; background: linear-gradient(90deg, rgba(106,168,255,.9), rgba(184,108,255,.9));}
+    .card{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .card h4{margin:0; font-size:13px; letter-spacing:.2px}
+    .card p{margin:0; font-size:12px; color:var(--muted); line-height:1.35}
+    .grid2{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .grid1{display:grid; grid-template-columns: 1fr; gap:10px}
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      font-family:var(--mono); font-size:11px; color:var(--muted);
+      border:1px solid var(--line); background: rgba(255,255,255,.04);
+      padding:3px 8px; border-radius:999px;
+    }
+    .good{color:var(--good)}
+    .warn{color:var(--warn)}
+    .bad{color:var(--bad)}
+    input[type="range"]{width:100%}
+    select,input[type="text"],input[type="number"]{
+      width:100%;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+    }
+    #toast{
+      position:fixed; left:50%; top:70px; transform:translateX(-50%);
+      padding:10px 12px; border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.40);
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      font-family:var(--mono);
+      font-size:12px;
+      max-width:min(80vw, 760px);
+      white-space:pre-wrap;
+      z-index:10;
+    }
+    #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+    canvas{width:100%; height:100%; display:block}
+    #vizWrap{position:relative; flex:1; min-height:0}
+    #viz{position:absolute; inset:0}
+    #overlayHUD{
+      position:absolute; left:12px; top:12px; right:12px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      pointer-events:none;
+    }
+    #overlayHUD .chip{pointer-events:auto}
+    @media (max-width: 1050px){
+      #app{grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto; overflow:auto}
+      #left{grid-column:1; grid-row:2}
+      #mid{grid-column:1; grid-row:3; min-height:420px}
+      #right{grid-column:1; grid-row:4}
+      #footer{grid-column:1; grid-row:5}
+      body{overflow:auto}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="topbar" class="panel">
+      <div id="brand">
+        <b>Idle Civilization Builder</b>
+        <small>Resource chains • Tech tree • Population growth • Offline progress (days/weeks) • Single-file save</small>
+      </div>
+      <div class="row" style="margin-left:auto">
+        <button class="btn primary" id="btnPlay">Play</button>
+        <button class="btn" id="btnPause">Pause</button>
+        <button class="btn" id="btnTick">+1 Day</button>
+        <button class="btn" id="btnSpeed">Speed: 1×</button>
+        <button class="btn" id="btnSave">Save</button>
+        <button class="btn" id="btnLoad">Load</button>
+        <button class="btn danger" id="btnWipe">Wipe</button>
+      </div>
+      <div class="row">
+        <span class="chip">Year <b id="uiYear">1</b> Day <b id="uiDay">1</b></span>
+        <span class="chip">Offline <b id="uiOffline">0h</b></span>
+      </div>
+    </div>
+
+    <div id="left" class="panel">
+      <div class="sectionTitle">
+        <b>City • People</b>
+        <span class="pill" id="uiEra">Era: Stone Age</span>
+      </div>
+      <div class="scroll">
+        <div class="kv" id="kvPeople"></div>
+        <div class="sep"></div>
+
+        <div class="grid2">
+          <div class="card">
+            <h4>Jobs</h4>
+            <p>Assign citizens to gather, craft, research, build, and defend. Productivity depends on tools, education, health, and stability.</p>
+          </div>
+          <div class="card">
+            <h4>Happiness & Stability</h4>
+            <p>Low food/housing reduces happiness; instability can trigger events and productivity penalties.</p>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div id="jobsUI" class="grid1"></div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Policies</h4>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Tax / Tribute (affects happiness vs. treasury)</label>
+              <input id="rngTax" type="range" min="0" max="40" step="1" value="10"/>
+              <div class="tiny">Tax: <b id="uiTax">10%</b> • Effect: <span id="uiTaxEff"></span></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Rations (food per person/day)</label>
+              <input id="rngRations" type="range" min="0.6" max="1.4" step="0.05" value="1.0"/>
+              <div class="tiny">Rations: <b id="uiRations">1.00×</b> • Effect: <span id="uiRationsEff"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Actions</h4>
+          <div class="row">
+            <button class="btn" id="btnExplore">Explore</button>
+            <button class="btn" id="btnFestival">Hold Festival</button>
+            <button class="btn" id="btnRecruit">Recruit Migrants</button>
+          </div>
+          <div class="tiny">Explore can discover resources and trigger events. Festival costs food but boosts happiness. Recruit costs coin.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="mid" class="panel">
+      <div class="sectionTitle">
+        <b>World View</b>
+        <span class="pill">Production • Stocks • Events</span>
+      </div>
+      <div id="vizWrap">
+        <canvas id="viz"></canvas>
+        <div id="overlayHUD">
+          <span class="chip">Net Food/day <b id="uiFoodNet">0</b></span>
+          <span class="chip">Science/day <b id="uiSciNet">0</b></span>
+          <span class="chip">Coin/day <b id="uiCoinNet">0</b></span>
+          <span class="chip">Production/day <b id="uiProdNet">0</b></span>
+        </div>
+      </div>
+      <div style="padding:12px; border-top:1px solid var(--line); display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap">
+        <div class="row">
+          <span class="pill">Tip</span>
+          <span class="tiny" id="uiTip">Balance food, housing, and health to sustain long-term growth.</span>
+        </div>
+        <div class="row">
+          <span class="pill">Last Event</span>
+          <span class="tiny" id="uiEvent">None</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="right" class="panel">
+      <div class="sectionTitle">
+        <b>Economy • Tech</b>
+        <span class="pill" id="uiSaveState">Autosave: on</span>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <h4>Resources</h4>
+          <div class="kv" id="kvRes"></div>
+          <div class="sep"></div>
+          <div class="tiny">Stocks are capped by storage. Build warehouses/granaries to increase capacity and reduce spoilage.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Buildings</h4>
+          <div class="tiny">Spend production + materials to expand your civilization. Some buildings require tech.</div>
+          <div class="sep"></div>
+          <div id="bldUI" class="grid1"></div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Tech Tree</h4>
+          <div class="tiny">Research over days/weeks. Offline progress continues. Tech unlocks buildings, job efficiency, and new eras.</div>
+          <div class="sep"></div>
+          <div id="techUI" class="grid1"></div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Options</h4>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Autosave interval</label>
+              <select id="selAutosave">
+                <option value="15">15s</option>
+                <option value="30" selected>30s</option>
+                <option value="60">60s</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div class="col" style="flex:1">
+              <label class="tiny">Offline cap</label>
+              <select id="selOfflineCap">
+                <option value="24">24h</option>
+                <option value="72" selected>72h</option>
+                <option value="168">168h (1w)</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">UI scale</label>
+              <input id="rngScale" type="range" min="0.9" max="1.2" step="0.01" value="1.0"/>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="footer" class="panel">
+      <div class="row">
+        <span class="chip">Pop <b id="uiPop">0</b></span>
+        <span class="chip">Happiness <b id="uiHappy">0</b></span>
+        <span class="chip">Health <b id="uiHealth">0</b></span>
+        <span class="chip">Stability <b id="uiStab">0</b></span>
+        <span class="chip">Storage Use <b id="uiStorage">0%</b></span>
+      </div>
+      <div class="row">
+        <span class="tiny">Single-file. No servers. Uses localStorage. Close tab for days, come back—your civilization keeps progressing.</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  /////////////////////////////
+  // Helpers
+  /////////////////////////////
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const rand = (a,b)=>a+Math.random()*(b-a);
+  const irand = (a,b)=>Math.floor(rand(a,b+1));
+  const fmt = (n,d=0)=>Number.isFinite(n)?(Math.round(n*10**d)/10**d).toFixed(d):"0";
+  const fmtBig = (n)=>{
+    if(!Number.isFinite(n)) return "0";
+    const abs = Math.abs(n);
+    const sign = n<0?"-":"";
+    const units = [
+      [1e12,"T"],[1e9,"B"],[1e6,"M"],[1e3,"K"]
+    ];
+    for(const [v,s] of units){
+      if(abs>=v) return `${sign}${fmt(abs/v,2)}${s}`;
+    }
+    return `${sign}${fmt(abs,0)}`;
+  };
+  function toast(msg, ms=1800){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=>t.classList.remove("show"), ms);
+  }
+
+  /////////////////////////////
+  // Save
+  /////////////////////////////
+  const SAVE_KEY = "idle_civ_builder_save_v1";
+
+  /////////////////////////////
+  // Game constants (day-based)
+  /////////////////////////////
+  const TIME = {
+    daySeconds: 1.0, // simulation "day" duration in real seconds at speed 1×
+    daysPerYear: 360,
+  };
+
+  // Core resources
+  const RES = [
+    "food","wood","stone","ore","coal","iron","tools","planks","bricks",
+    "cloth","medicine","science","coin","culture","faith","influence"
+  ];
+
+  // Era ladder
+  const ERAS = [
+    {id:"stone", name:"Stone Age", sciReq:0},
+    {id:"copper", name:"Copper Age", sciReq:250},
+    {id:"iron", name:"Iron Age", sciReq:900},
+    {id:"classical", name:"Classical Era", sciReq:2500},
+    {id:"medieval", name:"Medieval Era", sciReq:7000},
+    {id:"renaissance", name:"Renaissance", sciReq:16000},
+    {id:"industrial", name:"Industrial Age", sciReq:40000},
+    {id:"modern", name:"Modern Age", sciReq:95000},
+  ];
+
+  /////////////////////////////
+  // Game state
+  /////////////////////////////
+  const S = {
+    meta: {
+      started: false,
+      paused: false,
+      speed: 1, // 1,2,5,10
+      lastRealTime: Date.now(),
+      autosaveSec: 30,
+      offlineCapHours: 72,
+      uiScale: 1.0,
+    },
+    time: {
+      day: 1,
+      year: 1,
+      simDays: 0, // total days simulated (for graphs)
+    },
+    people: {
+      pop: 12,
+      adults: 8,
+      children: 4,
+      elderly: 0,
+
+      happiness: 62,  // 0..100
+      health: 68,     // 0..100
+      stability: 60,  // 0..100
+
+      housing: 12,
+      sanitation: 0,
+      education: 0,
+      security: 0,
+
+      jobs: {
+        farmers: 4,
+        lumberjacks: 2,
+        miners: 1,
+        builders: 1,
+        scholars: 0,
+        artisans: 0,
+        medics: 0,
+        soldiers: 0,
+        traders: 0,
+        priests: 0,
+      }
+    },
+    economy: {
+      taxRate: 0.10,     // 0..0.40
+      rations: 1.00,     // 0.6..1.4
+      spoilageBase: 0.015, // per day
+      tradeRoute: 0,     // unlocked later
+    },
+    caps: {
+      storage: 550, // total "weight" cap
+    },
+    res: Object.fromEntries(RES.map(k=>[k,0])),
+    buildings: {}, // id -> count
+    tech: {},      // id -> {owned, progress}
+    log: {
+      lastEvent: "None",
+      lastTipAt: 0,
+      tip: "Balance food, housing, and health to sustain long-term growth.",
+    },
+    stats: {
+      offlineHours: 0,
+      totalOfflineDaysSimulated: 0,
+      totalDaysSimulated: 0,
+      births: 0,
+      deaths: 0,
+      discoveries: 0,
+    },
+    graphs: {
+      // ring buffer of last N days
+      N: 240,
+      idx: 0,
+      pop: [],
+      foodNet: [],
+      sciNet: [],
+      coinNet: [],
+      stability: [],
+    }
+  };
+
+  // Initial resources
+  S.res.food = 80;
+  S.res.wood = 40;
+  S.res.stone = 25;
+
+  /////////////////////////////
+  // Content: Buildings
+  /////////////////////////////
+  const Buildings = [
+    {
+      id:"hut", name:"Hut", desc:"Basic housing. Cheap but crowded.",
+      req:{},
+      cost:{wood:18},
+      prod:{},
+      effects:{housing:+2, happiness:+0.2},
+      limit:null,
+      tags:["housing"],
+    },
+    {
+      id:"longhouse", name:"Longhouse", desc:"Better housing, improves stability.",
+      req:{tech:["masonry"]},
+      cost:{planks:14, stone:18},
+      prod:{},
+      effects:{housing:+6, stability:+0.6, happiness:+0.3},
+      tags:["housing"],
+    },
+    {
+      id:"farm", name:"Farm", desc:"Raises farm productivity and food capacity (granary effect).",
+      req:{tech:["agriculture"]},
+      cost:{wood:30, stone:10},
+      prod:{},
+      effects:{farmEff:+0.12, storage:+30},
+      tags:["food"],
+    },
+    {
+      id:"granary", name:"Granary", desc:"Increases storage and reduces food spoilage.",
+      req:{tech:["agriculture"]},
+      cost:{wood:20, planks:8},
+      prod:{},
+      effects:{storage:+120, spoilageMul:-0.20},
+      tags:["storage"],
+    },
+    {
+      id:"warehouse", name:"Warehouse", desc:"Increases general storage capacity.",
+      req:{tech:["carpentry"]},
+      cost:{planks:16, stone:8},
+      prod:{},
+      effects:{storage:+220},
+      tags:["storage"],
+    },
+    {
+      id:"sawmill", name:"Sawmill", desc:"Converts wood into planks efficiently.",
+      req:{tech:["carpentry"]},
+      cost:{wood:45, stone:18},
+      prod:{planks:+8}, // per day baseline, scaled by workers/artisans
+      effects:{artisanEff:+0.10},
+      tags:["industry"],
+    },
+    {
+      id:"kiln", name:"Kiln", desc:"Fires bricks from stone/clay substitute (uses stone here).",
+      req:{tech:["masonry"]},
+      cost:{stone:35, wood:20},
+      prod:{bricks:+6},
+      effects:{builderEff:+0.10},
+      tags:["industry"],
+    },
+    {
+      id:"smithy", name:"Smithy", desc:"Produces tools and iron from ore/coal. Unlocks better productivity.",
+      req:{tech:["ironworking"]},
+      cost:{bricks:12, planks:12, iron:6},
+      prod:{tools:+3},
+      effects:{toolCap:+1, artisanEff:+0.12},
+      tags:["industry"],
+    },
+    {
+      id:"clinic", name:"Clinic", desc:"Improves health and produces medicine slowly.",
+      req:{tech:["herbalism"]},
+      cost:{planks:10, cloth:6},
+      prod:{medicine:+1.5},
+      effects:{health:+1.0},
+      tags:["health"],
+    },
+    {
+      id:"school", name:"School", desc:"Improves education; increases research output.",
+      req:{tech:["writing"]},
+      cost:{planks:16, bricks:10},
+      prod:{science:+2},
+      effects:{education:+1.4, scholarEff:+0.10},
+      tags:["science"],
+    },
+    {
+      id:"market", name:"Market", desc:"Generates coin via trade; improves happiness.",
+      req:{tech:["currency"]},
+      cost:{planks:18, bricks:12},
+      prod:{coin:+3.5},
+      effects:{happiness:+0.8, stability:+0.4},
+      tags:["economy"],
+    },
+    {
+      id:"watchtower", name:"Watchtower", desc:"Improves security and stability, reduces raid risk.",
+      req:{tech:["bronze_working"]},
+      cost:{wood:28, stone:22},
+      prod:{},
+      effects:{security:+1.6, stability:+0.6},
+      tags:["security"],
+    },
+    {
+      id:"temple", name:"Temple", desc:"Generates culture/faith and improves stability.",
+      req:{tech:["theology"]},
+      cost:{bricks:18, cloth:10, stone:20},
+      prod:{culture:+2.5, faith:+2.0},
+      effects:{happiness:+0.6, stability:+0.9},
+      tags:["culture"],
+    },
+  ];
+  const BById = Object.fromEntries(Buildings.map(b=>[b.id,b]));
+  // Initial building counts
+  S.buildings.hut = 3;
+
+  /////////////////////////////
+  // Content: Tech tree
+  /////////////////////////////
+  const Tech = [
+    {id:"gathering", name:"Organized Gathering", era:"stone", cost:60,  prereq:[], desc:"Improves base gather yields." , effects:{gatherEff:+0.10}},
+    {id:"agriculture", name:"Agriculture", era:"stone", cost:120, prereq:["gathering"], desc:"Unlock farms and granaries; boosts food." , effects:{farmEff:+0.18, housing:+1}},
+    {id:"herbalism", name:"Herbalism", era:"stone", cost:160, prereq:["gathering"], desc:"Unlock clinic; boosts health and reduces death rate.", effects:{health:+1.0, deathMul:-0.08}},
+    {id:"carpentry", name:"Carpentry", era:"copper", cost:240, prereq:["agriculture"], desc:"Unlock sawmill/warehouse; boosts lumber efficiency.", effects:{lumberEff:+0.12, storage:+60}},
+    {id:"masonry", name:"Masonry", era:"copper", cost:280, prereq:["carpentry"], desc:"Unlock kiln and longhouses; boosts building speed.", effects:{builderEff:+0.12, stability:+0.6}},
+    {id:"mining", name:"Mining", era:"copper", cost:220, prereq:["gathering"], desc:"Improves ore/stone extraction.", effects:{mineEff:+0.18}},
+    {id:"bronze_working", name:"Bronze Working", era:"copper", cost:380, prereq:["mining","masonry"], desc:"Unlock watchtowers; improves security.", effects:{security:+1.2, stability:+0.8}},
+    {id:"ironworking", name:"Ironworking", era:"iron", cost:640, prereq:["mining"], desc:"Unlock smithy; improves tool output.", effects:{artisanEff:+0.16, toolCap:+1}},
+    {id:"writing", name:"Writing", era:"classical", cost:900, prereq:["masonry"], desc:"Unlock schools; increases science and culture.", effects:{education:+1.6, scholarEff:+0.14, culture:+0.8}},
+    {id:"currency", name:"Currency", era:"classical", cost:1000, prereq:["writing"], desc:"Unlock markets; increases coin and trade.", effects:{coinEff:+0.18, stability:+0.5}},
+    {id:"theology", name:"Theology", era:"medieval", cost:1500, prereq:["writing"], desc:"Unlock temples; increases stability and influence.", effects:{faith:+1.2, influence:+0.6, stability:+0.8}},
+    {id:"engineering", name:"Engineering", era:"renaissance", cost:2600, prereq:["currency","ironworking"], desc:"Boosts building & industry; improves storage.", effects:{builderEff:+0.18, artisanEff:+0.12, storage:+180}},
+  ];
+  const TById = Object.fromEntries(Tech.map(t=>[t.id,t]));
+  for(const t of Tech){
+    S.tech[t.id] = { owned:false, progress:0 };
+  }
+  // Start with "gathering" available but not owned.
+  // We also give some initial science trickle via scholars=0; player can assign.
+
+  /////////////////////////////
+  // Derived multipliers from tech/buildings
+  /////////////////////////////
+  function sumBuildingEffect(key){
+    let v = 0;
+    for(const [id,count] of Object.entries(S.buildings)){
+      const b = BById[id]; if(!b || !count) continue;
+      if(b.effects && key in b.effects) v += b.effects[key]*count;
+    }
+    return v;
+  }
+  function hasTech(id){ return !!S.tech[id]?.owned; }
+  function sumTechEffect(key){
+    let v = 0;
+    for(const t of Tech){
+      if(S.tech[t.id]?.owned && t.effects && key in t.effects) v += t.effects[key];
+    }
+    return v;
+  }
+  function eff(key){
+    // base + tech + buildings
+    const tech = sumTechEffect(key);
+    const bld  = sumBuildingEffect(key);
+    return tech + bld;
+  }
+  function mulFromEff(e){
+    // convert additive eff to multiplier: +0.10 => 1.10
+    return Math.max(0, 1 + e);
+  }
+
+  /////////////////////////////
+  // Storage "weight" and caps
+  /////////////////////////////
+  const WEIGHT = {
+    food:1, wood:1, stone:1, ore:1, coal:1, iron:1,
+    tools:2, planks:1, bricks:1, cloth:1, medicine:2,
+    science:0, coin:0, culture:0, faith:0, influence:0
+  };
+
+  function storageCap(){
+    let cap = S.caps.storage;
+    cap += sumBuildingEffect("storage");
+    cap += sumTechEffect("storage");
+    return Math.max(0, cap);
+  }
+  function storageUsed(){
+    let w = 0;
+    for(const k of RES){
+      const wt = WEIGHT[k] ?? 1;
+      w += (S.res[k]||0) * wt;
+    }
+    return w;
+  }
+  function applyStorageClamp(){
+    // if over cap, spoil/lose some low-priority bulky goods
+    const cap = storageCap();
+    let used = storageUsed();
+    if(used <= cap) return;
+    const over = used - cap;
+
+    // priority list to trim
+    const trimOrder = ["wood","stone","ore","coal","planks","bricks","food","iron","tools","cloth","medicine"];
+    let remaining = over;
+    for(const k of trimOrder){
+      if(remaining <= 0) break;
+      const wt = WEIGHT[k] ?? 1;
+      const have = S.res[k]||0;
+      if(have<=0) continue;
+      // remove up to remaining/wt
+      const remove = Math.min(have, remaining / wt);
+      S.res[k] -= remove;
+      remaining -= remove * wt;
+    }
+    S.log.lastEvent = "Storage overflow: some goods spoiled or were discarded.";
+  }
+
+  /////////////////////////////
+  // Jobs & productivity model
+  /////////////////////////////
+  const JobDefs = [
+    {id:"farmers", name:"Farmers", icon:"🌾", desc:"Produce food."},
+    {id:"lumberjacks", name:"Lumberjacks", icon:"🪓", desc:"Produce wood."},
+    {id:"miners", name:"Miners", icon:"⛏️", desc:"Produce stone/ore/coal."},
+    {id:"builders", name:"Builders", icon:"🏗️", desc:"Generate production used for buildings."},
+    {id:"scholars", name:"Scholars", icon:"📜", desc:"Generate science to research tech."},
+    {id:"artisans", name:"Artisans", icon:"⚒️", desc:"Convert materials into planks/bricks/tools/cloth."},
+    {id:"medics", name:"Medics", icon:"🩺", desc:"Boost health and produce medicine slowly."},
+    {id:"soldiers", name:"Soldiers", icon:"🛡️", desc:"Boost security; reduce raid chance."},
+    {id:"traders", name:"Traders", icon:"💱", desc:"Generate coin; improve trade outcomes."},
+    {id:"priests", name:"Priests", icon:"⛪", desc:"Generate faith/culture; improve stability."},
+  ];
+
+  function totalAssigned(){
+    return Object.values(S.people.jobs).reduce((a,b)=>a+(b||0),0);
+  }
+  function availableWorkers(){
+    // adults minus a small fraction reserved for childcare/maintenance, reduced by low health
+    const base = S.people.adults;
+    const healthMul = lerp(0.65, 1.05, clamp(S.people.health/100,0,1));
+    const maint = Math.max(0, Math.floor(S.people.pop * 0.08));
+    return Math.max(0, Math.floor((base - maint) * healthMul));
+  }
+
+  function productivityContext(){
+    const happy = clamp(S.people.happiness/100, 0, 1);
+    const stab  = clamp(S.people.stability/100, 0, 1);
+    const health= clamp(S.people.health/100, 0, 1);
+    const edu   = clamp((S.people.education + eff("education"))/10, 0, 1);
+
+    // Tools availability: tools per 10 workers gives a boost, capped.
+    const workers = Math.max(1, availableWorkers());
+    const toolsPerWorker = (S.res.tools||0) / workers;
+    const toolBoost = clamp(toolsPerWorker / 0.12, 0, 1); // ~1 tool per ~8 workers for full boost
+    const toolMul = lerp(0.88, 1.20 + 0.06*eff("toolCap"), toolBoost);
+
+    const baseMul = (0.55 + 0.25*happy + 0.12*stab + 0.18*health);
+    const eduMul  = (0.92 + 0.22*edu);
+
+    // unrest penalty
+    const unrest = Math.max(0, 0.65 - stab) + Math.max(0, 0.55 - happy);
+    const unrestMul = Math.exp(-1.2 * unrest);
+
+    return {
+      happy, stab, health, edu,
+      baseMul, eduMul, toolMul, unrestMul,
+      globalMul: baseMul * eduMul * toolMul * unrestMul
+    };
+  }
+
+  function dailyRates(){
+    // returns {prod, cons, net} maps
+    const ctx = productivityContext();
+    const jobs = S.people.jobs;
+
+    // Job efficiencies
+    const gatherMul = mulFromEff(eff("gatherEff"));
+    const farmMul   = mulFromEff(eff("farmEff"));
+    const lumberMul = mulFromEff(eff("lumberEff"));
+    const mineMul   = mulFromEff(eff("mineEff"));
+    const buildMul  = mulFromEff(eff("builderEff"));
+    const scholMul  = mulFromEff(eff("scholarEff"));
+    const artMul    = mulFromEff(eff("artisanEff"));
+    const coinMul   = mulFromEff(eff("coinEff"));
+
+    // Building production
+    let bldProd = Object.fromEntries(RES.map(k=>[k,0]));
+    for(const [id,count] of Object.entries(S.buildings)){
+      const b = BById[id]; if(!b || !count) continue;
+      if(b.prod){
+        for(const [k,v] of Object.entries(b.prod)){
+          bldProd[k] = (bldProd[k]||0) + v*count;
+        }
+      }
+    }
+
+    // Base yields per worker-day (tuned for idle)
+    const baseFarm = 3.2;
+    const baseWood = 2.6;
+    const baseMineStone = 1.8;
+    const baseMineOre = 0.7;
+    const baseMineCoal = (hasTech("ironworking")||hasTech("engineering")) ? 0.35 : 0.18;
+
+    const baseBuild = 2.4; // "production points"
+    const baseSci   = 1.6;
+    const baseCoin  = 0.6;
+    const baseFaith = 0.55;
+    const baseCult  = 0.45;
+
+    // Consumption: food per pop per day (rations slider)
+    const foodNeed = S.people.pop * 1.0 * S.economy.rations;
+    // Medicine consumption is optional; if available improves health
+    const medNeed = Math.max(0, S.people.pop * 0.02);
+
+    // Crafting by artisans uses inputs (wood->planks, stone->bricks, ore+coal->iron, iron->tools, cloth from food+wood)
+    // We'll calculate desired conversions and then clamp to available inputs.
+    const artisanCount = jobs.artisans||0;
+    const artisanPower = artisanCount * ctx.globalMul * artMul;
+
+    // Conversions per "artisanPower"
+    const wantPlanks = artisanPower * 0.9;
+    const wantBricks = artisanPower * 0.6;
+    const wantIron   = artisanPower * 0.35;
+    const wantTools  = artisanPower * 0.22;
+    const wantCloth  = artisanPower * 0.30;
+
+    // Inputs
+    const planksWood = 1.1;  // wood per plank
+    const bricksStone= 1.2;  // stone per brick
+    const ironOre    = 1.6;  // ore per iron
+    const ironCoal   = 0.7;  // coal per iron
+    const toolsIron  = 1.0;  // iron per tool
+    const clothFood  = 0.6;  // food per cloth (flax/wool abstraction)
+    const clothWood  = 0.2;  // wood per cloth
+
+    // Clamp conversions to available inputs
+    let makePlanks = Math.min(wantPlanks, (S.res.wood||0)/planksWood);
+    let makeBricks = Math.min(wantBricks, (S.res.stone||0)/bricksStone);
+    let makeIron   = Math.min(wantIron, (S.res.ore||0)/ironOre, (S.res.coal||0)/ironCoal);
+    let makeTools  = Math.min(wantTools, (S.res.iron||0)/toolsIron);
+    let makeCloth  = Math.min(wantCloth, (S.res.food||0)/clothFood, (S.res.wood||0)/clothWood);
+
+    // Taxes convert a portion of coin-equivalent productivity from traders/markets into coin,
+    // but reduce happiness a bit.
+    const tax = S.economy.taxRate;
+
+    // Production map
+    const prod = Object.fromEntries(RES.map(k=>[k,0]));
+    const cons = Object.fromEntries(RES.map(k=>[k,0]));
+
+    // Gather
+    prod.food += (jobs.farmers||0)    * baseFarm * ctx.globalMul * gatherMul * farmMul;
+    prod.wood += (jobs.lumberjacks||0)* baseWood * ctx.globalMul * gatherMul * lumberMul;
+    prod.stone+= (jobs.miners||0)     * baseMineStone * ctx.globalMul * gatherMul * mineMul;
+    prod.ore  += (jobs.miners||0)     * baseMineOre   * ctx.globalMul * gatherMul * mineMul;
+    prod.coal += (jobs.miners||0)     * baseMineCoal  * ctx.globalMul * gatherMul * mineMul;
+
+    // Builders produce "production" (we store in influence as internal pool? We'll use influence as production pool? No—use a hidden variable.)
+    // We'll instead store in S.res.influence as "Production" currency (renamed in UI as Production).
+    prod.influence += (jobs.builders||0) * baseBuild * ctx.globalMul * buildMul;
+
+    // Scholars
+    prod.science += (jobs.scholars||0) * baseSci * ctx.globalMul * scholMul;
+
+    // Medics: produce medicine and improve health via building effect too (handled elsewhere)
+    prod.medicine += (jobs.medics||0) * 0.18 * ctx.globalMul;
+    // Soldiers: no direct resources
+    // Traders + Markets
+    prod.coin += (jobs.traders||0) * baseCoin * ctx.globalMul * coinMul;
+    // Priests
+    prod.faith += (jobs.priests||0) * baseFaith * ctx.globalMul;
+    prod.culture += (jobs.priests||0) * baseCult  * ctx.globalMul;
+
+    // Add building production baselines, scaled by relevant workforce synergy:
+    // Assume artisans boost industry building output a bit.
+    const indBoost = 1 + clamp((jobs.artisans||0) / Math.max(1, availableWorkers()) * 0.9, 0, 0.35);
+    for(const k of RES){
+      prod[k] += (bldProd[k]||0) * ctx.globalMul * indBoost;
+    }
+
+    // Crafting (consumes inputs, produces outputs)
+    cons.wood  += makePlanks * planksWood;
+    prod.planks+= makePlanks;
+
+    cons.stone += makeBricks * bricksStone;
+    prod.bricks+= makeBricks;
+
+    cons.ore   += makeIron * ironOre;
+    cons.coal  += makeIron * ironCoal;
+    prod.iron  += makeIron;
+
+    cons.iron  += makeTools * toolsIron;
+    prod.tools += makeTools;
+
+    cons.food  += makeCloth * clothFood;
+    cons.wood  += makeCloth * clothWood;
+    prod.cloth += makeCloth;
+
+    // Consumption: food and optional medicine
+    cons.food += foodNeed;
+    cons.medicine += medNeed * 0.25; // some is used if available (not required)
+    // Coin "tax" is produced by markets/traders already; we apply tax as happiness penalty elsewhere.
+
+    // Spoilage: mostly food, some medicine/wood
+    const spoilMul = Math.max(0, 1 + sumBuildingEffect("spoilageMul")); // negative reduces
+    const baseSpoil = S.economy.spoilageBase * spoilMul;
+    cons.food += Math.max(0, (S.res.food||0) * baseSpoil);
+    cons.medicine += Math.max(0, (S.res.medicine||0) * (baseSpoil*0.45));
+    cons.wood += Math.max(0, (S.res.wood||0) * (baseSpoil*0.15));
+
+    // Net
+    const net = Object.fromEntries(RES.map(k=>[k,(prod[k]||0)-(cons[k]||0)]));
+    return {prod, cons, net, ctx};
+  }
+
+  /////////////////////////////
+  // Tech research system
+  /////////////////////////////
+  function techAvailable(t){
+    if(S.tech[t.id]?.owned) return false;
+    for(const p of (t.prereq||[])){
+      if(!hasTech(p)) return false;
+    }
+    // era gating by accumulated science stock? We'll gate by "science total earned" proxy:
+    // Use culture+science+influence as progression? We'll instead use S.stats.totalDaysSimulated & current era logic.
+    return true;
+  }
+
+  function currentEra(){
+    // based on total science generated + owned tech count
+    const sciScore = (S.res.science||0) + (S.tech._lifetimeSci||0);
+    let era = ERAS[0];
+    for(const e of ERAS){
+      if(sciScore >= e.sciReq) era = e;
+    }
+    return era;
+  }
+
+  function startResearch(id){
+    if(!S.tech[id]) return;
+    if(S.tech[id].owned) return;
+    const t = TById[id];
+    if(!t) return;
+    if(!techAvailable(t)) { toast("Tech not available (missing prerequisites)."); return; }
+    S.tech._active = id;
+    toast(`Research started: ${t.name}`);
+  }
+
+  function completeTech(id){
+    const t = TById[id];
+    S.tech[id].owned = true;
+    S.tech[id].progress = t.cost;
+    S.tech._active = null;
+
+    // Apply immediate "state" effects (some are "stats" not resource flows)
+    if(t.effects){
+      if(t.effects.housing) S.people.housing += t.effects.housing;
+      if(t.effects.health)  S.people.health = clamp(S.people.health + t.effects.health*2.5, 0, 100);
+      if(t.effects.stability) S.people.stability = clamp(S.people.stability + t.effects.stability*2.5, 0, 100);
+      if(t.effects.security) S.people.security += t.effects.security;
+      if(t.effects.education) S.people.education += t.effects.education;
+      if(t.effects.culture) S.res.culture += t.effects.culture*25;
+      if(t.effects.faith) S.res.faith += t.effects.faith*20;
+      if(t.effects.influence) S.res.influence += t.effects.influence*15;
+    }
+
+    S.stats.discoveries++;
+    S.log.lastEvent = `Discovery: ${t.name}`;
+    toast(`Technology unlocked: ${t.name}`, 2200);
+  }
+
+  /////////////////////////////
+  // Building system
+  /////////////////////////////
+  function canBuild(b){
+    // tech prereqs
+    if(b.req?.tech){
+      for(const t of b.req.tech){
+        if(!hasTech(t)) return false;
+      }
+    }
+    // costs
+    for(const [k,v] of Object.entries(b.cost||{})){
+      if((S.res[k]||0) < v) return false;
+    }
+    return true;
+  }
+
+  function spend(cost){
+    for(const [k,v] of Object.entries(cost||{})){
+      S.res[k] = (S.res[k]||0) - v;
+    }
+  }
+
+  function build(id){
+    const b = BById[id];
+    if(!b) return;
+    if(!canBuild(b)){ toast("Can't build (missing resources or tech)."); return; }
+    spend(b.cost);
+    S.buildings[id] = (S.buildings[id]||0) + 1;
+
+    // Apply immediate effects to city stats
+    if(b.effects){
+      if(b.effects.housing) S.people.housing += b.effects.housing;
+      if(b.effects.sanitation) S.people.sanitation += b.effects.sanitation;
+      if(b.effects.education) S.people.education += b.effects.education;
+      if(b.effects.security) S.people.security += b.effects.security;
+      if(b.effects.health) S.people.health = clamp(S.people.health + b.effects.health, 0, 100);
+      if(b.effects.happiness) S.people.happiness = clamp(S.people.happiness + b.effects.happiness, 0, 100);
+      if(b.effects.stability) S.people.stability = clamp(S.people.stability + b.effects.stability, 0, 100);
+    }
+
+    S.log.lastEvent = `Built: ${b.name}`;
+    toast(`Built: ${b.name}`);
+    applyStorageClamp();
+  }
+
+  /////////////////////////////
+  // Events (days/weeks scale)
+  /////////////////////////////
+  function eventChance(ctx){
+    // base daily chance of notable event
+    // instability increases bad events
+    const badBias = clamp((0.6-ctx.stab)*0.9 + (0.55-ctx.happy)*0.7, 0, 1);
+    const goodBias= clamp((ctx.stab-0.55)*0.7 + (ctx.happy-0.55)*0.7, 0, 1);
+    return {badBias, goodBias};
+  }
+
+  function rollEvent(){
+    const ctx = productivityContext();
+    const {badBias, goodBias} = eventChance(ctx);
+
+    // overall probability per day
+    const pAny = 0.06 + 0.08*badBias + 0.03*goodBias;
+    if(Math.random() > pAny) return;
+
+    // choose type
+    const r = Math.random();
+    if(r < 0.28 + 0.35*badBias){
+      // bad events
+      const t = Math.random();
+      if(t < 0.40){
+        // sickness
+        const loss = Math.min(S.res.food, rand(6,18));
+        S.res.food -= loss;
+        S.people.health = clamp(S.people.health - rand(1.5,4.5), 0, 100);
+        S.people.happiness = clamp(S.people.happiness - rand(1,3), 0, 100);
+        S.log.lastEvent = `Sickness spreads. Lost ${fmt(loss,0)} food.`;
+      } else if(t < 0.75){
+        // fire
+        const loss = Math.min(S.res.wood, rand(8,22));
+        S.res.wood -= loss;
+        S.people.stability = clamp(S.people.stability - rand(1.5,4.0), 0, 100);
+        S.log.lastEvent = `Fire damages stores. Lost ${fmt(loss,0)} wood.`;
+      } else {
+        // raid
+        const defense = (S.people.jobs.soldiers||0) + (S.people.security||0) + sumBuildingEffect("security");
+        const raidPower = rand(0, 18);
+        if(defense > raidPower){
+          S.people.stability = clamp(S.people.stability + 0.4, 0, 100);
+          S.log.lastEvent = `Raid repelled. Stability rises slightly.`;
+        } else {
+          const coinLoss = Math.min(S.res.coin, rand(5,18));
+          const foodLoss = Math.min(S.res.food, rand(10,30));
+          S.res.coin -= coinLoss;
+          S.res.food -= foodLoss;
+          S.people.happiness = clamp(S.people.happiness - rand(2,6), 0, 100);
+          S.people.stability = clamp(S.people.stability - rand(3,7), 0, 100);
+          S.log.lastEvent = `Raiders strike! Lost ${fmt(coinLoss,0)} coin and ${fmt(foodLoss,0)} food.`;
+        }
+      }
+    } else {
+      // good events
+      const t = Math.random();
+      if(t < 0.40){
+        const gain = rand(12,40);
+        S.res.food += gain;
+        S.people.happiness = clamp(S.people.happiness + rand(1.5,4.0), 0, 100);
+        S.log.lastEvent = `Bountiful harvest! +${fmt(gain,0)} food.`;
+      } else if(t < 0.75){
+        const gain = rand(8,24);
+        S.res.science += gain;
+        S.tech._lifetimeSci = (S.tech._lifetimeSci||0) + gain;
+        S.log.lastEvent = `Insightful breakthrough. +${fmt(gain,0)} science.`;
+      } else {
+        const gain = rand(6,18);
+        S.res.coin += gain;
+        S.people.stability = clamp(S.people.stability + rand(1.0,3.0), 0, 100);
+        S.log.lastEvent = `Trade caravan arrives. +${fmt(gain,0)} coin.`;
+      }
+    }
+    $("uiEvent").textContent = S.log.lastEvent;
+    applyStorageClamp();
+  }
+
+  /////////////////////////////
+  // Population dynamics
+  /////////////////////////////
+  function updatePopulation(net, ctx){
+    // Food situation affects growth/death; happiness/health influence birth rate.
+    const foodPerCap = (S.res.food||0) / Math.max(1, S.people.pop);
+    const ration = S.economy.rations;
+
+    const housing = S.people.housing + sumBuildingEffect("housing") + sumTechEffect("housing");
+    const crowding = clamp((S.people.pop - housing) / Math.max(1, housing), 0, 2);
+
+    // birth rate per day (very small)
+    let birthRate = 0.0035 * (0.75 + 0.6*ctx.happy) * (0.75 + 0.6*ctx.health);
+    birthRate *= Math.exp(-1.4*crowding);
+    // death rate per day
+    let deathRate = 0.0018 * (1.2 - 0.9*ctx.health) * (1.05 - 0.5*ctx.stab);
+    deathRate *= (1 + crowding*0.35);
+    deathRate *= mulFromEff(eff("deathMul")); // negative reduces
+
+    // starvation modifier
+    const starving = (net.food < -0.1) && (S.res.food < Math.max(0, S.people.pop*1.2*ration));
+    if(starving){
+      birthRate *= 0.35;
+      deathRate *= 2.2;
+      S.people.happiness = clamp(S.people.happiness - 1.2, 0, 100);
+      S.people.stability = clamp(S.people.stability - 0.8, 0, 100);
+      S.people.health = clamp(S.people.health - 0.9, 0, 100);
+      S.log.lastEvent = "Food shortage strains the city (starvation effects).";
+    }
+
+    // medicine helps health; if you have medicine, consume reduces death slightly
+    if((S.res.medicine||0) > S.people.pop*0.1){
+      S.people.health = clamp(S.people.health + 0.25, 0, 100);
+      deathRate *= 0.93;
+    }
+
+    // taxes affect happiness
+    const tax = S.economy.taxRate;
+    S.people.happiness = clamp(S.people.happiness - tax*0.35 + 0.05, 0, 100);
+
+    // rations affect happiness/health
+    if(S.economy.rations < 1.0){
+      S.people.happiness = clamp(S.people.happiness - (1.0-S.economy.rations)*1.2, 0, 100);
+      S.people.health = clamp(S.people.health - (1.0-S.economy.rations)*0.8, 0, 100);
+    } else {
+      S.people.happiness = clamp(S.people.happiness + (S.economy.rations-1.0)*0.55, 0, 100);
+      S.people.health = clamp(S.people.health + (S.economy.rations-1.0)*0.35, 0, 100);
+    }
+
+    // stability tends to drift toward a value based on security/culture/coin and crowding
+    const security = (S.people.security + sumBuildingEffect("security") + sumTechEffect("security") + (S.people.jobs.soldiers||0)*0.6);
+    const culture = (S.res.culture||0) / 250;
+    const coin = (S.res.coin||0) / 200;
+    const targetStab = clamp(45 + security*2.0 + culture*1.2 + coin*1.0 - crowding*10, 5, 95);
+    S.people.stability = lerp(S.people.stability, targetStab, 0.04);
+
+    // births/deaths as stochastic binomial-ish
+    const pop = S.people.pop;
+    const births = Math.random() < (birthRate * Math.max(1,pop)) ? 1 : 0;
+    const deaths = Math.random() < (deathRate * Math.max(1,pop)) ? 1 : 0;
+
+    if(births){
+      S.people.pop += 1;
+      S.people.children += 1;
+      S.stats.births += 1;
+      S.log.lastEvent = "A child is born.";
+    }
+    if(deaths && S.people.pop>1){
+      S.people.pop -= 1;
+      S.stats.deaths += 1;
+      // remove from adults primarily
+      if(S.people.adults>0) S.people.adults -= 1;
+      else if(S.people.elderly>0) S.people.elderly -= 1;
+      else if(S.people.children>0) S.people.children -= 1;
+      S.log.lastEvent = "A citizen has died.";
+    }
+
+    // aging each day (very simplified)
+    if(Math.random() < 0.012 && S.people.children>0){
+      S.people.children -= 1;
+      S.people.adults += 1;
+    }
+    if(Math.random() < 0.007 && S.people.adults>0){
+      S.people.adults -= 1;
+      S.people.elderly += 1;
+    }
+
+    // Ensure consistency
+    S.people.adults = clamp(S.people.adults, 0, S.people.pop);
+    S.people.children = clamp(S.people.children, 0, S.people.pop);
+    S.people.elderly = clamp(S.people.elderly, 0, S.people.pop);
+    const sum = S.people.adults + S.people.children + S.people.elderly;
+    if(sum !== S.people.pop){
+      // normalize
+      S.people.adults += (S.people.pop - sum);
+      if(S.people.adults<0){ S.people.children += S.people.adults; S.people.adults=0; }
+      if(S.people.children<0){ S.people.elderly += S.people.children; S.people.children=0; }
+    }
+  }
+
+  /////////////////////////////
+  // Daily simulation
+  /////////////////////////////
+  function simulateOneDay(){
+    // Ensure jobs not exceeding workers
+    normalizeJobs();
+
+    const {prod, cons, net, ctx} = dailyRates();
+
+    // Apply resource changes
+    for(const k of RES){
+      S.res[k] = (S.res[k]||0) + (prod[k]||0) - (cons[k]||0);
+      if(S.res[k] < 0) S.res[k] = 0;
+    }
+
+    // Lifetime science counter for era
+    const sciGain = Math.max(0, net.science||0);
+    S.tech._lifetimeSci = (S.tech._lifetimeSci||0) + sciGain;
+
+    // Research progress if active
+    const active = S.tech._active;
+    if(active){
+      const t = TById[active];
+      if(t && !S.tech[active].owned){
+        // Science/day contributes. If no scholars, still tiny baseline from culture/education.
+        const baseline = 0.35 + (S.people.education + eff("education"))*0.06;
+        const used = Math.min(S.res.science, (net.science>0?net.science:0) + baseline);
+        const add = Math.max(0.2, used); // ensure slow progress even with low science stock
+        S.tech[active].progress += add;
+        // Spend some science stock to represent allocation
+        S.res.science = Math.max(0, S.res.science - used*0.35);
+
+        if(S.tech[active].progress >= t.cost){
+          completeTech(active);
+        }
+      }
+    }
+
+    // Apply building passive effects (some already integrated via eff())
+    // Health improvements drift from clinics, sanitation, medics
+    const clinicBoost = sumBuildingEffect("health") + (S.people.jobs.medics||0)*0.12 + (hasTech("herbalism")?0.15:0);
+    S.people.health = clamp(S.people.health + clinicBoost*0.06 - 0.02, 0, 100);
+
+    // Happiness drift: influenced by surplus food, culture, crowding, taxes
+    const housing = S.people.housing + sumBuildingEffect("housing") + sumTechEffect("housing");
+    const crowd = clamp((S.people.pop - housing)/Math.max(1,housing), 0, 2);
+    const foodSurplus = clamp((net.food||0)/Math.max(1, S.people.pop), -2, 2);
+    const culture = (S.res.culture||0)/300;
+    const happyTarget = clamp(55 + foodSurplus*6 + culture*2 - crowd*10 - S.economy.taxRate*25, 5, 95);
+    S.people.happiness = lerp(S.people.happiness, happyTarget, 0.05);
+
+    // Coin via taxes: skim a portion of (coin production + market production)
+    // (We already generate coin directly; taxes add a little extra based on population productivity)
+    const tax = S.economy.taxRate;
+    const extraCoin = (S.people.pop * 0.10 + (S.people.jobs.traders||0)*0.25) * tax * ctx.globalMul;
+    S.res.coin += extraCoin;
+
+    // Population
+    updatePopulation(net, ctx);
+
+    // Storage overflow clamp
+    applyStorageClamp();
+
+    // Event
+    rollEvent();
+
+    // Time advance
+    S.time.day += 1;
+    S.time.simDays += 1;
+    S.stats.totalDaysSimulated += 1;
+    if(S.time.day > TIME.daysPerYear){
+      S.time.day = 1;
+      S.time.year += 1;
+      // annual drift bonus based on stability
+      const bonus = clamp((S.people.stability-50)/50, -0.5, 0.8);
+      S.res.culture += Math.max(0, bonus)*12;
+      S.log.lastEvent = `A new year begins.`;
+    }
+
+    // Graph sample
+    pushGraphSample(net);
+
+    // Tip rotation
+    maybeTip();
+  }
+
+  function pushGraphSample(net){
+    const g = S.graphs;
+    if(g.pop.length < g.N){
+      g.pop.push(0); g.foodNet.push(0); g.sciNet.push(0); g.coinNet.push(0); g.stability.push(0);
+    }
+    g.idx = (g.idx + 1) % g.N;
+    g.pop[g.idx] = S.people.pop;
+    g.foodNet[g.idx] = (net.food||0);
+    g.sciNet[g.idx]  = (net.science||0);
+    g.coinNet[g.idx] = (net.coin||0);
+    g.stability[g.idx] = S.people.stability;
+  }
+
+  function maybeTip(){
+    const tips = [
+      "Assign at least 1 Scholar early to unlock Agriculture and storage tech.",
+      "If food is negative, increase farmers or lower rations temporarily.",
+      "Crowding reduces growth. Build housing before population spikes.",
+      "Warehouses and granaries prevent waste during long offline periods.",
+      "Low stability increases raids and fires. Add soldiers and watchtowers.",
+      "Artisans convert raw materials into high-efficiency building inputs.",
+      "Education boosts science; schools pay off over weeks of idle time.",
+      "Taxes fund growth but can crush happiness—keep it moderate.",
+    ];
+    const t = Date.now();
+    if(t - S.log.lastTipAt > 15000){
+      S.log.lastTipAt = t;
+      S.log.tip = tips[irand(0,tips.length-1)];
+      $("uiTip").textContent = S.log.tip;
+    }
+  }
+
+  /////////////////////////////
+  // Job normalization and UI interaction
+  /////////////////////////////
+  function normalizeJobs(){
+    const max = availableWorkers();
+    let assigned = totalAssigned();
+    if(assigned <= max) return;
+
+    // Reduce from lowest priority automatically
+    const order = ["priests","traders","soldiers","medics","artisans","scholars","builders","miners","lumberjacks","farmers"];
+    let over = assigned - max;
+    for(const j of order){
+      if(over<=0) break;
+      const have = S.people.jobs[j]||0;
+      if(have<=0) continue;
+      const take = Math.min(have, over);
+      S.people.jobs[j] -= take;
+      over -= take;
+    }
+  }
+
+  function setJob(job, value){
+    value = Math.max(0, Math.floor(value));
+    S.people.jobs[job] = value;
+    normalizeJobs();
+  }
+
+  /////////////////////////////
+  // UI builders
+  /////////////////////////////
+  function buildJobsUI(){
+    const wrap = $("jobsUI");
+    wrap.innerHTML = "";
+    for(const j of JobDefs){
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between">
+          <h4>${j.name}</h4>
+          <span class="pill">${j.icon} <span style="opacity:.85">${j.id}</span></span>
+        </div>
+        <p>${j.desc}</p>
+        <div class="row">
+          <button class="btn" data-job="${j.id}" data-d="-5">-5</button>
+          <button class="btn" data-job="${j.id}" data-d="-1">-1</button>
+          <span class="chip">Assigned <b id="job_${j.id}">0</b></span>
+          <button class="btn" data-job="${j.id}" data-d="1">+1</button>
+          <button class="btn" data-job="${j.id}" data-d="5">+5</button>
+          <button class="btn" data-job="${j.id}" data-d="max">Max</button>
+        </div>
+        <div class="tiny" id="jobHint_${j.id}"></div>
+      `;
+      wrap.appendChild(card);
+    }
+    wrap.addEventListener("click",(e)=>{
+      const btn = e.target.closest("button[data-job]");
+      if(!btn) return;
+      const job = btn.getAttribute("data-job");
+      const d = btn.getAttribute("data-d");
+      const cur = S.people.jobs[job]||0;
+      if(d==="max"){
+        // distribute remaining
+        const max = availableWorkers();
+        const assigned = totalAssigned();
+        const room = Math.max(0, max - assigned);
+        setJob(job, cur + room);
+      } else {
+        setJob(job, cur + Number(d));
+      }
+      render();
+    }, {passive:true});
+  }
+
+  function buildBuildingsUI(){
+    const wrap = $("bldUI");
+    wrap.innerHTML = "";
+    for(const b of Buildings){
+      const card = document.createElement("div");
+      card.className = "card";
+      const count = S.buildings[b.id]||0;
+
+      const reqOk = canBuild(b);
+      const techOk = !b.req?.tech || b.req.tech.every(hasTech);
+      const reqTxt = b.req?.tech ? `Req: ${b.req.tech.map(x=>TById[x]?.name||x).join(", ")}` : "Req: None";
+
+      const costTxt = Object.entries(b.cost||{}).map(([k,v])=>`${k}:${v}`).join("  ");
+      const effTxt  = Object.entries(b.effects||{}).map(([k,v])=>`${k}${v>=0?"+":""}${fmt(v,2)}`).join("  ");
+      const prodTxt = Object.entries(b.prod||{}).map(([k,v])=>`${k}+${fmt(v,1)}/d`).join("  ");
+
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between">
+          <h4>${b.name}</h4>
+          <span class="chip">Owned <b id="bld_${b.id}">${count}</b></span>
+        </div>
+        <p>${b.desc}</p>
+        <div class="tiny">${reqTxt}</div>
+        <div class="tiny">Cost: <b>${costTxt||"—"}</b></div>
+        <div class="tiny">Effects: <b>${effTxt||"—"}</b></div>
+        <div class="tiny">Output: <b>${prodTxt||"—"}</b></div>
+        <div class="row">
+          <button class="btn ${reqOk?"primary":""}" data-build="${b.id}">Build</button>
+          <span class="pill">${techOk ? "<span class='good'>Tech OK</span>" : "<span class='warn'>Needs Tech</span>"}</span>
+        </div>
+      `;
+      wrap.appendChild(card);
+    }
+    wrap.addEventListener("click",(e)=>{
+      const btn = e.target.closest("button[data-build]");
+      if(!btn) return;
+      build(btn.getAttribute("data-build"));
+      render();
+    }, {passive:true});
+  }
+
+  function buildTechUI(){
+    const wrap = $("techUI");
+    wrap.innerHTML = "";
+    for(const t of Tech){
+      const st = S.tech[t.id];
+      const owned = st.owned;
+      const avail = techAvailable(t);
+      const active = (S.tech._active===t.id);
+
+      const prog = clamp(st.progress / t.cost, 0, 1);
+      const prereqNames = (t.prereq||[]).map(x=>TById[x]?.name||x).join(", ");
+      const effTxt = Object.entries(t.effects||{}).map(([k,v])=>`${k}${v>=0?"+":""}${fmt(v,2)}`).join("  ");
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between">
+          <h4>${t.name}</h4>
+          <span class="pill">${owned ? "<span class='good'>Owned</span>" : (active?"<span class='warn'>Researching</span>": (avail?"<span class='good'>Available</span>":"<span class='warn'>Locked</span>"))}</span>
+        </div>
+        <p>${t.desc}</p>
+        <div class="tiny">Cost: <b>${t.cost}</b> science • Era: <b>${t.era}</b></div>
+        <div class="tiny">Prereq: <b>${prereqNames || "None"}</b></div>
+        <div class="tiny">Effects: <b>${effTxt || "—"}</b></div>
+        <div class="bar"><i style="width:${fmt(prog*100,1)}%"></i></div>
+        <div class="row">
+          <button class="btn ${(!owned && avail)?"primary":""}" data-tech="${t.id}">${owned?"Done": (active?"Active":"Research")}</button>
+          <button class="btn" data-techq="${t.id}">Queue</button>
+        </div>
+      `;
+      wrap.appendChild(card);
+    }
+
+    // click
+    wrap.addEventListener("click",(e)=>{
+      const b1 = e.target.closest("button[data-tech]");
+      const b2 = e.target.closest("button[data-techq]");
+      if(b1){
+        const id = b1.getAttribute("data-tech");
+        if(S.tech[id]?.owned) return;
+        startResearch(id);
+        render();
+      }
+      if(b2){
+        const id = b2.getAttribute("data-techq");
+        if(S.tech[id]?.owned) return;
+        // push to queue list
+        S.tech._queue = S.tech._queue || [];
+        if(!S.tech._queue.includes(id)) S.tech._queue.push(id);
+        toast(`Queued: ${TById[id]?.name||id}`);
+        render();
+      }
+    }, {passive:true});
+  }
+
+  function consumeTechQueue(){
+    if(S.tech._active) return;
+    const q = S.tech._queue || [];
+    while(q.length){
+      const id = q.shift();
+      const t = TById[id];
+      if(!t) continue;
+      if(S.tech[id].owned) continue;
+      if(techAvailable(t)){
+        S.tech._active = id;
+        S.log.lastEvent = `Research started: ${t.name}`;
+        return;
+      }
+    }
+  }
+
+  /////////////////////////////
+  // Actions
+  /////////////////////////////
+  function actionExplore(){
+    // costs some food; can discover resources/boost science
+    const cost = 10 + Math.floor(S.people.pop*0.2);
+    if(S.res.food < cost){ toast("Not enough food to explore."); return; }
+    S.res.food -= cost;
+
+    const roll = Math.random();
+    if(roll < 0.35){
+      const wood = rand(12,40);
+      S.res.wood += wood;
+      S.log.lastEvent = `Explorers return with timber. +${fmt(wood,0)} wood.`;
+    } else if(roll < 0.65){
+      const ore = rand(6,20);
+      S.res.ore += ore;
+      S.log.lastEvent = `Found ore seams. +${fmt(ore,0)} ore.`;
+    } else if(roll < 0.85){
+      const sci = rand(18,50);
+      S.res.science += sci;
+      S.tech._lifetimeSci = (S.tech._lifetimeSci||0) + sci;
+      S.log.lastEvent = `New knowledge mapped. +${fmt(sci,0)} science.`;
+    } else {
+      const pop = 1;
+      S.people.pop += pop;
+      S.people.adults += pop;
+      S.log.lastEvent = `A small group joins your city. +${pop} population.`;
+    }
+    S.stats.discoveries++;
+    $("uiEvent").textContent = S.log.lastEvent;
+    applyStorageClamp();
+    render();
+  }
+
+  function actionFestival(){
+    const cost = 25 + Math.floor(S.people.pop*0.5);
+    if(S.res.food < cost){ toast("Not enough food for a festival."); return; }
+    S.res.food -= cost;
+    S.people.happiness = clamp(S.people.happiness + rand(6,14), 0, 100);
+    S.people.stability = clamp(S.people.stability + rand(2,6), 0, 100);
+    S.log.lastEvent = "Festival held: happiness surges across the city.";
+    $("uiEvent").textContent = S.log.lastEvent;
+    render();
+  }
+
+  function actionRecruit(){
+    const cost = 20 + Math.floor(S.people.pop*0.35);
+    if(S.res.coin < cost){ toast("Not enough coin to recruit migrants."); return; }
+    S.res.coin -= cost;
+    const gain = irand(2,6);
+    S.people.pop += gain;
+    S.people.adults += gain;
+    S.people.happiness = clamp(S.people.happiness + 1.2, 0, 100);
+    S.log.lastEvent = `Migrants arrive: +${gain} population.`;
+    $("uiEvent").textContent = S.log.lastEvent;
+    render();
+  }
+
+  /////////////////////////////
+  // Render
+  /////////////////////////////
+  function render(){
+    // scale
+    document.documentElement.style.fontSize = `${fmt(16*S.meta.uiScale,0)}px`;
+
+    // Time
+    $("uiYear").textContent = S.time.year;
+    $("uiDay").textContent  = S.time.day;
+
+    // Era
+    $("uiEra").textContent = `Era: ${currentEra().name}`;
+
+    // People kv
+    const housing = S.people.housing + sumBuildingEffect("housing") + sumTechEffect("housing");
+    const workers = availableWorkers();
+    const assigned = totalAssigned();
+    $("kvPeople").innerHTML = `
+      <span>Population</span><b>${S.people.pop}</b>
+      <span>Adults / Children / Elderly</span><b>${S.people.adults} / ${S.people.children} / ${S.people.elderly}</b>
+      <span>Workers (available)</span><b>${workers}</b>
+      <span>Assigned Jobs</span><b>${assigned}</b>
+      <span>Housing</span><b>${housing}</b>
+      <span>Happiness</span><b>${fmt(S.people.happiness,0)}%</b>
+      <span>Health</span><b>${fmt(S.people.health,0)}%</b>
+      <span>Stability</span><b>${fmt(S.people.stability,0)}%</b>
+      <span>Security</span><b>${fmt(S.people.security + sumBuildingEffect("security") + sumTechEffect("security"),1)}</b>
+      <span>Education</span><b>${fmt(S.people.education + eff("education"),1)}</b>
+    `;
+
+    // Footer chips
+    $("uiPop").textContent = S.people.pop;
+    $("uiHappy").textContent = `${fmt(S.people.happiness,0)}%`;
+    $("uiHealth").textContent = `${fmt(S.people.health,0)}%`;
+    $("uiStab").textContent = `${fmt(S.people.stability,0)}%`;
+
+    // Rates
+    const {net} = dailyRates();
+    $("uiFoodNet").textContent = fmt(net.food||0,1);
+    $("uiSciNet").textContent  = fmt(net.science||0,1);
+    $("uiCoinNet").textContent = fmt(net.coin||0,1);
+    $("uiProdNet").textContent = fmt(net.influence||0,1);
+
+    // Resources kv
+    const cap = storageCap();
+    const used = storageUsed();
+    $("uiStorage").textContent = `${fmt((used/cap)*100,0)}%`;
+    $("kvRes").innerHTML = `
+      <span>Food</span><b>${fmtBig(S.res.food)}</b>
+      <span>Wood</span><b>${fmtBig(S.res.wood)}</b>
+      <span>Stone</span><b>${fmtBig(S.res.stone)}</b>
+      <span>Ore</span><b>${fmtBig(S.res.ore)}</b>
+      <span>Coal</span><b>${fmtBig(S.res.coal)}</b>
+      <span>Iron</span><b>${fmtBig(S.res.iron)}</b>
+      <span>Planks</span><b>${fmtBig(S.res.planks)}</b>
+      <span>Bricks</span><b>${fmtBig(S.res.bricks)}</b>
+      <span>Tools</span><b>${fmtBig(S.res.tools)}</b>
+      <span>Cloth</span><b>${fmtBig(S.res.cloth)}</b>
+      <span>Medicine</span><b>${fmtBig(S.res.medicine)}</b>
+      <span>Science</span><b>${fmtBig(S.res.science)}</b>
+      <span>Coin</span><b>${fmtBig(S.res.coin)}</b>
+      <span>Culture</span><b>${fmtBig(S.res.culture)}</b>
+      <span>Faith</span><b>${fmtBig(S.res.faith)}</b>
+      <span>Production</span><b>${fmtBig(S.res.influence)}</b>
+      <span>Storage</span><b>${fmt(used,0)} / ${fmt(cap,0)}</b>
+    `;
+
+    // Jobs current values
+    for(const j of JobDefs){
+      const n = S.people.jobs[j.id]||0;
+      const el = $(`job_${j.id}`);
+      if(el) el.textContent = n;
+      const hint = $(`jobHint_${j.id}`);
+      if(hint){
+        const max = availableWorkers();
+        const assigned = totalAssigned();
+        const rem = Math.max(0, max - assigned);
+        hint.textContent = `Remaining unassigned workers: ${rem}  •  Tip: add ${j.name.toLowerCase()} if your ${hintKey(j.id)} is low.`;
+      }
+    }
+
+    // Policies
+    $("uiTax").textContent = `${fmt(S.economy.taxRate*100,0)}%`;
+    $("uiRations").textContent = `${fmt(S.economy.rations,2)}×`;
+
+    const taxEff = (S.economy.taxRate<=0.12) ? "<span class='good'>Balanced</span>" :
+                   (S.economy.taxRate<=0.22) ? "<span class='warn'>High (happiness will drift down)</span>" :
+                   "<span class='bad'>Oppressive (unrest risk)</span>";
+    $("uiTaxEff").innerHTML = taxEff;
+
+    const ratEff = (S.economy.rations<0.9) ? "<span class='bad'>Austerity (health & happiness fall)</span>" :
+                   (S.economy.rations<=1.05) ? "<span class='good'>Normal</span>" :
+                   "<span class='warn'>Generous (food consumption rises)</span>";
+    $("uiRationsEff").innerHTML = ratEff;
+
+    // Tech queue / auto research
+    consumeTechQueue();
+
+    // Event text
+    $("uiEvent").textContent = S.log.lastEvent || "None";
+    $("uiTip").textContent = S.log.tip;
+
+    // Storage clamp safety display if over
+    if(storageUsed() > storageCap()*1.02){
+      $("uiSaveState").textContent = "Warning: storage over cap";
+      $("uiSaveState").style.color = "var(--warn)";
+    } else {
+      $("uiSaveState").textContent = "Autosave: on";
+      $("uiSaveState").style.color = "var(--muted)";
+    }
+
+    // Build static UIs
+    // (Rebuild occasionally; safe for this scale)
+    buildBuildingsUI();
+    buildTechUI();
+
+    // Draw visualization
+    drawViz();
+  }
+
+  function hintKey(jobId){
+    const map = {
+      farmers:"food", lumberjacks:"wood", miners:"stone/ore", builders:"build speed",
+      scholars:"tech", artisans:"planks/bricks/tools", medics:"health",
+      soldiers:"stability", traders:"coin", priests:"culture"
+    };
+    return map[jobId]||"economy";
+  }
+
+  /////////////////////////////
+  // Visualization (canvas)
+  /////////////////////////////
+  const canvas = $("viz");
+  const ctx2d = canvas.getContext("2d", {alpha:true});
+  function resizeCanvas(){
+    const dpr = Math.min(2, window.devicePixelRatio||1);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width*dpr));
+    canvas.height= Math.max(1, Math.floor(rect.height*dpr));
+    ctx2d.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", ()=>{ resizeCanvas(); drawViz(); }, {passive:true});
+
+  function drawViz(){
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    if(w<=0||h<=0) return;
+    ctx2d.clearRect(0,0,w,h);
+
+    // background vignette
+    const g = ctx2d.createRadialGradient(w*0.4,h*0.2, 10, w*0.5,h*0.55, Math.max(w,h)*0.8);
+    g.addColorStop(0, "rgba(106,168,255,0.10)");
+    g.addColorStop(1, "rgba(0,0,0,0.0)");
+    ctx2d.fillStyle = g;
+    ctx2d.fillRect(0,0,w,h);
+
+    // draw city island
+    const cx = w*0.5, cy = h*0.62;
+    ctx2d.save();
+    ctx2d.translate(cx, cy);
+
+    const pop = S.people.pop;
+    const radius = clamp(40 + Math.sqrt(pop)*9, 50, 180);
+
+    // ground
+    ctx2d.beginPath();
+    ctx2d.ellipse(0, 0, radius*1.35, radius*0.55, 0, 0, Math.PI*2);
+    ctx2d.fillStyle = "rgba(0,0,0,0.22)";
+    ctx2d.fill();
+
+    // skyline bars (buildings)
+    const bCount = Object.values(S.buildings).reduce((a,b)=>a+(b||0),0);
+    const bars = clamp(10 + bCount, 12, 42);
+    for(let i=0;i<bars;i++){
+      const a = (i/bars)*Math.PI*2;
+      const r = radius*0.65 + (Math.sin(i*1.7)+1)*radius*0.08;
+      const x = Math.cos(a)*r;
+      const y = Math.sin(a)*r*0.33;
+      const bh = clamp(10 + (bCount*1.2) + rand(-6,14), 8, 70);
+      ctx2d.fillStyle = "rgba(106,168,255,0.12)";
+      ctx2d.fillRect(x-3, y-bh, 6, bh);
+    }
+
+    // center glow (stability/happiness)
+    const stab = clamp(S.people.stability/100,0,1);
+    const happy= clamp(S.people.happiness/100,0,1);
+    const glow = ctx2d.createRadialGradient(0, -radius*0.10, 10, 0, -radius*0.10, radius*1.2);
+    glow.addColorStop(0, `rgba(${Math.floor(90+140*happy)}, ${Math.floor(90+150*stab)}, 255, 0.22)`);
+    glow.addColorStop(1, "rgba(0,0,0,0.0)");
+    ctx2d.fillStyle = glow;
+    ctx2d.beginPath();
+    ctx2d.arc(0, -radius*0.10, radius*1.2, 0, Math.PI*2);
+    ctx2d.fill();
+
+    // labels
+    ctx2d.font = "12px " + getComputedStyle(document.documentElement).getPropertyValue("--mono");
+    ctx2d.fillStyle = "rgba(234,241,255,0.85)";
+    ctx2d.textAlign = "center";
+    ctx2d.fillText(`City of ${pop} • Housing ${S.people.housing + sumBuildingEffect("housing") + sumTechEffect("housing")}`, 0, -radius*0.95);
+
+    ctx2d.restore();
+
+    // Graphs panel
+    const gx = 18, gy = 18;
+    const gw = w - 36, gh = Math.min(170, h*0.32);
+    drawMiniGraph(gx, gy, gw, gh);
+  }
+
+  function drawMiniGraph(x,y,w,h){
+    ctx2d.save();
+    ctx2d.translate(x,y);
+
+    // panel
+    ctx2d.fillStyle = "rgba(0,0,0,0.18)";
+    ctx2d.strokeStyle = "rgba(255,255,255,0.10)";
+    roundRect(ctx2d, 0,0,w,h, 14);
+    ctx2d.fill();
+    ctx2d.stroke();
+
+    const g = S.graphs;
+    if(g.pop.length<10){ ctx2d.restore(); return; }
+
+    // helper to read ring buffer oldest->newest
+    const N = g.N;
+    const idx = g.idx;
+    function series(arr){
+      const out = [];
+      for(let i=0;i<N;i++){
+        const j = (idx + 1 + i) % N;
+        out.push(arr[j] ?? 0);
+      }
+      return out;
+    }
+
+    const pop = series(g.pop);
+    const food = series(g.foodNet);
+    const sci = series(g.sciNet);
+    const coin = series(g.coinNet);
+    const stab = series(g.stability);
+
+    // scale
+    const popMax = Math.max(...pop, 1);
+    const netMax = Math.max(1, ...food.map(v=>Math.abs(v)), ...sci.map(v=>Math.abs(v)), ...coin.map(v=>Math.abs(v)));
+    const stabMin = 0, stabMax = 100;
+
+    // axes
+    ctx2d.font = "11px " + getComputedStyle(document.documentElement).getPropertyValue("--mono");
+    ctx2d.fillStyle = "rgba(164,180,214,0.85)";
+    ctx2d.fillText("Last 240 days (approx)", 14, 18);
+
+    // draw grid
+    ctx2d.strokeStyle = "rgba(255,255,255,0.06)";
+    for(let i=1;i<5;i++){
+      const yy = (h*0.22) + (h*0.72)*i/5;
+      ctx2d.beginPath();
+      ctx2d.moveTo(12, yy);
+      ctx2d.lineTo(w-12, yy);
+      ctx2d.stroke();
+    }
+
+    const ox = 12, oy = h*0.22, iw = w-24, ih = h*0.72;
+
+    // pop line
+    drawLine(pop, v => 1 - (v/popMax), "rgba(93,255,176,0.90)", 2.0);
+
+    // stability line
+    drawLine(stab, v => 1 - ((v-stabMin)/(stabMax-stabMin)), "rgba(255,214,90,0.75)", 1.6);
+
+    // net bars (food/science/coin)
+    drawNetBars(food, "rgba(106,168,255,0.28)");
+    drawNetBars(sci,  "rgba(184,108,255,0.22)");
+    drawNetBars(coin, "rgba(255,90,123,0.16)");
+
+    // legend
+    ctx2d.fillStyle = "rgba(234,241,255,0.85)";
+    ctx2d.fillText("Pop", 48, h-10);
+    ctx2d.fillStyle = "rgba(93,255,176,0.95)";
+    ctx2d.fillRect(20, h-18, 20, 4);
+
+    ctx2d.fillStyle = "rgba(234,241,255,0.85)";
+    ctx2d.fillText("Stab", 120, h-10);
+    ctx2d.fillStyle = "rgba(255,214,90,0.85)";
+    ctx2d.fillRect(90, h-18, 20, 4);
+
+    ctx2d.restore();
+
+    function drawLine(arr, mapY, stroke, lw){
+      ctx2d.strokeStyle = stroke;
+      ctx2d.lineWidth = lw;
+      ctx2d.beginPath();
+      for(let i=0;i<arr.length;i++){
+        const xx = ox + (i/(arr.length-1))*iw;
+        const yy = oy + mapY(arr[i])*ih;
+        if(i===0) ctx2d.moveTo(xx,yy);
+        else ctx2d.lineTo(xx,yy);
+      }
+      ctx2d.stroke();
+      ctx2d.lineWidth = 1;
+    }
+    function drawNetBars(arr, fill){
+      ctx2d.fillStyle = fill;
+      for(let i=0;i<arr.length;i+=3){
+        const v = arr[i];
+        const xx = ox + (i/(arr.length-1))*iw;
+        const mid = oy + ih*0.60;
+        const hh = clamp((v/netMax)*ih*0.30, -ih*0.30, ih*0.30);
+        ctx2d.fillRect(xx, mid - Math.max(0,hh), 2.2, Math.abs(hh));
+      }
+    }
+  }
+
+  function roundRect(c,x,y,w,h,r){
+    const rr = Math.min(r, w/2, h/2);
+    c.beginPath();
+    c.moveTo(x+rr, y);
+    c.arcTo(x+w, y, x+w, y+h, rr);
+    c.arcTo(x+w, y+h, x, y+h, rr);
+    c.arcTo(x, y+h, x, y, rr);
+    c.arcTo(x, y, x+w, y, rr);
+    c.closePath();
+  }
+
+  /////////////////////////////
+  // Controls
+  /////////////////////////////
+  $("btnPlay").onclick = () => {
+    if(!S.meta.started){
+      S.meta.started = true;
+      S.meta.paused = false;
+      toast("Simulation started. Offline progress will be applied on load.");
+    } else {
+      S.meta.paused = false;
+      toast("Resumed.");
+    }
+    S.meta.lastRealTime = Date.now();
+    render();
+  };
+
+  $("btnPause").onclick = () => {
+    S.meta.paused = !S.meta.paused;
+    toast(S.meta.paused ? "Paused." : "Resumed.", 900);
+    S.meta.lastRealTime = Date.now();
+    render();
+  };
+
+  $("btnTick").onclick = () => {
+    if(!S.meta.started) S.meta.started = true;
+    simulateOneDay();
+    render();
+  };
+
+  const SPEEDS = [1,2,5,10];
+  $("btnSpeed").onclick = () => {
+    const i = SPEEDS.indexOf(S.meta.speed);
+    S.meta.speed = SPEEDS[(i+1)%SPEEDS.length];
+    $("btnSpeed").textContent = `Speed: ${S.meta.speed}×`;
+  };
+
+  $("btnSave").onclick = () => { save(); toast("Saved."); };
+  $("btnLoad").onclick = () => { load(true); toast("Loaded."); render(); };
+  $("btnWipe").onclick = () => {
+    if(confirm("Wipe saved game?")){ localStorage.removeItem(SAVE_KEY); location.reload(); }
+  };
+
+  $("rngTax").oninput = (e) => {
+    S.economy.taxRate = clamp(Number(e.target.value)/100, 0, 0.40);
+    render();
+  };
+  $("rngRations").oninput = (e) => {
+    S.economy.rations = clamp(Number(e.target.value), 0.6, 1.4);
+    render();
+  };
+
+  $("btnExplore").onclick = actionExplore;
+  $("btnFestival").onclick = actionFestival;
+  $("btnRecruit").onclick = actionRecruit;
+
+  $("selAutosave").onchange = (e) => {
+    const v = e.target.value;
+    S.meta.autosaveSec = (v==="off") ? 0 : Number(v);
+    toast(S.meta.autosaveSec ? `Autosave every ${S.meta.autosaveSec}s` : "Autosave off");
+  };
+  $("selOfflineCap").onchange = (e) => {
+    S.meta.offlineCapHours = Number(e.target.value);
+    toast(`Offline cap set to ${S.meta.offlineCapHours}h`);
+  };
+  $("rngScale").oninput = (e) => {
+    S.meta.uiScale = Number(e.target.value);
+    render();
+  };
+
+  /////////////////////////////
+  // Autosave & Offline progress
+  /////////////////////////////
+  function save(){
+    const payload = structuredCloneSafe(S);
+    payload.meta.lastRealTime = Date.now();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  }
+
+  function structuredCloneSafe(obj){
+    // simple deep clone (no functions)
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function load(applyOffline){
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    try{
+      const data = JSON.parse(raw);
+      // merge-ish
+      Object.assign(S.meta, data.meta||{});
+      Object.assign(S.time, data.time||{});
+      Object.assign(S.people, data.people||{});
+      Object.assign(S.economy, data.economy||{});
+      Object.assign(S.caps, data.caps||{});
+      Object.assign(S.res, data.res||{});
+      S.buildings = data.buildings||S.buildings;
+      S.tech = data.tech||S.tech;
+      S.log = data.log||S.log;
+      S.stats = data.stats||S.stats;
+      S.graphs = data.graphs||S.graphs;
+
+      // Ensure tech entries exist
+      for(const t of Tech){
+        if(!S.tech[t.id]) S.tech[t.id] = {owned:false, progress:0};
+      }
+
+      // Apply offline simulation
+      if(applyOffline){
+        const last = data.meta?.lastRealTime || Date.now();
+        const dtMs = Math.max(0, Date.now() - last);
+        const capH = S.meta.offlineCapHours || 72;
+        const cappedMs = Math.min(dtMs, capH*3600*1000);
+        const days = cappedMs / 1000 / TIME.daySeconds;
+        const fullDays = Math.floor(days);
+
+        if(fullDays > 0){
+          for(let i=0;i<fullDays;i++){
+            simulateOneDay();
+          }
+          const hours = cappedMs/3600/1000;
+          S.stats.offlineHours = (S.stats.offlineHours||0) + hours;
+          S.stats.totalOfflineDaysSimulated = (S.stats.totalOfflineDaysSimulated||0) + fullDays;
+          $("uiOffline").textContent = `${fmt(hours,1)}h`;
+          toast(`Offline progress: simulated ${fullDays} days (${fmt(hours,1)}h)`, 2600);
+        } else {
+          $("uiOffline").textContent = `0h`;
+        }
+      }
+      return true;
+    } catch(err){
+      console.error(err);
+      return false;
+    }
+  }
+
+  /////////////////////////////
+  // Main loop (real-time sim)
+  /////////////////////////////
+  let acc = 0;
+  let last = performance.now();
+  let autosaveAcc = 0;
+
+  function loop(t){
+    requestAnimationFrame(loop);
+    const dt = (t-last)/1000;
+    last = t;
+
+    if(!S.meta.started || S.meta.paused) return;
+
+    // simulate days based on speed
+    const dayDt = dt * S.meta.speed;
+    acc += dayDt;
+
+    const step = TIME.daySeconds;
+    let steps = Math.floor(acc / step);
+    // clamp to avoid spiral on tab hidden
+    steps = Math.min(steps, 30);
+    if(steps>0){
+      for(let i=0;i<steps;i++) simulateOneDay();
+      acc -= steps*step;
+      render();
+    }
+
+    // autosave
+    if(S.meta.autosaveSec>0){
+      autosaveAcc += dt;
+      if(autosaveAcc >= S.meta.autosaveSec){
+        autosaveAcc = 0;
+        save();
+      }
+    }
+  }
+
+  /////////////////////////////
+  // Init
+  /////////////////////////////
+  function init(){
+    // bind policies initial
+    $("rngTax").value = fmt(S.economy.taxRate*100,0);
+    $("rngRations").value = fmt(S.economy.rations,2);
+    $("btnSpeed").textContent = `Speed: ${S.meta.speed}×`;
+
+    buildJobsUI();
+
+    resizeCanvas();
+    // load with offline progress
+    const ok = load(true);
+    if(!ok){
+      toast("Welcome! Start the simulation, assign jobs, and research tech.");
+      // set default research queue
+      S.tech._queue = ["gathering","agriculture","mining","carpentry","masonry"];
+    }
+    render();
+
+    // visibility: on return, save and update lastRealTime
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.visibilityState==="hidden"){
+        save();
+      } else {
+        S.meta.lastRealTime = Date.now();
+      }
+    }, {passive:true});
+  }
+
+  init();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

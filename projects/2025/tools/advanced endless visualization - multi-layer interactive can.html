@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Endless Visualization - Multi-Layer Interactive Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
+            font-family: 'Arial', sans-serif;
+            cursor: crosshair;
+        }
+
+        #visualization-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .canvas-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        #main-canvas {
+            pointer-events: all;
+            z-index: 1;
+        }
+
+        #particle-canvas {
+            z-index: 2;
+            mix-blend-mode: screen;
+        }
+
+        #geometric-canvas {
+            z-index: 3;
+            mix-blend-mode: multiply;
+        }
+
+        #wave-canvas {
+            z-index: 4;
+            mix-blend-mode: overlay;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-panel h3 {
+            margin-bottom: 10px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .control-item {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .control-item label {
+            min-width: 100px;
+            margin-right: 10px;
+        }
+
+        .control-item input[type="range"] {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .control-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .stats-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 11px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Courier New', monospace;
+        }
+
+        .instruction-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 250px;
+        }
+
+        .instruction-panel h4 {
+            color: #ff6b6b;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px #ff6b6b;
+        }
+
+        .instruction-panel ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .instruction-panel li {
+            margin: 4px 0;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .instruction-panel li::before {
+            content: "▶";
+            position: absolute;
+            left: 0;
+            color: #00ffff;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .pulsing {
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="visualization-container">
+        <!-- Multiple canvas layers for different visual effects -->
+        <canvas id="main-canvas" class="canvas-layer"></canvas>
+        <canvas id="particle-canvas" class="canvas-layer"></canvas>
+        <canvas id="geometric-canvas" class="canvas-layer"></canvas>
+        <canvas id="wave-canvas" class="canvas-layer"></canvas>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h3>🎛️ Visualization Controls</h3>
+            
+            <div class="control-item">
+                <label>Particles:</label>
+                <input type="range" id="particle-count" min="50" max="2000" value="800">
+                <span id="particle-value">800</span>
+            </div>
+            
+            <div class="control-item">
+                <label>Speed:</label>
+                <input type="range" id="animation-speed" min="0.1" max="3" step="0.1" value="1">
+                <span id="speed-value">1.0</span>
+            </div>
+            
+            <div class="control-item">
+                <label>Gravity:</label>
+                <input type="range" id="gravity-strength" min="0" max="2" step="0.1" value="0.5">
+                <span id="gravity-value">0.5</span>
+            </div>
+            
+            <div class="control-item">
+                <label>Attraction:</label>
+                <input type="range" id="attraction-force" min="0" max="5" step="0.1" value="1.5">
+                <span id="attraction-value">1.5</span>
+            </div>
+            
+            <div class="control-item">
+                <input type="checkbox" id="enable-trails" checked>
+                <label>Particle Trails</label>
+            </div>
+            
+            <div class="control-item">
+                <input type="checkbox" id="enable-geometry" checked>
+                <label>Geometric Patterns</label>
+            </div>
+            
+            <div class="control-item">
+                <input type="checkbox" id="enable-waves" checked>
+                <label>Wave Effects</label>
+            </div>
+            
+            <div class="control-item">
+                <input type="checkbox" id="enable-connections" checked>
+                <label>Particle Connections</label>
+            </div>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="stats-panel">
+            <div>FPS: <span id="fps-counter">60</span></div>
+            <div>Particles: <span id="active-particles">0</span></div>
+            <div>Mouse: <span id="mouse-coords">0, 0</span></div>
+            <div>Time: <span id="runtime">0s</span></div>
+        </div>
+
+        <!-- Instructions Panel -->
+        <div class="instruction-panel">
+            <h4>🎮 Interactive Controls</h4>
+            <ul>
+                <li>Click & Drag: Attract particles</li>
+                <li>Mouse Wheel: Adjust attraction radius</li>
+                <li>Space: Toggle pause/play</li>
+                <li>R: Reset simulation</li>
+                <li>C: Change color scheme</li>
+                <li>F: Toggle fullscreen</li>
+                <li>H: Hide/show panels</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // ====================================
+        // GLOBAL VARIABLES AND INITIALIZATION
+        // ====================================
+        
+        let canvases = {};
+        let contexts = {};
+        let animationId;
+        let startTime = Date.now();
+        let frameCount = 0;
+        let lastFpsTime = 0;
+        let currentFps = 60;
+        
+        // Simulation state
+        let isPaused = false;
+        let panelsVisible = true;
+        let colorSchemeIndex = 0;
+        
+        // Mouse and interaction
+        let mouse = {
+            x: 0,
+            y: 0,
+            isDown: false,
+            radius: 100,
+            force: 1.5
+        };
+        
+        // Viewport dimensions
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        
+        // Particle system
+        let particles = [];
+        let particleCount = 800;
+        let maxConnectionDistance = 120;
+        
+        // Animation parameters
+        let animationSpeed = 1.0;
+        let gravityStrength = 0.5;
+        let attractionForce = 1.5;
+        
+        // Feature toggles
+        let enableTrails = true;
+        let enableGeometry = true;
+        let enableWaves = true;
+        let enableConnections = true;
+        
+        // Color schemes
+        const colorSchemes = [
+            {
+                name: "Neon Blue",
+                particles: [0, 150, 255],
+                connections: [0, 255, 255],
+                geometry: [255, 0, 150],
+                waves: [150, 255, 0]
+            },
+            {
+                name: "Fire",
+                particles: [255, 100, 0],
+                connections: [255, 200, 0],
+                geometry: [255, 50, 50],
+                waves: [255, 150, 0]
+            },
+            {
+                name: "Purple Dream",
+                particles: [200, 0, 255],
+                connections: [255, 0, 200],
+                geometry: [150, 0, 255],
+                waves: [255, 100, 255]
+            },
+            {
+                name: "Ocean",
+                particles: [0, 200, 255],
+                connections: [0, 255, 200],
+                geometry: [100, 150, 255],
+                waves: [50, 200, 255]
+            }
+        ];
+        
+        // ====================================
+        // PARTICLE CLASS DEFINITION
+        // ====================================
+        
+        class Particle {
+            constructor(x, y) {
+                this.x = x || Math.random() * width;
+                this.y = y || Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.radius = Math.random() * 3 + 1;
+                this.mass = this.radius * 0.5;
+                this.opacity = Math.random() * 0.8 + 0.2;
+                this.hue = Math.random() * 360;
+                this.age = 0;
+                this.maxAge = Math.random() * 500 + 200;
+                this.trail = [];
+                this.maxTrailLength = 15;
+            }
+            
+            update() {
+                // Age the particle
+                this.age += animationSpeed;
+                
+                // Apply gravity
+                this.vy += gravityStrength * 0.01 * animationSpeed;
+                
+                // Mouse interaction
+                if (mouse.isDown) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < mouse.radius) {
+                        const force = (mouse.radius - distance) / mouse.radius;
+                        const acceleration = force * mouse.force * 0.1 * animationSpeed;
+                        this.vx += (dx / distance) * acceleration;
+                        this.vy += (dy / distance) * acceleration;
+                    }
+                }
+                
+                // Apply some damping
+                this.vx *= 0.995;
+                this.vy *= 0.995;
+                
+                // Store trail position
+                if (enableTrails) {
+                    this.trail.push({x: this.x, y: this.y});
+                    if (this.trail.length > this.maxTrailLength) {
+                        this.trail.shift();
+                    }
+                }
+                
+                // Update position
+                this.x += this.vx * animationSpeed;
+                this.y += this.vy * animationSpeed;
+                
+                // Bounce off boundaries
+                if (this.x < 0 || this.x > width) {
+                    this.vx *= -0.8;
+                    this.x = Math.max(0, Math.min(width, this.x));
+                }
+                if (this.y < 0 || this.y > height) {
+                    this.vy *= -0.8;
+                    this.y = Math.max(0, Math.min(height, this.y));
+                }
+                
+                // Reset particle if too old
+                if (this.age > this.maxAge) {
+                    this.reset();
+                }
+                
+                // Update visual properties
+                this.hue += 0.5 * animationSpeed;
+                if (this.hue > 360) this.hue = 0;
+            }
+            
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.age = 0;
+                this.maxAge = Math.random() * 500 + 200;
+                this.trail = [];
+            }
+            
+            draw(ctx) {
+                const scheme = colorSchemes[colorSchemeIndex];
+                
+                // Draw trail
+                if (enableTrails && this.trail.length > 1) {
+                    ctx.strokeStyle = `rgba(${scheme.particles[0]}, ${scheme.particles[1]}, ${scheme.particles[2]}, 0.3)`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // Draw particle
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.radius * 2
+                );
+                gradient.addColorStop(0, `rgba(${scheme.particles[0]}, ${scheme.particles[1]}, ${scheme.particles[2]}, ${this.opacity})`);
+                gradient.addColorStop(1, `rgba(${scheme.particles[0]}, ${scheme.particles[1]}, ${scheme.particles[2]}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // ====================================
+        // GEOMETRIC PATTERN GENERATOR
+        // ====================================
+        
+        class GeometricPattern {
+            constructor() {
+                this.time = 0;
+                this.patterns = [];
+                this.initPatterns();
+            }
+            
+            initPatterns() {
+                for (let i = 0; i < 5; i++) {
+                    this.patterns.push({
+                        centerX: Math.random() * width,
+                        centerY: Math.random() * height,
+                        radius: Math.random() * 100 + 50,
+                        speed: Math.random() * 0.02 + 0.01,
+                        sides: Math.floor(Math.random() * 6) + 3,
+                        rotation: Math.random() * Math.PI * 2,
+                        hue: Math.random() * 360
+                    });
+                }
+            }
+            
+            update() {
+                this.time += animationSpeed * 0.02;
+                
+                this.patterns.forEach(pattern => {
+                    pattern.rotation += pattern.speed * animationSpeed;
+                    pattern.hue += 0.5 * animationSpeed;
+                    if (pattern.hue > 360) pattern.hue = 0;
+                    
+                    // Drift the center slightly
+                    pattern.centerX += Math.sin(this.time + pattern.centerX * 0.001) * 0.5;
+                    pattern.centerY += Math.cos(this.time + pattern.centerY * 0.001) * 0.5;
+                    
+                    // Keep patterns on screen
+                    if (pattern.centerX < -100) pattern.centerX = width + 100;
+                    if (pattern.centerX > width + 100) pattern.centerX = -100;
+                    if (pattern.centerY < -100) pattern.centerY = height + 100;
+                    if (pattern.centerY > height + 100) pattern.centerY = -100;
+                });
+            }
+            
+            draw(ctx) {
+                if (!enableGeometry) return;
+                
+                const scheme = colorSchemes[colorSchemeIndex];
+                
+                this.patterns.forEach(pattern => {
+                    ctx.save();
+                    ctx.translate(pattern.centerX, pattern.centerY);
+                    ctx.rotate(pattern.rotation);
+                    
+                    // Draw polygon
+                    ctx.strokeStyle = `rgba(${scheme.geometry[0]}, ${scheme.geometry[1]}, ${scheme.geometry[2]}, 0.4)`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    for (let i = 0; i <= pattern.sides; i++) {
+                        const angle = (i / pattern.sides) * Math.PI * 2;
+                        const x = Math.cos(angle) * pattern.radius;
+                        const y = Math.sin(angle) * pattern.radius;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                    
+                    // Draw inner pattern
+                    ctx.strokeStyle = `rgba(${scheme.geometry[0]}, ${scheme.geometry[1]}, ${scheme.geometry[2]}, 0.2)`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    
+                    for (let i = 0; i <= pattern.sides; i++) {
+                        const angle1 = (i / pattern.sides) * Math.PI * 2;
+                        const angle2 = ((i + 2) % pattern.sides / pattern.sides) * Math.PI * 2;
+                        const x1 = Math.cos(angle1) * pattern.radius;
+                        const y1 = Math.sin(angle1) * pattern.radius;
+                        const x2 = Math.cos(angle2) * pattern.radius;
+                        const y2 = Math.sin(angle2) * pattern.radius;
+                        
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                    }
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                });
+            }
+        }
+        
+        // ====================================
+        // WAVE EFFECT GENERATOR
+        // ====================================
+        
+        class WaveEffect {
+            constructor() {
+                this.time = 0;
+                this.waves = [];
+                this.initWaves();
+            }
+            
+            initWaves() {
+                for (let i = 0; i < 3; i++) {
+                    this.waves.push({
+                        amplitude: Math.random() * 50 + 20,
+                        frequency: Math.random() * 0.02 + 0.005,
+                        phase: Math.random() * Math.PI * 2,
+                        speed: Math.random() * 0.03 + 0.01,
+                        vertical: Math.random() > 0.5
+                    });
+                }
+            }
+            
+            update() {
+                this.time += animationSpeed * 0.1;
+                
+                this.waves.forEach(wave => {
+                    wave.phase += wave.speed * animationSpeed;
+                });
+            }
+            
+            draw(ctx) {
+                if (!enableWaves) return;
+                
+                const scheme = colorSchemes[colorSchemeIndex];
+                
+                ctx.strokeStyle = `rgba(${scheme.waves[0]}, ${scheme.waves[1]}, ${scheme.waves[2]}, 0.3)`;
+                ctx.lineWidth = 2;
+                
+                this.waves.forEach((wave, index) => {
+                    ctx.beginPath();
+                    
+                    if (wave.vertical) {
+                        // Vertical waves
+                        for (let y = 0; y <= height; y += 2) {
+                            const x = width / 2 + Math.sin(y * wave.frequency + wave.phase + this.time) * wave.amplitude;
+                            if (y === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                    } else {
+                        // Horizontal waves
+                        for (let x = 0; x <= width; x += 2) {
+                            const y = height / 2 + Math.sin(x * wave.frequency + wave.phase + this.time) * wave.amplitude;
+                            if (x === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                    }
+                    
+                    ctx.stroke();
+                });
+            }
+        }
+        
+        // ====================================
+        // CONNECTION SYSTEM
+        // ====================================
+        
+        function drawConnections(ctx, particles) {
+            if (!enableConnections) return;
+            
+            const scheme = colorSchemes[colorSchemeIndex];
+            
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < maxConnectionDistance) {
+                        const opacity = (1 - distance / maxConnectionDistance) * 0.3;
+                        ctx.strokeStyle = `rgba(${scheme.connections[0]}, ${scheme.connections[1]}, ${scheme.connections[2]}, ${opacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        // ====================================
+        // INITIALIZATION FUNCTIONS
+        // ====================================
+        
+        function initCanvases() {
+            const canvasIds = ['main-canvas', 'particle-canvas', 'geometric-canvas', 'wave-canvas'];
+            
+            canvasIds.forEach(id => {
+                canvases[id] = document.getElementById(id);
+                contexts[id] = canvases[id].getContext('2d');
+                canvases[id].width = width;
+                canvases[id].height = height;
+            });
+        }
+        
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        function initControls() {
+            // Particle count control
+            const particleCountSlider = document.getElementById('particle-count');
+            const particleValueSpan = document.getElementById('particle-value');
+            particleCountSlider.addEventListener('input', (e) => {
+                particleCount = parseInt(e.target.value);
+                particleValueSpan.textContent = particleCount;
+                initParticles();
+            });
+            
+            // Animation speed control
+            const speedSlider = document.getElementById('animation-speed');
+            const speedValueSpan = document.getElementById('speed-value');
+            speedSlider.addEventListener('input', (e) => {
+                animationSpeed = parseFloat(e.target.value);
+                speedValueSpan.textContent = animationSpeed.toFixed(1);
+            });
+            
+            // Gravity control
+            const gravitySlider = document.getElementById('gravity-strength');
+            const gravityValueSpan = document.getElementById('gravity-value');
+            gravitySlider.addEventListener('input', (e) => {
+                gravityStrength = parseFloat(e.target.value);
+                gravityValueSpan.textContent = gravityStrength.toFixed(1);
+            });
+            
+            // Attraction force control
+            const attractionSlider = document.getElementById('attraction-force');
+            const attractionValueSpan = document.getElementById('attraction-value');
+            attractionSlider.addEventListener('input', (e) => {
+                attractionForce = parseFloat(e.target.value);
+                attractionValueSpan.textContent = attractionForce.toFixed(1);
+                mouse.force = attractionForce;
+            });
+            
+            // Feature toggles
+            document.getElementById('enable-trails').addEventListener('change', (e) => {
+                enableTrails = e.target.checked;
+            });
+            
+            document.getElementById('enable-geometry').addEventListener('change', (e) => {
+                enableGeometry = e.target.checked;
+            });
+            
+            document.getElementById('enable-waves').addEventListener('change', (e) => {
+                enableWaves = e.target.checked;
+            });
+            
+            document.getElementById('enable-connections').addEventListener('change', (e) => {
+                enableConnections = e.target.checked;
+            });
+        }
+        
+        function initEventListeners() {
+            // Mouse events
+            canvases['main-canvas'].addEventListener('mousemove', (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+                document.getElementById('mouse-coords').textContent = `${mouse.x}, ${mouse.y}`;
+            });
+            
+            canvases['main-canvas'].addEventListener('mousedown', () => {
+                mouse.isDown = true;
+            });
+            
+            canvases['main-canvas'].addEventListener('mouseup', () => {
+                mouse.isDown = false;
+            });
+            
+            canvases['main-canvas'].addEventListener('mouseleave', () => {
+                mouse.isDown = false;
+            });
+            
+            // Wheel event for radius control
+            canvases['main-canvas'].addEventListener('wheel', (e) => {
+                e.preventDefault();
+                mouse.radius += e.deltaY > 0 ? -10 : 10;
+                mouse.radius = Math.max(20, Math.min(200, mouse.radius));
+            });
+            
+            // Keyboard events
+            document.addEventListener('keydown', (e) => {
+                switch(e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        togglePause();
+                        break;
+                    case 'KeyR':
+                        resetSimulation();
+                        break;
+                    case 'KeyC':
+                        changeColorScheme();
+                        break;
+                    case 'KeyF':
+                        toggleFullscreen();
+                        break;
+                    case 'KeyH':
+                        togglePanels();
+                        break;
+                }
+            });
+            
+            // Window resize
+            window.addEventListener('resize', handleResize);
+        }
+        
+        // ====================================
+        // UTILITY FUNCTIONS
+        // ====================================
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            if (!isPaused) {
+                animate();
+            }
+        }
+        
+        function resetSimulation() {
+            initParticles();
+            geometricPattern = new GeometricPattern();
+            waveEffect = new WaveEffect();
+            startTime = Date.now();
+        }
+        
+        function changeColorScheme() {
+            colorSchemeIndex = (colorSchemeIndex + 1) % colorSchemes.length;
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        function togglePanels() {
+            panelsVisible = !panelsVisible;
+            const panels = document.querySelectorAll('.control-panel, .stats-panel, .instruction-panel');
+            panels.forEach(panel => {
+                panel.classList.toggle('hidden', !panelsVisible);
+            });
+        }
+        
+        function handleResize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            
+            Object.keys(canvases).forEach(id => {
+                canvases[id].width = width;
+                canvases[id].height = height;
+            });
+            
+            // Reposition particles that are off-screen
+            particles.forEach(particle => {
+                if (particle.x > width) particle.x = width - 10;
+                if (particle.y > height) particle.y = height - 10;
+            });
+        }
+        
+        function updateStats() {
+            // FPS calculation
+            frameCount++;
+            const currentTime = Date.now();
+            if (currentTime - lastFpsTime >= 1000) {
+                currentFps = Math.round(frameCount * 1000 / (currentTime - lastFpsTime));
+                frameCount = 0;
+                lastFpsTime = currentTime;
+                document.getElementById('fps-counter').textContent = currentFps;
+            }
+            
+            // Update other stats
+            document.getElementById('active-particles').textContent = particles.length;
+            const runtime = Math.floor((currentTime - startTime) / 1000);
+            document.getElementById('runtime').textContent = `${runtime}s`;
+        }
+        
+        // ====================================
+        // MAIN ANIMATION LOOP
+        // ====================================
+        
+        let geometricPattern, waveEffect;
+        
+        function animate() {
+            if (isPaused) return;
+            
+            // Clear main canvas with trail effect
+            const mainCtx = contexts['main-canvas'];
+            mainCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            mainCtx.fillRect(0, 0, width, height);
+            
+            // Clear other canvases completely
+            contexts['particle-canvas'].clearRect(0, 0, width, height);
+            contexts['geometric-canvas'].clearRect(0, 0, width, height);
+            contexts['wave-canvas'].clearRect(0, 0, width, height);
+            
+            // Update and draw particles
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw(contexts['particle-canvas']);
+            });
+            
+            // Draw connections
+            drawConnections(contexts['particle-canvas'], particles);
+            
+            // Update and draw geometric patterns
+            geometricPattern.update();
+            geometricPattern.draw(contexts['geometric-canvas']);
+            
+            // Update and draw wave effects
+            waveEffect.update();
+            waveEffect.draw(contexts['wave-canvas']);
+            
+            // Update statistics
+            updateStats();
+            
+            // Continue animation
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // ====================================
+        // APPLICATION STARTUP
+        // ====================================
+        
+        function init() {
+            initCanvases();
+            initParticles();
+            initControls();
+            initEventListeners();
+            
+            geometricPattern = new GeometricPattern();
+            waveEffect = new WaveEffect();
+            
+            // Set initial mouse position
+            mouse.x = width / 2;
+            mouse.y = height / 2;
+            
+            // Start animation
+            animate();
+        }
+        
+        // Start the application when the page loads
+        window.addEventListener('load', init);
+        
+        // ====================================
+        // EASTER EGGS AND SPECIAL EFFECTS
+        // ====================================
+        
+        // Add some special effects for specific interactions
+        let clickCount = 0;
+        canvases['main-canvas'].addEventListener('click', (e) => {
+            clickCount++;
+            
+            // Create explosion effect on every 5th click
+            if (clickCount % 5 === 0) {
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(e.clientX, e.clientY));
+                }
+            }
+            
+            // Change to random color scheme on every 10th click
+            if (clickCount % 10 === 0) {
+                colorSchemeIndex = Math.floor(Math.random() * colorSchemes.length);
+            }
+        });
+        
+        // Add particle on double-click
+        canvases['main-canvas'].addEventListener('dblclick', (e) => {
+            for (let i = 0; i < 50; i++) {
+                const angle = (i / 50) * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                const particle = new Particle(e.clientX, e.clientY);
+                particle.vx = Math.cos(angle) * speed;
+                particle.vy = Math.sin(angle) * speed;
+                particles.push(particle);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photon Mood Ring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #000;
+            transition: background 1.5s ease;
+        }
+
+        #moodCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            filter: blur(0px);
+            transition: filter 0.8s ease;
+            mix-blend-mode: screen;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 25px 35px;
+            border-radius: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 28px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .color-wheel {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 25px;
+            cursor: pointer;
+            background: conic-gradient(
+                red, yellow, lime, cyan, blue, magenta, red
+            );
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+
+        .color-wheel:hover {
+            transform: scale(1.05);
+        }
+
+        .color-wheel::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+        }
+
+        .emotion-input {
+            width: 100%;
+            padding: 12px 20px;
+            margin-bottom: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .emotion-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .emotion-input:focus {
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #downloadBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        #downloadBtn:hover {
+            box-shadow: 0 7px 20px rgba(245, 87, 108, 0.6);
+        }
+
+        .mood-text {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 0 30px currentColor;
+            z-index: 50;
+            opacity: 0.8;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="moodCanvas"></canvas>
+    
+    <div class="controls">
+        <h1>✨ PHOTON MOOD RING</h1>
+        <div class="color-wheel" id="colorWheel"></div>
+        <input type="text" class="emotion-input" id="emotionInput" placeholder="Type an emotion (happy, calm, angry...)">
+        <div class="button-group">
+            <button id="applyBtn">Apply Mood</button>
+            <button id="downloadBtn">Download PNG</button>
+        </div>
+    </div>
+
+    <div class="mood-text" id="moodText"></div>
+
+    <script>
+        const canvas = document.getElementById('moodCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorWheel = document.getElementById('colorWheel');
+        const emotionInput = document.getElementById('emotionInput');
+        const applyBtn = document.getElementById('applyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const moodText = document.getElementById('moodText');
+
+        let particles = [];
+        let currentMood = { r: 138, g: 43, b: 226, name: 'neutral' };
+        let targetMood = { ...currentMood };
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Emotion to color mapping (deterministic)
+        const emotionColors = {
+            happy: { r: 255, g: 215, b: 0, name: 'Happy' },
+            joy: { r: 255, g: 193, b: 7, name: 'Joy' },
+            excited: { r: 255, g: 69, b: 0, name: 'Excited' },
+            calm: { r: 100, g: 149, b: 237, name: 'Calm' },
+            peaceful: { r: 135, g: 206, b: 235, name: 'Peaceful' },
+            relaxed: { r: 152, g: 251, b: 152, name: 'Relaxed' },
+            sad: { r: 70, g: 130, b: 180, name: 'Sad' },
+            melancholy: { r: 75, g: 0, b: 130, name: 'Melancholy' },
+            angry: { r: 220, g: 20, b: 60, name: 'Angry' },
+            rage: { r: 178, g: 34, b: 34, name: 'Rage' },
+            love: { r: 255, g: 105, b: 180, name: 'Love' },
+            romantic: { r: 255, g: 20, b: 147, name: 'Romantic' },
+            energetic: { r: 255, g: 140, b: 0, name: 'Energetic' },
+            tired: { r: 119, g: 136, b: 153, name: 'Tired' },
+            anxious: { r: 218, g: 165, b: 32, name: 'Anxious' },
+            fearful: { r: 128, g: 0, b: 128, name: 'Fearful' },
+            confident: { r: 255, g: 215, b: 0, name: 'Confident' },
+            creative: { r: 147, g: 112, b: 219, name: 'Creative' },
+            inspired: { r: 138, g: 43, b: 226, name: 'Inspired' },
+            neutral: { r: 138, g: 43, b: 226, name: 'Neutral' }
+        };
+
+        // Particle class
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 3 + 1;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+            }
+
+            draw() {
+                const color = lerpColor(currentMood, targetMood, 0.05);
+                currentMood = color;
+
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Glow effect
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
+            }
+        }
+
+        // Initialize particles
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 150; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        // Linear interpolation for smooth color transitions
+        function lerpColor(start, end, t) {
+            return {
+                r: Math.round(start.r + (end.r - start.r) * t),
+                g: Math.round(start.g + (end.g - start.g) * t),
+                b: Math.round(start.b + (end.b - start.b) * t),
+                name: end.name
+            };
+        }
+
+        // Animation loop
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            // Update background color
+            document.body.style.background = `rgb(${currentMood.r * 0.3}, ${currentMood.g * 0.3}, ${currentMood.b * 0.3})`;
+
+            requestAnimationFrame(animate);
+        }
+
+        // Color wheel click handler
+        colorWheel.addEventListener('click', (e) => {
+            const rect = colorWheel.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const angle = Math.atan2(y - centerY, x - centerX);
+            const hue = (angle * 180 / Math.PI + 360) % 360;
+            
+            const color = hslToRgb(hue / 360, 1, 0.5);
+            targetMood = { r: color.r, g: color.g, b: color.b, name: 'Custom' };
+            moodText.textContent = 'Custom Mood';
+            moodText.style.color = `rgb(${color.r}, ${color.g}, ${color.b})`;
+            canvas.style.filter = 'blur(2px)';
+            setTimeout(() => canvas.style.filter = 'blur(0px)', 800);
+        });
+
+        // HSL to RGB conversion
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
+        }
+
+        // Apply emotion button
+        applyBtn.addEventListener('click', () => {
+            const emotion = emotionInput.value.toLowerCase().trim();
+            if (emotionColors[emotion]) {
+                targetMood = emotionColors[emotion];
+                moodText.textContent = emotionColors[emotion].name;
+                moodText.style.color = `rgb(${targetMood.r}, ${targetMood.g}, ${targetMood.b})`;
+                canvas.style.filter = 'blur(3px)';
+                setTimeout(() => canvas.style.filter = 'blur(0px)', 800);
+            } else {
+                alert('Emotion not recognized. Try: happy, calm, angry, sad, love, excited, etc.');
+            }
+        });
+
+        // Enter key support
+        emotionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyBtn.click();
+            }
+        });
+
+        // Download PNG
+        downloadBtn.addEventListener('click', () => {
+            const downloadCanvas = document.createElement('canvas');
+            downloadCanvas.width = 1920;
+            downloadCanvas.height = 1080;
+            const downloadCtx = downloadCanvas.getContext('2d');
+
+            // Background
+            downloadCtx.fillStyle = `rgb(${currentMood.r * 0.3}, ${currentMood.g * 0.3}, ${currentMood.b * 0.3})`;
+            downloadCtx.fillRect(0, 0, downloadCanvas.width, downloadCanvas.height);
+
+            // Particles
+            const scale = downloadCanvas.width / canvas.width;
+            particles.forEach(particle => {
+                downloadCtx.fillStyle = `rgba(${currentMood.r}, ${currentMood.g}, ${currentMood.b}, ${particle.opacity})`;
+                downloadCtx.shadowBlur = 30;
+                downloadCtx.shadowColor = `rgba(${currentMood.r}, ${currentMood.g}, ${currentMood.b}, 0.8)`;
+                downloadCtx.beginPath();
+                downloadCtx.arc(particle.x * scale, particle.y * scale, particle.size * scale, 0, Math.PI * 2);
+                downloadCtx.fill();
+            });
+
+            // Text
+            downloadCtx.shadowBlur = 40;
+            downloadCtx.shadowColor = `rgb(${currentMood.r}, ${currentMood.g}, ${currentMood.b})`;
+            downloadCtx.fillStyle = `rgb(${currentMood.r}, ${currentMood.g}, ${currentMood.b})`;
+            downloadCtx.font = 'bold 120px Arial';
+            downloadCtx.textAlign = 'center';
+            downloadCtx.fillText(currentMood.name.toUpperCase(), downloadCanvas.width / 2, downloadCanvas.height - 100);
+
+            // Download
+            const link = document.createElement('a');
+            link.download = `photon-mood-${currentMood.name.toLowerCase()}-${Date.now()}.png`;
+            link.href = downloadCanvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Initialize
+        initParticles();
+        animate();
+        moodText.textContent = 'Neutral';
+    </script>
+</body>
+</html>

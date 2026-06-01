@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L-System Neon Trees</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(180deg, #050510 0%, #0a0a20 50%, #050515 100%);
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #0f8;
+            font-size: 22px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 20px #0f8;
+            z-index: 10;
+        }
+
+        .stats {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            color: #0ff;
+            font-size: 11px;
+            line-height: 1.8;
+            z-index: 10;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            font-size: 11px;
+            font-family: inherit;
+            background: transparent;
+            border: 1px solid #0f8;
+            color: #0f8;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(0, 255, 136, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">L-SYSTEM NEON TREES</div>
+    <div class="stats">BRANCHES: <span id="branches">0</span><br>LEAVES: <span id="leaves">0</span><br>WIND: <span
+            id="wind">ACTIVE</span></div>
+    <div class="controls">
+        <button class="btn" id="tree1">BINARY TREE</button>
+        <button class="btn" id="tree2">FERN</button>
+        <button class="btn" id="tree3">BUSH</button>
+        <button class="btn" id="regrow">REGROW</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 15);
+        camera.lookAt(0, 5, 0);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        document.body.appendChild(renderer.domElement);
+
+        const lSystems = {
+            tree1: { axiom: 'X', rules: { X: 'F[+X][-X]FX', F: 'FF' }, angle: 25, len: 0.5, iter: 6 },
+            tree2: { axiom: 'X', rules: { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' }, angle: 25, len: 0.3, iter: 5 },
+            tree3: { axiom: 'F', rules: { F: 'FF+[+F-F-F]-[-F+F+F]' }, angle: 22, len: 0.4, iter: 4 }
+        };
+
+        let branches = [], leaves = [], currentType = 'tree1', growProgress = 0, growing = false;
+        const branchMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 });
+
+        function generate(type) {
+            let sys = lSystems[type], str = sys.axiom;
+            for (let i = 0; i < sys.iter; i++) {
+                let next = '';
+                for (let c of str) next += sys.rules[c] || c;
+                str = next;
+            }
+            return str;
+        }
+
+        function buildTree(type) {
+            branches.forEach(b => scene.remove(b));
+            leaves.forEach(l => scene.remove(l));
+            branches = []; leaves = [];
+
+            const sys = lSystems[type], str = generate(type);
+            const rad = sys.angle * Math.PI / 180, len = sys.len;
+            const stack = [];
+            let pos = new THREE.Vector3(0, 0, 0), dir = new THREE.Vector3(0, 1, 0);
+            let depth = 0, maxDepth = 0;
+
+            for (let c of str) {
+                if (c === 'F') {
+                    const start = pos.clone();
+                    pos.add(dir.clone().multiplyScalar(len));
+                    const geo = new THREE.BufferGeometry().setFromPoints([start, pos]);
+                    const hue = 0.5 - depth * 0.05;
+                    const mat = new THREE.LineBasicMaterial({ color: new THREE.Color().setHSL(hue, 1, 0.5), transparent: true, opacity: 0 });
+                    const line = new THREE.Line(geo, mat);
+                    line.userData = { delay: branches.length * 10, basePos: [start.clone(), pos.clone()] };
+                    branches.push(line);
+                    scene.add(line);
+                    maxDepth = Math.max(maxDepth, depth);
+                } else if (c === '+') {
+                    const axis = new THREE.Vector3(0, 0, 1);
+                    dir.applyAxisAngle(axis, rad);
+                } else if (c === '-') {
+                    const axis = new THREE.Vector3(0, 0, 1);
+                    dir.applyAxisAngle(axis, -rad);
+                } else if (c === '[') {
+                    stack.push({ pos: pos.clone(), dir: dir.clone(), depth });
+                    depth++;
+                } else if (c === ']') {
+                    // Create leaf
+                    const leafGeo = new THREE.SphereGeometry(0.05, 4, 4);
+                    const leafMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0 });
+                    const leaf = new THREE.Mesh(leafGeo, leafMat);
+                    leaf.position.copy(pos);
+                    leaf.userData = { delay: branches.length * 10 + 500, basePos: pos.clone(), fallSpeed: 0, falling: false };
+                    leaves.push(leaf);
+                    scene.add(leaf);
+
+                    const saved = stack.pop();
+                    pos = saved.pos; dir = saved.dir; depth = saved.depth;
+                }
+            }
+
+            growProgress = 0;
+            growing = true;
+            document.getElementById('branches').textContent = branches.length;
+            document.getElementById('leaves').textContent = leaves.length;
+        }
+
+        function createGround() {
+            const geo = new THREE.PlaneGeometry(50, 50, 20, 20);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x001105, transparent: true, opacity: 0.3, wireframe: true });
+            const ground = new THREE.Mesh(geo, mat);
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
+        }
+
+        document.getElementById('tree1').onclick = () => { currentType = 'tree1'; buildTree(currentType); };
+        document.getElementById('tree2').onclick = () => { currentType = 'tree2'; buildTree(currentType); };
+        document.getElementById('tree3').onclick = () => { currentType = 'tree3'; buildTree(currentType); };
+        document.getElementById('regrow').onclick = () => buildTree(currentType);
+
+        let time = 0, rotY = 0, isDrag = false, lastM = { x: 0, y: 0 };
+        renderer.domElement.addEventListener('mousedown', e => { isDrag = true; lastM = { x: e.clientX, y: e.clientY }; });
+        renderer.domElement.addEventListener('mousemove', e => { if (isDrag) { rotY += (e.clientX - lastM.x) * 0.005; lastM = { x: e.clientX, y: e.clientY }; } });
+        renderer.domElement.addEventListener('mouseup', () => isDrag = false);
+        renderer.domElement.addEventListener('wheel', e => camera.position.z = Math.max(5, Math.min(30, camera.position.z + e.deltaY * 0.02)));
+
+        createGround();
+        buildTree(currentType);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 16;
+
+            // Grow animation
+            branches.forEach((b, i) => {
+                if (time > b.userData.delay) {
+                    b.material.opacity = Math.min(0.9, b.material.opacity + 0.05);
+                }
+                // Wind sway
+                const wind = Math.sin(time * 0.002 + i * 0.1) * 0.02;
+                const positions = b.geometry.attributes.position.array;
+                positions[3] = b.userData.basePos[1].x + wind * (positions[4] - positions[1]);
+                b.geometry.attributes.position.needsUpdate = true;
+            });
+
+            leaves.forEach((l, i) => {
+                if (time > l.userData.delay) {
+                    l.material.opacity = Math.min(0.9, l.material.opacity + 0.02);
+                }
+                // Occasional falling
+                if (!l.userData.falling && Math.random() < 0.00005) {
+                    l.userData.falling = true;
+                }
+                if (l.userData.falling) {
+                    l.userData.fallSpeed += 0.0005;
+                    l.position.y -= l.userData.fallSpeed;
+                    l.position.x += Math.sin(time * 0.01 + i) * 0.01;
+                    if (l.position.y < 0) {
+                        l.position.copy(l.userData.basePos);
+                        l.userData.falling = false;
+                        l.userData.fallSpeed = 0;
+                    }
+                }
+                // Wind sway
+                const wind = Math.sin(time * 0.003 + i * 0.2) * 0.1;
+                if (!l.userData.falling) {
+                    l.position.x = l.userData.basePos.x + wind;
+                }
+            });
+
+            scene.rotation.y = rotY;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    </script>
+</body>
+
+</html>

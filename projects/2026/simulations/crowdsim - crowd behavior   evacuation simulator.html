@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrowdSim - Crowd Behavior & Evacuation Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-panel: #12121c;
+            --bg-card: #1a1a28;
+            --bg-input: #222235;
+            --border: #2a2a40;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --accent: #00d4aa;
+            --accent-dim: #00a080;
+            --warning: #ffaa00;
+            --danger: #ff4466;
+            --info: #4488ff;
+            --success: #44dd88;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: 50px 1fr;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .logo svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dim);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-input);
+        }
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title svg {
+            width: 16px;
+            height: 16px;
+            color: var(--accent);
+        }
+
+        /* Tools */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .tool-btn {
+            aspect-ratio: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .tool-btn:hover {
+            background: var(--bg-input);
+            color: var(--text-primary);
+        }
+
+        .tool-btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .tool-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .tool-btn span {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 15px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .slider-value {
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--bg-input);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Scenario Presets */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .preset-btn {
+            padding: 12px 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .preset-btn.active {
+            background: rgba(0, 212, 170, 0.1);
+            border-color: var(--accent);
+        }
+
+        .preset-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .preset-desc {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* Analytics */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .analytics-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .analytics-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .analytics-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .analytics-card.warning .analytics-value {
+            color: var(--warning);
+        }
+
+        .analytics-card.danger .analytics-value {
+            color: var(--danger);
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            position: relative;
+            background: var(--bg-dark);
+            overflow: hidden;
+        }
+
+        #simCanvas {
+            display: block;
+        }
+
+        /* Minimap */
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 180px;
+            height: 120px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .minimap canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .legend-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+        }
+
+        /* Heatmap Toggle */
+        .heatmap-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 5px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .heatmap-btn {
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .heatmap-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .heatmap-btn.active {
+            background: var(--accent);
+            color: #000;
+        }
+
+        /* Time Display */
+        .time-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .time-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .sim-speed {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Panic Indicator */
+        .panic-indicator {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: var(--danger);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            animation: pulse 0.5s ease-in-out infinite;
+            display: none;
+        }
+
+        .panic-indicator.active {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Flow Arrows */
+        .flow-indicator {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        /* Density Graph */
+        .density-graph {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .graph-title {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .graph-canvas {
+            width: 100%;
+            height: 60px;
+            background: var(--bg-input);
+            border-radius: 4px;
+        }
+
+        /* Evacuation Stats */
+        .evac-stats {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .evac-progress {
+            margin-bottom: 10px;
+        }
+
+        .evac-progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .evac-progress-bar {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evac-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .evac-time {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+
+        .tooltip.visible {
+            display: block;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        /* Info Badge */
+        .info-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: var(--bg-input);
+            border-radius: 10px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* Checkbox */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .checkbox-group input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+        }
+
+        .checkbox-group label {
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        /* Exit Marker */
+        .exit-marker {
+            position: absolute;
+            padding: 4px 8px;
+            background: var(--success);
+            color: #000;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                CrowdSim
+            </div>
+            <div class="header-stats">
+                <div class="stat">
+                    <div class="stat-value" id="agentCount">0</div>
+                    <div class="stat-label">Agents</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="evacuatedCount">0</div>
+                    <div class="stat-label">Evacuated</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="avgSpeed">0.0</div>
+                    <div class="stat-label">Avg Speed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="maxDensity">0.0</div>
+                    <div class="stat-label">Max Density</div>
+                </div>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-secondary btn-icon" onclick="togglePlay()" id="playBtn" title="Play/Pause">
+                    <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+                <button class="btn btn-secondary btn-icon" onclick="stepSimulation()" title="Step">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                    </svg>
+                </button>
+                <button class="btn btn-warning" onclick="triggerPanic()" id="panicBtn">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                    Panic
+                </button>
+                <button class="btn btn-danger" onclick="resetSimulation()">Reset</button>
+            </div>
+        </header>
+
+        <!-- Control Panel -->
+        <aside class="control-panel">
+            <!-- Tools -->
+            <div class="panel-section">
+                <div class="panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    Tools
+                </div>
+                <div class="tools-grid">
+                    <div class="tool-btn active" onclick="selectTool('agents')" id="tool-agents">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="8" r="4"/><path d="M12 14c-6 0-8 3-8 5v1h16v-1c0-2-2-5-8-5z"/>
+                        </svg>
+                        <span>Agents</span>
+                    </div>
+                    <div class="tool-btn" onclick="selectTool('wall')" id="tool-wall">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 3h18v18H3V3zm16 16V5H5v14h14z"/>
+                        </svg>
+                        <span>Wall</span>
+                    </div>
+                    <div class="tool-btn" onclick="selectTool('exit')" id="tool-exit">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+                        </svg>
+                        <span>Exit</span>
+                    </div>
+                    <div class="tool-btn" onclick="selectTool('obstacle')" id="tool-obstacle">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        <span>Obstacle</span>
+                    </div>
+                    <div class="tool-btn" onclick="selectTool('attractor')" id="tool-attractor">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <span>Attractor</span>
+                    </div>
+                    <div class="tool-btn" onclick="selectTool('erase')" id="tool-erase">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                        <span>Erase</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Presets -->
+            <div class="panel-section">
+                <div class="panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="3" y1="9" x2="21" y2="9"/>
+                        <line x1="9" y1="21" x2="9" y2="9"/>
+                    </svg>
+                    Scenarios
+                </div>
+                <div class="preset-grid">
+                    <div class="preset-btn active" onclick="loadPreset('corridor')">
+                        <div class="preset-name">Corridor</div>
+                        <div class="preset-desc">Bidirectional flow</div>
+                    </div>
+                    <div class="preset-btn" onclick="loadPreset('bottleneck')">
+                        <div class="preset-name">Bottleneck</div>
+                        <div class="preset-desc">Narrow passage</div>
+                    </div>
+                    <div class="preset-btn" onclick="loadPreset('room')">
+                        <div class="preset-name">Room</div>
+                        <div class="preset-desc">Single exit evac</div>
+                    </div>
+                    <div class="preset-btn" onclick="loadPreset('crossing')">
+                        <div class="preset-name">Crossing</div>
+                        <div class="preset-desc">Perpendicular flows</div>
+                    </div>
+                    <div class="preset-btn" onclick="loadPreset('stadium')">
+                        <div class="preset-name">Stadium</div>
+                        <div class="preset-desc">Multiple exits</div>
+                    </div>
+                    <div class="preset-btn" onclick="loadPreset('obstacle')">
+                        <div class="preset-name">Obstacle</div>
+                        <div class="preset-desc">Central pillar</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Parameters -->
+            <div class="panel-section">
+                <div class="panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                    </svg>
+                    Parameters
+                </div>
+                
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Agent Count</span>
+                        <span class="slider-value" id="agentCountValue">100</span>
+                    </div>
+                    <input type="range" class="slider" min="10" max="500" value="100" id="agentCountSlider" oninput="updateParam('agentCount')">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Desired Speed</span>
+                        <span class="slider-value" id="desiredSpeedValue">1.4 m/s</span>
+                    </div>
+                    <input type="range" class="slider" min="0.5" max="3" step="0.1" value="1.4" id="desiredSpeedSlider" oninput="updateParam('desiredSpeed')">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Personal Space</span>
+                        <span class="slider-value" id="personalSpaceValue">0.5 m</span>
+                    </div>
+                    <input type="range" class="slider" min="0.2" max="1.5" step="0.1" value="0.5" id="personalSpaceSlider" oninput="updateParam('personalSpace')">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Simulation Speed</span>
+                        <span class="slider-value" id="simSpeedValue">1.0x</span>
+                    </div>
+                    <input type="range" class="slider" min="0.25" max="4" step="0.25" value="1" id="simSpeedSlider" oninput="updateParam('simSpeed')">
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showForces" onchange="toggleShowForces()">
+                    <label for="showForces">Show Force Vectors</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showPaths" onchange="toggleShowPaths()">
+                    <label for="showPaths">Show Agent Paths</label>
+                </div>
+            </div>
+
+            <!-- Panic Settings -->
+            <div class="panel-section">
+                <div class="panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Panic Behavior
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Panic Speed Multiplier</span>
+                        <span class="slider-value" id="panicSpeedValue">1.8x</span>
+                    </div>
+                    <input type="range" class="slider" min="1" max="3" step="0.1" value="1.8" id="panicSpeedSlider" oninput="updateParam('panicSpeed')">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Herding Tendency</span>
+                        <span class="slider-value" id="herdingValue">50%</span>
+                    </div>
+                    <input type="range" class="slider" min="0" max="100" value="50" id="herdingSlider" oninput="updateParam('herding')">
+                </div>
+            </div>
+
+            <!-- Analytics -->
+            <div class="panel-section">
+                <div class="panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                    Analytics
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="analytics-value" id="flowRate">0</div>
+                        <div class="analytics-label">Flow Rate (p/s)</div>
+                    </div>
+                    <div class="analytics-card" id="densityCard">
+                        <div class="analytics-value" id="currentDensity">0.0</div>
+                        <div class="analytics-label">Density (p/m²)</div>
+                    </div>
+                    <div class="analytics-card">
+                        <div class="analytics-value" id="avgWaitTime">0s</div>
+                        <div class="analytics-label">Avg Wait</div>
+                    </div>
+                    <div class="analytics-card" id="crushRiskCard">
+                        <div class="analytics-value" id="crushRisk">Low</div>
+                        <div class="analytics-label">Crush Risk</div>
+                    </div>
+                </div>
+
+                <div class="density-graph">
+                    <div class="graph-title">Density Over Time</div>
+                    <canvas class="graph-canvas" id="densityGraph"></canvas>
+                </div>
+
+                <div class="evac-stats" id="evacStats" style="display: none;">
+                    <div class="evac-progress">
+                        <div class="evac-progress-header">
+                            <span>Evacuation Progress</span>
+                            <span id="evacPercent">0%</span>
+                        </div>
+                        <div class="evac-progress-bar">
+                            <div class="evac-progress-fill" id="evacFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="evac-time">
+                        <span>Est. Time Remaining</span>
+                        <span id="evacTimeRemaining">--:--</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="canvas-area">
+            <canvas id="simCanvas"></canvas>
+
+            <!-- Time Display -->
+            <div class="time-display">
+                <div class="time-value" id="simTime">00:00.0</div>
+                <div class="sim-speed">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.92 6-4.72 7.28L13 17v5l5-5-2.28-2.28c2.33-1.4 3.78-3.94 3.78-6.72 0-4.42-3.58-8-8-8-.18 0-.36 0-.54.02L13 2.05zM11 2.05c-.18-.02-.36-.05-.54-.05-4.42 0-8 3.58-8 8 0 2.78 1.45 5.32 3.78 6.72L4 19l5 5v-5l-2.28-2.28C4.39 15.32 2.47 12.53 2.47 9.32c0-4.08 3.05-7.44 7-7.93V2.05z"/>
+                    </svg>
+                    <span id="speedDisplay">1.0x</span>
+                </div>
+            </div>
+
+            <!-- Panic Indicator -->
+            <div class="panic-indicator" id="panicIndicator">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+                PANIC MODE ACTIVE
+            </div>
+
+            <!-- Heatmap Toggle -->
+            <div class="heatmap-toggle">
+                <button class="heatmap-btn active" onclick="setViewMode('agents')">Agents</button>
+                <button class="heatmap-btn" onclick="setViewMode('density')">Density</button>
+                <button class="heatmap-btn" onclick="setViewMode('velocity')">Velocity</button>
+                <button class="heatmap-btn" onclick="setViewMode('flow')">Flow</button>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend" id="legend">
+                <div class="legend-title">Agent State</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d4aa;"></div>
+                    <span>Normal</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffaa00;"></div>
+                    <span>Congested</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff4466;"></div>
+                    <span>Panicked</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4488ff;"></div>
+                    <span>Group Leader</span>
+                </div>
+            </div>
+
+            <!-- Minimap -->
+            <div class="minimap">
+                <canvas id="minimapCanvas"></canvas>
+            </div>
+
+            <!-- Tooltip -->
+            <div class="tooltip" id="tooltip"></div>
+        </main>
+    </div>
+
+    <script>
+        // =====================================================
+        // CONSTANTS & CONFIGURATION
+        // =====================================================
+        const CONFIG = {
+            // Social Force Model parameters
+            tau: 0.5,               // Relaxation time
+            A: 2000,                // Interaction strength (pedestrian)
+            B: 0.08,                // Interaction range (pedestrian)
+            A_wall: 3000,           // Wall interaction strength
+            B_wall: 0.1,            // Wall interaction range
+            k: 120000,              // Body force constant
+            kappa: 240000,          // Sliding friction constant
+            
+            // Agent properties
+            agentRadius: 0.25,      // meters
+            desiredSpeed: 1.4,      // m/s
+            maxSpeed: 2.5,          // m/s
+            
+            // Panic parameters
+            panicSpeedMultiplier: 1.8,
+            herdingFactor: 0.5,
+            
+            // Rendering
+            pixelsPerMeter: 30,
+            gridSize: 1,            // meters
+        };
+
+        // =====================================================
+        // STATE
+        // =====================================================
+        let state = {
+            agents: [],
+            walls: [],
+            exits: [],
+            obstacles: [],
+            attractors: [],
+            
+            isRunning: false,
+            isPanic: false,
+            simTime: 0,
+            simSpeed: 1,
+            
+            selectedTool: 'agents',
+            viewMode: 'agents',
+            
+            showForces: false,
+            showPaths: false,
+            
+            evacuated: 0,
+            densityHistory: [],
+            flowRate: 0,
+            
+            // Drawing state
+            isDrawing: false,
+            drawStart: null,
+            
+            // Parameters
+            agentCount: 100,
+            desiredSpeed: 1.4,
+            personalSpace: 0.5,
+        };
+
+        // Canvas contexts
+        let canvas, ctx;
+        let minimapCanvas, minimapCtx;
+        let densityCanvas, densityCtx;
+
+        // Animation
+        let animationId = null;
+        let lastTime = 0;
+
+        // =====================================================
+        // AGENT CLASS
+        // =====================================================
+        class Agent {
+            constructor(x, y, targetExit = null) {
+                this.id = Math.random().toString(36).substr(2, 9);
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = CONFIG.agentRadius;
+                this.desiredSpeed = CONFIG.desiredSpeed * (0.8 + Math.random() * 0.4);
+                this.maxSpeed = CONFIG.maxSpeed;
+                this.targetExit = targetExit;
+                this.isPanicked = false;
+                this.isGroupLeader = Math.random() < 0.1;
+                this.path = [];
+                this.waitTime = 0;
+                this.color = '#00d4aa';
+            }
+
+            getDesiredVelocity() {
+                if (!this.targetExit && state.exits.length > 0) {
+                    // Find nearest exit
+                    let nearestExit = null;
+                    let nearestDist = Infinity;
+                    
+                    for (const exit of state.exits) {
+                        const dx = exit.x - this.x;
+                        const dy = exit.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestExit = exit;
+                        }
+                    }
+                    this.targetExit = nearestExit;
+                }
+
+                if (this.targetExit) {
+                    const dx = this.targetExit.x - this.x;
+                    const dy = this.targetExit.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 0.1) {
+                        let speed = this.desiredSpeed;
+                        if (state.isPanic && this.isPanicked) {
+                            speed *= CONFIG.panicSpeedMultiplier;
+                        }
+                        return {
+                            vx: (dx / dist) * speed,
+                            vy: (dy / dist) * speed
+                        };
+                    }
+                }
+                
+                return { vx: 0, vy: 0 };
+            }
+
+            update(dt, agents) {
+                // Store path
+                if (state.showPaths && this.path.length < 500) {
+                    this.path.push({ x: this.x, y: this.y });
+                }
+
+                // Calculate forces
+                const forces = this.calculateForces(agents);
+                
+                // Update velocity
+                this.vx += forces.fx * dt;
+                this.vy += forces.fy * dt;
+                
+                // Clamp speed
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const maxSpeed = state.isPanic && this.isPanicked ? this.maxSpeed * 1.5 : this.maxSpeed;
+                
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+                
+                // Update position
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                // Update color based on state
+                if (this.isPanicked) {
+                    this.color = '#ff4466';
+                } else if (speed < 0.3) {
+                    this.color = '#ffaa00';
+                    this.waitTime += dt;
+                } else {
+                    this.color = this.isGroupLeader ? '#4488ff' : '#00d4aa';
+                    this.waitTime = 0;
+                }
+                
+                // Check if reached exit
+                if (this.targetExit) {
+                    const dx = this.targetExit.x - this.x;
+                    const dy = this.targetExit.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < this.targetExit.width / 2) {
+                        return true; // Evacuated
+                    }
+                }
+                
+                return false;
+            }
+
+            calculateForces(agents) {
+                let fx = 0, fy = 0;
+                
+                // 1. Driving force (towards goal)
+                const desired = this.getDesiredVelocity();
+                const drivingForce = {
+                    fx: (desired.vx - this.vx) / CONFIG.tau,
+                    fy: (desired.vy - this.vy) / CONFIG.tau
+                };
+                fx += drivingForce.fx;
+                fy += drivingForce.fy;
+                
+                // 2. Pedestrian repulsion forces
+                for (const other of agents) {
+                    if (other.id === this.id) continue;
+                    
+                    const dx = this.x - other.x;
+                    const dy = this.y - other.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const rij = this.radius + other.radius;
+                    
+                    if (dist < 0.01) continue;
+                    
+                    // Direction from other to this agent
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    
+                    // Social force
+                    const socialForce = CONFIG.A * Math.exp((rij - dist) / CONFIG.B);
+                    fx += socialForce * nx;
+                    fy += socialForce * ny;
+                    
+                    // Contact forces (if overlapping)
+                    if (dist < rij) {
+                        // Body force
+                        const bodyForce = CONFIG.k * (rij - dist);
+                        fx += bodyForce * nx;
+                        fy += bodyForce * ny;
+                        
+                        // Tangential friction
+                        const tx = -ny;
+                        const ty = nx;
+                        const dvt = (other.vx - this.vx) * tx + (other.vy - this.vy) * ty;
+                        const frictionForce = CONFIG.kappa * (rij - dist) * dvt;
+                        fx += frictionForce * tx;
+                        fy += frictionForce * ty;
+                    }
+                }
+                
+                // 3. Wall repulsion forces
+                for (const wall of state.walls) {
+                    const wallForce = this.calculateWallForce(wall);
+                    fx += wallForce.fx;
+                    fy += wallForce.fy;
+                }
+                
+                // 4. Obstacle repulsion
+                for (const obs of state.obstacles) {
+                    const dx = this.x - obs.x;
+                    const dy = this.y - obs.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const rij = this.radius + obs.radius;
+                    
+                    if (dist < rij * 3 && dist > 0.01) {
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        const force = CONFIG.A_wall * Math.exp((rij - dist) / CONFIG.B_wall);
+                        fx += force * nx;
+                        fy += force * ny;
+                    }
+                }
+                
+                // 5. Attractor forces
+                for (const attr of state.attractors) {
+                    const dx = attr.x - this.x;
+                    const dy = attr.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 0.5 && dist < attr.radius * 2) {
+                        const strength = attr.strength * (1 - dist / (attr.radius * 2));
+                        fx += (dx / dist) * strength;
+                        fy += (dy / dist) * strength;
+                    }
+                }
+                
+                // 6. Herding behavior in panic
+                if (state.isPanic && this.isPanicked && CONFIG.herdingFactor > 0) {
+                    let avgVx = 0, avgVy = 0, count = 0;
+                    
+                    for (const other of agents) {
+                        if (other.id === this.id) continue;
+                        
+                        const dx = other.x - this.x;
+                        const dy = other.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 3) {
+                            avgVx += other.vx;
+                            avgVy += other.vy;
+                            count++;
+                        }
+                    }
+                    
+                    if (count > 0) {
+                        avgVx /= count;
+                        avgVy /= count;
+                        
+                        fx += (avgVx - this.vx) * CONFIG.herdingFactor;
+                        fy += (avgVy - this.vy) * CONFIG.herdingFactor;
+                    }
+                }
+                
+                return { fx, fy };
+            }
+
+            calculateWallForce(wall) {
+                // Calculate distance to wall segment
+                const dx = wall.x2 - wall.x1;
+                const dy = wall.y2 - wall.y1;
+                const len2 = dx * dx + dy * dy;
+                
+                let t = Math.max(0, Math.min(1, ((this.x - wall.x1) * dx + (this.y - wall.y1) * dy) / len2));
+                
+                const nearestX = wall.x1 + t * dx;
+                const nearestY = wall.y1 + t * dy;
+                
+                const distX = this.x - nearestX;
+                const distY = this.y - nearestY;
+                const dist = Math.sqrt(distX * distX + distY * distY);
+                
+                if (dist < 0.01 || dist > 3) return { fx: 0, fy: 0 };
+                
+                const nx = distX / dist;
+                const ny = distY / dist;
+                
+                // Social force from wall
+                const force = CONFIG.A_wall * Math.exp((this.radius - dist) / CONFIG.B_wall);
+                
+                // Contact force if touching
+                let contactForce = 0;
+                if (dist < this.radius) {
+                    contactForce = CONFIG.k * (this.radius - dist);
+                }
+                
+                return {
+                    fx: (force + contactForce) * nx,
+                    fy: (force + contactForce) * ny
+                };
+            }
+        }
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        function init() {
+            // Main canvas
+            canvas = document.getElementById('simCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Minimap canvas
+            minimapCanvas = document.getElementById('minimapCanvas');
+            minimapCtx = minimapCanvas.getContext('2d');
+            
+            // Density graph canvas
+            densityCanvas = document.getElementById('densityGraph');
+            densityCtx = densityCanvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Canvas events
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // Load default preset
+            loadPreset('corridor');
+            
+            // Start render loop
+            requestAnimationFrame(render);
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            minimapCanvas.width = 180;
+            minimapCanvas.height = 120;
+            
+            densityCanvas.width = densityCanvas.offsetWidth;
+            densityCanvas.height = 60;
+        }
+
+        // =====================================================
+        // PRESETS
+        // =====================================================
+        function loadPreset(presetName) {
+            // Clear current state
+            state.agents = [];
+            state.walls = [];
+            state.exits = [];
+            state.obstacles = [];
+            state.attractors = [];
+            state.evacuated = 0;
+            state.simTime = 0;
+            state.densityHistory = [];
+            
+            const w = canvas.width / CONFIG.pixelsPerMeter;
+            const h = canvas.height / CONFIG.pixelsPerMeter;
+            
+            // Update UI
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            event?.target?.classList.add('active');
+            
+            switch (presetName) {
+                case 'corridor':
+                    // Walls forming corridor
+                    state.walls = [
+                        { x1: 2, y1: h/3, x2: w-2, y2: h/3 },
+                        { x1: 2, y1: 2*h/3, x2: w-2, y2: 2*h/3 },
+                    ];
+                    // Exits at both ends
+                    state.exits = [
+                        { x: w-1, y: h/2, width: 2 },
+                        { x: 1, y: h/2, width: 2 },
+                    ];
+                    // Spawn agents on both sides
+                    spawnAgentsInArea(2, h/3 + 0.5, 6, 2*h/3 - 0.5, state.agentCount / 2, state.exits[0]);
+                    spawnAgentsInArea(w-6, h/3 + 0.5, w-2, 2*h/3 - 0.5, state.agentCount / 2, state.exits[1]);
+                    break;
+                    
+                case 'bottleneck':
+                    const bw = 1.5; // bottleneck width
+                    state.walls = [
+                        { x1: 2, y1: 2, x2: w/2 - bw/2, y2: 2 },
+                        { x1: w/2 + bw/2, y1: 2, x2: w-2, y2: 2 },
+                        { x1: 2, y1: h-2, x2: w/2 - bw/2, y2: h-2 },
+                        { x1: w/2 + bw/2, y1: h-2, x2: w-2, y2: h-2 },
+                        { x1: w/2 - bw/2, y1: 2, x2: w/2 - bw/2, y2: h/2 - 2 },
+                        { x1: w/2 + bw/2, y1: 2, x2: w/2 + bw/2, y2: h/2 - 2 },
+                        { x1: w/2 - bw/2, y1: h/2 + 2, x2: w/2 - bw/2, y2: h-2 },
+                        { x1: w/2 + bw/2, y1: h/2 + 2, x2: w/2 + bw/2, y2: h-2 },
+                    ];
+                    state.exits = [
+                        { x: w-1, y: h/2, width: 2 },
+                    ];
+                    spawnAgentsInArea(3, 3, w/2 - 2, h-3, state.agentCount, state.exits[0]);
+                    break;
+                    
+                case 'room':
+                    state.walls = [
+                        { x1: 3, y1: 3, x2: w-3, y2: 3 },
+                        { x1: w-3, y1: 3, x2: w-3, y2: h-3 },
+                        { x1: w-3, y1: h-3, x2: 3, y2: h-3 },
+                        { x1: 3, y1: h-3, x2: 3, y2: h/2 + 1 },
+                        { x1: 3, y1: h/2 - 1, x2: 3, y2: 3 },
+                    ];
+                    state.exits = [
+                        { x: 3, y: h/2, width: 2 },
+                    ];
+                    spawnAgentsInArea(5, 5, w-5, h-5, state.agentCount, state.exits[0]);
+                    document.getElementById('evacStats').style.display = 'block';
+                    break;
+                    
+                case 'crossing':
+                    const cw = 3; // corridor width
+                    state.walls = [
+                        // Horizontal corridor
+                        { x1: 0, y1: h/2 - cw, x2: w/2 - cw, y2: h/2 - cw },
+                        { x1: w/2 + cw, y1: h/2 - cw, x2: w, y2: h/2 - cw },
+                        { x1: 0, y1: h/2 + cw, x2: w/2 - cw, y2: h/2 + cw },
+                        { x1: w/2 + cw, y1: h/2 + cw, x2: w, y2: h/2 + cw },
+                        // Vertical corridor
+                        { x1: w/2 - cw, y1: 0, x2: w/2 - cw, y2: h/2 - cw },
+                        { x1: w/2 - cw, y1: h/2 + cw, x2: w/2 - cw, y2: h },
+                        { x1: w/2 + cw, y1: 0, x2: w/2 + cw, y2: h/2 - cw },
+                        { x1: w/2 + cw, y1: h/2 + cw, x2: w/2 + cw, y2: h },
+                    ];
+                    state.exits = [
+                        { x: w-0.5, y: h/2, width: 2 },
+                        { x: 0.5, y: h/2, width: 2 },
+                        { x: w/2, y: 0.5, width: 2 },
+                        { x: w/2, y: h-0.5, width: 2 },
+                    ];
+                    spawnAgentsInArea(1, h/2 - cw + 0.5, 4, h/2 + cw - 0.5, state.agentCount/4, state.exits[0]);
+                    spawnAgentsInArea(w-4, h/2 - cw + 0.5, w-1, h/2 + cw - 0.5, state.agentCount/4, state.exits[1]);
+                    spawnAgentsInArea(w/2 - cw + 0.5, 1, w/2 + cw - 0.5, 4, state.agentCount/4, state.exits[3]);
+                    spawnAgentsInArea(w/2 - cw + 0.5, h-4, w/2 + cw - 0.5, h-1, state.agentCount/4, state.exits[2]);
+                    break;
+                    
+                case 'stadium':
+                    state.walls = [
+                        { x1: 3, y1: 3, x2: w-3, y2: 3 },
+                        { x1: w-3, y1: 3, x2: w-3, y2: h/3 },
+                        { x1: w-3, y1: h/3 + 2, x2: w-3, y2: 2*h/3 - 2 },
+                        { x1: w-3, y1: 2*h/3, x2: w-3, y2: h-3 },
+                        { x1: w-3, y1: h-3, x2: 3, y2: h-3 },
+                        { x1: 3, y1: h-3, x2: 3, y2: 2*h/3 },
+                        { x1: 3, y1: 2*h/3 - 2, x2: 3, y2: h/3 + 2 },
+                        { x1: 3, y1: h/3, x2: 3, y2: 3 },
+                    ];
+                    state.exits = [
+                        { x: w-3, y: h/3 + 1, width: 2 },
+                        { x: w-3, y: 2*h/3 - 1, width: 2 },
+                        { x: 3, y: h/3 + 1, width: 2 },
+                        { x: 3, y: 2*h/3 - 1, width: 2 },
+                    ];
+                    spawnAgentsInArea(5, 5, w-5, h-5, state.agentCount, null);
+                    document.getElementById('evacStats').style.display = 'block';
+                    break;
+                    
+                case 'obstacle':
+                    state.walls = [
+                        { x1: 3, y1: 3, x2: w-3, y2: 3 },
+                        { x1: w-3, y1: 3, x2: w-3, y2: h-3 },
+                        { x1: w-3, y1: h-3, x2: 3, y2: h-3 },
+                        { x1: 3, y1: h-3, x2: 3, y2: h/2 + 1 },
+                        { x1: 3, y1: h/2 - 1, x2: 3, y2: 3 },
+                    ];
+                    state.exits = [
+                        { x: 3, y: h/2, width: 2 },
+                    ];
+                    state.obstacles = [
+                        { x: w/2, y: h/2, radius: 2 },
+                    ];
+                    spawnAgentsInArea(5, 5, w-5, h-5, state.agentCount, state.exits[0]);
+                    document.getElementById('evacStats').style.display = 'block';
+                    break;
+            }
+            
+            updateStats();
+        }
+
+        function spawnAgentsInArea(x1, y1, x2, y2, count, targetExit) {
+            for (let i = 0; i < count; i++) {
+                let x, y;
+                let attempts = 0;
+                
+                do {
+                    x = x1 + Math.random() * (x2 - x1);
+                    y = y1 + Math.random() * (y2 - y1);
+                    attempts++;
+                } while (isOverlapping(x, y) && attempts < 50);
+                
+                if (attempts < 50) {
+                    const agent = new Agent(x, y, targetExit);
+                    state.agents.push(agent);
+                }
+            }
+        }
+
+        function isOverlapping(x, y) {
+            for (const agent of state.agents) {
+                const dx = agent.x - x;
+                const dy = agent.y - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < CONFIG.agentRadius * 2.5) return true;
+            }
+            return false;
+        }
+
+        // =====================================================
+        // SIMULATION
+        // =====================================================
+        function togglePlay() {
+            state.isRunning = !state.isRunning;
+            updatePlayButton();
+            
+            if (state.isRunning) {
+                lastTime = performance.now();
+            }
+        }
+
+        function updatePlayButton() {
+            const icon = document.getElementById('playIcon');
+            if (state.isRunning) {
+                icon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+            } else {
+                icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        function stepSimulation() {
+            updateSimulation(1/60);
+        }
+
+        function updateSimulation(dt) {
+            dt *= state.simSpeed;
+            state.simTime += dt;
+            
+            // Update agents
+            const evacuatedThisFrame = [];
+            
+            for (let i = state.agents.length - 1; i >= 0; i--) {
+                const agent = state.agents[i];
+                const evacuated = agent.update(dt, state.agents);
+                
+                if (evacuated) {
+                    evacuatedThisFrame.push(i);
+                }
+            }
+            
+            // Remove evacuated agents
+            for (const idx of evacuatedThisFrame) {
+                state.agents.splice(idx, 1);
+                state.evacuated++;
+            }
+            
+            // Calculate flow rate
+            state.flowRate = evacuatedThisFrame.length / dt;
+            
+            // Update density history
+            const density = calculateMaxDensity();
+            state.densityHistory.push(density);
+            if (state.densityHistory.length > 200) {
+                state.densityHistory.shift();
+            }
+            
+            updateStats();
+        }
+
+        function calculateMaxDensity() {
+            if (state.agents.length === 0) return 0;
+            
+            // Simple grid-based density calculation
+            const gridSize = 2; // meters
+            const w = canvas.width / CONFIG.pixelsPerMeter;
+            const h = canvas.height / CONFIG.pixelsPerMeter;
+            const cols = Math.ceil(w / gridSize);
+            const rows = Math.ceil(h / gridSize);
+            
+            const grid = new Array(cols * rows).fill(0);
+            
+            for (const agent of state.agents) {
+                const col = Math.floor(agent.x / gridSize);
+                const row = Math.floor(agent.y / gridSize);
+                const idx = row * cols + col;
+                if (idx >= 0 && idx < grid.length) {
+                    grid[idx]++;
+                }
+            }
+            
+            const maxCount = Math.max(...grid);
+            return maxCount / (gridSize * gridSize);
+        }
+
+        function triggerPanic() {
+            state.isPanic = !state.isPanic;
+            document.getElementById('panicIndicator').classList.toggle('active', state.isPanic);
+            document.getElementById('panicBtn').classList.toggle('btn-danger', state.isPanic);
+            
+            if (state.isPanic) {
+                // Randomly panic some agents
+                for (const agent of state.agents) {
+                    agent.isPanicked = Math.random() < 0.7;
+                }
+            } else {
+                for (const agent of state.agents) {
+                    agent.isPanicked = false;
+                }
+            }
+        }
+
+        function resetSimulation() {
+            state.isRunning = false;
+            state.isPanic = false;
+            updatePlayButton();
+            document.getElementById('panicIndicator').classList.remove('active');
+            document.getElementById('panicBtn').classList.remove('btn-danger');
+            
+            // Reload current preset
+            const activePreset = document.querySelector('.preset-btn.active');
+            if (activePreset) {
+                loadPreset(activePreset.querySelector('.preset-name').textContent.toLowerCase());
+            }
+        }
+
+        // =====================================================
+        // RENDERING
+        // =====================================================
+        function render(currentTime) {
+            const dt = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            if (state.isRunning) {
+                updateSimulation(dt);
+            }
+            
+            // Clear canvas
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            drawGrid();
+            
+            // Draw based on view mode
+            if (state.viewMode === 'density') {
+                drawDensityHeatmap();
+            } else if (state.viewMode === 'velocity') {
+                drawVelocityField();
+            } else if (state.viewMode === 'flow') {
+                drawFlowField();
+            }
+            
+            // Draw walls
+            drawWalls();
+            
+            // Draw obstacles
+            drawObstacles();
+            
+            // Draw exits
+            drawExits();
+            
+            // Draw attractors
+            drawAttractors();
+            
+            // Draw agents
+            if (state.viewMode === 'agents' || state.viewMode === 'density') {
+                drawAgents();
+            }
+            
+            // Draw paths
+            if (state.showPaths) {
+                drawPaths();
+            }
+            
+            // Draw drawing preview
+            if (state.isDrawing && state.drawStart) {
+                drawPreview();
+            }
+            
+            // Update minimap
+            drawMinimap();
+            
+            // Update density graph
+            drawDensityGraph();
+            
+            // Update time display
+            const minutes = Math.floor(state.simTime / 60);
+            const seconds = (state.simTime % 60).toFixed(1);
+            document.getElementById('simTime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.padStart(4, '0')}`;
+            
+            requestAnimationFrame(render);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#1a1a28';
+            ctx.lineWidth = 1;
+            
+            const gridPixels = CONFIG.gridSize * CONFIG.pixelsPerMeter;
+            
+            for (let x = 0; x < canvas.width; x += gridPixels) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += gridPixels) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawWalls() {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            
+            for (const wall of state.walls) {
+                ctx.beginPath();
+                ctx.moveTo(wall.x1 * CONFIG.pixelsPerMeter, wall.y1 * CONFIG.pixelsPerMeter);
+                ctx.lineTo(wall.x2 * CONFIG.pixelsPerMeter, wall.y2 * CONFIG.pixelsPerMeter);
+                ctx.stroke();
+            }
+        }
+
+        function drawExits() {
+            for (const exit of state.exits) {
+                const x = exit.x * CONFIG.pixelsPerMeter;
+                const y = exit.y * CONFIG.pixelsPerMeter;
+                const w = exit.width * CONFIG.pixelsPerMeter;
+                
+                // Glow effect
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, w);
+                gradient.addColorStop(0, 'rgba(68, 221, 136, 0.5)');
+                gradient.addColorStop(1, 'rgba(68, 221, 136, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, w, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Exit marker
+                ctx.fillStyle = '#44dd88';
+                ctx.fillRect(x - w/2, y - 3, w, 6);
+                
+                // Arrow
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('EXIT', x, y + 4);
+            }
+        }
+
+        function drawObstacles() {
+            for (const obs of state.obstacles) {
+                const x = obs.x * CONFIG.pixelsPerMeter;
+                const y = obs.y * CONFIG.pixelsPerMeter;
+                const r = obs.radius * CONFIG.pixelsPerMeter;
+                
+                ctx.fillStyle = '#444466';
+                ctx.strokeStyle = '#666688';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        function drawAttractors() {
+            for (const attr of state.attractors) {
+                const x = attr.x * CONFIG.pixelsPerMeter;
+                const y = attr.y * CONFIG.pixelsPerMeter;
+                const r = attr.radius * CONFIG.pixelsPerMeter;
+                
+                // Pulsing effect
+                const pulse = 0.8 + 0.2 * Math.sin(state.simTime * 3);
+                
+                ctx.strokeStyle = `rgba(68, 136, 255, ${pulse})`;
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, r * (0.3 + i * 0.35) * pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawAgents() {
+            for (const agent of state.agents) {
+                const x = agent.x * CONFIG.pixelsPerMeter;
+                const y = agent.y * CONFIG.pixelsPerMeter;
+                const r = agent.radius * CONFIG.pixelsPerMeter;
+                
+                // Agent body
+                ctx.fillStyle = agent.color;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Direction indicator
+                if (agent.vx !== 0 || agent.vy !== 0) {
+                    const speed = Math.sqrt(agent.vx * agent.vx + agent.vy * agent.vy);
+                    const dirX = agent.vx / speed;
+                    const dirY = agent.vy / speed;
+                    
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + dirX * r * 1.5, y + dirY * r * 1.5);
+                    ctx.stroke();
+                }
+                
+                // Force vectors
+                if (state.showForces) {
+                    const forces = agent.calculateForces(state.agents);
+                    const forceScale = 0.01;
+                    
+                    ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + forces.fx * forceScale * CONFIG.pixelsPerMeter, 
+                              y + forces.fy * forceScale * CONFIG.pixelsPerMeter);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawPaths() {
+            ctx.lineWidth = 1;
+            
+            for (const agent of state.agents) {
+                if (agent.path.length < 2) continue;
+                
+                ctx.strokeStyle = `${agent.color}40`;
+                ctx.beginPath();
+                ctx.moveTo(agent.path[0].x * CONFIG.pixelsPerMeter, 
+                          agent.path[0].y * CONFIG.pixelsPerMeter);
+                
+                for (let i = 1; i < agent.path.length; i++) {
+                    ctx.lineTo(agent.path[i].x * CONFIG.pixelsPerMeter, 
+                              agent.path[i].y * CONFIG.pixelsPerMeter);
+                }
+                ctx.stroke();
+            }
+        }
+
+        function drawDensityHeatmap() {
+            const gridSize = 1;
+            const gridPixels = gridSize * CONFIG.pixelsPerMeter;
+            const w = Math.ceil(canvas.width / gridPixels);
+            const h = Math.ceil(canvas.height / gridPixels);
+            
+            for (let gx = 0; gx < w; gx++) {
+                for (let gy = 0; gy < h; gy++) {
+                    const cx = (gx + 0.5) * gridSize;
+                    const cy = (gy + 0.5) * gridSize;
+                    
+                    let count = 0;
+                    for (const agent of state.agents) {
+                        const dx = agent.x - cx;
+                        const dy = agent.y - cy;
+                        if (dx * dx + dy * dy < gridSize * gridSize) {
+                            count++;
+                        }
+                    }
+                    
+                    const density = count / (gridSize * gridSize);
+                    const intensity = Math.min(density / 4, 1);
+                    
+                    if (intensity > 0.05) {
+                        const hue = 120 - intensity * 120; // Green to red
+                        ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${intensity * 0.6})`;
+                        ctx.fillRect(gx * gridPixels, gy * gridPixels, gridPixels, gridPixels);
+                    }
+                }
+            }
+        }
+
+        function drawVelocityField() {
+            const gridSize = 2;
+            const gridPixels = gridSize * CONFIG.pixelsPerMeter;
+            const w = Math.ceil(canvas.width / gridPixels);
+            const h = Math.ceil(canvas.height / gridPixels);
+            
+            ctx.strokeStyle = 'rgba(68, 136, 255, 0.6)';
+            ctx.lineWidth = 2;
+            
+            for (let gx = 0; gx < w; gx++) {
+                for (let gy = 0; gy < h; gy++) {
+                    const cx = (gx + 0.5) * gridSize;
+                    const cy = (gy + 0.5) * gridSize;
+                    
+                    let avgVx = 0, avgVy = 0, count = 0;
+                    
+                    for (const agent of state.agents) {
+                        const dx = agent.x - cx;
+                        const dy = agent.y - cy;
+                        if (dx * dx + dy * dy < gridSize * gridSize * 4) {
+                            avgVx += agent.vx;
+                            avgVy += agent.vy;
+                            count++;
+                        }
+                    }
+                    
+                    if (count > 0) {
+                        avgVx /= count;
+                        avgVy /= count;
+                        
+                        const speed = Math.sqrt(avgVx * avgVx + avgVy * avgVy);
+                        if (speed > 0.1) {
+                            const px = (gx + 0.5) * gridPixels;
+                            const py = (gy + 0.5) * gridPixels;
+                            const arrowLen = Math.min(speed * 15, gridPixels * 0.8);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(px, py);
+                            ctx.lineTo(px + (avgVx / speed) * arrowLen, 
+                                      py + (avgVy / speed) * arrowLen);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawFlowField() {
+            // Draw streamlines
+            ctx.strokeStyle = 'rgba(0, 212, 170, 0.3)';
+            ctx.lineWidth = 1;
+            
+            for (const exit of state.exits) {
+                for (let i = 0; i < 20; i++) {
+                    const startX = Math.random() * canvas.width / CONFIG.pixelsPerMeter;
+                    const startY = Math.random() * canvas.height / CONFIG.pixelsPerMeter;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(startX * CONFIG.pixelsPerMeter, startY * CONFIG.pixelsPerMeter);
+                    
+                    let x = startX, y = startY;
+                    
+                    for (let step = 0; step < 50; step++) {
+                        const dx = exit.x - x;
+                        const dy = exit.y - y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 0.5) break;
+                        
+                        x += (dx / dist) * 0.3;
+                        y += (dy / dist) * 0.3;
+                        
+                        ctx.lineTo(x * CONFIG.pixelsPerMeter, y * CONFIG.pixelsPerMeter);
+                    }
+                    
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawPreview() {
+            const mx = state.drawStart.x;
+            const my = state.drawStart.y;
+            const ex = state.currentMouse?.x || mx;
+            const ey = state.currentMouse?.y || my;
+            
+            ctx.strokeStyle = 'rgba(0, 212, 170, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            
+            if (state.selectedTool === 'wall') {
+                ctx.beginPath();
+                ctx.moveTo(mx, my);
+                ctx.lineTo(ex, ey);
+                ctx.stroke();
+            } else if (state.selectedTool === 'obstacle') {
+                const r = Math.sqrt((ex - mx) ** 2 + (ey - my) ** 2);
+                ctx.beginPath();
+                ctx.arc(mx, my, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            ctx.setLineDash([]);
+        }
+
+        function drawMinimap() {
+            const scale = Math.min(minimapCanvas.width / canvas.width, 
+                                   minimapCanvas.height / canvas.height);
+            
+            minimapCtx.fillStyle = '#0a0a12';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+            
+            // Draw walls
+            minimapCtx.strokeStyle = '#ffffff';
+            minimapCtx.lineWidth = 1;
+            for (const wall of state.walls) {
+                minimapCtx.beginPath();
+                minimapCtx.moveTo(wall.x1 * CONFIG.pixelsPerMeter * scale, 
+                                  wall.y1 * CONFIG.pixelsPerMeter * scale);
+                minimapCtx.lineTo(wall.x2 * CONFIG.pixelsPerMeter * scale, 
+                                  wall.y2 * CONFIG.pixelsPerMeter * scale);
+                minimapCtx.stroke();
+            }
+            
+            // Draw exits
+            minimapCtx.fillStyle = '#44dd88';
+            for (const exit of state.exits) {
+                minimapCtx.beginPath();
+                minimapCtx.arc(exit.x * CONFIG.pixelsPerMeter * scale, 
+                              exit.y * CONFIG.pixelsPerMeter * scale, 
+                              3, 0, Math.PI * 2);
+                minimapCtx.fill();
+            }
+            
+            // Draw agents as dots
+            minimapCtx.fillStyle = '#00d4aa';
+            for (const agent of state.agents) {
+                minimapCtx.beginPath();
+                minimapCtx.arc(agent.x * CONFIG.pixelsPerMeter * scale, 
+                              agent.y * CONFIG.pixelsPerMeter * scale, 
+                              1.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+            }
+        }
+
+        function drawDensityGraph() {
+            densityCtx.fillStyle = '#222235';
+            densityCtx.fillRect(0, 0, densityCanvas.width, densityCanvas.height);
+            
+            if (state.densityHistory.length < 2) return;
+            
+            const maxDensity = Math.max(...state.densityHistory, 4);
+            
+            densityCtx.strokeStyle = '#00d4aa';
+            densityCtx.lineWidth = 2;
+            densityCtx.beginPath();
+            
+            for (let i = 0; i < state.densityHistory.length; i++) {
+                const x = (i / state.densityHistory.length) * densityCanvas.width;
+                const y = densityCanvas.height - (state.densityHistory[i] / maxDensity) * densityCanvas.height;
+                
+                if (i === 0) {
+                    densityCtx.moveTo(x, y);
+                } else {
+                    densityCtx.lineTo(x, y);
+                }
+            }
+            
+            densityCtx.stroke();
+            
+            // Danger threshold line
+            const dangerY = densityCanvas.height - (4 / maxDensity) * densityCanvas.height;
+            densityCtx.strokeStyle = '#ff446644';
+            densityCtx.setLineDash([3, 3]);
+            densityCtx.beginPath();
+            densityCtx.moveTo(0, dangerY);
+            densityCtx.lineTo(densityCanvas.width, dangerY);
+            densityCtx.stroke();
+            densityCtx.setLineDash([]);
+        }
+
+        // =====================================================
+        // INPUT HANDLING
+        // =====================================================
+        function handleMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            state.isDrawing = true;
+            state.drawStart = { x, y };
+            
+            if (state.selectedTool === 'agents') {
+                const worldX = x / CONFIG.pixelsPerMeter;
+                const worldY = y / CONFIG.pixelsPerMeter;
+                
+                if (!isOverlapping(worldX, worldY)) {
+                    const agent = new Agent(worldX, worldY);
+                    state.agents.push(agent);
+                }
+            } else if (state.selectedTool === 'erase') {
+                eraseAt(x, y);
+            }
+        }
+
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            state.currentMouse = { x, y };
+            
+            if (state.isDrawing) {
+                if (state.selectedTool === 'agents') {
+                    const worldX = x / CONFIG.pixelsPerMeter;
+                    const worldY = y / CONFIG.pixelsPerMeter;
+                    
+                    if (!isOverlapping(worldX, worldY)) {
+                        const agent = new Agent(worldX, worldY);
+                        state.agents.push(agent);
+                    }
+                } else if (state.selectedTool === 'erase') {
+                    eraseAt(x, y);
+                }
+            }
+            
+            // Tooltip
+            updateTooltip(x, y);
+        }
+
+        function handleMouseUp(e) {
+            if (!state.isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const startX = state.drawStart.x / CONFIG.pixelsPerMeter;
+            const startY = state.drawStart.y / CONFIG.pixelsPerMeter;
+            const endX = x / CONFIG.pixelsPerMeter;
+            const endY = y / CONFIG.pixelsPerMeter;
+            
+            if (state.selectedTool === 'wall') {
+                if (Math.abs(endX - startX) > 0.5 || Math.abs(endY - startY) > 0.5) {
+                    state.walls.push({ x1: startX, y1: startY, x2: endX, y2: endY });
+                }
+            } else if (state.selectedTool === 'exit') {
+                state.exits.push({ x: startX, y: startY, width: 2 });
+            } else if (state.selectedTool === 'obstacle') {
+                const r = Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2);
+                if (r > 0.3) {
+                    state.obstacles.push({ x: startX, y: startY, radius: r });
+                }
+            } else if (state.selectedTool === 'attractor') {
+                state.attractors.push({ x: startX, y: startY, radius: 3, strength: 50 });
+            }
+            
+            state.isDrawing = false;
+            state.drawStart = null;
+        }
+
+        function eraseAt(x, y) {
+            const worldX = x / CONFIG.pixelsPerMeter;
+            const worldY = y / CONFIG.pixelsPerMeter;
+            const eraseRadius = 1;
+            
+            // Erase agents
+            state.agents = state.agents.filter(agent => {
+                const dx = agent.x - worldX;
+                const dy = agent.y - worldY;
+                return Math.sqrt(dx * dx + dy * dy) > eraseRadius;
+            });
+            
+            // Erase obstacles
+            state.obstacles = state.obstacles.filter(obs => {
+                const dx = obs.x - worldX;
+                const dy = obs.y - worldY;
+                return Math.sqrt(dx * dx + dy * dy) > eraseRadius + obs.radius;
+            });
+            
+            // Erase exits
+            state.exits = state.exits.filter(exit => {
+                const dx = exit.x - worldX;
+                const dy = exit.y - worldY;
+                return Math.sqrt(dx * dx + dy * dy) > eraseRadius;
+            });
+            
+            // Erase attractors
+            state.attractors = state.attractors.filter(attr => {
+                const dx = attr.x - worldX;
+                const dy = attr.y - worldY;
+                return Math.sqrt(dx * dx + dy * dy) > eraseRadius;
+            });
+        }
+
+        function updateTooltip(x, y) {
+            const worldX = x / CONFIG.pixelsPerMeter;
+            const worldY = y / CONFIG.pixelsPerMeter;
+            
+            // Check if hovering over agent
+            for (const agent of state.agents) {
+                const dx = agent.x - worldX;
+                const dy = agent.y - worldY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < agent.radius * 2) {
+                    const tooltip = document.getElementById('tooltip');
+                    const speed = Math.sqrt(agent.vx * agent.vx + agent.vy * agent.vy);
+                    
+                    tooltip.innerHTML = `
+                        <strong>Agent ${agent.id.substr(0, 4)}</strong><br>
+                        Speed: ${speed.toFixed(2)} m/s<br>
+                        State: ${agent.isPanicked ? 'Panicked' : 'Normal'}<br>
+                        Wait time: ${agent.waitTime.toFixed(1)}s
+                    `;
+                    tooltip.style.left = `${x + 15}px`;
+                    tooltip.style.top = `${y + 15}px`;
+                    tooltip.classList.add('visible');
+                    return;
+                }
+            }
+            
+            document.getElementById('tooltip').classList.remove('visible');
+        }
+
+        // =====================================================
+        // UI FUNCTIONS
+        // =====================================================
+        function selectTool(tool) {
+            state.selectedTool = tool;
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tool-${tool}`).classList.add('active');
+        }
+
+        function setViewMode(mode) {
+            state.viewMode = mode;
+            
+            document.querySelectorAll('.heatmap-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update legend
+            const legend = document.getElementById('legend');
+            if (mode === 'density') {
+                legend.innerHTML = `
+                    <div class="legend-title">Density (p/m²)</div>
+                    <div class="legend-item"><div class="legend-color" style="background: hsl(120, 100%, 50%);"></div><span>Low (0-1)</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: hsl(60, 100%, 50%);"></div><span>Medium (1-2)</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: hsl(0, 100%, 50%);"></div><span>High (>3)</span></div>
+                `;
+            } else {
+                legend.innerHTML = `
+                    <div class="legend-title">Agent State</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #00d4aa;"></div><span>Normal</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ffaa00;"></div><span>Congested</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ff4466;"></div><span>Panicked</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #4488ff;"></div><span>Group Leader</span></div>
+                `;
+            }
+        }
+
+        function updateParam(param) {
+            switch (param) {
+                case 'agentCount':
+                    state.agentCount = parseInt(document.getElementById('agentCountSlider').value);
+                    document.getElementById('agentCountValue').textContent = state.agentCount;
+                    break;
+                case 'desiredSpeed':
+                    state.desiredSpeed = parseFloat(document.getElementById('desiredSpeedSlider').value);
+                    document.getElementById('desiredSpeedValue').textContent = state.desiredSpeed.toFixed(1) + ' m/s';
+                    CONFIG.desiredSpeed = state.desiredSpeed;
+                    break;
+                case 'personalSpace':
+                    state.personalSpace = parseFloat(document.getElementById('personalSpaceSlider').value);
+                    document.getElementById('personalSpaceValue').textContent = state.personalSpace.toFixed(1) + ' m';
+                    CONFIG.B = state.personalSpace * 0.16;
+                    break;
+                case 'simSpeed':
+                    state.simSpeed = parseFloat(document.getElementById('simSpeedSlider').value);
+                    document.getElementById('simSpeedValue').textContent = state.simSpeed.toFixed(2) + 'x';
+                    document.getElementById('speedDisplay').textContent = state.simSpeed.toFixed(1) + 'x';
+                    break;
+                case 'panicSpeed':
+                    CONFIG.panicSpeedMultiplier = parseFloat(document.getElementById('panicSpeedSlider').value);
+                    document.getElementById('panicSpeedValue').textContent = CONFIG.panicSpeedMultiplier.toFixed(1) + 'x';
+                    break;
+                case 'herding':
+                    CONFIG.herdingFactor = parseInt(document.getElementById('herdingSlider').value) / 100;
+                    document.getElementById('herdingValue').textContent = Math.round(CONFIG.herdingFactor * 100) + '%';
+                    break;
+            }
+        }
+
+        function toggleShowForces() {
+            state.showForces = document.getElementById('showForces').checked;
+        }
+
+        function toggleShowPaths() {
+            state.showPaths = document.getElementById('showPaths').checked;
+            if (!state.showPaths) {
+                for (const agent of state.agents) {
+                    agent.path = [];
+                }
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('agentCount').textContent = state.agents.length;
+            document.getElementById('evacuatedCount').textContent = state.evacuated;
+            
+            // Average speed
+            if (state.agents.length > 0) {
+                const avgSpeed = state.agents.reduce((sum, a) => {
+                    return sum + Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+                }, 0) / state.agents.length;
+                document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(1);
+            } else {
+                document.getElementById('avgSpeed').textContent = '0.0';
+            }
+            
+            // Max density
+            const maxDensity = calculateMaxDensity();
+            document.getElementById('maxDensity').textContent = maxDensity.toFixed(1);
+            document.getElementById('currentDensity').textContent = maxDensity.toFixed(1);
+            
+            // Update density card color
+            const densityCard = document.getElementById('densityCard');
+            densityCard.classList.remove('warning', 'danger');
+            if (maxDensity > 4) {
+                densityCard.classList.add('danger');
+            } else if (maxDensity > 2) {
+                densityCard.classList.add('warning');
+            }
+            
+            // Crush risk
+            const crushRiskCard = document.getElementById('crushRiskCard');
+            crushRiskCard.classList.remove('warning', 'danger');
+            let crushRisk = 'Low';
+            if (maxDensity > 5) {
+                crushRisk = 'Critical';
+                crushRiskCard.classList.add('danger');
+            } else if (maxDensity > 3) {
+                crushRisk = 'High';
+                crushRiskCard.classList.add('danger');
+            } else if (maxDensity > 2) {
+                crushRisk = 'Medium';
+                crushRiskCard.classList.add('warning');
+            }
+            document.getElementById('crushRisk').textContent = crushRisk;
+            
+            // Flow rate
+            document.getElementById('flowRate').textContent = state.flowRate.toFixed(1);
+            
+            // Average wait time
+            if (state.agents.length > 0) {
+                const avgWait = state.agents.reduce((sum, a) => sum + a.waitTime, 0) / state.agents.length;
+                document.getElementById('avgWaitTime').textContent = avgWait.toFixed(1) + 's';
+            }
+            
+            // Evacuation stats
+            const initialCount = state.agentCount;
+            const totalEvacuated = state.evacuated;
+            const remaining = state.agents.length;
+            const total = totalEvacuated + remaining;
+            
+            if (total > 0) {
+                const percent = (totalEvacuated / total) * 100;
+                document.getElementById('evacPercent').textContent = percent.toFixed(0) + '%';
+                document.getElementById('evacFill').style.width = percent + '%';
+                
+                // Estimate time remaining
+                if (state.flowRate > 0 && remaining > 0) {
+                    const timeRemaining = remaining / state.flowRate;
+                    const mins = Math.floor(timeRemaining / 60);
+                    const secs = Math.floor(timeRemaining % 60);
+                    document.getElementById('evacTimeRemaining').textContent = 
+                        `${mins}:${secs.toString().padStart(2, '0')}`;
+                } else {
+                    document.getElementById('evacTimeRemaining').textContent = '--:--';
+                }
+            }
+        }
+
+        // =====================================================
+        // INIT
+        // =====================================================
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NeonClip — Cyberpunk Clipboard Manager</title>
+<style>
+/* ═══════════════════════════════════════════════
+   ROOT TOKENS
+═══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:   #00d4ff;
+  --magenta:#ff00cc;
+  --green:  #00ff88;
+  --yellow: #ffe600;
+  --red:    #ff3860;
+  --bg:     #080810;
+  --bg2:    #0d0d1a;
+  --glass:  rgba(10,10,28,0.82);
+  --glass2: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.07);
+  --text:   #d8e0ff;
+  --text2:  rgba(180,190,255,0.55);
+  --sidebar-w: 360px;
+  --font: 'Segoe UI',system-ui,sans-serif;
+  --mono: 'Courier New',monospace;
+  --radius: 10px;
+}
+
+html,body{
+  width:100%;height:100%;
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+}
+
+/* ═══════════════════════════════════════════════
+   GLOBAL BACKGROUND GRID
+═══════════════════════════════════════════════ */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 30%,rgba(0,212,255,.04) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 70%,rgba(255,0,204,.04) 0%,transparent 70%);
+}
+
+/* ═══════════════════════════════════════════════
+   TRIGGER TAB (right edge)
+═══════════════════════════════════════════════ */
+#trigger-tab{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);
+  z-index:9000;
+  width:24px;height:80px;
+  background:linear-gradient(180deg,var(--blue),var(--magenta));
+  border-radius:8px 0 0 8px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  writing-mode:vertical-rl;
+  font-size:.58rem;font-weight:700;letter-spacing:2px;
+  color:#000;text-transform:uppercase;
+  box-shadow:-3px 0 20px rgba(0,212,255,.4);
+  transition:width .2s,box-shadow .2s;
+  user-select:none;
+}
+#trigger-tab:hover{
+  width:28px;
+  box-shadow:-6px 0 30px rgba(0,212,255,.7);
+}
+body.sidebar-open #trigger-tab{display:none}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR PANEL
+═══════════════════════════════════════════════ */
+#sidebar{
+  position:fixed;right:0;top:0;bottom:0;
+  width:var(--sidebar-w);
+  z-index:8500;
+  transform:translateX(100%);
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  background:var(--glass);
+  backdrop-filter:blur(28px) saturate(180%);
+  -webkit-backdrop-filter:blur(28px) saturate(180%);
+  border-left:1px solid rgba(0,212,255,.22);
+  box-shadow:-8px 0 60px rgba(0,0,0,.7),-2px 0 0 rgba(0,212,255,.15);
+  overflow:hidden;
+}
+body.sidebar-open #sidebar{transform:translateX(0)}
+
+/* Scan-line overlay */
+#sidebar::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:20;
+  background:repeating-linear-gradient(
+    0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px
+  );
+}
+/* Top neon bar */
+#sidebar::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--blue),var(--magenta),var(--green),transparent);
+  animation:top-scan 3s linear infinite;
+}
+@keyframes top-scan{
+  0%{background-position:0% 0}
+  100%{background-position:200% 0}
+}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR HEADER
+═══════════════════════════════════════════════ */
+#sb-header{
+  flex-shrink:0;
+  padding:14px 14px 10px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.2);
+  position:relative;
+}
+.sb-brand{
+  font-size:1rem;font-weight:800;letter-spacing:1.5px;
+  background:linear-gradient(90deg,var(--blue),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;display:inline-block;margin-bottom:8px;
+}
+#close-btn{
+  position:absolute;top:12px;right:12px;
+  width:26px;height:26px;border-radius:6px;border:none;
+  background:rgba(255,255,255,.07);color:var(--text2);
+  cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+#close-btn:hover{background:rgba(255,56,96,.25);color:var(--red)}
+
+/* Search bar */
+#search-row{display:flex;gap:6px;align-items:center}
+#search-input{
+  flex:1;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:8px;
+  padding:7px 10px 7px 32px;color:var(--text);font-size:.78rem;
+  outline:none;font-family:var(--font);
+  transition:border-color .2s;
+}
+#search-input:focus{border-color:var(--blue)}
+#search-input::placeholder{color:var(--text2)}
+.search-icon{
+  position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  color:var(--text2);font-size:12px;pointer-events:none;
+}
+.search-wrap{position:relative;flex:1}
+
+/* Tabs */
+#tab-bar{
+  display:flex;gap:0;margin-top:8px;
+  background:rgba(0,0,0,.2);border-radius:8px;overflow:hidden;
+}
+.tab-btn{
+  flex:1;padding:5px 0;font-size:.7rem;font-weight:600;
+  letter-spacing:.4px;text-transform:uppercase;
+  background:transparent;border:none;color:var(--text2);
+  cursor:pointer;transition:all .2s;
+}
+.tab-btn.active{color:var(--blue);background:rgba(0,212,255,.08);box-shadow:inset 0 -2px 0 var(--blue)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+/* ═══════════════════════════════════════════════
+   TIME REWIND SLIDER
+═══════════════════════════════════════════════ */
+#rewind-row{
+  flex-shrink:0;padding:7px 14px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.1);
+  display:flex;align-items:center;gap:8px;
+}
+.rewind-label{font-size:.65rem;color:var(--text2);letter-spacing:.5px;white-space:nowrap}
+#rewind-slider{
+  flex:1;height:4px;accent-color:var(--magenta);cursor:pointer;
+}
+#rewind-time{font-size:.65rem;color:var(--magenta);font-family:var(--mono);white-space:nowrap;min-width:48px;text-align:right}
+
+/* ═══════════════════════════════════════════════
+   CLIP STREAM
+═══════════════════════════════════════════════ */
+#clip-stream{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:8px 10px 80px;
+  display:flex;flex-direction:column;gap:8px;
+  scroll-behavior:smooth;
+}
+#clip-stream::-webkit-scrollbar{width:3px}
+#clip-stream::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:2px}
+
+/* CLIP CARD */
+.clip-card{
+  position:relative;
+  border-radius:var(--radius);
+  border:1px solid transparent;
+  background:var(--glass2);
+  backdrop-filter:blur(8px);
+  padding:10px 12px 8px;
+  cursor:pointer;
+  transition:transform .18s,border-color .2s,box-shadow .2s,opacity .2s;
+  animation:card-in .22s ease;
+  overflow:hidden;
+}
+@keyframes card-in{
+  from{opacity:0;transform:translateX(20px)}
+  to{opacity:1;transform:translateX(0)}
+}
+.clip-card::before{
+  content:'';position:absolute;inset:0;border-radius:var(--radius);
+  background:linear-gradient(135deg,rgba(255,255,255,.03),transparent 60%);
+  pointer-events:none;
+}
+.clip-card:hover{
+  transform:translateX(-3px);
+}
+/* Color-coded border by type */
+.clip-card[data-type="link"]   {border-color:rgba(0,212,255,.4); box-shadow:-2px 0 12px rgba(0,212,255,.2) inset}
+.clip-card[data-type="code"]   {border-color:rgba(0,255,136,.4); box-shadow:-2px 0 12px rgba(0,255,136,.2) inset}
+.clip-card[data-type="color"]  {border-color:rgba(255,230,0,.4);  box-shadow:-2px 0 12px rgba(255,230,0,.2) inset}
+.clip-card[data-type="email"]  {border-color:rgba(255,0,204,.4); box-shadow:-2px 0 12px rgba(255,0,204,.2) inset}
+.clip-card[data-type="number"] {border-color:rgba(255,100,0,.4);  box-shadow:-2px 0 12px rgba(255,100,0,.2) inset}
+.clip-card[data-type="text"]   {border-color:rgba(180,180,255,.25);box-shadow:-2px 0 8px  rgba(180,180,255,.1) inset}
+.clip-card[data-type="address"]{border-color:rgba(255,230,0,.35); box-shadow:-2px 0 10px rgba(255,230,0,.15) inset}
+
+.clip-card.pinned{
+  border-color:var(--yellow)!important;
+  animation:pin-pulse 3s ease-in-out infinite,card-in .22s ease;
+}
+@keyframes pin-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,230,0,.15),-2px 0 12px rgba(255,230,0,.2) inset}
+  50%{box-shadow:0 0 14px 4px rgba(255,230,0,.12),-2px 0 18px rgba(255,230,0,.3) inset}
+}
+.clip-card.selected{
+  border-color:var(--magenta)!important;
+  background:rgba(255,0,204,.08);
+}
+.clip-card.merge-selected{
+  border-color:var(--green)!important;
+  background:rgba(0,255,136,.06);
+}
+
+/* Card header */
+.card-head{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-shrink:0}
+.type-badge{
+  font-size:.58rem;font-weight:700;letter-spacing:.6px;
+  text-transform:uppercase;padding:2px 6px;border-radius:4px;
+  background:rgba(255,255,255,.07);flex-shrink:0;
+}
+.type-badge.link   {color:var(--blue);   background:rgba(0,212,255,.1)}
+.type-badge.code   {color:var(--green);  background:rgba(0,255,136,.1)}
+.type-badge.color  {color:var(--yellow); background:rgba(255,230,0,.1)}
+.type-badge.email  {color:var(--magenta);background:rgba(255,0,204,.1)}
+.type-badge.number {color:#ff8040;       background:rgba(255,128,64,.1)}
+.type-badge.text   {color:var(--text2);  background:rgba(180,180,255,.07)}
+.type-badge.address{color:var(--yellow); background:rgba(255,230,0,.1)}
+
+.color-preview{
+  width:14px;height:14px;border-radius:3px;
+  border:1px solid rgba(255,255,255,.2);flex-shrink:0;
+}
+.card-time{font-size:.62rem;color:var(--text2);font-family:var(--mono);margin-left:auto;flex-shrink:0}
+.pin-star{font-size:11px;color:var(--yellow);margin-left:2px}
+
+/* Card body */
+.card-body{
+  font-size:.75rem;color:var(--text);line-height:1.5;
+  font-family:var(--mono);
+  word-break:break-all;
+  max-height:70px;overflow:hidden;
+  position:relative;
+  white-space:pre-wrap;
+}
+.card-body.expanded{max-height:none}
+.card-body::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:18px;
+  background:linear-gradient(transparent,rgba(10,10,28,.85));
+  pointer-events:none;
+}
+.card-body.expanded::after{display:none}
+
+/* Card actions */
+.card-actions{
+  display:flex;gap:4px;margin-top:7px;
+  opacity:0;transition:opacity .15s;
+}
+.clip-card:hover .card-actions{opacity:1}
+.ca-btn{
+  padding:3px 8px;border-radius:5px;border:none;
+  background:rgba(255,255,255,.07);color:var(--text2);
+  font-size:.67rem;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:3px;
+}
+.ca-btn:hover{background:rgba(255,255,255,.14);color:var(--text)}
+.ca-btn.copy-btn:hover{background:rgba(0,212,255,.18);color:var(--blue)}
+.ca-btn.pin-btn:hover{background:rgba(255,230,0,.15);color:var(--yellow)}
+.ca-btn.del-btn:hover{background:rgba(255,56,96,.2);color:var(--red)}
+.ca-btn.merge-btn:hover{background:rgba(0,255,136,.15);color:var(--green)}
+.ca-btn.expand-btn:hover{background:rgba(180,180,255,.12);color:var(--text)}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR FOOTER / CONTROLS
+═══════════════════════════════════════════════ */
+#sb-footer{
+  flex-shrink:0;
+  padding:8px 12px;
+  border-top:1px solid var(--border);
+  background:rgba(0,0,0,.3);
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+}
+.sf-btn{
+  padding:5px 11px;border-radius:8px;border:none;
+  background:rgba(255,255,255,.06);color:var(--text2);
+  font-size:.72rem;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:4px;
+  border:1px solid var(--border);
+}
+.sf-btn:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.sf-btn.active{background:rgba(0,255,136,.12);border-color:var(--green);color:var(--green)}
+.sf-btn.primary{background:rgba(0,212,255,.12);border-color:rgba(0,212,255,.35);color:var(--blue)}
+.sf-btn.primary:hover{background:rgba(0,212,255,.22)}
+.sf-spacer{flex:1}
+#clip-count{font-size:.65rem;color:var(--text2)}
+
+/* ═══════════════════════════════════════════════
+   MERGE MODE PANEL
+═══════════════════════════════════════════════ */
+#merge-panel{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(4,8,24,.97);
+  border-top:1px solid var(--green);
+  padding:10px 14px;
+  transform:translateY(100%);
+  transition:transform .25s ease;
+  z-index:30;
+  box-shadow:0 -6px 30px rgba(0,255,136,.1);
+}
+#merge-panel.open{transform:translateY(0)}
+#merge-panel h4{font-size:.75rem;color:var(--green);margin-bottom:7px;letter-spacing:.5px}
+#merge-preview{
+  background:rgba(0,0,0,.4);border:1px solid rgba(0,255,136,.2);
+  border-radius:6px;padding:7px 9px;font-size:.7rem;
+  font-family:var(--mono);color:var(--text);max-height:80px;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-all;margin-bottom:8px;
+}
+.merge-options{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.mo-btn{
+  padding:3px 9px;border-radius:6px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--text2);
+  font-size:.68rem;cursor:pointer;transition:all .15s;
+}
+.mo-btn.active{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.08)}
+.mo-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text)}
+.merge-actions{display:flex;gap:6px}
+.merge-do-btn{
+  padding:5px 14px;border-radius:7px;border:none;
+  background:linear-gradient(135deg,var(--green),#00c060);
+  color:#000;font-size:.75rem;font-weight:700;cursor:pointer;
+  transition:all .2s;
+}
+.merge-do-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,255,136,.3)}
+.merge-cancel-btn{
+  padding:5px 14px;border-radius:7px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-size:.75rem;cursor:pointer;
+}
+.merge-cancel-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ═══════════════════════════════════════════════
+   SNIPPET TEMPLATES TAB
+═══════════════════════════════════════════════ */
+.snippet-card{
+  border-radius:var(--radius);border:1px solid rgba(255,0,204,.25);
+  background:rgba(255,0,204,.05);padding:10px 12px;
+  cursor:pointer;transition:all .2s;
+  animation:card-in .22s ease;
+}
+.snippet-card:hover{border-color:var(--magenta);background:rgba(255,0,204,.1)}
+.snippet-name{font-size:.78rem;font-weight:700;color:var(--magenta);margin-bottom:3px}
+.snippet-preview{font-size:.7rem;color:var(--text2);font-family:var(--mono);word-break:break-all}
+.snippet-vars{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+.sv-tag{font-size:.6rem;padding:1px 5px;border-radius:3px;background:rgba(255,230,0,.1);color:var(--yellow);border:1px solid rgba(255,230,0,.2)}
+.snippet-actions{display:flex;gap:4px;margin-top:6px}
+
+/* Add snippet form */
+#snippet-form{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:var(--radius);padding:10px 12px;margin-top:4px;
+  display:none;
+}
+#snippet-form.open{display:block}
+.sf-field{margin-bottom:7px}
+.sf-field label{font-size:.68rem;color:var(--text2);display:block;margin-bottom:3px}
+.sf-field input,.sf-field textarea{
+  width:100%;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:7px;
+  padding:6px 9px;color:var(--text);font-size:.75rem;
+  outline:none;font-family:var(--mono);
+}
+.sf-field input:focus,.sf-field textarea:focus{border-color:var(--magenta)}
+.sf-field textarea{resize:vertical;min-height:55px}
+
+/* ═══════════════════════════════════════════════
+   SETTINGS TAB
+═══════════════════════════════════════════════ */
+.settings-section{margin-bottom:14px}
+.settings-section h4{font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;margin:7px 0;gap:8px}
+.setting-row label{font-size:.76rem;color:var(--text)}
+.setting-row span{font-size:.72rem;color:var(--text2)}
+/* Toggle */
+.tog{position:relative;width:34px;height:18px;cursor:pointer;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.tog-t{position:absolute;inset:0;border-radius:9px;background:rgba(255,255,255,.1);transition:.2s}
+.tog input:checked+.tog-t{background:var(--blue)}
+.tog-k{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.tog input:checked~.tog-k{transform:translateX(16px)}
+.set-range{width:100px;accent-color:var(--blue)}
+.set-val{font-size:.7rem;color:var(--blue);font-family:var(--mono);min-width:28px;text-align:right}
+/* Encryption key */
+#enc-key-row{display:flex;gap:5px;margin-top:6px}
+#enc-key-input{
+  flex:1;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:7px;
+  padding:5px 8px;color:var(--text);font-size:.74rem;
+  outline:none;font-family:var(--mono);
+}
+#enc-key-input:focus{border-color:var(--green)}
+.enc-btn{
+  padding:5px 10px;border-radius:7px;border:1px solid var(--green);
+  background:rgba(0,255,136,.08);color:var(--green);
+  font-size:.72rem;cursor:pointer;transition:all .15s;
+}
+.enc-btn:hover{background:rgba(0,255,136,.18)}
+
+/* ═══════════════════════════════════════════════
+   TOAST SYSTEM
+═══════════════════════════════════════════════ */
+#toast-root{
+  position:fixed;bottom:80px;right:10px;
+  z-index:9999;display:flex;flex-direction:column;gap:5px;
+  align-items:flex-end;pointer-events:none;
+}
+.toast{
+  background:rgba(8,8,20,.97);backdrop-filter:blur(16px);
+  border-radius:8px;padding:7px 14px;
+  font-size:.75rem;color:var(--text);
+  animation:t-in .2s ease,t-out .3s ease 2s forwards;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+  border-left:3px solid var(--blue);
+  max-width:240px;word-break:break-word;
+  pointer-events:none;
+}
+.toast.success{border-left-color:var(--green)}
+.toast.error  {border-left-color:var(--red)}
+.toast.warn   {border-left-color:var(--yellow)}
+@keyframes t-in {from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes t-out{to  {opacity:0;transform:translateX(16px)}}
+
+/* ═══════════════════════════════════════════════
+   SNIPPET USE MODAL
+═══════════════════════════════════════════════ */
+#snippet-modal{
+  position:fixed;inset:0;z-index:9600;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+}
+#snippet-modal.open{display:flex}
+#sm-box{
+  background:rgba(6,8,24,.98);backdrop-filter:blur(20px);
+  border:1px solid rgba(255,0,204,.35);border-radius:14px;
+  padding:20px 22px;min-width:300px;max-width:92vw;
+  box-shadow:0 0 0 1px rgba(255,0,204,.15),0 8px 50px rgba(0,0,0,.7);
+  animation:sm-in .2s ease;position:relative;
+}
+@keyframes sm-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+#sm-box h3{font-size:.9rem;color:var(--magenta);margin-bottom:12px}
+.sm-var-row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.sm-var-row label{font-size:.75rem;color:var(--text2);min-width:80px}
+.sm-var-input{
+  flex:1;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);border-radius:7px;
+  padding:5px 8px;color:var(--text);font-size:.75rem;
+  outline:none;font-family:var(--mono);
+}
+.sm-var-input:focus{border-color:var(--magenta)}
+.sm-actions{display:flex;gap:7px;margin-top:12px}
+.sm-use-btn{
+  padding:7px 18px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,var(--magenta),#a000cc);
+  color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .2s;
+}
+.sm-use-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(255,0,204,.35)}
+.sm-cancel-btn{
+  padding:7px 14px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-size:.78rem;cursor:pointer;
+}
+#sm-close{
+  position:absolute;top:12px;right:12px;
+  background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px;
+}
+
+/* ═══════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════ */
+#empty-clips{
+  text-align:center;padding:40px 16px;color:var(--text2);
+}
+#empty-clips h3{font-size:.9rem;margin-bottom:8px;color:rgba(0,212,255,.5)}
+#empty-clips p{font-size:.75rem;line-height:1.7;opacity:.7}
+
+/* Tab pane */
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+#tab-stream{height:100%;display:flex;flex-direction:column}
+
+/* ═══════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════ */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TRIGGER TAB -->
+<div id="trigger-tab" onclick="openSidebar()" title="Open NeonClip">CLIP</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+
+  <!-- HEADER -->
+  <div id="sb-header">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="sb-brand">⬡ NeonClip</span>
+      <button id="close-btn" onclick="closeSidebar()" title="Close">✕</button>
+    </div>
+    <div id="search-row">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="search-input" placeholder="Search clips or /regex/…" oninput="onSearch(this.value)"/>
+      </div>
+    </div>
+    <div id="tab-bar">
+      <button class="tab-btn active" data-tab="history" onclick="switchTab('history')">History</button>
+      <button class="tab-btn" data-tab="pinned"  onclick="switchTab('pinned')">Pinned</button>
+      <button class="tab-btn" data-tab="snippets" onclick="switchTab('snippets')">Templates</button>
+      <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+    </div>
+  </div>
+
+  <!-- TIME REWIND -->
+  <div id="rewind-row">
+    <span class="rewind-label">⏪ REWIND</span>
+    <input type="range" id="rewind-slider" min="0" max="0" value="0"
+           oninput="onRewind(this.value)" onmousedown="rewindActive=true" onmouseup="rewindActive=false"/>
+    <span id="rewind-time">live</span>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" class="tab-pane active" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div id="clip-stream">
+      <div id="empty-clips">
+        <h3>⬡ No clips yet</h3>
+        <p>Copy anything in any app.<br>It will appear here instantly.<br><br>
+        Or paste text directly below.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PINNED TAB -->
+  <div id="tab-pinned" class="tab-pane" style="flex:1;overflow:hidden">
+    <div id="pinned-stream" style="overflow-y:auto;height:100%;padding:8px 10px 80px;display:flex;flex-direction:column;gap:8px">
+      <div style="text-align:center;padding:30px;color:var(--text2);font-size:.78rem">
+        No pinned clips yet.<br>Click ⭐ on any clip to pin it.
+      </div>
+    </div>
+  </div>
+
+  <!-- SNIPPETS TAB -->
+  <div id="tab-snippets" class="tab-pane" style="flex:1;overflow:hidden">
+    <div id="snippets-stream" style="overflow-y:auto;height:100%;padding:8px 10px 80px;display:flex;flex-direction:column;gap:7px">
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-pane" style="flex:1;overflow:hidden">
+    <div style="overflow-y:auto;height:100%;padding:12px 14px 80px">
+
+      <div class="settings-section">
+        <h4>Behavior</h4>
+        <div class="setting-row">
+          <label>Max history items</label>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="range" class="set-range" id="st-maxitems" min="10" max="500" value="100"
+                   oninput="document.getElementById('st-maxitems-val').textContent=this.value;cfg.maxItems=+this.value"/>
+            <span class="set-val" id="st-maxitems-val">100</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Poll interval (ms)</label>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="range" class="set-range" id="st-poll" min="500" max="5000" step="500" value="1000"
+                   oninput="document.getElementById('st-poll-val').textContent=this.value;cfg.pollMs=+this.value;restartPoll()"/>
+            <span class="set-val" id="st-poll-val">1000</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Auto-detect types</label>
+          <label class="tog">
+            <input type="checkbox" id="st-autodetect" checked onchange="cfg.autoDetect=this.checked"/>
+            <div class="tog-t"></div><div class="tog-k"></div>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>Deduplicate clips</label>
+          <label class="tog">
+            <input type="checkbox" id="st-dedup" checked onchange="cfg.dedup=this.checked"/>
+            <div class="tog-t"></div><div class="tog-k"></div>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>Play sound on capture</label>
+          <label class="tog">
+            <input type="checkbox" id="st-sound" onchange="cfg.sound=this.checked"/>
+            <div class="tog-t"></div><div class="tog-k"></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>🔐 End-to-End Encryption</h4>
+        <div class="setting-row">
+          <label>Encrypt storage</label>
+          <label class="tog">
+            <input type="checkbox" id="st-encrypt" onchange="toggleEncrypt(this.checked)"/>
+            <div class="tog-t"></div><div class="tog-k"></div>
+          </label>
+        </div>
+        <div id="enc-key-row">
+          <input id="enc-key-input" type="password" placeholder="Encryption passphrase…"/>
+          <button class="enc-btn" onclick="setEncKey()">Set Key</button>
+        </div>
+        <div style="font-size:.67rem;color:var(--text2);margin-top:5px">
+          AES-GCM 256-bit via SubtleCrypto. Key never leaves browser.
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Cloud Sync</h4>
+        <div class="setting-row">
+          <label>Sync endpoint URL</label>
+        </div>
+        <div style="display:flex;gap:5px">
+          <input id="sync-url" style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;padding:5px 8px;color:var(--text);font-size:.74rem;outline:none" placeholder="https://your-sync-endpoint"/>
+          <button class="enc-btn" style="border-color:var(--blue);color:var(--blue);background:rgba(0,212,255,.08)" onclick="cloudSync()">Sync</button>
+        </div>
+        <div style="font-size:.67rem;color:var(--text2);margin-top:5px">
+          POST/GET JSON. Encrypted before sending.
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Data</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="sf-btn primary" onclick="exportData()">Export JSON</button>
+          <button class="sf-btn" onclick="document.getElementById('import-file').click()">Import JSON</button>
+          <button class="sf-btn" style="color:var(--red);border-color:rgba(255,56,96,.3)" onclick="clearHistory()">Clear History</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div id="sb-footer">
+    <button class="sf-btn" id="paste-btn" onclick="pasteFromClipboard()" title="Read current clipboard">
+      📋 Paste
+    </button>
+    <button class="sf-btn" id="merge-toggle-btn" onclick="toggleMergeMode()">
+      ⊞ Merge
+    </button>
+    <button class="sf-btn" id="snip-add-btn" onclick="toggleSnippetForm()">
+      + Snip
+    </button>
+    <div class="sf-spacer"></div>
+    <span id="clip-count">0 clips</span>
+  </div>
+
+  <!-- MERGE PANEL -->
+  <div id="merge-panel">
+    <h4>⊞ MERGE MODE — select clips above</h4>
+    <div id="merge-preview"></div>
+    <div class="merge-options">
+      <button class="mo-btn active" data-sep="newline" onclick="setMergeSep(this,'newline')">Newline</button>
+      <button class="mo-btn" data-sep="space"   onclick="setMergeSep(this,'space')">Space</button>
+      <button class="mo-btn" data-sep="comma"   onclick="setMergeSep(this,'comma')">Comma</button>
+      <button class="mo-btn" data-sep="tab"     onclick="setMergeSep(this,'tab')">Tab</button>
+      <button class="mo-btn" data-sep="pipe"    onclick="setMergeSep(this,'pipe')">Pipe |</button>
+      <button class="mo-btn" data-sep="none"    onclick="setMergeSep(this,'none')">None</button>
+    </div>
+    <div class="merge-actions">
+      <button class="merge-do-btn" onclick="doMerge()">Copy Merged</button>
+      <button class="merge-cancel-btn" onclick="toggleMergeMode()">Cancel</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- SNIPPET VARIABLE MODAL -->
+<div id="snippet-modal">
+  <div id="sm-box">
+    <h3>📋 Fill Template Variables</h3>
+    <button id="sm-close" onclick="closeSnippetModal()">✕</button>
+    <div id="sm-vars"></div>
+    <div class="sm-actions">
+      <button class="sm-use-btn" onclick="applySnippet()">Copy to Clipboard</button>
+      <button class="sm-cancel-btn" onclick="closeSnippetModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST ROOT -->
+<div id="toast-root"></div>
+
+<!-- IMPORT FILE -->
+<input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)"/>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CONFIG & STATE
+═══════════════════════════════════════════════ */
+const cfg = {
+  maxItems:  100,
+  pollMs:    1000,
+  autoDetect:true,
+  dedup:     true,
+  sound:     false,
+  encrypt:   false,
+  encKey:    null,      // CryptoKey object
+  encKeyRaw: '',
+};
+
+let clips     = [];   // [{id,text,type,ts,pinned}]
+let snippets  = [];   // [{id,name,body,vars:[]}]
+let history   = [];   // full unfiltered history (for rewind)
+let mergeMode = false;
+let mergeSelected = [];   // clip ids
+let mergeSep  = 'newline';
+let pollTimer = null;
+let lastCopied= '';
+let rewindActive = false;
+let currentTab   = 'history';
+let searchQuery  = '';
+let activeSnippet = null; // snippet being filled
+
+/* Dirty flag — controls save debounce */
+let dirty = false;
+let saveTimer = null;
+
+/* ═══════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════ */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s=''){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtTime(ts){
+  const d=new Date(ts);
+  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtAgo(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60)return s+'s ago';
+  if(s<3600)return Math.floor(s/60)+'m ago';
+  if(s<86400)return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+
+/* ═══════════════════════════════════════════════
+   TOAST — debounced, no spam
+═══════════════════════════════════════════════ */
+const toastTimers={};
+function toast(msg, kind='info', key=''){
+  /* If key given, suppress duplicate toasts with same key */
+  if(key){
+    if(toastTimers[key])return;   // already showing
+    toastTimers[key]=setTimeout(()=>delete toastTimers[key],2800);
+  }
+  const root=document.getElementById('toast-root');
+  const t=document.createElement('div');
+  t.className='toast'+(kind==='success'?' success':kind==='error'?' error':kind==='warn'?' warn':'');
+  t.textContent=msg;
+  root.appendChild(t);
+  setTimeout(()=>t.remove(),2600);
+}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR OPEN / CLOSE
+═══════════════════════════════════════════════ */
+function openSidebar(){document.body.classList.add('sidebar-open');startPoll()}
+function closeSidebar(){document.body.classList.remove('sidebar-open')}
+
+/* ═══════════════════════════════════════════════
+   SMART CATEGORIZATION
+═══════════════════════════════════════════════ */
+function detectType(text){
+  if(!cfg.autoDetect)return'text';
+  const t=text.trim();
+  if(/^https?:\/\//i.test(t)||/^www\./i.test(t))return'link';
+  if(/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(t))return'email';
+  if(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(t)||
+     /^rgb(a)?\s*\(/.test(t)||/^hsl(a)?\s*\(/.test(t))return'color';
+  if(/^-?[\d,]+(\.\d+)?$/.test(t.replace(/\s/g,'')))return'number';
+  if(/(\d{1,5}\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl))/i.test(t))return'address';
+  // Code heuristics
+  if(/[{};]\s*$/.test(t)||/^\s*(function|const|let|var|if|for|class|import|export|def |public |private )/m.test(t)||
+     /`[\s\S]*`/.test(t)||/=>\s*[{(]/.test(t))return'code';
+  return'text';
+}
+
+function typeColor(type){
+  return{link:'var(--blue)',code:'var(--green)',color:'var(--yellow)',
+         email:'var(--magenta)',number:'#ff8040',text:'rgba(180,180,255,.7)',address:'var(--yellow)'}[type]||'var(--text2)';
+}
+
+/* ═══════════════════════════════════════════════
+   ADD CLIP
+═══════════════════════════════════════════════ */
+function addClip(text, silent=false){
+  if(!text||!text.trim())return;
+  const t=text.trim();
+
+  // Deduplicate
+  if(cfg.dedup){
+    const existing=clips.find(c=>c.text===t);
+    if(existing){
+      // Bump to top
+      clips=clips.filter(c=>c.id!==existing.id);
+      existing.ts=Date.now();
+      clips.unshift(existing);
+      history.unshift({...existing});
+      schedDirty();
+      renderStream();
+      updateRewind();
+      return;
+    }
+  }
+
+  const clip={
+    id:uid(),text:t,type:detectType(t),
+    ts:Date.now(),pinned:false
+  };
+  clips.unshift(clip);
+  history.unshift({...clip});
+
+  // Trim to max
+  if(clips.length>cfg.maxItems)clips.length=cfg.maxItems;
+
+  schedDirty();
+  renderStream();
+  updateRewind();
+  if(!silent&&cfg.sound)playTick();
+}
+
+/* ═══════════════════════════════════════════════
+   CLIPBOARD POLLING
+═══════════════════════════════════════════════ */
+async function pollClipboard(){
+  try{
+    const text=await navigator.clipboard.readText();
+    if(text&&text!==lastCopied){
+      lastCopied=text;
+      addClip(text);
+    }
+  }catch(e){
+    /* Permission denied or focus lost — silent */
+  }
+}
+
+function startPoll(){
+  if(pollTimer)return;
+  pollTimer=setInterval(pollClipboard,cfg.pollMs);
+}
+function stopPoll(){clearInterval(pollTimer);pollTimer=null}
+function restartPoll(){stopPoll();if(document.body.classList.contains('sidebar-open'))startPoll()}
+
+/* Manual paste */
+async function pasteFromClipboard(){
+  try{
+    const text=await navigator.clipboard.readText();
+    if(text){addClip(text);toast('Clip captured','success','paste')}
+    else toast('Clipboard empty','warn','pastewarn');
+  }catch(e){
+    toast('Paste permission denied — use Ctrl+V','error','pasteerr');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER STREAM
+═══════════════════════════════════════════════ */
+function renderStream(){
+  const stream=document.getElementById('clip-stream');
+  const empty=document.getElementById('empty-clips');
+  let list=clips;
+
+  /* Apply search */
+  if(searchQuery){
+    try{
+      const rm=searchQuery.match(/^\/(.+)\/([gimsuy]*)$/);
+      if(rm){const rx=new RegExp(rm[1],rm[2]);list=list.filter(c=>rx.test(c.text))}
+      else{const q=searchQuery.toLowerCase();list=list.filter(c=>c.text.toLowerCase().includes(q)||c.type.includes(q))}
+    }catch(e){const q=searchQuery.toLowerCase();list=list.filter(c=>c.text.toLowerCase().includes(q))}
+  }
+
+  /* Show/hide empty state */
+  empty.style.display=list.length?'none':'block';
+
+  /* Remove old cards (keep empty placeholder) */
+  stream.querySelectorAll('.clip-card').forEach(el=>el.remove());
+
+  list.forEach(clip=>stream.appendChild(buildCard(clip)));
+
+  updateCount();
+  if(currentTab==='pinned')renderPinned();
+}
+
+function buildCard(clip){
+  const el=document.createElement('div');
+  el.className='clip-card'+(clip.pinned?' pinned':'')+(mergeMode&&mergeSelected.includes(clip.id)?' merge-selected':'');
+  el.dataset.id=clip.id;
+  el.dataset.type=clip.type;
+
+  let colorDot='';
+  if(clip.type==='color'){
+    colorDot=`<div class="color-preview" style="background:${esc(clip.text)}"></div>`;
+  }
+
+  const preview=clip.text.length>200?clip.text.slice(0,200)+'…':clip.text;
+  const needsExpand=clip.text.length>120;
+
+  el.innerHTML=`
+<div class="card-head">
+  <span class="type-badge ${esc(clip.type)}">${esc(clip.type)}</span>
+  ${colorDot}
+  ${clip.pinned?'<span class="pin-star">★</span>':''}
+  <span class="card-time">${fmtAgo(clip.ts)}</span>
+</div>
+<div class="card-body" id="cb-${esc(clip.id)}">${esc(preview)}</div>
+<div class="card-actions">
+  <button class="ca-btn copy-btn" onclick="copyClip('${esc(clip.id)}')">📋 Copy</button>
+  <button class="ca-btn pin-btn"  onclick="togglePin('${esc(clip.id)}')">
+    ${clip.pinned?'★ Unpin':'☆ Pin'}
+  </button>
+  ${mergeMode?`<button class="ca-btn merge-btn" onclick="toggleMergeSelect('${esc(clip.id)}')">
+    ${mergeSelected.includes(clip.id)?'✓ Remove':'+ Select'}
+  </button>`:''}
+  ${needsExpand?`<button class="ca-btn expand-btn" onclick="expandCard('${esc(clip.id)}')">⤢ More</button>`:''}
+  <button class="ca-btn del-btn" onclick="deleteClip('${esc(clip.id)}')">🗑 Del</button>
+</div>`;
+
+  /* Click card = copy */
+  el.addEventListener('click',e=>{
+    if(e.target.classList.contains('ca-btn')||e.target.closest('.ca-btn'))return;
+    if(mergeMode){toggleMergeSelect(clip.id);return}
+    copyClip(clip.id);
+  });
+
+  return el;
+}
+
+/* ═══════════════════════════════════════════════
+   CLIP ACTIONS
+═══════════════════════════════════════════════ */
+async function copyClip(id){
+  const c=clips.find(x=>x.id===id);
+  if(!c)return;
+  try{
+    await navigator.clipboard.writeText(c.text);
+    lastCopied=c.text;
+    toast('Copied!','success','copy'+id);
+    flashCard(id);
+  }catch(e){
+    /* Fallback */
+    const ta=document.createElement('textarea');
+    ta.value=c.text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    document.execCommand('copy');ta.remove();
+    lastCopied=c.text;
+    toast('Copied!','success','copy'+id);
+    flashCard(id);
+  }
+}
+
+function flashCard(id){
+  const el=document.querySelector(`[data-id="${id}"]`);
+  if(!el)return;
+  el.style.transition='background .1s';
+  el.style.background='rgba(0,212,255,.15)';
+  setTimeout(()=>{el.style.background='';},180);
+}
+
+function togglePin(id){
+  const c=clips.find(x=>x.id===id);
+  if(!c)return;
+  c.pinned=!c.pinned;
+  schedDirty();
+  renderStream();
+  toast(c.pinned?'★ Pinned':'Unpinned','info','pin'+id);
+}
+
+function deleteClip(id){
+  clips=clips.filter(c=>c.id!==id);
+  schedDirty();
+  renderStream();
+  updateRewind();
+}
+
+function expandCard(id){
+  const body=document.getElementById('cb-'+id);
+  if(!body)return;
+  const c=clips.find(x=>x.id===id);
+  if(!c)return;
+  body.textContent=c.text;
+  body.classList.add('expanded');
+}
+
+/* ═══════════════════════════════════════════════
+   PINNED TAB
+═══════════════════════════════════════════════ */
+function renderPinned(){
+  const stream=document.getElementById('pinned-stream');
+  stream.innerHTML='';
+  const pinned=clips.filter(c=>c.pinned);
+  if(!pinned.length){
+    stream.innerHTML='<div style="text-align:center;padding:30px;color:var(--text2);font-size:.78rem">No pinned clips yet.<br>Click ⭐ on any clip to pin it.</div>';
+    return;
+  }
+  pinned.forEach(c=>stream.appendChild(buildCard(c)));
+}
+
+/* ═══════════════════════════════════════════════
+   TIME REWIND
+═══════════════════════════════════════════════ */
+function updateRewind(){
+  const slider=document.getElementById('rewind-slider');
+  slider.max=Math.max(0,history.length-1);
+  if(!rewindActive){
+    slider.value=0;
+    document.getElementById('rewind-time').textContent='live';
+  }
+}
+
+function onRewind(val){
+  const i=+val;
+  if(i===0){
+    document.getElementById('rewind-time').textContent='live';
+    renderStream();
+    return;
+  }
+  const clip=history[i];
+  if(!clip)return;
+  document.getElementById('rewind-time').textContent=fmtTime(clip.ts);
+
+  /* Show clips that existed at this point in time */
+  const snap=history.slice(i).filter((c,idx,arr)=>arr.findIndex(x=>x.text===c.text)===idx);
+  const stream=document.getElementById('clip-stream');
+  stream.querySelectorAll('.clip-card').forEach(el=>el.remove());
+  const empty=document.getElementById('empty-clips');
+  empty.style.display=snap.length?'none':'block';
+  snap.forEach(c=>stream.appendChild(buildCard(c)));
+}
+
+/* ═══════════════════════════════════════════════
+   SEARCH
+═══════════════════════════════════════════════ */
+function onSearch(val){
+  searchQuery=val.trim();
+  switchTab('history');
+  renderStream();
+}
+
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+function switchTab(name){
+  currentTab=name;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='pinned')renderPinned();
+  if(name==='snippets')renderSnippets();
+}
+
+/* ═══════════════════════════════════════════════
+   MERGE MODE
+═══════════════════════════════════════════════ */
+function toggleMergeMode(){
+  mergeMode=!mergeMode;
+  mergeSelected=[];
+  document.getElementById('merge-panel').classList.toggle('open',mergeMode);
+  document.getElementById('merge-toggle-btn').classList.toggle('active',mergeMode);
+  renderStream();
+  if(mergeMode)toast('Select clips to merge','info','merge');
+}
+
+function toggleMergeSelect(id){
+  if(mergeSelected.includes(id))mergeSelected=mergeSelected.filter(x=>x!==id);
+  else mergeSelected.push(id);
+  updateMergePreview();
+  renderStream();
+}
+
+function setMergeSep(btn,sep){
+  mergeSep=sep;
+  document.querySelectorAll('.mo-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateMergePreview();
+}
+
+function getMergeSepStr(){
+  return{newline:'\n',space:' ',comma:', ',tab:'\t',pipe:' | ',none:''}[mergeSep]||'\n';
+}
+
+function updateMergePreview(){
+  const sep=getMergeSepStr();
+  const texts=mergeSelected.map(id=>{const c=clips.find(x=>x.id===id);return c?c.text:''}).filter(Boolean);
+  document.getElementById('merge-preview').textContent=texts.join(sep)||'(select clips above)';
+}
+
+async function doMerge(){
+  if(!mergeSelected.length){toast('Select at least one clip','warn','mergewarn');return}
+  const sep=getMergeSepStr();
+  const texts=mergeSelected.map(id=>{const c=clips.find(x=>x.id===id);return c?c.text:''}).filter(Boolean);
+  const merged=texts.join(sep);
+  try{
+    await navigator.clipboard.writeText(merged);
+    lastCopied=merged;
+    addClip(merged);
+    toast(`⊞ ${texts.length} clips merged & copied`,'success','mergedone');
+  }catch(e){
+    const ta=document.createElement('textarea');ta.value=merged;ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');ta.remove();
+    addClip(merged);
+    toast(`⊞ ${texts.length} clips merged`,'success','mergedone');
+  }
+  toggleMergeMode();
+}
+
+/* ═══════════════════════════════════════════════
+   SNIPPET TEMPLATES
+═══════════════════════════════════════════════ */
+const DEFAULT_SNIPPETS=[
+  {id:'s1',name:'Email Intro',body:'Hi {{name}},\n\nThank you for reaching out about {{topic}}.\n\nBest,\n{{sender}}',vars:['name','topic','sender']},
+  {id:'s2',name:'Bug Report',body:'## Bug: {{title}}\n\n**Steps to reproduce:**\n{{steps}}\n\n**Expected:** {{expected}}\n**Actual:** {{actual}}',vars:['title','steps','expected','actual']},
+  {id:'s3',name:'Git Commit',body:'{{type}}({{scope}}): {{description}}\n\n{{body}}',vars:['type','scope','description','body']},
+  {id:'s4',name:'API URL',body:'{{base_url}}/api/v{{version}}/{{endpoint}}?key={{api_key}}',vars:['base_url','version','endpoint','api_key']},
+  {id:'s5',name:'Phone Number',body:'+{{country}} ({{area}}) {{number}}',vars:['country','area','number']},
+];
+
+function renderSnippets(){
+  const stream=document.getElementById('snippets-stream');
+  stream.innerHTML='';
+
+  snippets.forEach(s=>{
+    const card=document.createElement('div');
+    card.className='snippet-card';
+    card.innerHTML=`
+<div class="snippet-name">📋 ${esc(s.name)}</div>
+<div class="snippet-preview">${esc(s.body.slice(0,80))}${s.body.length>80?'…':''}</div>
+${s.vars.length?`<div class="snippet-vars">${s.vars.map(v=>`<span class="sv-tag">{{${esc(v)}}}</span>`).join('')}</div>`:''}
+<div class="snippet-actions" style="display:flex;gap:4px;margin-top:6px">
+  <button class="ca-btn copy-btn" onclick="openSnippetModal('${esc(s.id)}')">📋 Use</button>
+  <button class="ca-btn del-btn" onclick="deleteSnippet('${esc(s.id)}')">🗑</button>
+</div>`;
+    stream.appendChild(card);
+  });
+
+  /* Add snippet form */
+  const formWrap=document.createElement('div');
+  formWrap.innerHTML=`
+<button class="sf-btn primary" style="width:100%;justify-content:center" onclick="toggleSnippetForm()">+ New Template</button>
+<div id="snippet-form">
+  <div class="sf-field"><label>Name</label><input id="snip-name" placeholder="Template name…"/></div>
+  <div class="sf-field"><label>Body (use {{var}} for placeholders)</label><textarea id="snip-body" placeholder="Hi {{name}}, …"></textarea></div>
+  <div style="display:flex;gap:5px;margin-top:6px">
+    <button class="sm-use-btn" style="padding:5px 14px;font-size:.74rem" onclick="saveSnippet()">Save</button>
+    <button class="sm-cancel-btn" onclick="toggleSnippetForm()">Cancel</button>
+  </div>
+</div>`;
+  stream.appendChild(formWrap);
+}
+
+function toggleSnippetForm(){
+  const f=document.getElementById('snippet-form');
+  if(f)f.classList.toggle('open');
+}
+
+function saveSnippet(){
+  const name=(document.getElementById('snip-name')?.value||'').trim();
+  const body=(document.getElementById('snip-body')?.value||'').trim();
+  if(!name||!body){toast('Name and body required','warn','snipwarn');return}
+  const vars=[...body.matchAll(/\{\{(\w+)\}\}/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i);
+  snippets.push({id:uid(),name,body,vars});
+  schedDirty();
+  renderSnippets();
+  toast('Template saved','success','snipsave');
+}
+
+function deleteSnippet(id){
+  snippets=snippets.filter(s=>s.id!==id);
+  schedDirty();
+  renderSnippets();
+}
+
+/* ═══════════════════════════════════════════════
+   SNIPPET MODAL
+═══════════════════════════════════════════════ */
+function openSnippetModal(id){
+  activeSnippet=snippets.find(s=>s.id===id);
+  if(!activeSnippet)return;
+  const varsDiv=document.getElementById('sm-vars');
+  varsDiv.innerHTML='';
+  if(activeSnippet.vars.length){
+    activeSnippet.vars.forEach(v=>{
+      const row=document.createElement('div');
+      row.className='sm-var-row';
+      row.innerHTML=`<label>{{${esc(v)}}}</label><input class="sm-var-input" id="smv-${esc(v)}" placeholder="${esc(v)}…"/>`;
+      varsDiv.appendChild(row);
+    });
+  }else{
+    varsDiv.innerHTML='<div style="color:var(--text2);font-size:.76rem">No variables — will copy as-is.</div>';
+  }
+  document.getElementById('snippet-modal').classList.add('open');
+}
+
+async function applySnippet(){
+  if(!activeSnippet)return;
+  let text=activeSnippet.body;
+  activeSnippet.vars.forEach(v=>{
+    const val=document.getElementById('smv-'+v)?.value||'';
+    text=text.replaceAll(`{{${v}}}`,val);
+  });
+  try{
+    await navigator.clipboard.writeText(text);
+    lastCopied=text;
+    addClip(text);
+    toast('Template copied!','success','tmplcopy');
+  }catch(e){
+    const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');ta.remove();
+    addClip(text);
+    toast('Template copied!','success','tmplcopy');
+  }
+  closeSnippetModal();
+}
+
+function closeSnippetModal(){
+  document.getElementById('snippet-modal').classList.remove('open');
+  activeSnippet=null;
+}
+
+/* ═══════════════════════════════════════════════
+   ENCRYPTION (AES-GCM 256-bit via SubtleCrypto)
+═══════════════════════════════════════════════ */
+async function deriveKey(passphrase){
+  const enc=new TextEncoder();
+  const keyMat=await crypto.subtle.importKey('raw',enc.encode(passphrase),{name:'PBKDF2'},false,['deriveBits','deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt:enc.encode('NeonClipSalt2025'),iterations:100000,hash:'SHA-256'},
+    keyMat,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
+  );
+}
+
+async function encryptData(data){
+  if(!cfg.encKey)return JSON.stringify(data);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const encoded=new TextEncoder().encode(JSON.stringify(data));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},cfg.encKey,encoded);
+  const combined=new Uint8Array([...iv,...new Uint8Array(ct)]);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptData(raw){
+  if(!cfg.encKey){try{return JSON.parse(raw)}catch(e){return null}}
+  try{
+    const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0));
+    const iv=bytes.slice(0,12);const ct=bytes.slice(12);
+    const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},cfg.encKey,ct);
+    return JSON.parse(new TextDecoder().decode(plain));
+  }catch(e){return null}
+}
+
+async function setEncKey(){
+  const pass=document.getElementById('enc-key-input').value.trim();
+  if(!pass){toast('Enter a passphrase','warn','encwarn');return}
+  cfg.encKey=await deriveKey(pass);
+  cfg.encKeyRaw=pass;
+  toast('🔐 Encryption key set','success','encset');
+}
+
+function toggleEncrypt(on){cfg.encrypt=on;if(!on){cfg.encKey=null}}
+
+/* ═══════════════════════════════════════════════
+   CLOUD SYNC (stub — real endpoint required)
+═══════════════════════════════════════════════ */
+async function cloudSync(){
+  const url=(document.getElementById('sync-url')?.value||'').trim();
+  if(!url){toast('Enter a sync endpoint URL','warn','syncwarn');return}
+  try{
+    const payload=await encryptData({clips,snippets,ts:Date.now()});
+    const res=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({data:payload}),
+    });
+    if(res.ok)toast('☁ Synced!','success','syncdone');
+    else toast('Sync failed: '+res.status,'error','syncerr');
+  }catch(e){
+    toast('Sync error: '+e.message,'error','syncerr');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   SAVE / LOAD — debounced to prevent spam
+═══════════════════════════════════════════════ */
+function schedDirty(){
+  dirty=true;
+  if(saveTimer)return;          // already scheduled
+  saveTimer=setTimeout(()=>{
+    saveTimer=null;
+    if(dirty){dirty=false;persistSave()}
+  },1200);                       // write at most once per 1.2s
+}
+
+function persistSave(){
+  try{
+    localStorage.setItem('neonclip_v1',JSON.stringify({clips,snippets,history:history.slice(0,500)}));
+    /* NO toast — silent background save */
+  }catch(e){
+    /* Only toast on actual storage failure, with key to prevent repeats */
+    toast('Storage full — oldest clips may be lost','warn','savefull');
+  }
+}
+
+function loadAll(){
+  try{
+    const raw=localStorage.getItem('neonclip_v1');
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    clips=d.clips||[];
+    snippets=d.snippets||[];
+    history=d.history||[...clips];
+    // Trim to maxItems
+    if(clips.length>cfg.maxItems)clips.length=cfg.maxItems;
+  }catch(e){/* silent */}
+}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify({clips,snippets,history},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='neonclip-backup.json';a.click();
+  toast('Exported!','success','expok');
+}
+
+function handleImport(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.clips)clips=[...d.clips,...clips].slice(0,cfg.maxItems);
+      if(d.snippets)snippets=[...snippets,...d.snippets].filter((s,i,a)=>a.findIndex(x=>x.id===s.id)===i);
+      if(d.history)history=[...d.history,...history].slice(0,500);
+      schedDirty();
+      renderStream();updateRewind();
+      toast(`Imported ${(d.clips||[]).length} clips`,'success','impok');
+    }catch(err){toast('Invalid file','error','imperr')}
+  };
+  r.readAsText(f);e.target.value='';
+}
+
+function clearHistory(){
+  if(!confirm('Clear all clip history?'))return;
+  clips=[];history=[];
+  schedDirty();
+  renderStream();updateRewind();
+  toast('History cleared','info','clrhist');
+}
+
+/* ═══════════════════════════════════════════════
+   COUNT
+═══════════════════════════════════════════════ */
+function updateCount(){
+  document.getElementById('clip-count').textContent=clips.length+' clip'+(clips.length!==1?'s':'');
+}
+
+/* ═══════════════════════════════════════════════
+   AMBIENT TICK SOUND
+═══════════════════════════════════════════════ */
+function playTick(){
+  try{
+    const ac=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ac.createOscillator();const gain=ac.createGain();
+    osc.frequency.value=1200;osc.type='sine';
+    gain.gain.setValueAtTime(.08,ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.08);
+    osc.connect(gain);gain.connect(ac.destination);
+    osc.start();osc.stop(ac.currentTime+.08);
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+═══════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  // Ctrl+Shift+V = open sidebar
+  if(e.ctrlKey&&e.shiftKey&&e.key==='V'){e.preventDefault();openSidebar()}
+  // Escape = close
+  if(e.key==='Escape'){
+    closeSnippetModal();
+    if(mergeMode)toggleMergeMode();
+    closeSidebar();
+  }
+  // Ctrl+F = focus search (when open)
+  if(e.ctrlKey&&e.key==='f'&&document.body.classList.contains('sidebar-open')){
+    e.preventDefault();document.getElementById('search-input').focus();
+  }
+  // Ctrl+Shift+C = paste from clipboard
+  if(e.ctrlKey&&e.shiftKey&&e.key==='C'){e.preventDefault();pasteFromClipboard()}
+});
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded',()=>{
+  // Load default snippets + saved data
+  snippets=[...DEFAULT_SNIPPETS];
+  loadAll();
+
+  // Re-merge default snippets that aren't in saved data
+  DEFAULT_SNIPPETS.forEach(ds=>{
+    if(!snippets.find(s=>s.id===ds.id))snippets.unshift(ds);
+  });
+
+  // Seed with demo clips if empty
+  if(clips.length===0){
+    [
+      'https://github.com/cyberpunk/neonclip — NeonClip repo',
+      '#00d4ff',
+      'npm install --save-dev webpack webpack-cli',
+      'dev@neonclip.io',
+      'const greet = name => `Hello, ${name}!`;',
+      '742 Evergreen Terrace, Springfield',
+      'The quick brown fox jumps over the lazy dog.',
+    ].forEach(t=>addClip(t,true));
+  }
+
+  renderStream();
+  updateRewind();
+  renderSnippets();
+  updateCount();
+
+  // Start polling when page gets focus
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&document.body.classList.contains('sidebar-open'))startPoll();
+    else stopPoll();
+  });
+
+  toast('⬡ NeonClip ready — Ctrl+Shift+V to open','info','welcome');
+});
+</script>
+</body>
+</html>

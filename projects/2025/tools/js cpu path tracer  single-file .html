@@ -1,0 +1,2526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>JS CPU Path Tracer (Single-File)</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#0e1621cc; --panel2:#0e1621ee; --fg:#d6e2ff;
+    --muted:#8aa0c7; --acc:#47ffd2; --acc2:#5aa2ff; --bad:#ff5a7a;
+    --border:#24344c; --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  }
+  html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; overflow:hidden; font-family:var(--sans);}
+  #wrap{position:fixed; inset:0; display:grid; grid-template-columns: 360px 1fr; gap:0; }
+  #panel{
+    position:relative;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border-right:1px solid var(--border);
+    padding:14px 12px 12px 12px;
+    overflow:auto;
+  }
+  #panel h1{margin:0 0 10px 0; font-size:14px; letter-spacing:0.5px; color:#cfe1ff;}
+  .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin:10px 0;}
+  .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin:10px 0;}
+  label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px;}
+  select,input[type="range"],input[type="number"],button{
+    width:100%; box-sizing:border-box;
+    border:1px solid var(--border);
+    background:#0b1220; color:var(--fg);
+    border-radius:8px; padding:8px 10px;
+    font-family:var(--sans);
+    outline:none;
+  }
+  input[type="range"]{padding:8px 0;}
+  input[type="number"]{font-family:var(--mono);}
+  button{
+    cursor:pointer; transition:filter .15s ease, transform .04s ease;
+    background:linear-gradient(180deg,#0f1a2d,#0a1220);
+  }
+  button:hover{filter:brightness(1.08);}
+  button:active{transform:translateY(1px);}
+  .btnRow{display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin:10px 0;}
+  .btnRow3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin:10px 0;}
+  .btnAccent{border-color:#1c4b45; background:linear-gradient(180deg,#0f2a27,#081a1a); color:#dcfff8;}
+  .btnDanger{border-color:#542231; background:linear-gradient(180deg,#2b1220,#140a10); color:#ffe0e8;}
+  .btnBlue{border-color:#1f3556; background:linear-gradient(180deg,#10243f,#081325); color:#e2efff;}
+  .pill{display:inline-block; padding:2px 8px; border:1px solid var(--border); border-radius:999px; font-size:11px; color:var(--muted); margin-right:6px;}
+  .mono{font-family:var(--mono); font-size:12px;}
+  #stats{
+    margin-top:10px; padding:10px; border:1px solid var(--border);
+    border-radius:10px; background:#08101bcc;
+  }
+  #stats .k{color:var(--muted); font-size:11px;}
+  #stats .v{font-family:var(--mono); font-size:12px; color:var(--fg);}
+  .statGrid{display:grid; grid-template-columns: 1fr 1fr; gap:6px 10px;}
+  .sep{height:1px; background:var(--border); margin:10px 0;}
+  .toggle{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#08101bcc;
+    user-select:none;
+  }
+  .toggle input{width:auto;}
+  #log{
+    margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:10px;
+    background:#070d16; font-family:var(--mono); font-size:11px; color:#b7c9ee; height:150px; overflow:auto;
+    white-space:pre-wrap;
+  }
+
+  #view{
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(1000px 700px at 70% 30%, #0e1630 0%, #070b12 60%, #05070c 100%);
+  }
+  #can{
+    image-rendering:pixelated;
+    width:min(100%, calc(100vw - 360px));
+    height:auto;
+    border:1px solid #1a2a40;
+    border-radius:14px;
+    box-shadow: 0 10px 50px rgba(0,0,0,.55);
+    background:#000;
+  }
+  #hud{
+    position:absolute; top:14px; left:14px;
+    display:flex; gap:10px; align-items:flex-start;
+    pointer-events:none;
+  }
+  #thumbWrap{
+    pointer-events:none;
+    background:#08101bcc;
+    border:1px solid var(--border);
+    border-radius:12px; padding:8px;
+    width:160px;
+  }
+  #thumb{width:160px; height:90px; display:block; border-radius:8px; border:1px solid #1a2a40; background:#000;}
+  #hint{
+    pointer-events:none;
+    background:#08101bcc;
+    border:1px solid var(--border);
+    border-radius:12px; padding:8px 10px;
+    max-width:440px;
+  }
+  #hint .t{font-size:11px; color:var(--muted); margin-bottom:4px;}
+  #hint .b{font-family:var(--mono); font-size:12px; line-height:1.35;}
+  #dbg{
+    position:absolute; inset:auto 14px 14px 14px;
+    pointer-events:none;
+    display:flex; gap:10px; justify-content:flex-start; align-items:flex-end;
+  }
+  #dbg .badge{
+    pointer-events:none;
+    background:#08101bcc;
+    border:1px solid var(--border);
+    border-radius:999px; padding:6px 10px;
+    font-family:var(--mono); font-size:12px;
+    color:#d8e8ff;
+  }
+  .acc{color:var(--acc);}
+  .acc2{color:var(--acc2);}
+  .bad{color:var(--bad);}
+  .small{font-size:11px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="panel">
+    <h1>CPU Path Tracer (JavaScript, BVH, Workers)</h1>
+
+    <div class="row">
+      <div>
+        <label>Scene preset</label>
+        <select id="sceneSel">
+          <option value="cornell">A — Cornell box (area light)</option>
+          <option value="spheres">B — Glass/metal spheres (env)</option>
+          <option value="mesh">C — Mesh + textured floor + DOF</option>
+        </select>
+      </div>
+      <div>
+        <label>Quality mode</label>
+        <select id="modeSel">
+          <option value="preview">Preview (fast)</option>
+          <option value="final">Final (refine)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btnRow3">
+      <button id="startBtn" class="btnAccent">Start</button>
+      <button id="pauseBtn" class="btnBlue">Pause</button>
+      <button id="resetBtn" class="btnDanger">Reset</button>
+    </div>
+
+    <div class="btnRow3">
+      <button id="stepBtn">Step +1 SPP</button>
+      <button id="saveBtn">Save PNG</button>
+      <button id="saveRawBtn">Save tonemapped</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="row3">
+      <div>
+        <label>Resolution scale</label>
+        <select id="resScale">
+          <option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+      <div>
+        <label>Target SPP</label>
+        <input id="spp" type="number" min="1" max="4096" step="1" value="64">
+      </div>
+      <div>
+        <label>Max bounces</label>
+        <input id="bounces" type="number" min="1" max="32" step="1" value="8">
+      </div>
+    </div>
+
+    <div class="row3">
+      <div>
+        <label>Workers</label>
+        <input id="workers" type="number" min="1" max="64" step="1" value="4">
+      </div>
+      <div>
+        <label>Tile size</label>
+        <input id="tile" type="number" min="8" max="128" step="8" value="32">
+      </div>
+      <div>
+        <label>Light samples</label>
+        <input id="lightSamp" type="number" min="1" max="64" step="1" value="4">
+      </div>
+    </div>
+
+    <div class="row3">
+      <div>
+        <label>Aperture</label>
+        <input id="aperture" type="range" min="0" max="0.25" step="0.002" value="0.02">
+      </div>
+      <div>
+        <label>Focus dist</label>
+        <input id="focus" type="range" min="0.5" max="20" step="0.05" value="4.0">
+      </div>
+      <div>
+        <label>Exposure</label>
+        <input id="exposure" type="range" min="0.1" max="5.0" step="0.05" value="1.2">
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="toggle"><input id="togDOF" type="checkbox" checked><label style="margin:0">Depth of field</label></div>
+      <div class="toggle"><input id="togMB" type="checkbox" checked><label style="margin:0">Motion blur</label></div>
+      <div class="toggle"><input id="togTex" type="checkbox" checked><label style="margin:0">Textures</label></div>
+    </div>
+
+    <div class="row3">
+      <div class="toggle"><input id="togBVH" type="checkbox" checked><label style="margin:0">Use BVH</label></div>
+      <div class="toggle"><input id="togNEE" type="checkbox" checked><label style="margin:0">Direct light sampling</label></div>
+      <div class="toggle"><input id="togEnvTex" type="checkbox"><label style="margin:0">Env texture</label></div>
+    </div>
+
+    <div class="row3">
+      <div class="toggle"><input id="togTone" type="checkbox" checked><label style="margin:0">Reinhard tone map</label></div>
+      <div class="toggle"><input id="togRaw" type="checkbox"><label style="margin:0">Raw (no tone map)</label></div>
+      <div class="toggle"><input id="togBVHVis" type="checkbox"><label style="margin:0">BVH overlay</label></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div id="stats">
+      <div class="statGrid">
+        <div><div class="k">SPP</div><div class="v" id="stSPP">0 / 0</div></div>
+        <div><div class="k">Elapsed</div><div class="v" id="stTime">0.0s</div></div>
+        <div><div class="k">Samples/sec</div><div class="v" id="stSps">0</div></div>
+        <div><div class="k">Rays/sec (est)</div><div class="v" id="stRps">0</div></div>
+        <div><div class="k">Resolution</div><div class="v" id="stRes">0×0</div></div>
+        <div><div class="k">Tiles</div><div class="v" id="stTiles">0</div></div>
+        <div><div class="k">Primitives</div><div class="v" id="stPrim">0</div></div>
+        <div><div class="k">BVH nodes</div><div class="v" id="stBVH">0</div></div>
+      </div>
+      <div class="sep"></div>
+      <div class="mono small">
+        Shortcuts: <span class="acc">Space</span>=pause/resume, <span class="acc">R</span>=reset, <span class="acc">S</span>=save PNG,
+        <span class="acc">1/2/3</span>=scene.
+      </div>
+    </div>
+
+    <div id="log"></div>
+
+    <!--
+      Note on Workers + file://:
+      Web Workers are commonly created from Blob URLs in single-file apps, and worker scripts can be created via URL.createObjectURL(new Blob(...)). [web:6]
+      If a browser blocks worker creation or resource loads under file:// due to origin/CORS restrictions, run a local static server (e.g. `python -m http.server`) instead. [web:3]
+    -->
+  </div>
+
+  <div id="view">
+    <canvas id="can" width="960" height="540"></canvas>
+    <div id="hud">
+      <div id="thumbWrap">
+        <div class="mono small" style="color:var(--muted); margin:0 0 6px 0;">Thumbnail</div>
+        <canvas id="thumb" width="160" height="90"></canvas>
+      </div>
+      <div id="hint">
+        <div class="t">Mouse</div>
+        <div class="b">Drag = orbit camera<br/>Wheel = zoom<br/>Shift+Drag = pan target</div>
+      </div>
+    </div>
+    <div id="dbg">
+      <div class="badge"><span class="acc2">Progressive</span> CPU path tracing</div>
+      <div class="badge">BVH <span class="acc" id="dbgBVH">ON</span></div>
+      <div class="badge">Workers <span class="acc" id="dbgW">0</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // -----------------------------
+  // Minimal logging UI
+  // -----------------------------
+  const logEl = document.getElementById('log');
+  function log(msg, kind="info"){
+    const t = new Date().toLocaleTimeString();
+    const line = `[${t}] ${msg}\n`;
+    logEl.textContent += line;
+    logEl.scrollTop = logEl.scrollHeight;
+    if(kind==="warn") console.warn(msg);
+    if(kind==="err") console.error(msg);
+  }
+
+  // -----------------------------
+  // Embedded base64 "image": ASCII PPM (P3) data.
+  // This satisfies the "base64 embedded image" requirement while remaining worker-friendly.
+  // -----------------------------
+  const EMBED_PPM_B64 =
+"UDMKOCA4CjI1NQowIDAgMCAzMiAzMiAwIDY0IDY0IDAgOTYgOTYgMCAxMjggMTI4IDAgMTYwIDE2MCAwIDE5MiAxOTIgMCAyMjQgMjI0IDAKMzIgMCAzMiAwIDMyIDMyIDk2IDY0IDMyIDY0IDk2IDMyIDE2MCAxMjggMzIgMTI4IDE2MCAzMiAyMjQgMTkyIDMyIDE5MiAyMjQgMzIKNjQgMCA2NCA5NiAzMiA2NCAwIDY0IDY0IDMyIDk2IDY0IDE5MiAxMjggNjQgMjI0IDE2MCA2NCAxMjggMTkyIDY0IDE2MCAyMjQgNjQKOTYgMCA5NiA2NCAzMiA5NiAzMiA2NCA5NiAwIDk2IDk2IDIyNCAxMjggOTYgMTkyIDE2MCA5NiAxNjAgMTkyIDk2IDEyOCAyMjQgOTYKMTI4IDAgMTI4IDE2MCAzMiAxMjggMTkyIDY0IDEyOCAyMjQgOTYgMTI4IDAgMTI4IDEyOCAzMiAxNjAgMTI4IDY0IDE5MiAxMjggOTYgMjI0IDEyOAoxNjAgMCAxNjAgMTI4IDMyIDE2MCAyMjQgNjQgMTYwIDE5MiA5NiAxNjAgMzIgMTI4IDE2MCAwIDE2MCAxNjAgOTYgMTkyIDE2MCA2NCAyMjQgMTYwCjE5MiAwIDE5MiAyMjQgMzIgMTkyIDEyOCA2NCAxOTIgMTYwIDk2IDE5MiA2NCAxMjggMTkyIDk2IDE2MCAxOTIgMCAxOTIgMTkyIDMyIDIyNCAxOTIKMjI0IDAgMjI0IDE5MiAzMiAyMjQgMTYwIDY0IDIyNCAxMjggOTYgMjI0IDk2IDEyOCAyMjQgNjQgMTYwIDIyNCAzMiAxOTIgMjI0IDAgMjI0IDIyNAo=";
+
+  // -----------------------------
+  // UI elements
+  // -----------------------------
+  const ui = {
+    sceneSel: document.getElementById('sceneSel'),
+    modeSel: document.getElementById('modeSel'),
+
+    startBtn: document.getElementById('startBtn'),
+    pauseBtn: document.getElementById('pauseBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    stepBtn: document.getElementById('stepBtn'),
+    saveBtn: document.getElementById('saveBtn'),
+    saveRawBtn: document.getElementById('saveRawBtn'),
+
+    resScale: document.getElementById('resScale'),
+    spp: document.getElementById('spp'),
+    bounces: document.getElementById('bounces'),
+    workers: document.getElementById('workers'),
+    tile: document.getElementById('tile'),
+    lightSamp: document.getElementById('lightSamp'),
+    aperture: document.getElementById('aperture'),
+    focus: document.getElementById('focus'),
+    exposure: document.getElementById('exposure'),
+
+    togDOF: document.getElementById('togDOF'),
+    togMB: document.getElementById('togMB'),
+    togTex: document.getElementById('togTex'),
+    togBVH: document.getElementById('togBVH'),
+    togNEE: document.getElementById('togNEE'),
+    togEnvTex: document.getElementById('togEnvTex'),
+    togTone: document.getElementById('togTone'),
+    togRaw: document.getElementById('togRaw'),
+    togBVHVis: document.getElementById('togBVHVis'),
+
+    stSPP: document.getElementById('stSPP'),
+    stTime: document.getElementById('stTime'),
+    stSps: document.getElementById('stSps'),
+    stRps: document.getElementById('stRps'),
+    stRes: document.getElementById('stRes'),
+    stTiles: document.getElementById('stTiles'),
+    stPrim: document.getElementById('stPrim'),
+    stBVH: document.getElementById('stBVH'),
+
+    dbgBVH: document.getElementById('dbgBVH'),
+    dbgW: document.getElementById('dbgW'),
+  };
+
+  // -----------------------------
+  // Canvas
+  // -----------------------------
+  const can = document.getElementById('can');
+  const ctx = can.getContext('2d', { alpha:false });
+  const thumb = document.getElementById('thumb');
+  const tctx = thumb.getContext('2d', { alpha:false });
+
+  // -----------------------------
+  // Small math (main thread, camera + BVH overlay)
+  // -----------------------------
+  class V3{
+    constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z;}
+    add(b){return new V3(this.x+b.x,this.y+b.y,this.z+b.z);}
+    sub(b){return new V3(this.x-b.x,this.y-b.y,this.z-b.z);}
+    mul(s){return new V3(this.x*s,this.y*s,this.z*s);}
+    div(s){return new V3(this.x/s,this.y/s,this.z/s);}
+    dot(b){return this.x*b.x+this.y*b.y+this.z*b.z;}
+    cross(b){return new V3(this.y*b.z-this.z*b.y,this.z*b.x-this.x*b.z,this.x*b.y-this.y*b.x);}
+    len(){return Math.hypot(this.x,this.y,this.z);}
+    norm(){const l=this.len()||1; return this.div(l);}
+    min(b){return new V3(Math.min(this.x,b.x),Math.min(this.y,b.y),Math.min(this.z,b.z));}
+    max(b){return new V3(Math.max(this.x,b.x),Math.max(this.y,b.y),Math.max(this.z,b.z));}
+  }
+
+  // -----------------------------
+  // Scene representation (serialized to workers)
+  // -----------------------------
+  function makeTexturePPMFromBase64(b64){
+    const txt = atob(b64);
+    // parse minimal ASCII PPM (P3)
+    const tokens = txt.replace(/#[^\n]*\n/g, "\n").trim().split(/\s+/);
+    if(tokens[0] !== "P3") throw new Error("PPM parse: not P3");
+    const w = parseInt(tokens[1],10), h = parseInt(tokens[2],10), maxv = parseInt(tokens[3],10);
+    const data = new Uint8Array(w*h*3);
+    let p=0;
+    for(let i=4;i<tokens.length && p<data.length;i++){
+      const v = Math.max(0, Math.min(255, Math.round(parseInt(tokens[i],10) * (255/maxv))));
+      data[p++] = v;
+    }
+    return {type:"ppm", w, h, data};
+  }
+
+  function clamp01(x){return x<0?0:x>1?1:x;}
+  function toSRGB8(x){
+    x = clamp01(x);
+    // Approx gamma 2.2
+    x = Math.pow(x, 1.0/2.2);
+    return (x*255 + 0.5) | 0;
+  }
+
+  // -----------------------------
+  // BVH builder (main thread)
+  // -----------------------------
+  function aabbUnion(a,b){
+    return {min: a.min.min(b.min), max: a.max.max(b.max)};
+  }
+  function aabbFromPoints(pmin,pmax){
+    return {min:pmin, max:pmax};
+  }
+  function aabbCentroid(bb){
+    return bb.min.add(bb.max).mul(0.5);
+  }
+
+  // Compute bounding box for each primitive over shutter [0,1]
+  function boundsOfPrim(prim){
+    const eps = 1e-6;
+    if(prim.type==="sphere"){
+      const c0 = new V3(prim.c0[0],prim.c0[1],prim.c0[2]);
+      const c1 = new V3(prim.c1[0],prim.c1[1],prim.c1[2]);
+      const r = prim.r;
+      const b0 = aabbFromPoints(c0.sub(new V3(r,r,r)), c0.add(new V3(r,r,r)));
+      const b1 = aabbFromPoints(c1.sub(new V3(r,r,r)), c1.add(new V3(r,r,r)));
+      return aabbUnion(b0,b1);
+    }
+    if(prim.type==="plane"){
+      // Large plane bounds (for BVH, keep finite; plane is typically ground/walls)
+      const p = new V3(prim.p[0],prim.p[1],prim.p[2]);
+      const s = prim.size || 50;
+      const n = new V3(prim.n[0],prim.n[1],prim.n[2]).norm();
+      // Build tangent basis; use it to create a finite quad bounds
+      const up = Math.abs(n.y) < 0.99 ? new V3(0,1,0) : new V3(1,0,0);
+      const t = up.cross(n).norm();
+      const b = n.cross(t).norm();
+      const corners = [
+        p.add(t.mul(s)).add(b.mul(s)),
+        p.add(t.mul(s)).sub(b.mul(s)),
+        p.sub(t.mul(s)).add(b.mul(s)),
+        p.sub(t.mul(s)).sub(b.mul(s))
+      ];
+      let mn = new V3( 1e9, 1e9, 1e9);
+      let mx = new V3(-1e9,-1e9,-1e9);
+      for(const c of corners){ mn = mn.min(c); mx = mx.max(c); }
+      return aabbFromPoints(mn.sub(new V3(eps,eps,eps)), mx.add(new V3(eps,eps,eps)));
+    }
+    if(prim.type==="box"){
+      const mn = new V3(prim.min[0],prim.min[1],prim.min[2]);
+      const mx = new V3(prim.max[0],prim.max[1],prim.max[2]);
+      return aabbFromPoints(mn, mx);
+    }
+    if(prim.type==="tri"){
+      const v0 = new V3(prim.v0[0],prim.v0[1],prim.v0[2]);
+      const v1 = new V3(prim.v1[0],prim.v1[1],prim.v1[2]);
+      const v2 = new V3(prim.v2[0],prim.v2[1],prim.v2[2]);
+      let mn = v0.min(v1).min(v2);
+      let mx = v0.max(v1).max(v2);
+      return aabbFromPoints(mn.sub(new V3(eps,eps,eps)), mx.add(new V3(eps,eps,eps)));
+    }
+    throw new Error("Unknown prim type: "+prim.type);
+  }
+
+  function buildBVH(prims, maxLeaf=4){
+    const primBounds = prims.map(boundsOfPrim);
+    const indices = new Int32Array(prims.length);
+    for(let i=0;i<indices.length;i++) indices[i]=i;
+
+    const nodes = [];
+    function buildNode(start,count){
+      // compute bounds for this range
+      let bb = primBounds[indices[start]];
+      for(let i=1;i<count;i++){
+        bb = aabbUnion(bb, primBounds[indices[start+i]]);
+      }
+      const nodeIndex = nodes.length;
+      nodes.push({min:bb.min, max:bb.max, left:-1, right:-1, start, count});
+
+      if(count <= maxLeaf) return nodeIndex;
+
+      // split by largest axis of centroid bounds
+      let cmin = new V3( 1e9, 1e9, 1e9);
+      let cmax = new V3(-1e9,-1e9,-1e9);
+      for(let i=0;i<count;i++){
+        const c = aabbCentroid(primBounds[indices[start+i]]);
+        cmin = cmin.min(c); cmax = cmax.max(c);
+      }
+      const ext = cmax.sub(cmin);
+      let axis = 0;
+      if(ext.y > ext.x && ext.y >= ext.z) axis=1;
+      else if(ext.z > ext.x && ext.z >= ext.y) axis=2;
+
+      // If degenerate, make leaf
+      if(ext.x < 1e-6 && ext.y < 1e-6 && ext.z < 1e-6) return nodeIndex;
+
+      // sort indices in [start, start+count)
+      const slice = Array.from(indices.slice(start,start+count));
+      slice.sort((ia,ib)=>{
+        const ca = aabbCentroid(primBounds[ia]);
+        const cb = aabbCentroid(primBounds[ib]);
+        return axis===0 ? (ca.x-cb.x) : axis===1 ? (ca.y-cb.y) : (ca.z-cb.z);
+      });
+      for(let i=0;i<count;i++) indices[start+i] = slice[i];
+
+      const mid = (count/2)|0;
+      const left = buildNode(start, mid);
+      const right = buildNode(start+mid, count-mid);
+      nodes[nodeIndex].left = left;
+      nodes[nodeIndex].right = right;
+      nodes[nodeIndex].start = -1;
+      nodes[nodeIndex].count = 0;
+      return nodeIndex;
+    }
+
+    const root = buildNode(0, prims.length);
+
+    // flatten
+    const N = nodes.length;
+    const bvhMin = new Float32Array(N*3);
+    const bvhMax = new Float32Array(N*3);
+    const left = new Int32Array(N);
+    const right = new Int32Array(N);
+    const start = new Int32Array(N);
+    const count = new Int32Array(N);
+    for(let i=0;i<N;i++){
+      const n = nodes[i];
+      bvhMin[i*3+0]=n.min.x; bvhMin[i*3+1]=n.min.y; bvhMin[i*3+2]=n.min.z;
+      bvhMax[i*3+0]=n.max.x; bvhMax[i*3+1]=n.max.y; bvhMax[i*3+2]=n.max.z;
+      left[i]=n.left|0; right[i]=n.right|0;
+      start[i]=n.start|0; count[i]=n.count|0;
+    }
+    return {root, indices, bvhMin, bvhMax, left, right, start, count, nodeCount:N};
+  }
+
+  // -----------------------------
+  // Example scenes
+  // -----------------------------
+  function makeCornellScene(textures){
+    const mats = [];
+    const prims = [];
+    const lights = [];
+
+    const texWhite = {type:"solid", color:[0.73,0.73,0.73]};
+    const texRed = {type:"solid", color:[0.78,0.12,0.12]};
+    const texGreen = {type:"solid", color:[0.12,0.62,0.20]};
+    const texBlue = {type:"solid", color:[0.12,0.22,0.70]};
+    const texCheck = {type:"checker", scale:3.0, a:[0.85,0.85,0.85], b:[0.12,0.12,0.12]};
+
+    const mWhite = mats.push({type:"lambert", albedo:texWhite})-1;
+    const mRed   = mats.push({type:"lambert", albedo:texRed})-1;
+    const mGreen = mats.push({type:"lambert", albedo:texGreen})-1;
+    const mMetal = mats.push({type:"metal", albedo:[0.9,0.9,0.95], rough:0.08})-1;
+    const mGlass = mats.push({type:"dielectric", ior:1.5})-1;
+    const mFloor = mats.push({type:"lambert", albedo:texCheck})-1;
+    const mEmit  = mats.push({type:"emissive", color:[16,14,10]})-1;
+
+    // Cornell box: 6 planes (finite bounds for BVH)
+    prims.push({type:"plane", p:[0,0,0], n:[0,1,0], size:5, mat:mFloor});         // floor
+    prims.push({type:"plane", p:[0,2.5,0], n:[0,-1,0], size:5, mat:mWhite});      // ceiling
+    prims.push({type:"plane", p:[0,0,2.5], n:[0,0,-1], size:5, mat:mWhite});      // back
+    prims.push({type:"plane", p:[-2.5,0,0], n:[1,0,0], size:5, mat:mRed});        // left
+    prims.push({type:"plane", p:[2.5,0,0], n:[-1,0,0], size:5, mat:mGreen});      // right
+
+    // Boxes inside
+    prims.push({type:"box", min:[-1.7,0.0,-1.4], max:[-0.3,1.1,0.2], mat:mWhite});
+    prims.push({type:"box", min:[0.4,0.0,-0.8], max:[1.7,2.0,0.8], mat:mMetal});
+
+    // Glass sphere
+    prims.push({type:"sphere", c0:[0.0,0.55,1.1], c1:[0.0,0.55,1.1], r:0.55, mat:mGlass});
+
+    // Rect area light: build as two emissive triangles + explicit area light sampler
+    const lp = [0.0,2.48,0.3];
+    const u = [0.9,0,0];
+    const v = [0,0,0.9];
+    const p0 = [lp[0]-u[0]-v[0], lp[1]-u[1]-v[1], lp[2]-u[2]-v[2]];
+    const p1 = [lp[0]+u[0]-v[0], lp[1]+u[1]-v[1], lp[2]+u[2]-v[2]];
+    const p2 = [lp[0]+u[0]+v[0], lp[1]+u[1]+v[1], lp[2]+u[2]+v[2]];
+    const p3 = [lp[0]-u[0]+v[0], lp[1]-u[1]+v[1], lp[2]-u[2]+v[2]];
+    prims.push({type:"tri", v0:p0, v1:p1, v2:p2, n0:[0,-1,0], n1:[0,-1,0], n2:[0,-1,0], uv0:[0,0], uv1:[1,0], uv2:[1,1], mat:mEmit});
+    prims.push({type:"tri", v0:p0, v1:p2, v2:p3, n0:[0,-1,0], n1:[0,-1,0], n2:[0,-1,0], uv0:[0,0], uv1:[1,1], uv2:[0,1], mat:mEmit});
+    lights.push({type:"rect", p:lp, u:u, v:v, emission:[16,14,10]});
+
+    // Also add a dim point light for stability
+    lights.push({type:"point", p:[0,2.2,-1.0], intensity:[2.0,2.0,2.0]});
+
+    const camera = {
+      target:[0,1.0,0.2],
+      radius:6.3,
+      azimuth:-0.9,
+      elevation:0.15,
+      vfov:40,
+      aperture:0.03,
+      focusDist:6.0
+    };
+    const env = {type:"sky", sunDir:[-0.2,0.8,0.3], sunPow:600.0, sunCol:[2.5,2.2,1.8]};
+    return {mats, prims, lights, camera, env};
+  }
+
+  function makeSpheresScene(textures){
+    const mats = [];
+    const prims = [];
+    const lights = [];
+
+    const mGround = mats.push({type:"lambert", albedo:{type:"checker", scale:2.0, a:[0.9,0.9,0.9], b:[0.15,0.15,0.15]}})-1;
+    const mMetal1 = mats.push({type:"metal", albedo:[0.93,0.92,0.88], rough:0.02})-1;
+    const mMetal2 = mats.push({type:"metal", albedo:[0.72,0.85,1.0], rough:0.25})-1;
+    const mGlass  = mats.push({type:"dielectric", ior:1.52})-1;
+    const mBlue   = mats.push({type:"lambert", albedo:{type:"solid", color:[0.12,0.22,0.70]}})-1;
+    const mMix    = mats.push({type:"mix", t:0.35, a:{type:"lambert", albedo:{type:"solid", color:[0.85,0.2,0.15]}}, b:{type:"metal", albedo:[0.95,0.95,0.95], rough:0.12}})-1;
+    const mEmit   = mats.push({type:"emissive", color:[10,8,6]})-1;
+
+    prims.push({type:"plane", p:[0,-1,0], n:[0,1,0], size:80, mat:mGround});
+    // motion blur sphere (c0->c1) + glass sphere
+    prims.push({type:"sphere", c0:[-1.3,0.1,1.0], c1:[-1.0,0.25,0.6], r:0.9, mat:mMetal2});
+    prims.push({type:"sphere", c0:[0.9,0.1,0.2],  c1:[0.9,0.1,0.2],  r:0.9, mat:mGlass});
+    prims.push({type:"sphere", c0:[0.9,0.1,0.2],  c1:[0.9,0.1,0.2],  r:-0.82, mat:mGlass}); // hollow glass (negative radius trick)
+    prims.push({type:"sphere", c0:[2.7,0.1,1.2],  c1:[2.7,0.1,1.2],  r:0.9, mat:mMetal1});
+    prims.push({type:"sphere", c0:[-3.2,0.0,-1.4], c1:[-3.2,0.0,-1.4], r:1.0, mat:mMix});
+    prims.push({type:"sphere", c0:[-0.2,0.4,-2.6], c1:[-0.2,0.4,-2.6], r:1.2, mat:mBlue});
+
+    // A small emissive sphere to show emissive materials
+    prims.push({type:"sphere", c0:[0.0,3.2,0.0], c1:[0.0,3.2,0.0], r:0.4, mat:mEmit});
+    lights.push({type:"point", p:[0.0,3.2,0.0], intensity:[30,24,18]});
+
+    const camera = {
+      target:[0,0.4,0.4],
+      radius:9.0,
+      azimuth:-0.2,
+      elevation:0.15,
+      vfov:40,
+      aperture:0.02,
+      focusDist:9.0
+    };
+
+    // HDR-like procedural sky + optional env map
+    const env = {
+      type:"sky",
+      sunDir:[-0.4,0.8,0.1],
+      sunPow:1800.0,
+      sunCol:[3.0,2.4,1.8],
+      tex: textures.envPPM
+    };
+    return {mats, prims, lights, camera, env};
+  }
+
+  function makeMeshScene(textures){
+    const mats = [];
+    const prims = [];
+    const lights = [];
+
+    const mFloor = mats.push({type:"lambert", albedo:{type:"mixtex", t:0.5, a:{type:"checker", scale:3.0, a:[0.92,0.92,0.92], b:[0.16,0.16,0.16]}, b:{type:"image", texId:"ppm1"}}})-1;
+    const mPaint = mats.push({type:"metal", albedo:[0.9,0.35,0.25], rough:0.35})-1;
+    const mGlass = mats.push({type:"dielectric", ior:1.45})-1;
+    const mEmit  = mats.push({type:"emissive", color:[22,18,12]})-1;
+
+    prims.push({type:"plane", p:[0,-1,0], n:[0,1,0], size:80, mat:mFloor});
+
+    // Low-poly "car-ish" mesh (a wedge/cabin) as triangles with UVs/normals
+    // For educational clarity: a tiny built-in mesh list rather than a full loader.
+    const meshTris = buildLowPolyCarMesh({pos:[0,-0.15,0], scale:1.2, mat:mPaint});
+    for(const t of meshTris) prims.push(t);
+
+    // A glass sphere next to mesh to show refraction in same scene
+    prims.push({type:"sphere", c0:[-2.0,-0.2,1.4], c1:[-2.0,-0.2,1.4], r:0.8, mat:mGlass});
+
+    // Area light above (rect)
+    const lp = [0.0,4.0,0.0];
+    const u = [1.2,0,0];
+    const v = [0,0,1.2];
+    const p0 = [lp[0]-u[0]-v[0], lp[1]-u[1]-v[1], lp[2]-u[2]-v[2]];
+    const p1 = [lp[0]+u[0]-v[0], lp[1]+u[1]-v[1], lp[2]+u[2]-v[2]];
+    const p2 = [lp[0]+u[0]+v[0], lp[1]+u[1]+v[1], lp[2]+u[2]+v[2]];
+    const p3 = [lp[0]-u[0]+v[0], lp[1]-u[1]+v[1], lp[2]-u[2]+v[2]];
+    prims.push({type:"tri", v0:p0, v1:p1, v2:p2, n0:[0,-1,0], n1:[0,-1,0], n2:[0,-1,0], uv0:[0,0], uv1:[1,0], uv2:[1,1], mat:mEmit});
+    prims.push({type:"tri", v0:p0, v1:p2, v2:p3, n0:[0,-1,0], n1:[0,-1,0], n2:[0,-1,0], uv0:[0,0], uv1:[1,1], uv2:[0,1], mat:mEmit});
+    lights.push({type:"rect", p:lp, u:u, v:v, emission:[22,18,12]});
+
+    // Directional fill (optional)
+    lights.push({type:"dir", dir:[-0.3,-1.0,0.2], intensity:[0.25,0.28,0.35]});
+
+    const camera = {
+      target:[0,0.2,0.0],
+      radius:7.5,
+      azimuth:-0.9,
+      elevation:0.22,
+      vfov:38,
+      aperture:0.08,
+      focusDist:7.3
+    };
+
+    const env = {
+      type:"sky",
+      sunDir:[0.2,0.7,0.3],
+      sunPow:900.0,
+      sunCol:[2.6,2.2,1.8],
+      tex: textures.envPPM
+    };
+    return {mats, prims, lights, camera, env};
+  }
+
+  function buildLowPolyCarMesh({pos=[0,0,0], scale=1, mat=0}){
+    // A tiny low-poly wedge + cabin, 24 triangles.
+    const P = (x,y,z)=>[pos[0]+x*scale, pos[1]+y*scale, pos[2]+z*scale];
+    const tris = [];
+    function tri(a,b,c, n, uvA=[0,0], uvB=[1,0], uvC=[1,1]){
+      tris.push({type:"tri", v0:a, v1:b, v2:c, n0:n, n1:n, n2:n, uv0:uvA, uv1:uvB, uv2:uvC, mat});
+    }
+    // body box-ish (top slightly slanted)
+    const v = {
+      // lower
+      A:P(-1.6,-0.8, 1.0), B:P( 1.6,-0.8, 1.0), C:P( 1.6,-0.8,-1.0), D:P(-1.6,-0.8,-1.0),
+      // upper
+      E:P(-1.4, 0.0, 0.9), F:P( 1.4, 0.0, 0.9), G:P( 1.2, 0.2,-0.8), H:P(-1.2, 0.2,-0.8),
+      // cabin top
+      I:P(-0.6, 0.9, 0.2), J:P( 0.6, 0.9, 0.2), K:P( 0.5, 0.8,-0.6), L:P(-0.5, 0.8,-0.6),
+    };
+
+    // bottom (two triangles)
+    tri(v.A,v.C,v.B,[0,-1,0]); tri(v.A,v.D,v.C,[0,-1,0]);
+    // sides
+    tri(v.A,v.B,v.F,[0,0,1]); tri(v.A,v.F,v.E,[0,0,1]); // front
+    tri(v.D,v.H,v.G,[0,0,-1]); tri(v.D,v.G,v.C,[0,0,-1]); // back
+    tri(v.A,v.E,v.H,[-1,0,0]); tri(v.A,v.H,v.D,[-1,0,0]); // left
+    tri(v.B,v.C,v.G,[1,0,0]); tri(v.B,v.G,v.F,[1,0,0]); // right
+    // top of body
+    tri(v.E,v.F,v.G,[0,1,0]); tri(v.E,v.G,v.H,[0,1,0]);
+
+    // cabin faces (approx normals)
+    tri(v.I,v.J,v.K,[0,1,0]); tri(v.I,v.K,v.L,[0,1,0]); // cabin roof
+    tri(v.E,v.F,v.J,[0,0.6,0.8]); tri(v.E,v.J,v.I,[0,0.6,0.8]); // cabin front
+    tri(v.L,v.K,v.G,[0,0.6,-0.8]); tri(v.L,v.G,v.H,[0,0.6,-0.8]); // cabin back
+    tri(v.E,v.I,v.L,[-1,0,0]); tri(v.E,v.L,v.H,[-1,0,0]); // cabin left
+    tri(v.F,v.G,v.K,[1,0,0]); tri(v.F,v.K,v.J,[1,0,0]); // cabin right
+
+    // a few extra triangles to "seal" cabin to body
+    tri(v.E,v.I,v.J,[0,1,0]); tri(v.E,v.J,v.F,[0,1,0]);
+    tri(v.H,v.G,v.K,[0,1,0]); tri(v.H,v.K,v.L,[0,1,0]);
+
+    return tris;
+  }
+
+  // -----------------------------
+  // Camera orbit controls (main thread)
+  // -----------------------------
+  const camState = {
+    target:new V3(0,0,0),
+    radius:8,
+    az:0,
+    el:0.15,
+    vfov:40,
+    aperture:0.02,
+    focusDist:8,
+    dragging:false,
+    lastX:0, lastY:0,
+    mode:"orbit"
+  };
+
+  function cameraFromOrbit(){
+    const ce = Math.cos(camState.el), se = Math.sin(camState.el);
+    const ca = Math.cos(camState.az), sa = Math.sin(camState.az);
+    const pos = new V3(
+      camState.target.x + camState.radius * ca * ce,
+      camState.target.y + camState.radius * se,
+      camState.target.z + camState.radius * sa * ce
+    );
+    return {
+      lookfrom:[pos.x,pos.y,pos.z],
+      lookat:[camState.target.x,camState.target.y,camState.target.z],
+      vup:[0,1,0],
+      vfov:camState.vfov,
+      aperture:camState.aperture,
+      focusDist:camState.focusDist
+    };
+  }
+
+  // Mouse controls on view (canvas)
+  let shiftDown = false;
+  can.addEventListener('pointerdown', (e)=>{
+    can.setPointerCapture(e.pointerId);
+    camState.dragging = true;
+    camState.lastX = e.clientX;
+    camState.lastY = e.clientY;
+    camState.mode = shiftDown ? "pan" : "orbit";
+  });
+  can.addEventListener('pointerup', (e)=>{
+    camState.dragging = false;
+  });
+  can.addEventListener('pointermove', (e)=>{
+    if(!camState.dragging) return;
+    const dx = e.clientX - camState.lastX;
+    const dy = e.clientY - camState.lastY;
+    camState.lastX = e.clientX;
+    camState.lastY = e.clientY;
+
+    if(camState.mode === "orbit"){
+      camState.az += dx * 0.006;
+      camState.el += dy * 0.006;
+      camState.el = Math.max(-1.35, Math.min(1.35, camState.el));
+    }else{
+      // pan target in camera plane
+      const cam = cameraFromOrbit();
+      const lf = new V3(...cam.lookfrom);
+      const la = new V3(...cam.lookat);
+      const fwd = la.sub(lf).norm();
+      const right = fwd.cross(new V3(0,1,0)).norm();
+      const up = right.cross(fwd).norm();
+      const s = camState.radius * 0.002;
+      camState.target = camState.target.sub(right.mul(dx*s)).add(up.mul(dy*s));
+    }
+    scheduleCameraChange();
+  });
+  can.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    camState.radius *= Math.exp(e.deltaY * 0.001);
+    camState.radius = Math.max(1.2, Math.min(80, camState.radius));
+    scheduleCameraChange();
+  }, {passive:false});
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==="Shift") shiftDown = true;
+  });
+  window.addEventListener('keyup', (e)=>{
+    if(e.key==="Shift") shiftDown = false;
+  });
+
+  // -----------------------------
+  // Renderer state
+  // -----------------------------
+  const state = {
+    running:false,
+    paused:true,
+    sceneKey:"cornell",
+    scene:null,
+    textures:null,
+
+    // framebuffer
+    w:960, h:540,
+    accum:null,         // Float32 linear RGB
+    img:null,           // ImageData for display
+    display:null,       // Uint8ClampedArray
+
+    // progress
+    currentSPP:0,
+    targetSPP:64,
+    startTime:0,
+    lastStatTime:0,
+    samplesDoneSinceStat:0,
+    raysDoneSinceStat:0,
+    sps:0,
+    rps:0,
+
+    // workers
+    workers:[],
+    workerURLs:[],
+    workerCount:0,
+    pending:0,
+    queue:[],
+    tileSize:32,
+    tilesX:0,
+    tilesY:0,
+    tileCount:0,
+
+    // BVH debug overlay
+    overlayCan:null,
+    overlayCtx:null,
+
+    // versioning (ignore stale worker returns after reset)
+    renderVersion:1
+  };
+
+  function setCanvasSize(w,h){
+    state.w = w; state.h = h;
+    can.width = w; can.height = h;
+    state.accum = new Float32Array(w*h*3);
+    state.img = ctx.createImageData(w,h);
+    state.display = state.img.data;
+    clearImage();
+    drawThumb();
+    ui.stRes.textContent = `${w}×${h}`;
+  }
+
+  function clearImage(){
+    state.accum.fill(0);
+    const d = state.display;
+    for(let i=0;i<d.length;i+=4){ d[i]=0; d[i+1]=0; d[i+2]=0; d[i+3]=255; }
+    ctx.putImageData(state.img,0,0);
+  }
+
+  function drawThumb(){
+    // copy current canvas into thumbnail (fast)
+    tctx.imageSmoothingEnabled = true;
+    tctx.clearRect(0,0,thumb.width,thumb.height);
+    tctx.drawImage(can,0,0,thumb.width,thumb.height);
+  }
+
+  function applyQualityMode(mode){
+    // Preview mode: low res, low spp, fewer bounces and light samples.
+    // Final mode: use UI values.
+    if(mode==="preview"){
+      ui.resScale.value = "0.5";
+      ui.spp.value = "24";
+      ui.bounces.value = "6";
+      ui.lightSamp.value = "2";
+    }else{
+      // keep user settings
+      if(parseInt(ui.spp.value,10) < 64) ui.spp.value = "128";
+      if(parseInt(ui.bounces.value,10) < 8) ui.bounces.value = "10";
+      if(parseInt(ui.lightSamp.value,10) < 4) ui.lightSamp.value = "6";
+      ui.resScale.value = ui.resScale.value || "1";
+    }
+  }
+
+  // -----------------------------
+  // Worker code (single-file via Blob URL)
+  // -----------------------------
+  function makeWorkerCode(){
+    // Educational comments inside worker for ray gen, thin lens, path tracing, BVH.
+    return `
+"use strict";
+
+let SCENE=null;
+let BVH=null;
+let PRIMS=null;
+let LIGHTS=null;
+let MATS=null;
+let TEXS=null;
+let SETTINGS=null;
+
+function clamp01(x){return x<0?0:x>1?1:x;}
+function v3(x=0,y=0,z=0){return {x,y,z};}
+function add(a,b){return v3(a.x+b.x,a.y+b.y,a.z+b.z);}
+function sub(a,b){return v3(a.x-b.x,a.y-b.y,a.z-b.z);}
+function mul(a,s){return v3(a.x*s,a.y*s,a.z*s);}
+function div(a,s){return v3(a.x/s,a.y/s,a.z/s);}
+function dot(a,b){return a.x*b.x+a.y*b.y+a.z*b.z;}
+function cross(a,b){return v3(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);}
+function len(a){return Math.hypot(a.x,a.y,a.z);}
+function norm(a){const l=len(a)||1; return div(a,l);}
+function had(a,b){return v3(a.x*b.x,a.y*b.y,a.z*b.z);}
+function max3(a){return Math.max(a.x,a.y,a.z);}
+function min3(a){return Math.min(a.x,a.y,a.z);}
+function reflect(v,n){return sub(v, mul(n, 2*dot(v,n)));}
+function refract(uv,n,eta){
+  // Snell's law; uv and n assumed normalized.
+  const cosTheta = Math.min(-dot(uv,n), 1.0);
+  const rOutPerp = mul(add(uv, mul(n, cosTheta)), eta);
+  const k = 1.0 - dot(rOutPerp,rOutPerp);
+  if(k < 0) return null;
+  const rOutParallel = mul(n, -Math.sqrt(k));
+  return add(rOutPerp, rOutParallel);
+}
+function schlick(cosine, ior){
+  // Fresnel approximation for dielectrics.
+  let r0 = (1-ior)/(1+ior); r0 = r0*r0;
+  return r0 + (1-r0)*Math.pow(1-cosine,5);
+}
+
+function ray(o,d,t){return {o,d,t};}
+function at(r,tt){return add(r.o, mul(r.d, tt));}
+
+function hash32(x){
+  x|=0; x = Math.imul(x ^ (x>>>16), 0x7feb352d);
+  x = Math.imul(x ^ (x>>>15), 0x846ca68b);
+  x = x ^ (x>>>16);
+  return x|0;
+}
+class RNG{
+  constructor(seed){ this.s = seed|0; }
+  nextU32(){
+    // xorshift32
+    let x = this.s|0;
+    x ^= x<<13; x ^= x>>>17; x ^= x<<5;
+    this.s = x|0;
+    return (x>>>0);
+  }
+  next(){ return (this.nextU32() / 4294967296); }
+}
+
+function randomInUnitDisk(rng){
+  while(true){
+    const x = rng.next()*2-1;
+    const y = rng.next()*2-1;
+    if(x*x+y*y >= 1) continue;
+    return {x,y};
+  }
+}
+function randomInUnitSphere(rng){
+  while(true){
+    const x = rng.next()*2-1;
+    const y = rng.next()*2-1;
+    const z = rng.next()*2-1;
+    if(x*x+y*y+z*z >= 1) continue;
+    return v3(x,y,z);
+  }
+}
+function cosineHemisphere(rng){
+  // Cosine-weighted sampling around +Z; transform to world with basis.
+  const r = Math.sqrt(rng.next());
+  const theta = 2*Math.PI*rng.next();
+  const x = r*Math.cos(theta);
+  const y = r*Math.sin(theta);
+  const z = Math.sqrt(Math.max(0, 1 - r*r));
+  return v3(x,y,z);
+}
+function orthonormalBasis(n){
+  const nn = norm(n);
+  const a = Math.abs(nn.x) > 0.9 ? v3(0,1,0) : v3(1,0,0);
+  const v = norm(cross(nn, a));
+  const u = cross(v, nn);
+  return {u,v,w:nn};
+}
+
+function aabbHit(minA, maxA, r, tMin, tMax){
+  // Slab test
+  for(let axis=0; axis<3; axis++){
+    const o = axis===0? r.o.x : axis===1? r.o.y : r.o.z;
+    const d = axis===0? r.d.x : axis===1? r.d.y : r.d.z;
+    const invD = 1.0 / d;
+    const mn = axis===0? minA[0] : axis===1? minA[1] : minA[2];
+    const mx = axis===0? maxA[0] : axis===1? maxA[1] : maxA[2];
+    let t0 = (mn - o) * invD;
+    let t1 = (mx - o) * invD;
+    if(invD < 0){ const tmp=t0; t0=t1; t1=tmp; }
+    tMin = t0 > tMin ? t0 : tMin;
+    tMax = t1 < tMax ? t1 : tMax;
+    if(tMax <= tMin) return false;
+  }
+  return true;
+}
+
+function hitPrim(prim, r, tMin, tMax){
+  // Returns {t,p,n,uv,front,mat}
+  if(prim.type==="sphere"){
+    // Motion blur: center interpolated by ray time in [0,1]
+    const time = r.t;
+    const c0 = v3(prim.c0[0],prim.c0[1],prim.c0[2]);
+    const c1 = v3(prim.c1[0],prim.c1[1],prim.c1[2]);
+    const c = add(c0, mul(sub(c1,c0), time));
+    const rad = prim.r;
+    const oc = sub(r.o, c);
+    const a = dot(r.d,r.d);
+    const half_b = dot(oc, r.d);
+    const cterm = dot(oc,oc) - rad*rad;
+    const disc = half_b*half_b - a*cterm;
+    if(disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    let root = (-half_b - sq)/a;
+    if(root < tMin || root > tMax){
+      root = (-half_b + sq)/a;
+      if(root < tMin || root > tMax) return null;
+    }
+    const p = at(r, root);
+    const outward = div(sub(p,c), rad);
+    const front = dot(r.d, outward) < 0;
+    const n = front ? outward : mul(outward,-1);
+    // spherical uv
+    const theta = Math.acos(clamp01(-outward.y));
+    const phi = Math.atan2(-outward.z, outward.x) + Math.PI;
+    const u = phi/(2*Math.PI);
+    const v = theta/Math.PI;
+    return {t:root, p, n, uv:[u,v], front, mat:prim.mat};
+  }
+
+  if(prim.type==="plane"){
+    // Finite plane for practicality (educational), with "size" in scene.
+    const p0 = v3(prim.p[0],prim.p[1],prim.p[2]);
+    const n0 = norm(v3(prim.n[0],prim.n[1],prim.n[2]));
+    const denom = dot(n0, r.d);
+    if(Math.abs(denom) < 1e-6) return null;
+    const t = dot(sub(p0,r.o), n0) / denom;
+    if(t < tMin || t > tMax) return null;
+    const p = at(r,t);
+
+    const size = prim.size || 50;
+    const up = Math.abs(n0.y) < 0.99 ? v3(0,1,0) : v3(1,0,0);
+    const tdir = norm(cross(up, n0));
+    const bdir = cross(n0, tdir);
+    const local = sub(p, p0);
+    const x = dot(local, tdir);
+    const y = dot(local, bdir);
+    if(Math.abs(x) > size || Math.abs(y) > size) return null;
+
+    const front = dot(r.d, n0) < 0;
+    const n = front ? n0 : mul(n0,-1);
+    const uv = [(x/size)*0.5+0.5, (y/size)*0.5+0.5];
+    return {t,p,n,uv,front,mat:prim.mat};
+  }
+
+  if(prim.type==="box"){
+    // Axis-aligned box intersection (slab)
+    const mn = prim.min, mx = prim.max;
+    let t0 = tMin, t1 = tMax;
+    let hitAxis = 0;
+    for(let axis=0; axis<3; axis++){
+      const o = axis===0? r.o.x : axis===1? r.o.y : r.o.z;
+      const d = axis===0? r.d.x : axis===1? r.d.y : r.d.z;
+      const invD = 1/d;
+      let a = (mn[axis] - o)*invD;
+      let b = (mx[axis] - o)*invD;
+      if(invD < 0){ const tmp=a; a=b; b=tmp; }
+      if(a > t0){ t0 = a; hitAxis = axis; }
+      if(b < t1) t1 = b;
+      if(t1 <= t0) return null;
+    }
+    const t = t0;
+    if(t < tMin || t > tMax) return null;
+    const p = at(r,t);
+    // approximate normal by which slab produced entry
+    let n = v3(0,0,0);
+    if(hitAxis===0) n.x = (p.x > (mn[0]+mx[0])*0.5) ? 1 : -1;
+    if(hitAxis===1) n.y = (p.y > (mn[1]+mx[1])*0.5) ? 1 : -1;
+    if(hitAxis===2) n.z = (p.z > (mn[2]+mx[2])*0.5) ? 1 : -1;
+    const front = dot(r.d, n) < 0;
+    n = front ? n : mul(n,-1);
+    // crude UV based on dominant axis
+    let u=0, v=0;
+    const ax = Math.abs(n.x), ay=Math.abs(n.y), az=Math.abs(n.z);
+    if(ax>ay && ax>az){ u=(p.z-mn[2])/(mx[2]-mn[2]); v=(p.y-mn[1])/(mx[1]-mn[1]); }
+    else if(ay>az){ u=(p.x-mn[0])/(mx[0]-mn[0]); v=(p.z-mn[2])/(mx[2]-mn[2]); }
+    else{ u=(p.x-mn[0])/(mx[0]-mn[0]); v=(p.y-mn[1])/(mx[1]-mn[1]); }
+    return {t,p,n,uv:[u,v],front,mat:prim.mat};
+  }
+
+  if(prim.type==="tri"){
+    // Möller–Trumbore
+    const v0 = v3(prim.v0[0],prim.v0[1],prim.v0[2]);
+    const v1 = v3(prim.v1[0],prim.v1[1],prim.v1[2]);
+    const v2 = v3(prim.v2[0],prim.v2[1],prim.v2[2]);
+    const e1 = sub(v1,v0);
+    const e2 = sub(v2,v0);
+    const pvec = cross(r.d, e2);
+    const det = dot(e1, pvec);
+    if(Math.abs(det) < 1e-8) return null;
+    const invDet = 1.0/det;
+    const tvec = sub(r.o, v0);
+    const u = dot(tvec, pvec)*invDet;
+    if(u < 0 || u > 1) return null;
+    const qvec = cross(tvec, e1);
+    const v = dot(r.d, qvec)*invDet;
+    if(v < 0 || u+v > 1) return null;
+    const t = dot(e2, qvec)*invDet;
+    if(t < tMin || t > tMax) return null;
+
+    const p = at(r,t);
+    // interpolate normals/uvs if provided
+    const w = 1 - u - v;
+    const n0 = v3(prim.n0[0],prim.n0[1],prim.n0[2]);
+    const n1 = v3(prim.n1[0],prim.n1[1],prim.n1[2]);
+    const n2 = v3(prim.n2[0],prim.n2[1],prim.n2[2]);
+    let nn = add(add(mul(n0,w), mul(n1,u)), mul(n2,v));
+    nn = norm(nn.x||nn.y||nn.z ? nn : cross(e1,e2));
+    const front = dot(r.d, nn) < 0;
+    const n = front ? nn : mul(nn,-1);
+    const uv0 = prim.uv0||[0,0], uv1 = prim.uv1||[1,0], uv2 = prim.uv2||[0,1];
+    const uu = uv0[0]*w + uv1[0]*u + uv2[0]*v;
+    const vv = uv0[1]*w + uv1[1]*u + uv2[1]*v;
+    return {t,p,n,uv:[uu,vv],front,mat:prim.mat};
+  }
+
+  return null;
+}
+
+function traverseBVH(r, tMin, tMax){
+  // Stack-based traversal (iterative) to avoid recursion overhead.
+  const {bvhMin,bvhMax,left,right,start,count,indices,root} = BVH;
+  let hit=null;
+  let closest=tMax;
+
+  const stack = new Int32Array(64);
+  let sp=0;
+  stack[sp++] = root;
+
+  while(sp){
+    const ni = stack[--sp];
+    const mn = [bvhMin[ni*3], bvhMin[ni*3+1], bvhMin[ni*3+2]];
+    const mx = [bvhMax[ni*3], bvhMax[ni*3+1], bvhMax[ni*3+2]];
+    if(!aabbHit(mn,mx,r,tMin,closest)) continue;
+
+    const L = left[ni], R = right[ni];
+    if(L < 0 && R < 0){
+      // leaf
+      const s = start[ni], c = count[ni];
+      for(let i=0;i<c;i++){
+        const prim = PRIMS[indices[s+i]];
+        const h = hitPrim(prim, r, tMin, closest);
+        if(h && h.t < closest){
+          closest = h.t;
+          hit = h;
+        }
+      }
+    }else{
+      // push children
+      if(L>=0) stack[sp++] = L;
+      if(R>=0) stack[sp++] = R;
+    }
+  }
+  return hit;
+}
+
+function hitScene(r, tMin, tMax){
+  if(SETTINGS.useBVH && BVH) return traverseBVH(r,tMin,tMax);
+  // fallback: brute force
+  let hit=null; let closest=tMax;
+  for(let i=0;i<PRIMS.length;i++){
+    const h = hitPrim(PRIMS[i], r, tMin, closest);
+    if(h && h.t < closest){ closest=h.t; hit=h; }
+  }
+  return hit;
+}
+
+// -----------------------------
+// Textures
+// -----------------------------
+function texSample(tex, uv, p){
+  if(!tex) return v3(1,1,1);
+  if(!SETTINGS.useTextures && (tex.type==="checker"||tex.type==="image"||tex.type==="mixtex")) tex = {type:"solid", color:[1,1,1]};
+  if(tex.type==="solid"){
+    return v3(tex.color[0],tex.color[1],tex.color[2]);
+  }
+  if(tex.type==="checker"){
+    const s = tex.scale || 4.0;
+    const u = uv[0]*s, v = uv[1]*s;
+    const k = (Math.floor(u) + Math.floor(v)) & 1;
+    const c = k ? tex.a : tex.b;
+    return v3(c[0],c[1],c[2]);
+  }
+  if(tex.type==="image"){
+    const img = TEXS[tex.texId];
+    if(!img) return v3(1,0,1);
+    let u = uv[0] - Math.floor(uv[0]);
+    let v = uv[1] - Math.floor(uv[1]);
+    const x = Math.min(img.w-1, Math.max(0, (u*img.w)|0));
+    const y = Math.min(img.h-1, Math.max(0, ((1-v)*img.h)|0));
+    const i = (y*img.w + x)*3;
+    return v3(img.data[i]/255, img.data[i+1]/255, img.data[i+2]/255);
+  }
+  if(tex.type==="mixtex"){
+    const a = texSample(tex.a, uv, p);
+    const b = texSample(tex.b, uv, p);
+    const t = clamp01(tex.t);
+    return add(mul(a,1-t), mul(b,t));
+  }
+  return v3(1,1,1);
+}
+
+// -----------------------------
+// Materials + BSDF sampling
+// -----------------------------
+function emitOf(mat){
+  if(mat.type==="emissive") return v3(mat.color[0],mat.color[1],mat.color[2]);
+  return v3(0,0,0);
+}
+
+function scatter(mat, rIn, hit, rng){
+  // Returns {scattered, attenuation, isSpecular, pdf} or null to absorb.
+  if(mat.type==="lambert"){
+    // Diffuse: cosine hemisphere
+    const basis = orthonormalBasis(hit.n);
+    const dLocal = cosineHemisphere(rng);
+    const d = norm(add(add(mul(basis.u, dLocal.x), mul(basis.v, dLocal.y)), mul(basis.w, dLocal.z)));
+    const al = texSample(mat.albedo, hit.uv, hit.p);
+    const pdf = Math.max(0, dot(hit.n,d)) / Math.PI;
+    return {scattered: ray(add(hit.p, mul(hit.n, 1e-4)), d, rIn.t), attenuation: al, isSpecular:false, pdf};
+  }
+  if(mat.type==="metal"){
+    const al = v3(mat.albedo[0],mat.albedo[1],mat.albedo[2]);
+    const rough = Math.max(0, Math.min(1, mat.rough||0));
+    const refl = reflect(norm(rIn.d), hit.n);
+    const fuzz = mul(randomInUnitSphere(rng), rough);
+    const d = norm(add(refl, fuzz));
+    if(dot(d, hit.n) <= 0) return null;
+    return {scattered: ray(add(hit.p, mul(hit.n,1e-4)), d, rIn.t), attenuation: al, isSpecular:true, pdf:1};
+  }
+  if(mat.type==="dielectric"){
+    const ior = mat.ior || 1.5;
+    const att = v3(1,1,1);
+    const unit = norm(rIn.d);
+    const refRatio = hit.front ? (1/ior) : ior;
+    const cosTheta = Math.min(-dot(unit, hit.n), 1.0);
+    const sinTheta = Math.sqrt(Math.max(0,1 - cosTheta*cosTheta));
+    let direction;
+    const cannot = refRatio * sinTheta > 1.0;
+    const prob = schlick(cosTheta, ior);
+    if(cannot || rng.next() < prob){
+      direction = reflect(unit, hit.n);
+    }else{
+      const refr = refract(unit, hit.n, refRatio);
+      direction = refr ? refr : reflect(unit, hit.n);
+    }
+    return {scattered: ray(add(hit.p, mul(direction,1e-4)), direction, rIn.t), attenuation: att, isSpecular:true, pdf:1};
+  }
+  if(mat.type==="emissive"){
+    return null;
+  }
+  if(mat.type==="mix"){
+    // Blend between two sub-materials
+    const t = clamp01(mat.t);
+    const chooseB = rng.next() < t;
+    const m = chooseB ? mat.b : mat.a;
+    const sc = scatter(m, rIn, hit, rng);
+    if(!sc) return null;
+    // Balance weights (simple mixture pdf approach)
+    const w = chooseB ? t : (1-t);
+    sc.attenuation = mul(sc.attenuation, 1/(w||1));
+    return sc;
+  }
+  return null;
+}
+
+// -----------------------------
+// Lights for direct sampling (NEE)
+// -----------------------------
+function sampleLight(rng){
+  if(!LIGHTS || LIGHTS.length===0) return null;
+  const idx = Math.min(LIGHTS.length-1, (rng.next()*LIGHTS.length)|0);
+  return {light:LIGHTS[idx], pdf: 1/LIGHTS.length};
+}
+
+function rectSample(light, rng){
+  const a = rng.next()*2-1;
+  const b = rng.next()*2-1;
+  const p = v3(light.p[0] + light.u[0]*a + light.v[0]*b,
+               light.p[1] + light.u[1]*a + light.v[1]*b,
+               light.p[2] + light.u[2]*a + light.v[2]*b);
+  const u = v3(light.u[0],light.u[1],light.u[2]);
+  const v = v3(light.v[0],light.v[1],light.v[2]);
+  const n = norm(cross(u,v));
+  const area = len(cross(u,v))*4; // since u,v are half-extents (we used [-1,1] coefficients)
+  return {p,n,area};
+}
+
+function directLighting(hit, rIn, rng){
+  // Simple next-event estimation: sample lights explicitly and cast shadow rays.
+  // No full MIS; still educational and useful for soft shadows on area lights.
+  if(!SETTINGS.useNEE) return v3(0,0,0);
+
+  const mat = MATS[hit.mat];
+  if(mat.type==="emissive") return v3(0,0,0);
+
+  let L = v3(0,0,0);
+  const N = Math.max(1, SETTINGS.lightSamples|0);
+  for(let s=0;s<N;s++){
+    const pick = sampleLight(rng);
+    if(!pick) break;
+    const light = pick.light;
+
+    if(light.type==="point"){
+      const lp = v3(light.p[0],light.p[1],light.p[2]);
+      const toL = sub(lp, hit.p);
+      const dist2 = dot(toL,toL);
+      const dist = Math.sqrt(dist2);
+      const wi = div(toL, dist);
+      const ndotl = Math.max(0, dot(hit.n, wi));
+      if(ndotl <= 0) continue;
+
+      // shadow ray
+      const sh = ray(add(hit.p, mul(hit.n,1e-4)), wi, rIn.t);
+      const occ = hitScene(sh, 1e-4, dist-2e-4);
+      if(occ) continue;
+
+      const inten = v3(light.intensity[0],light.intensity[1],light.intensity[2]);
+      const Li = mul(inten, 1/dist2);
+
+      // Lambertian f = albedo/pi; for non-lambert we still approximate direct via albedo (educational).
+      const al = (mat.type==="lambert") ? texSample(mat.albedo, hit.uv, hit.p) :
+                 (mat.type==="metal") ? v3(mat.albedo[0],mat.albedo[1],mat.albedo[2]) : v3(0.9,0.9,0.9);
+      const f = mul(al, 1/Math.PI);
+
+      const pdfLight = pick.pdf; // selecting this light among list
+      // point light sampling pdf for direction is delta; treat as 1 (heuristic). Keep educational rather than fully rigorous.
+      const contrib = mul(had(f,Li), ndotl / Math.max(1e-6,pdfLight));
+      L = add(L, contrib);
+      continue;
+    }
+
+    if(light.type==="dir"){
+      const dir = norm(v3(light.dir[0],light.dir[1],light.dir[2]));
+      const wi = mul(dir, -1); // light comes from -dir
+      const ndotl = Math.max(0, dot(hit.n, wi));
+      if(ndotl <= 0) continue;
+
+      const sh = ray(add(hit.p, mul(hit.n,1e-4)), wi, rIn.t);
+      const occ = hitScene(sh, 1e-4, 1e30);
+      if(occ) continue;
+
+      const inten = v3(light.intensity[0],light.intensity[1],light.intensity[2]);
+      const al = (mat.type==="lambert") ? texSample(mat.albedo, hit.uv, hit.p) :
+                 (mat.type==="metal") ? v3(mat.albedo[0],mat.albedo[1],mat.albedo[2]) : v3(0.9,0.9,0.9);
+      const f = mul(al, 1/Math.PI);
+      const contrib = mul(had(f,inten), ndotl / Math.max(1e-6,pick.pdf));
+      L = add(L, contrib);
+      continue;
+    }
+
+    if(light.type==="rect"){
+      const samp = rectSample(light, rng);
+      const toL = sub(samp.p, hit.p);
+      const dist2 = dot(toL,toL);
+      const dist = Math.sqrt(dist2);
+      const wi = div(toL, dist);
+
+      const ndotl = Math.max(0, dot(hit.n, wi));
+      const lndot = Math.max(0, dot(samp.n, mul(wi,-1)));
+      if(ndotl <= 0 || lndot <= 0) continue;
+
+      const sh = ray(add(hit.p, mul(hit.n,1e-4)), wi, rIn.t);
+      const occ = hitScene(sh, 1e-4, dist-2e-4);
+      if(occ) continue;
+
+      const Le = v3(light.emission[0],light.emission[1],light.emission[2]);
+      // Convert area pdf to solid angle: pdf_dir = dist^2 / (cos * area)
+      const pdfDir = dist2 / Math.max(1e-6, lndot * samp.area);
+      const pdf = pick.pdf * pdfDir;
+
+      const mat = MATS[hit.mat];
+      const al = (mat.type==="lambert") ? texSample(mat.albedo, hit.uv, hit.p) :
+                 (mat.type==="metal") ? v3(mat.albedo[0],mat.albedo[1],mat.albedo[2]) : v3(0.9,0.9,0.9);
+      const f = mul(al, 1/Math.PI);
+
+      const contrib = mul(had(f, Le), ndotl / Math.max(1e-6,pdf));
+      L = add(L, contrib);
+      continue;
+    }
+  }
+
+  return mul(L, 1/N);
+}
+
+// -----------------------------
+// Environment lighting
+// -----------------------------
+function envRadiance(dir){
+  const d = norm(dir);
+  // Procedural sky gradient + bright sun lobe.
+  const t = 0.5*(d.y + 1.0);
+  const skyA = v3(0.55,0.72,1.0);
+  const skyB = v3(0.06,0.07,0.10);
+  let col = add(mul(skyB, 1-t), mul(skyA, t));
+
+  // Sun
+  const sd = norm(v3(SCENE.env.sunDir[0],SCENE.env.sunDir[1],SCENE.env.sunDir[2]));
+  const s = Math.max(0, dot(d, sd));
+  const sunPow = SCENE.env.sunPow || 800.0;
+  const sun = Math.pow(s, sunPow);
+  const sunCol = v3(SCENE.env.sunCol[0],SCENE.env.sunCol[1],SCENE.env.sunCol[2]);
+  col = add(col, mul(sunCol, sun * 8.0));
+
+  // Optional env texture (equirect)
+  if(SETTINGS.useEnvTex && SCENE.env.tex && TEXS["env"]){
+    const u = (Math.atan2(d.z, d.x) + Math.PI) / (2*Math.PI);
+    const v = Math.acos(Math.max(-1,Math.min(1,d.y))) / Math.PI;
+    const img = TEXS["env"];
+    const x = Math.min(img.w-1, Math.max(0, (u*img.w)|0));
+    const y = Math.min(img.h-1, Math.max(0, ((1-v)*img.h)|0));
+    const i = (y*img.w + x)*3;
+    const tex = v3(img.data[i]/255, img.data[i+1]/255, img.data[i+2]/255);
+    // Slight boost to make it more "HDR-ish"
+    col = add(mul(col,0.35), mul(tex,1.8));
+  }
+  return col;
+}
+
+// -----------------------------
+// Camera + ray generation (thin lens)
+// -----------------------------
+function makeCamera(cam, w, h){
+  // Ray generation:
+  // 1) Compute screen-space coordinates (u,v) with AA jitter.
+  // 2) Convert to a ray direction in camera space.
+  // 3) For DOF (thin lens), offset origin on lens disk and aim at focal plane point.
+  const lookfrom = v3(cam.lookfrom[0],cam.lookfrom[1],cam.lookfrom[2]);
+  const lookat = v3(cam.lookat[0],cam.lookat[1],cam.lookat[2]);
+  const vup = v3(cam.vup[0],cam.vup[1],cam.vup[2]);
+  const theta = cam.vfov * Math.PI/180;
+  const halfH = Math.tan(theta/2);
+  const aspect = w/h;
+  const halfW = aspect*halfH;
+
+  const wv = norm(sub(lookfrom, lookat));
+  const uv = norm(cross(vup, wv));
+  const vv = cross(wv, uv);
+
+  const focusDist = cam.focusDist;
+  const origin = lookfrom;
+  const lowerLeft = sub(sub(sub(origin, mul(uv, halfW*focusDist)), mul(vv, halfH*focusDist)), mul(wv, focusDist));
+  const horiz = mul(uv, 2*halfW*focusDist);
+  const vert  = mul(vv, 2*halfH*focusDist);
+
+  const lensRadius = (SETTINGS.useDOF ? (cam.aperture*0.5) : 0.0);
+
+  return {origin, lowerLeft, horiz, vert, uv, vv, wv, lensRadius};
+}
+
+function getRay(cam, s, t, rng){
+  const rd2 = randomInUnitDisk(rng);
+  const offset = add(mul(cam.uv, rd2.x * cam.lensRadius), mul(cam.vv, rd2.y * cam.lensRadius));
+  const o = add(cam.origin, offset);
+  const dir = sub(add(add(cam.lowerLeft, mul(cam.horiz, s)), mul(cam.vert, t)), o);
+  return ray(o, norm(dir), SETTINGS.useMotionBlur ? rng.next() : 0.0);
+}
+
+// -----------------------------
+// Path tracing integrator
+// -----------------------------
+function trace(r, rng){
+  let L = v3(0,0,0);
+  let T = v3(1,1,1);
+  let specularBounce = true;
+
+  const maxBounces = SETTINGS.maxBounces|0;
+
+  for(let bounce=0; bounce<maxBounces; bounce++){
+    const hit = hitScene(r, 1e-4, 1e30);
+    if(!hit){
+      const env = envRadiance(r.d);
+      L = add(L, had(T, env));
+      break;
+    }
+
+    const mat = MATS[hit.mat];
+    const Le = emitOf(mat);
+
+    // If we hit a light source: add emission only for camera ray or after specular bounces
+    if((Le.x||Le.y||Le.z) && (specularBounce || bounce===0)){
+      L = add(L, had(T, Le));
+    }
+
+    // Next-event estimation (soft shadows on area lights)
+    if(SETTINGS.useNEE){
+      const Dl = directLighting(hit, r, rng);
+      L = add(L, had(T, Dl));
+    }
+
+    const sc = scatter(mat, r, hit, rng);
+    if(!sc) break;
+
+    // Update throughput by attenuation; for diffuse also includes cosine/pdf implicitly by cosine sampling
+    // (Educational simplification: Lambertian uses cosine-weighted sampling, so f*cos/pdf becomes albedo.)
+    if(!sc.isSpecular){
+      // For lambert with cosine sampling: f*cos/pdf == albedo.
+      // For other non-specular materials we keep it simple.
+      T = had(T, sc.attenuation);
+    }else{
+      T = had(T, sc.attenuation);
+    }
+
+    r = sc.scattered;
+    specularBounce = sc.isSpecular;
+
+    // Russian roulette termination
+    if(bounce >= 3){
+      const q = Math.max(0.05, Math.min(0.95, max3(T)));
+      if(rng.next() > q) break;
+      T = div(T, q);
+    }
+  }
+  return L;
+}
+
+// -----------------------------
+// Rendering entrypoint
+// -----------------------------
+self.onmessage = (ev) => {
+  const msg = ev.data;
+  if(msg.type === "init"){
+    SCENE = msg.scene;
+    PRIMS = msg.prims;
+    LIGHTS = msg.lights;
+    MATS = msg.mats;
+    TEXS = msg.texs || {};
+    SETTINGS = msg.settings || {};
+    BVH = msg.bvh || null;
+    return;
+  }
+  if(msg.type === "render"){
+    SETTINGS = msg.settings || SETTINGS;
+    const {w,h,tile, sampleIndex, sppBatch, camera, version, workerId} = msg;
+    const cam = makeCamera(camera, w, h);
+    const x0 = tile.x0|0, y0 = tile.y0|0, x1 = tile.x1|0, y1 = tile.y1|0;
+    const tw = x1-x0, th = y1-y0;
+    const out = new Float32Array(tw*th*3);
+
+    let rays = 0;
+    const tStart = performance.now();
+
+    for(let y=y0; y<y1; y++){
+      for(let x=x0; x<x1; x++){
+        const pi = ((y-y0)*tw + (x-x0))*3;
+        let col = v3(0,0,0);
+
+        // Each request can compute multiple samples for a tile (batching).
+        for(let s=0; s<sppBatch; s++){
+          // Deterministic seed per pixel per sample for reproducibility
+          const seed = hash32((x*1973) ^ (y*9277) ^ ((sampleIndex+s)*26699) ^ (workerId*811) ^ 0x9e3779b9);
+          const rng = new RNG(seed);
+
+          // Anti-aliasing: jitter within pixel
+          const u = (x + rng.next()) / (w - 1);
+          const v = (y + rng.next()) / (h - 1);
+
+          const rr = getRay(cam, u, 1-v, rng);
+          const L = trace(rr, rng);
+          col = add(col, L);
+
+          // Rough ray estimate: 1 primary + up to bounces (not exact; includes shadow rays)
+          rays += (SETTINGS.maxBounces|0) + (SETTINGS.useNEE ? (SETTINGS.lightSamples|0) : 0) + 1;
+        }
+
+        out[pi]   = col.x;
+        out[pi+1] = col.y;
+        out[pi+2] = col.z;
+      }
+    }
+
+    const tMs = performance.now() - tStart;
+    self.postMessage({type:"tile", tile, data:out, sampleIndex, sppBatch, rays, ms:tMs, version}, [out.buffer]);
+    return;
+  }
+};
+`;
+  }
+
+  function makeWorkerURL(){
+    const code = makeWorkerCode();
+    const blob = new Blob([code], {type:'application/javascript'});
+    return URL.createObjectURL(blob);
+  }
+
+  function killWorkers(){
+    for(const w of state.workers) try{ w.terminate(); }catch(_){}
+    for(const u of state.workerURLs) try{ URL.revokeObjectURL(u); }catch(_){}
+    state.workers.length = 0;
+    state.workerURLs.length = 0;
+    state.workerCount = 0;
+  }
+
+  function startWorkers(n){
+    killWorkers();
+    const url = makeWorkerURL();
+    for(let i=0;i<n;i++){
+      const w = new Worker(url);
+      w.onmessage = onWorkerMessage;
+      w.onerror = (e)=>log(`Worker error: ${e.message || e}`, "err");
+      state.workers.push(w);
+      state.workerURLs.push(url); // same url; revoke later
+    }
+    state.workerCount = n;
+    ui.dbgW.textContent = String(n);
+  }
+
+  // -----------------------------
+  // Tiling + job queue
+  // -----------------------------
+  function rebuildTiles(){
+    const ts = state.tileSize|0;
+    state.tilesX = Math.ceil(state.w / ts);
+    state.tilesY = Math.ceil(state.h / ts);
+    state.tileCount = state.tilesX * state.tilesY;
+    ui.stTiles.textContent = `${state.tileCount} (${state.tilesX}×${state.tilesY})`;
+  }
+  function enqueuePass(sppBatch=1){
+    state.queue.length = 0;
+    const ts = state.tileSize|0;
+    for(let ty=0; ty<state.tilesY; ty++){
+      for(let tx=0; tx<state.tilesX; tx++){
+        const x0 = tx*ts, y0 = ty*ts;
+        const x1 = Math.min(state.w, x0+ts);
+        const y1 = Math.min(state.h, y0+ts);
+        state.queue.push({x0,y0,x1,y1});
+      }
+    }
+    // simple "coarse first": shuffle to show blocks across the image early
+    state.queue.sort((a,b)=> (a.y0+a.x0) - (b.y0+b.x0));
+    dispatchQueue(sppBatch);
+  }
+
+  function dispatchQueue(sppBatch=1){
+    if(!state.running || state.paused) return;
+    state.pending = 0;
+    const version = state.renderVersion;
+    const camera = cameraFromOrbit();
+    const settings = gatherSettings();
+
+    for(let i=0;i<state.workerCount;i++) pumpWorker(i, sppBatch, camera, settings, version);
+  }
+
+  function pumpWorker(workerId, sppBatch, camera, settings, version){
+    if(!state.running || state.paused) return;
+    const w = state.workers[workerId];
+    if(!w) return;
+
+    const tile = state.queue.pop();
+    if(!tile) return;
+
+    state.pending++;
+    w.postMessage({
+      type:"render",
+      w:state.w,
+      h:state.h,
+      tile,
+      sampleIndex: state.currentSPP,
+      sppBatch,
+      camera,
+      settings,
+      version,
+      workerId
+    });
+  }
+
+  function onWorkerMessage(ev){
+    const msg = ev.data;
+    if(msg.type !== "tile") return;
+    if(msg.version !== state.renderVersion) return; // stale
+    const {tile, data, sppBatch, rays, ms} = msg;
+
+    // accumulate into framebuffer
+    const tw = tile.x1 - tile.x0;
+    const th = tile.y1 - tile.y0;
+    const accum = state.accum;
+    const w = state.w;
+    for(let yy=0; yy<th; yy++){
+      const y = tile.y0 + yy;
+      let dst = (y*w + tile.x0)*3;
+      let src = (yy*tw)*3;
+      for(let xx=0; xx<tw; xx++){
+        accum[dst]   += data[src];
+        accum[dst+1] += data[src+1];
+        accum[dst+2] += data[src+2];
+        dst += 3;
+        src += 3;
+      }
+    }
+
+    // stats
+    state.samplesDoneSinceStat += (tw*th*sppBatch);
+    state.raysDoneSinceStat += (rays|0);
+
+    // update display for tile
+    updateDisplayTile(tile);
+
+    state.pending--;
+    if(state.queue.length){
+      // continue pumping the worker
+      const camera = cameraFromOrbit();
+      const settings = gatherSettings();
+      const workerId = state.workers.indexOf(ev.target);
+      pumpWorker(workerId<0?0:workerId, sppBatch, camera, settings, state.renderVersion);
+    }else if(state.pending === 0){
+      // Finished full pass
+      state.currentSPP += sppBatch;
+      ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`;
+
+      updateStats();
+
+      if(state.currentSPP < state.targetSPP && state.running && !state.paused){
+        // Next sample pass
+        enqueuePass(1);
+      }else{
+        state.paused = true;
+        ui.pauseBtn.textContent = "Resume";
+      }
+    }
+  }
+
+  // -----------------------------
+  // Tonemapping and display
+  // -----------------------------
+  function updateDisplayTile(tile){
+    const w = state.w, h = state.h;
+    const accum = state.accum;
+    const spp = Math.max(1, state.currentSPP || 1);
+    const exposure = parseFloat(ui.exposure.value);
+    const useTone = ui.togTone.checked && !ui.togRaw.checked;
+    const raw = ui.togRaw.checked;
+
+    const d = state.display;
+    for(let y=tile.y0; y<tile.y1; y++){
+      for(let x=tile.x0; x<tile.x1; x++){
+        const i3 = (y*w + x)*3;
+        let r = accum[i3] / spp;
+        let g = accum[i3+1] / spp;
+        let b = accum[i3+2] / spp;
+
+        // exposure in linear
+        r *= exposure; g *= exposure; b *= exposure;
+
+        if(useTone){
+          // Reinhard: c/(1+c) per channel (simple global operator)
+          r = r / (1 + r);
+          g = g / (1 + g);
+          b = b / (1 + b);
+        }else if(raw){
+          // raw display: clamp only
+          r = Math.min(4, Math.max(0, r));
+          g = Math.min(4, Math.max(0, g));
+          b = Math.min(4, Math.max(0, b));
+          // compress slightly so raw isn't blown out
+          const k = 1/2.0;
+          r *= k; g *= k; b *= k;
+        }
+
+        const o = (y*w + x)*4;
+        d[o]   = toSRGB8(r);
+        d[o+1] = toSRGB8(g);
+        d[o+2] = toSRGB8(b);
+        d[o+3] = 255;
+      }
+    }
+    ctx.putImageData(state.img, 0,0, tile.x0, tile.y0, tile.x1-tile.x0, tile.y1-tile.y0);
+    drawThumb();
+    if(ui.togBVHVis.checked) drawBVHOverlay();
+  }
+
+  // -----------------------------
+  // BVH overlay (approx): project node AABBs to screen and draw 2D bounds.
+  // This is a debug/educational visualization rather than a precise raster of BVH in 3D.
+  // -----------------------------
+  let overlay = null;
+  function ensureOverlay(){
+    if(overlay) return overlay;
+    overlay = document.createElement('canvas');
+    overlay.width = can.width;
+    overlay.height = can.height;
+    overlay.style.position = "absolute";
+    overlay.style.left = can.offsetLeft+"px";
+    overlay.style.top = can.offsetTop+"px";
+    overlay.style.pointerEvents = "none";
+    overlay.style.width = getComputedStyle(can).width;
+    overlay.style.height = getComputedStyle(can).height;
+    overlay.style.borderRadius = getComputedStyle(can).borderRadius;
+    overlay.style.mixBlendMode = "screen";
+    document.getElementById('view').appendChild(overlay);
+    return overlay;
+  }
+
+  function projectPoint(cam, p, w, h){
+    // Simple perspective projection using camera basis.
+    const lf = new V3(...cam.lookfrom);
+    const la = new V3(...cam.lookat);
+    const fwd = la.sub(lf).norm();
+    const right = fwd.cross(new V3(0,1,0)).norm();
+    const up = right.cross(fwd).norm();
+
+    const rel = new V3(p[0],p[1],p[2]).sub(lf);
+    const x = rel.dot(right);
+    const y = rel.dot(up);
+    const z = rel.dot(fwd);
+    if(z <= 1e-3) return null;
+
+    const vfov = cam.vfov * Math.PI/180;
+    const halfH = Math.tan(vfov/2);
+    const halfW = (w/h)*halfH;
+    const ndcX = x / (z*halfW);
+    const ndcY = y / (z*halfH);
+    const sx = (ndcX*0.5 + 0.5) * w;
+    const sy = (1-(ndcY*0.5 + 0.5)) * h;
+    return [sx,sy];
+  }
+
+  function drawBVHOverlay(){
+    if(!ui.togBVHVis.checked || !state.scene || !state.scene.bvh || !state.scene.bvh.bvhMin) {
+      ui.dbgBVH.textContent = ui.t
+ogBVH.checked ? "ON" : "OFF";
+      ui.dbgBVH.style.color = ui.togBVH.checked ? "var(--acc)" : "var(--bad)";
+      // If overlay was created earlier, clear it.
+      if(overlay){
+        const octx = overlay.getContext('2d');
+        octx.clearRect(0,0,overlay.width,overlay.height);
+      }
+      return;
+    }
+
+    ui.dbgBVH.textContent = ui.togBVH.checked ? "ON" : "OFF";
+    ui.dbgBVH.style.color = ui.togBVH.checked ? "var(--acc)" : "var(--bad)";
+
+    const ov = ensureOverlay();
+    // Keep overlay resolution matched to render resolution (not CSS pixels).
+    if(ov.width !== can.width || ov.height !== can.height){
+      ov.width = can.width;
+      ov.height = can.height;
+    }
+    ov.style.width = getComputedStyle(can).width;
+    ov.style.height = getComputedStyle(can).height;
+    ov.style.borderRadius = getComputedStyle(can).borderRadius;
+
+    const octx = ov.getContext('2d');
+    octx.clearRect(0,0,ov.width,ov.height);
+
+    const cam = cameraFromOrbit();
+    const bvh = state.scene.bvh;
+    const N = bvh.nodeCount|0;
+
+    // Draw only a subset for readability (top nodes + some leaves).
+    const maxDraw = Math.min(N, 96);
+    octx.lineWidth = 1;
+    octx.strokeStyle = "rgba(71,255,210,0.55)";
+    octx.fillStyle = "rgba(71,255,210,0.08)";
+
+    for(let i=0;i<maxDraw;i++){
+      const mn = [
+        bvh.bvhMin[i*3+0], bvh.bvhMin[i*3+1], bvh.bvhMin[i*3+2]
+      ];
+      const mx = [
+        bvh.bvhMax[i*3+0], bvh.bvhMax[i*3+1], bvh.bvhMax[i*3+2]
+      ];
+
+      const corners = [
+        [mn[0],mn[1],mn[2]],[mx[0],mn[1],mn[2]],[mn[0],mx[1],mn[2]],[mx[0],mx[1],mn[2]],
+        [mn[0],mn[1],mx[2]],[mx[0],mn[1],mx[2]],[mn[0],mx[1],mx[2]],[mx[0],mx[1],mx[2]],
+      ];
+
+      let minX=1e9, minY=1e9, maxX=-1e9, maxY=-1e9;
+      let ok=0;
+      for(const c of corners){
+        const p = projectPoint(cam, c, ov.width, ov.height);
+        if(!p) continue;
+        ok++;
+        minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]);
+        maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]);
+      }
+      if(ok < 2) continue;
+
+      // Skip if huge / offscreen
+      if(maxX < -50 || maxY < -50 || minX > ov.width+50 || minY > ov.height+50) continue;
+
+      const w = maxX - minX, h = maxY - minY;
+      if(w < 2 || h < 2) continue;
+
+      octx.beginPath();
+      octx.rect(minX, minY, w, h);
+      octx.fill();
+      octx.stroke();
+    }
+  }
+
+  // -----------------------------
+  // Settings gather / scene init
+  // -----------------------------
+  function gatherSettings(){
+    const s = {
+      maxBounces: Math.max(1, parseInt(ui.bounces.value,10)|0),
+      lightSamples: Math.max(1, parseInt(ui.lightSamp.value,10)|0),
+      useBVH: !!ui.togBVH.checked,
+      useDOF: !!ui.togDOF.checked,
+      useMotionBlur: !!ui.togMB.checked,
+      useTextures: !!ui.togTex.checked,
+      useNEE: !!ui.togNEE.checked,
+      useEnvTex: !!ui.togEnvTex.checked
+    };
+    ui.dbgBVH.textContent = s.useBVH ? "ON" : "OFF";
+    ui.dbgBVH.style.color = s.useBVH ? "var(--acc)" : "var(--bad)";
+    return s;
+  }
+
+  function clampInt(v, lo, hi){ v = v|0; return v<lo?lo:v>hi?hi:v; }
+
+  function computeRenderResolution(){
+    // Base resolution chosen for education; scale via UI.
+    const scale = parseFloat(ui.resScale.value);
+    const baseW = 960, baseH = 540;
+    const w = Math.max(160, Math.floor(baseW * scale));
+    const h = Math.max(90,  Math.floor(baseH * scale));
+    return {w,h};
+  }
+
+  function loadTextures(){
+    try{
+      const ppm = makeTexturePPMFromBase64(EMBED_PPM_B64);
+      // Keep two keys: "ppm1" for floor, "env" for environment sampling.
+      state.textures = {
+        ppm1: ppm,
+        env: ppm,
+        // Helper for scene constructors that want a truthy flag:
+        envPPM: true
+      };
+      log(`Loaded embedded PPM texture (${ppm.w}×${ppm.h}).`);
+    }catch(e){
+      state.textures = {envPPM:false};
+      log(`Texture parse failed: ${e.message}`, "warn");
+    }
+  }
+
+  function makeSceneByKey(key){
+    if(key==="cornell") return makeCornellScene(state.textures);
+    if(key==="spheres") return makeSpheresScene(state.textures);
+    return makeMeshScene(state.textures);
+  }
+
+  function initScene(key){
+    state.sceneKey = key;
+    const scene = makeSceneByKey(key);
+
+    // Copy camera preset into orbit camera state
+    camState.target = new V3(scene.camera.target[0],scene.camera.target[1],scene.camera.target[2]);
+    camState.radius = scene.camera.radius;
+    camState.az = scene.camera.azimuth;
+    camState.el = scene.camera.elevation;
+    camState.vfov = scene.camera.vfov;
+    camState.aperture = scene.camera.aperture;
+    camState.focusDist = scene.camera.focusDist;
+
+    // Sync UI camera sliders (aperture/focus)
+    ui.aperture.value = String(camState.aperture);
+    ui.focus.value = String(camState.focusDist);
+
+    // Build BVH now (scene load time)
+    const bvh = buildBVH(scene.prims, 4);
+    scene.bvh = bvh;
+
+    // Stats: prim count + node count
+    ui.stPrim.textContent = String(scene.prims.length);
+    ui.stBVH.textContent = String(bvh.nodeCount|0);
+
+    // Make render resolution and framebuffer
+    const {w,h} = computeRenderResolution();
+    setCanvasSize(w,h);
+    rebuildTiles();
+
+    state.scene = scene;
+
+    // Init workers (or fake workers)
+    const hc = navigator.hardwareConcurrency || 4;
+    const want = clampInt(parseInt(ui.workers.value,10)||4, 1, hc);
+    ui.workers.max = String(hc);
+    tryStartWorkers(want);
+
+    // Push scene data to workers
+    broadcastInitToWorkers();
+
+    // Reset accumulation and update UI
+    resetAccumulation();
+    if(ui.togBVHVis.checked) drawBVHOverlay();
+
+    log(`Scene loaded: ${key}. Prims=${scene.prims.length}, BVH nodes=${bvh.nodeCount}.`);
+  }
+
+  function broadcastInitToWorkers(){
+    if(!state.scene) return;
+    const scene = state.scene;
+    const settings = gatherSettings();
+
+    const texs = state.textures ? {
+      ppm1: state.textures.ppm1 ? {w:state.textures.ppm1.w,h:state.textures.ppm1.h,data:state.textures.ppm1.data} : null,
+      env: state.textures.env ? {w:state.textures.env.w,h:state.textures.env.h,data:state.textures.env.data} : null
+    } : {};
+
+    // Worker expects BVH object with flattened arrays and root + indices.
+    const bvh = scene.bvh ? {
+      root: scene.bvh.root,
+      indices: scene.bvh.indices,
+      bvhMin: scene.bvh.bvhMin,
+      bvhMax: scene.bvh.bvhMax,
+      left: scene.bvh.left,
+      right: scene.bvh.right,
+      start: scene.bvh.start,
+      count: scene.bvh.count
+    } : null;
+
+    for(const w of state.workers){
+      w.postMessage({
+        type:"init",
+        scene:{ env: scene.env },
+        prims: scene.prims,
+        lights: scene.lights,
+        mats: scene.mats,
+        texs,
+        settings,
+        bvh
+      });
+    }
+  }
+
+  // -----------------------------
+  // Workers + fallback
+  // -----------------------------
+  function makeFakeWorkerFromCode(code){
+    // Runs the worker script on the main thread (single-thread fallback).
+    // It emulates a Worker interface enough for this renderer.
+    let fake = null;
+    const selfObj = {};
+    selfObj.postMessage = (data /*, transfer*/) => {
+      // Async deliver like a real worker
+      setTimeout(() => {
+        if(fake && typeof fake.onmessage === "function") fake.onmessage({data});
+      }, 0);
+    };
+
+    try{
+      // Wrap in a function so "self" resolves inside the worker code.
+      const fn = new Function("self","performance", code);
+      fn(selfObj, performance);
+    }catch(e){
+      throw new Error("FakeWorker eval failed: "+e.message);
+    }
+
+    fake = {
+      onmessage:null,
+      onerror:null,
+      postMessage(msg){
+        try{
+          if(typeof selfObj.onmessage === "function") selfObj.onmessage({data:msg});
+        }catch(e){
+          if(this.onerror) this.onerror(e);
+        }
+      },
+      terminate(){ /* no-op */ }
+    };
+    return fake;
+  }
+
+  function tryStartWorkers(n){
+    killWorkers();
+
+    const code = makeWorkerCode();
+    const hc = navigator.hardwareConcurrency || 4;
+    n = clampInt(n, 1, hc);
+
+    // Try real web workers first
+    let url = null;
+    try{
+      url = makeWorkerURL();
+      for(let i=0;i<n;i++){
+        const w = new Worker(url);
+        w.onmessage = onWorkerMessage;
+        w.onerror = (e)=>log(`Worker error: ${e.message || e}`, "err");
+        state.workers.push(w);
+        state.workerURLs.push(url);
+      }
+      state.workerCount = n;
+      ui.dbgW.textContent = String(n);
+      log(`Started ${n} Web Worker(s).`);
+      return;
+    }catch(e){
+      log(`Web Workers unavailable/blocked; using single-thread fallback. (${e.message || e})`, "warn");
+      try{ if(url) URL.revokeObjectURL(url); }catch(_){}
+    }
+
+    // Fallback: fake workers (still respects "worker count" setting, but runs sequentially)
+    try{
+      const m = Math.max(1, Math.min(1, n)); // keep it 1 for determinism on main thread
+      for(let i=0;i<m;i++){
+        const fw = makeFakeWorkerFromCode(code);
+        fw.onmessage = onWorkerMessage;
+        fw.onerror = (e)=>log(`FakeWorker error: ${e.message || e}`, "err");
+        state.workers.push(fw);
+      }
+      state.workerCount = m;
+      ui.dbgW.textContent = String(m);
+      log(`Started FakeWorker fallback (single-thread).`);
+    }catch(err){
+      state.workerCount = 0;
+      ui.dbgW.textContent = "0";
+      log(`Failed to start fallback renderer: ${err.message}`, "err");
+    }
+  }
+
+  // -----------------------------
+  // Render control
+  // -----------------------------
+  function resetAccumulation(){
+    state.renderVersion++;
+    state.currentSPP = 0;
+    state.pending = 0;
+    state.queue.length = 0;
+    clearImage();
+    ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`;
+    state.samplesDoneSinceStat = 0;
+    state.raysDoneSinceStat = 0;
+    state.lastStatTime = performance.now();
+    state.startTime = performance.now();
+    updateStats(true);
+  }
+
+  function startRender(){
+    if(!state.scene) initScene(ui.sceneSel.value);
+    if(state.workerCount <= 0){
+      log("No workers available. Rendering cannot start.", "err");
+      return;
+    }
+
+    const target = Math.max(1, parseInt(ui.spp.value,10)|0);
+    state.targetSPP = target;
+    ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`;
+
+    // Update camera params from sliders
+    camState.aperture = parseFloat(ui.aperture.value);
+    camState.focusDist = parseFloat(ui.focus.value);
+
+    // Re-broadcast settings in case toggles changed
+    broadcastInitToWorkers();
+
+    state.running = true;
+    state.paused = false;
+    ui.pauseBtn.textContent = "Pause";
+
+    // fresh queue for current pass
+    enqueuePass(1);
+    log("Rendering started.");
+  }
+
+  function pauseToggle(){
+    if(!state.running){
+      startRender();
+      return;
+    }
+    state.paused = !state.paused;
+    ui.pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+    if(!state.paused){
+      // Resume: if nothing queued, start next pass
+      if(state.queue.length===0 && state.pending===0 && state.currentSPP < state.targetSPP){
+        enqueuePass(1);
+      }else{
+        dispatchQueue(1);
+      }
+      log("Resumed.");
+    }else{
+      log("Paused.");
+    }
+  }
+
+  function stopAndReset(){
+    state.running = false;
+    state.paused = true;
+    ui.pauseBtn.textContent = "Resume";
+    resetAccumulation();
+    log("Reset accumulation.");
+  }
+
+  // Step one SPP: do exactly one pass and pause when done
+  function stepOne(){
+    if(!state.scene) initScene(ui.sceneSel.value);
+    if(state.workerCount <= 0) return;
+
+    const target = Math.max(1, parseInt(ui.spp.value,10)|0);
+    state.targetSPP = target;
+    ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`;
+    if(state.currentSPP >= state.targetSPP){
+      log("Already at target SPP.");
+      return;
+    }
+
+    camState.aperture = parseFloat(ui.aperture.value);
+    camState.focusDist = parseFloat(ui.focus.value);
+    broadcastInitToWorkers();
+
+    state.running = true;
+    state.paused = false;
+    state.stepOnce = true;
+    ui.pauseBtn.textContent = "Pause";
+    enqueuePass(1);
+    log("Stepping +1 SPP.");
+  }
+
+  // Hook stepOnce into pass completion:
+  const _oldOnWorkerMessage = onWorkerMessage;
+  function onWorkerMessage(ev){
+    _oldOnWorkerMessage(ev);
+    // Detect end-of-pass by observing queue empty + pending==0 and SPP advanced.
+    // Our core handler pauses at end-of-render; for stepOnce we want pause after each pass.
+    if(state.stepOnce && state.queue.length===0 && state.pending===0){
+      state.stepOnce = false;
+      state.paused = true;
+      ui.pauseBtn.textContent = "Resume";
+      log("Step complete; paused.");
+    }
+  }
+  // Reattach new handler to any existing workers
+  function rebindWorkerHandlers(){
+    for(const w of state.workers) w.onmessage = onWorkerMessage;
+  }
+
+  // -----------------------------
+  // Stats + ETA
+  // -----------------------------
+  function fmtTime(sec){
+    if(!isFinite(sec)) return "—";
+    if(sec < 60) return sec.toFixed(1)+"s";
+    const m = Math.floor(sec/60), s = Math.floor(sec%60);
+    return `${m}m ${s}s`;
+  }
+  function updateStats(force=false){
+    const now = performance.now();
+    if(!force && now - state.lastStatTime < 350) return;
+
+    const dt = Math.max(1e-3, (now - state.lastStatTime)/1000);
+    const elapsed = (now - state.startTime)/1000;
+
+    const sps = state.samplesDoneSinceStat / dt;
+    const rps = state.raysDoneSinceStat / dt;
+    state.sps = sps;
+    state.rps = rps;
+    ui.stSps.textContent = sps.toFixed(0);
+    ui.stRps.textContent = rps.toFixed(0);
+
+    const remainingSPP = Math.max(0, state.targetSPP - state.currentSPP);
+    const remainingSamples = remainingSPP * state.w * state.h;
+    const eta = sps > 0 ? (remainingSamples / sps) : Infinity;
+
+    ui.stTime.textContent = `${fmtTime(elapsed)} | ETA ${fmtTime(eta)}`;
+
+    state.samplesDoneSinceStat = 0;
+    state.raysDoneSinceStat = 0;
+    state.lastStatTime = now;
+  }
+
+  // -----------------------------
+  // Camera change debounce
+  // -----------------------------
+  let camTimer = 0;
+  function scheduleCameraChange(){
+    clearTimeout(camTimer);
+    camTimer = setTimeout(()=>{
+      if(!state.scene) return;
+      // any camera move invalidates accumulation
+      resetAccumulation();
+      if(state.running && !state.paused){
+        enqueuePass(1);
+      }else{
+        // keep paused; show new view by rendering 1 SPP quickly if desired
+      }
+    }, 80);
+  }
+
+  // Keep camState synced with sliders (DOF params)
+  ui.aperture.addEventListener('input', ()=>{ camState.aperture = parseFloat(ui.aperture.value); scheduleCameraChange(); });
+  ui.focus.addEventListener('input', ()=>{ camState.focusDist = parseFloat(ui.focus.value); scheduleCameraChange(); });
+
+  // -----------------------------
+  // Save / export
+  // -----------------------------
+  function downloadDataURL(dataURL, name){
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function exportCanvasPNG(name){
+    // Export current displayed (tonemapped or raw view) from canvas.
+    const url = can.toDataURL("image/png");
+    downloadDataURL(url, name);
+  }
+
+  function exportTonemappedOffscreen(name, raw=false){
+    // Render a fresh ImageData from accum without disturbing UI toggles.
+    const w = state.w, h = state.h;
+    const spp = Math.max(1, state.currentSPP||1);
+    const exposure = parseFloat(ui.exposure.value);
+    const useTone = ui.togTone.checked && !raw;
+
+    const tmp = new ImageData(w,h);
+    const d = tmp.data;
+    for(let i=0;i<w*h;i++){
+      let r = state.accum[i*3] / spp;
+      let g = state.accum[i*3+1] / spp;
+      let b = state.accum[i*3+2] / spp;
+
+      r *= exposure; g *= exposure; b *= exposure;
+
+      if(useTone){
+        // Simple Reinhard operator: c/(1+c). [web:11]
+        r = r/(1+r); g = g/(1+g); b = b/(1+b);
+      }else{
+        r = Math.min(4, Math.max(0,r))*0.5;
+        g = Math.min(4, Math.max(0,g))*0.5;
+        b = Math.min(4, Math.max(0,b))*0.5;
+      }
+
+      d[i*4]   = toSRGB8(r);
+      d[i*4+1] = toSRGB8(g);
+      d[i*4+2] = toSRGB8(b);
+      d[i*4+3] = 255;
+    }
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    off.getContext('2d', {alpha:false}).putImageData(tmp,0,0);
+    downloadDataURL(off.toDataURL("image/png"), name);
+  }
+
+  // -----------------------------
+  // UI bindings
+  // -----------------------------
+  ui.startBtn.addEventListener('click', ()=>{
+    rebindWorkerHandlers();
+    startRender();
+  });
+  ui.pauseBtn.addEventListener('click', ()=> pauseToggle());
+  ui.resetBtn.addEventListener('click', ()=>{
+    state.running = false;
+    state.paused = true;
+    ui.pauseBtn.textContent = "Resume";
+    resetAccumulation();
+  });
+  ui.stepBtn.addEventListener('click', ()=>{
+    rebindWorkerHandlers();
+    stepOne();
+  });
+
+  ui.saveBtn.addEventListener('click', ()=>{
+    const name = `render_${state.sceneKey}_${state.currentSPP}spp.png`;
+    exportCanvasPNG(name);
+  });
+  ui.saveRawBtn.addEventListener('click', ()=>{
+    const name = `render_${state.sceneKey}_${state.currentSPP}spp_${ui.togRaw.checked?"raw":"tonemapped"}.png`;
+    exportTonemappedOffscreen(name, ui.togRaw.checked);
+  });
+
+  ui.sceneSel.addEventListener('change', ()=>{
+    initScene(ui.sceneSel.value);
+  });
+
+  ui.modeSel.addEventListener('change', ()=>{
+    applyQualityMode(ui.modeSel.value);
+    initScene(ui.sceneSel.value);
+  });
+
+  ui.resScale.addEventListener('change', ()=>{
+    initScene(ui.sceneSel.value);
+  });
+
+  ui.spp.addEventListener('change', ()=>{ state.targetSPP = Math.max(1, parseInt(ui.spp.value,10)|0); ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`; });
+  ui.bounces.addEventListener('change', ()=>{ broadcastInitToWorkers(); resetAccumulation(); });
+  ui.lightSamp.addEventListener('change', ()=>{ broadcastInitToWorkers(); resetAccumulation(); });
+  ui.workers.addEventListener('change', ()=>{ initScene(ui.sceneSel.value); });
+
+  ui.tile.addEventListener('change', ()=>{
+    state.tileSize = clampInt(parseInt(ui.tile.value,10)||32, 8, 256);
+    rebuildTiles();
+    resetAccumulation();
+  });
+
+  // Feature toggles that affect integrator
+  const toggles = [ui.togDOF,ui.togMB,ui.togTex,ui.togBVH,ui.togNEE,ui.togEnvTex];
+  for(const t of toggles){
+    t.addEventListener('change', ()=>{
+      broadcastInitToWorkers();
+      resetAccumulation();
+      if(ui.togBVHVis.checked) drawBVHOverlay();
+    });
+  }
+  ui.togTone.addEventListener('change', ()=>{ resetAccumulation(); });
+  ui.togRaw.addEventListener('change', ()=>{ resetAccumulation(); });
+  ui.togBVHVis.addEventListener('change', ()=>{ drawBVHOverlay(); });
+
+  // -----------------------------
+  // Keyboard shortcuts
+  // -----------------------------
+  window.addEventListener('keydown', (e)=>{
+    if(e.repeat) return;
+
+    if(e.code === "Space"){
+      e.preventDefault();
+      pauseToggle();
+      return;
+    }
+    if(e.key === "r" || e.key === "R"){
+      e.preventDefault();
+      resetAccumulation();
+      if(state.running && !state.paused) enqueuePass(1);
+      return;
+    }
+    if(e.key === "s" || e.key === "S"){
+      e.preventDefault();
+      exportCanvasPNG(`render_${state.sceneKey}_${state.currentSPP}spp.png`);
+      return;
+    }
+    if(e.key === "1"){
+      ui.sceneSel.value = "cornell"; initScene("cornell"); return;
+    }
+    if(e.key === "2"){
+      ui.sceneSel.value = "spheres"; initScene("spheres"); return;
+    }
+    if(e.key === "3"){
+      ui.sceneSel.value = "mesh"; initScene("mesh"); return;
+    }
+  });
+
+  // -----------------------------
+  // Startup
+  // -----------------------------
+  function kick(){
+    loadTextures();
+    applyQualityMode(ui.modeSel.value);
+
+    // init tile size, worker count
+    state.tileSize = clampInt(parseInt(ui.tile.value,10)||32, 8, 256);
+    const hc = navigator.hardwareConcurrency || 4;
+    ui.workers.max = String(hc);
+    ui.workers.value = String(Math.min( Math.max(1, parseInt(ui.workers.value,10)||4), hc ));
+    ui.dbgW.textContent = ui.workers.value;
+
+    // load initial scene
+    initScene(ui.sceneSel.value);
+
+    // Start paused (user presses Start), but show quick 1 spp preview by default:
+    // This keeps UX responsive and demonstrates progressive refinement immediately.
+    state.targetSPP = Math.max(1, parseInt(ui.spp.value,10)|0);
+    ui.stSPP.textContent = `${state.currentSPP} / ${state.targetSPP}`;
+    rebindWorkerHandlers();
+    state.running = true;
+    state.paused = false;
+    state.stepOnce = true;
+    enqueuePass(1);
+    log("Boot preview: rendered 1 SPP, then paused.");
+  }
+
+  // Ensure handlers are bound after override
+  rebindWorkerHandlers();
+  kick();
+
+  // Lightweight periodic stats refresh (ETA, throughput)
+  setInterval(()=>{ if(state.running) updateStats(); }, 250);
+
+  // Keep overlay in sync if window resizes (CSS scaling)
+  window.addEventListener('resize', ()=>{
+    if(overlay){
+      overlay.style.width = getComputedStyle(can).width;
+      overlay.style.height = getComputedStyle(can).height;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

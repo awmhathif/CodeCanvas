@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Anonymous Confession Board — Single File (Posts • Votes • Comments • Moderation)</title>
+  <style>
+    :root{
+      --bg:#070b12;
+      --panel: rgba(16,22,36,.72);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf1ff;
+      --muted:#a4b4d6;
+      --good:#5dffb0;
+      --warn:#ffd65a;
+      --bad:#ff5a7b;
+      --accent:#6aa8ff;
+      --accent2:#b86cff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --shadow: rgba(0,0,0,.35);
+    }
+    html,body{height:100%; margin:0; background: radial-gradient(1200px 800px at 40% 0%, #13204b 0%, #070b12 55%, #04060b 100%); color:var(--text); font-family:var(--sans); overflow:hidden;}
+    *{box-sizing:border-box}
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 380px 1fr 360px;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+      padding:12px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow:hidden;
+      min-height:0;
+    }
+    #topbar{grid-column:1/4; grid-row:1; display:flex; gap:10px; align-items:center; padding:10px 12px;}
+    #brand{display:flex; flex-direction:column; gap:2px; min-width: 360px}
+    #brand b{letter-spacing:.4px}
+    #brand small{color:var(--muted)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:8px}
+    .btn{
+      appearance:none; border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:800;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+      font-size:13px;
+      white-space:nowrap;
+    }
+    .btn:hover{background: rgba(106,168,255,.18); border-color: rgba(106,168,255,.40)}
+    .btn:active{transform: scale(.98)}
+    .btn.primary{background: rgba(106,168,255,.22); border-color: rgba(106,168,255,.55)}
+    .btn.danger{background: rgba(255,90,123,.16); border-color: rgba(255,90,123,.45)}
+    .btn.good{background: rgba(93,255,176,.12); border-color: rgba(93,255,176,.35)}
+    .chip{
+      padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      font-size:12px; color:var(--muted);
+      display:flex; align-items:center; gap:8px;
+      font-family: var(--mono);
+      white-space:nowrap;
+    }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      font-family:var(--mono); font-size:11px; color:var(--muted);
+      border:1px solid var(--line); background: rgba(255,255,255,.04);
+      padding:3px 8px; border-radius:999px;
+    }
+    .scroll{overflow:auto; padding:12px; min-height:0}
+    .sectionTitle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; border-bottom:1px solid var(--line)}
+    .sectionTitle b{letter-spacing:.3px}
+    .tiny{font-size:11px; color:var(--muted); line-height:1.35}
+    .sep{height:1px; background: var(--line); margin:10px 0}
+    .kv{display:grid; grid-template-columns: 1fr auto; gap:6px 10px; font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .kv b{color:var(--text); font-weight:900}
+    .card{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .card h4{margin:0; font-size:13px; letter-spacing:.2px}
+    .card p{margin:0; font-size:12px; color:var(--muted); line-height:1.35}
+    select,input[type="text"],input[type="number"], textarea, input[type="password"]{
+      width:100%;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    textarea{min-height:120px; resize:vertical}
+    label{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:10px}
+    #left{grid-column:1; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #mid{grid-column:2; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #right{grid-column:3; grid-row:2; display:flex; flex-direction:column; min-height:0}
+    #footer{grid-column:1/4; grid-row:3; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+
+    /* Feed */
+    .post{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .postHeader{display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+    .postHeader .meta{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .tag{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      white-space:nowrap;
+    }
+    .tag.bad{border-color: rgba(255,90,123,.35); color: rgba(255,160,180,.95); background: rgba(255,90,123,.10)}
+    .tag.good{border-color: rgba(93,255,176,.35); color: rgba(170,255,220,.95); background: rgba(93,255,176,.08)}
+    .tag.warn{border-color: rgba(255,214,90,.35); color: rgba(255,230,170,.95); background: rgba(255,214,90,.08)}
+
+    .content{
+      white-space:pre-wrap;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      color: rgba(234,241,255,.95);
+    }
+    .actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .btnMini{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.20);
+      color: rgba(234,241,255,.92);
+      padding:6px 9px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:12px;
+      user-select:none;
+      font-family: var(--mono);
+    }
+    .btnMini:hover{border-color: rgba(106,168,255,.45); background: rgba(106,168,255,.12)}
+    .btnMini.danger:hover{border-color: rgba(255,90,123,.45); background: rgba(255,90,123,.10)}
+    .btnMini.good:hover{border-color: rgba(93,255,176,.45); background: rgba(93,255,176,.08)}
+    .btnMini.active{border-color: rgba(106,168,255,.65); box-shadow: 0 0 0 2px rgba(106,168,255,.18) inset}
+    .commentBox{display:flex; flex-direction:column; gap:8px; padding-top:6px}
+    .comment{
+      border-top:1px solid rgba(255,255,255,.08);
+      padding-top:8px;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .comment .cmeta{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .comment .ctext{white-space:pre-wrap; font-size:13px; color: rgba(234,241,255,.92)}
+    .muted{color:var(--muted)}
+    .hidden{display:none !important}
+
+    /* Modal */
+    #modalBg{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:20;
+    }
+    #modal{
+      width:min(920px, 100%);
+      max-height: min(90vh, 820px);
+      overflow:auto;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(10,14,24,.92);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #modal header{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    #modal .body{padding:12px}
+    #toast{
+      position:fixed; left:50%; top:70px; transform:translateX(-50%);
+      padding:10px 12px; border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.40);
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      font-family:var(--mono);
+      font-size:12px;
+      max-width:min(80vw, 980px);
+      white-space:pre-wrap;
+      z-index:30;
+    }
+    #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+    @media (max-width: 1100px){
+      html,body{overflow:auto}
+      #app{position:static; grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto; overflow:auto}
+      #left{grid-column:1; grid-row:2}
+      #mid{grid-column:1; grid-row:3}
+      #right{grid-column:1; grid-row:4}
+      #footer{grid-column:1; grid-row:5}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="topbar" class="panel">
+      <div id="brand">
+        <b>Anonymous Confession Board</b>
+        <small>Post secrets • Vote • Comment • Report • Local moderation tools • Single-file offline demo</small>
+      </div>
+
+      <div class="row" style="margin-left:auto">
+        <button class="btn primary" id="btnNewPost">New Post</button>
+        <button class="btn" id="btnSave">Save</button>
+        <button class="btn" id="btnLoad">Load</button>
+        <button class="btn danger" id="btnWipe">Wipe</button>
+      </div>
+
+      <div class="row">
+        <span class="chip">Posts <b id="uiPosts">0</b></span>
+        <span class="chip">Comments <b id="uiComments">0</b></span>
+        <span class="chip">Reported <b id="uiReports">0</b></span>
+      </div>
+    </div>
+
+    <div id="left" class="panel">
+      <div class="sectionTitle">
+        <b>Compose</b>
+        <span class="pill">Anonymous</span>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <h4>Post a confession</h4>
+          <p>Be kind. No personal identifying information (PII). This is a local-only demo; content is stored in your browser.</p>
+          <div class="sep"></div>
+
+          <label>Category</label>
+          <select id="selCategory">
+            <option value="general" selected>General</option>
+            <option value="relationships">Relationships</option>
+            <option value="work">Work</option>
+            <option value="family">Family</option>
+            <option value="school">School</option>
+            <option value="health">Health</option>
+            <option value="money">Money</option>
+            <option value="identity">Identity</option>
+            <option value="regret">Regret</option>
+            <option value="victory">Victory</option>
+          </select>
+
+          <label>Content <span class="tiny"><span id="uiLen">0</span>/1200</span></label>
+          <textarea id="txtPost" maxlength="1200" placeholder="Write your secret..."></textarea>
+
+          <div class="row">
+            <div class="col" style="flex:1">
+              <label class="tiny">Content warning tag (optional)</label>
+              <select id="selCW">
+                <option value="">None</option>
+                <option value="cw_suicide">CW: self-harm</option>
+                <option value="cw_abuse">CW: abuse</option>
+                <option value="cw_addiction">CW: addiction</option>
+                <option value="cw_sex">CW: sexual content</option>
+                <option value="cw_violence">CW: violence</option>
+              </select>
+            </div>
+            <div class="col" style="width:180px">
+              <label class="tiny">Visibility</label>
+              <select id="selVis">
+                <option value="public" selected>Public</option>
+                <option value="unlisted">Unlisted (local)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn primary" id="btnPost">Post</button>
+            <button class="btn" id="btnDraft">Save Draft</button>
+            <button class="btn danger" id="btnClearDraft">Clear</button>
+          </div>
+
+          <div class="tiny">
+            Moderation: use the right panel to enable mod mode, review reports, and hide/remove posts.
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Safety</h4>
+          <div class="tiny" style="line-height:1.45">
+            If you feel in danger or are considering self-harm, please contact your local emergency number or a trusted person.
+            This demo cannot provide real-time help or monitoring.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="mid" class="panel">
+      <div class="sectionTitle">
+        <b>Board</b>
+        <span class="pill">Feed</span>
+      </div>
+      <div class="scroll">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <span class="pill">Sort</span>
+            <select id="selSort" style="max-width:200px">
+              <option value="hot" selected>Hot</option>
+              <option value="new">New</option>
+              <option value="top">Top</option>
+              <option value="controversial">Controversial</option>
+              <option value="reported">Reported (mod)</option>
+            </select>
+            <span class="pill">Filter</span>
+            <select id="selFilter" style="max-width:200px">
+              <option value="all" selected>All</option>
+              <option value="general">General</option>
+              <option value="relationships">Relationships</option>
+              <option value="work">Work</option>
+              <option value="family">Family</option>
+              <option value="school">School</option>
+              <option value="health">Health</option>
+              <option value="money">Money</option>
+              <option value="identity">Identity</option>
+              <option value="regret">Regret</option>
+              <option value="victory">Victory</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="txtSearch" type="text" placeholder="Search..." style="max-width:220px"/>
+            <button class="btn" id="btnSeed">Seed Sample</button>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div id="feed"></div>
+      </div>
+    </div>
+
+    <div id="right" class="panel">
+      <div class="sectionTitle">
+        <b>Moderation</b>
+        <span class="pill" id="uiModPill">Mod: Off</span>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <h4>Mod Mode</h4>
+          <p>Local-only moderation tools. In real apps, you’d need server-side auth and audit logs.</p>
+          <div class="sep"></div>
+          <label>Moderator PIN (demo)</label>
+          <input id="modPin" type="password" placeholder="Set or enter PIN"/>
+          <div class="row">
+            <button class="btn" id="btnModToggle">Enable</button>
+            <button class="btn danger" id="btnModLogout">Disable</button>
+          </div>
+          <div class="tiny">PIN is stored locally (hashed). This is just a demo barrier.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Reports Queue</h4>
+          <div class="row">
+            <button class="btn" id="btnReviewReports">Review</button>
+            <button class="btn" id="btnClearReports">Clear Resolved</button>
+          </div>
+          <div class="tiny">Use “Report” on a post/comment. Mods can hide content or remove it.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Board Settings</h4>
+          <div class="row">
+            <label class="tiny" style="flex:1">Profanity soft-filter (client)</label>
+            <select id="selProf" style="max-width:160px">
+              <option value="on" selected>On</option>
+              <option value="off">Off</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="tiny" style="flex:1">PII warning (emails/phones)</label>
+            <select id="selPII" style="max-width:160px">
+              <option value="on" selected>On</option>
+              <option value="off">Off</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="tiny" style="flex:1">Auto-hide if reports ≥</label>
+            <input id="inpAutoHide" type="number" min="1" step="1" value="4" style="max-width:160px"/>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="card">
+          <h4>Export / Import</h4>
+          <p>Export your local board (posts, comments, votes, reports). Useful for backup.</p>
+          <div class="row">
+            <button class="btn" id="btnExport">Export JSON</button>
+            <button class="btn" id="btnImport">Import JSON</button>
+          </div>
+          <textarea id="txtJSON" placeholder="Paste JSON here to import (replaces board)"></textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="footer" class="panel">
+      <div class="row">
+        <span class="chip">Sort <b id="uiSort">Hot</b></span>
+        <span class="chip">Filter <b id="uiFilter">All</b></span>
+        <span class="chip">View <b id="uiView">Public</b></span>
+        <span class="chip">Saved <b id="uiSaved">—</b></span>
+      </div>
+      <div class="row">
+        <span class="tiny">Everything is stored in localStorage on this device/browser. No real anonymity online—this is an offline demo UI.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalBg">
+    <div id="modal">
+      <header>
+        <div class="row">
+          <b id="modalTitle">Modal</b>
+          <span class="pill" id="modalMeta">—</span>
+        </div>
+        <button class="btn danger" id="btnCloseModal">Close</button>
+      </header>
+      <div class="body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+(()=>{"use strict";
+
+  ///////////////////////////////
+  // Helpers
+  ///////////////////////////////
+  const $=id=>document.getElementById(id);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const fmt=(n,d=0)=>Number.isFinite(n)?(Math.round(n*10**d)/10**d).toFixed(d):"0";
+  const now=()=>Date.now();
+  function toast(msg, ms=1800){
+    const t=$("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h=setTimeout(()=>t.classList.remove("show"), ms);
+  }
+  function safeJSONParse(s){ try{return JSON.parse(s);}catch{return null;} }
+  function downloadBlob(blob, filename){
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=filename;
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+  function uid(prefix="id"){
+    return prefix+"_"+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2);
+  }
+  function timeAgo(ts){
+    const s=Math.max(0, Math.floor((now()-ts)/1000));
+    const m=Math.floor(s/60), h=Math.floor(m/60), d=Math.floor(h/24);
+    if(d>0) return d+"d ago";
+    if(h>0) return h+"h ago";
+    if(m>0) return m+"m ago";
+    return s+"s ago";
+  }
+  function escapeHtml(s){
+    return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  }
+  function softCensor(s){
+    // lightweight client-side filter; not meant as robust moderation
+    const bad = ["fuck","shit","bitch","asshole","cunt","nigger","faggot"];
+    let out=String(s??"");
+    for(const w of bad){
+      const re=new RegExp(`\\b${w}\\b`,"gi");
+      out = out.replace(re, (m)=>m[0]+"*".repeat(Math.max(1,m.length-1)));
+    }
+    return out;
+  }
+  function detectPII(s){
+    const str=String(s??"");
+    const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(str);
+    const phone = /(\+?\d[\d\s().-]{7,}\d)/.test(str);
+    const addressHint = /\b\d{1,5}\s+\w+(\s+\w+){0,4}\s+(st|street|ave|avenue|rd|road|blvd|lane|ln|dr|drive)\b/i.test(str);
+    return {email, phone, addressHint, any: email||phone||addressHint};
+  }
+  async function sha256Hex(str){
+    const enc=new TextEncoder().encode(str);
+    const buf=await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  ///////////////////////////////
+  // Storage keys
+  ///////////////////////////////
+  const SAVE_KEY="confession_board_v1";
+  const DRAFT_KEY="confession_draft_v1";
+  const MOD_KEY="confession_mod_v1";
+
+  ///////////////////////////////
+  // State
+  ///////////////////////////////
+  const S = {
+    posts: [], // {id, ts, category, cw, visibility, text, score, up, down, userVote, hidden, removed, reports:[], comments:[]}
+              // comments: {id, ts, text, score, up, down, userVote, hidden, removed, reports:[]}
+    settings:{
+      profanity:true,
+      piiWarn:true,
+      autoHideReports:4
+    },
+    ui:{
+      sort:"hot",
+      filter:"all",
+      search:"",
+    },
+    mod:{
+      enabled:false,
+      pinHash:"", // stored separately too
+    }
+  };
+
+  ///////////////////////////////
+  // Voting (local, per device)
+  ///////////////////////////////
+  function applyVote(item, delta){
+    // item.userVote in {-1,0,1}; delta in {-1,1}
+    const prev=item.userVote||0;
+    let next=prev;
+    if(delta===1) next = (prev===1)?0:1;
+    if(delta===-1) next = (prev===-1)?0:-1;
+
+    // update counts
+    if(prev===1) item.up = Math.max(0,(item.up||0)-1);
+    if(prev===-1) item.down = Math.max(0,(item.down||0)-1);
+
+    if(next===1) item.up = (item.up||0)+1;
+    if(next===-1) item.down = (item.down||0)+1;
+
+    item.userVote = next;
+    item.score = (item.up||0) - (item.down||0);
+  }
+
+  function hotScore(post){
+    // Simple "hot" ranking: score / age^1.3
+    const ageH = Math.max(1/60, (now()-post.ts)/3600000);
+    return (post.score||0) / Math.pow(ageH, 1.3);
+  }
+  function controversialScore(post){
+    const up=post.up||0, down=post.down||0;
+    const total=up+down;
+    if(total===0) return 0;
+    const balance = 1 - (Math.abs(up-down)/total);
+    return total * balance;
+  }
+
+  ///////////////////////////////
+  // Moderation & reporting
+  ///////////////////////////////
+  function addReport(target, kind, reason){
+    // target is post or comment object; kind: "post"|"comment"
+    const r = {id:uid("rep"), ts:now(), kind, reason: String(reason||"unspecified").slice(0,240), resolved:false};
+    target.reports = target.reports || [];
+    target.reports.push(r);
+
+    // auto-hide if reached threshold
+    const threshold = Number(S.settings.autoHideReports)||4;
+    const openReports = target.reports.filter(x=>!x.resolved).length;
+    if(openReports >= threshold){
+      target.hidden = true;
+    }
+  }
+
+  function modCan(){
+    return S.mod.enabled===true;
+  }
+
+  function modHide(target){ target.hidden=true; }
+  function modUnhide(target){ target.hidden=false; }
+  function modRemove(target){ target.removed=true; target.hidden=true; }
+  function modResolveReports(target){
+    if(!target.reports) return;
+    for(const r of target.reports) r.resolved=true;
+  }
+
+  ///////////////////////////////
+  // CRUD posts/comments
+  ///////////////////////////////
+  function createPost({text, category, cw, visibility}){
+    const p = {
+      id: uid("post"),
+      ts: now(),
+      category,
+      cw: cw||"",
+      visibility,
+      text: String(text||"").trim().slice(0,1200),
+      up:0, down:0, score:0, userVote:0,
+      hidden:false, removed:false,
+      reports:[],
+      comments:[]
+    };
+    // initial tiny randomization
+    const seedUp = Math.random()<0.25 ? 1 : 0;
+    p.up=seedUp; p.score=p.up-p.down;
+    return p;
+  }
+
+  function addComment(postId, text){
+    const p = S.posts.find(x=>x.id===postId);
+    if(!p) return;
+    const c = {
+      id: uid("c"),
+      ts: now(),
+      text: String(text||"").trim().slice(0,800),
+      up:0, down:0, score:0, userVote:0,
+      hidden:false, removed:false,
+      reports:[]
+    };
+    p.comments.push(c);
+  }
+
+  ///////////////////////////////
+  // Feed selection
+  ///////////////////////////////
+  function visiblePost(p){
+    // filter removed always unless mod
+    if(p.removed && !modCan()) return false;
+    // hide hidden unless mod
+    if(p.hidden && !modCan()) return false;
+    // visibility: unlisted appears only in "All" view (here: still show but tag)
+    return true;
+  }
+
+  function filteredPosts(){
+    const sort=S.ui.sort;
+    const filter=S.ui.filter;
+    const q=S.ui.search.trim().toLowerCase();
+
+    let arr = S.posts.slice();
+
+    // filter by category
+    if(filter!=="all"){
+      arr = arr.filter(p=>p.category===filter);
+    }
+
+    // search
+    if(q){
+      arr = arr.filter(p=>{
+        const t = (p.text||"").toLowerCase();
+        return t.includes(q);
+      });
+    }
+
+    // visible
+    arr = arr.filter(visiblePost);
+
+    // sorting
+    if(sort==="new"){
+      arr.sort((a,b)=>b.ts-a.ts);
+    }else if(sort==="top"){
+      arr.sort((a,b)=> (b.score||0)-(a.score||0) || (b.ts-a.ts));
+    }else if(sort==="hot"){
+      arr.sort((a,b)=> hotScore(b)-hotScore(a) || (b.ts-a.ts));
+    }else if(sort==="controversial"){
+      arr.sort((a,b)=> controversialScore(b)-controversialScore(a) || (b.ts-a.ts));
+    }else if(sort==="reported"){
+      // show most reported first; mod only
+      if(!modCan()){
+        arr = arr.filter(()=>false);
+      } else {
+        arr.sort((a,b)=>(openReportCount(b)-openReportCount(a)) || (b.ts-a.ts));
+      }
+    }
+
+    return arr;
+  }
+
+  function openReportCount(target){
+    return (target.reports||[]).filter(r=>!r.resolved).length;
+  }
+
+  function totalCounts(){
+    let comments=0, reports=0;
+    for(const p of S.posts){
+      comments += (p.comments||[]).length;
+      reports += openReportCount(p);
+      for(const c of (p.comments||[])) reports += openReportCount(c);
+    }
+    return {posts:S.posts.length, comments, reports};
+  }
+
+  ///////////////////////////////
+  // UI render
+  ///////////////////////////////
+  function render(){
+    // counts
+    const counts=totalCounts();
+    $("uiPosts").textContent = counts.posts;
+    $("uiComments").textContent = counts.comments;
+    $("uiReports").textContent = counts.reports;
+
+    $("uiSort").textContent = $("selSort").selectedOptions[0]?.textContent || "—";
+    $("uiFilter").textContent = $("selFilter").selectedOptions[0]?.textContent || "—";
+    $("uiView").textContent = modCan() ? "Moderator" : "Public";
+
+    // mod pill
+    $("uiModPill").textContent = "Mod: " + (modCan()?"On":"Off");
+
+    // settings
+    $("selProf").value = S.settings.profanity ? "on":"off";
+    $("selPII").value  = S.settings.piiWarn ? "on":"off";
+    $("inpAutoHide").value = S.settings.autoHideReports;
+
+    // feed
+    const feed=$("feed");
+    const posts=filteredPosts();
+    if(!posts.length){
+      feed.innerHTML = `<div class="card"><h4>No posts</h4><p>Try seeding sample posts, changing filters, or posting your own.</p></div>`;
+      return;
+    }
+    feed.innerHTML = posts.map(p=>postHTML(p)).join("\n");
+    bindFeedHandlers();
+  }
+
+  function badgeForCW(cw){
+    const map = {
+      cw_suicide: ["CW: self-harm","bad"],
+      cw_abuse: ["CW: abuse","bad"],
+      cw_addiction:["CW: addiction","warn"],
+      cw_sex:["CW: sexual content","warn"],
+      cw_violence:["CW: violence","bad"]
+    };
+    if(!cw) return "";
+    const v=map[cw] || [cw,"warn"];
+    return `<span class="tag ${v[1]}">${escapeHtml(v[0])}</span>`;
+  }
+
+  function postHTML(p){
+    const cat = `<span class="tag">${escapeHtml(p.category)}</span>`;
+    const cw = badgeForCW(p.cw);
+    const vis = (p.visibility==="unlisted") ? `<span class="tag warn">unlisted</span>` : "";
+    const rep = openReportCount(p)>0 ? `<span class="tag bad">reported:${openReportCount(p)}</span>` : "";
+    const modTags = modCan() ? [
+      p.hidden?`<span class="tag warn">hidden</span>`:"",
+      p.removed?`<span class="tag bad">removed</span>`:""
+    ].join("") : "";
+
+    const textRaw = p.removed ? "[Removed by moderators]" : (S.settings.profanity ? softCensor(p.text) : p.text);
+    const text = escapeHtml(textRaw);
+
+    const uv = p.userVote||0;
+
+    const comments = (p.comments||[]).filter(c=>{
+      if(c.removed && !modCan()) return false;
+      if(c.hidden && !modCan()) return false;
+      return true;
+    });
+
+    const commentCount = (p.comments||[]).length;
+
+    return `
+<div class="post" data-post="${p.id}">
+  <div class="postHeader">
+    <div class="meta">
+      ${cat} ${cw} ${vis} ${rep} ${modTags}
+      <span class="pill">${escapeHtml(timeAgo(p.ts))}</span>
+    </div>
+    <div class="meta">
+      <span class="chip">Score <b>${p.score||0}</b></span>
+    </div>
+  </div>
+
+  <div class="content">${text}</div>
+
+  <div class="actions">
+    <button class="btnMini good ${uv===1?"active":""}" data-act="up">▲ Up</button>
+    <button class="btnMini danger ${uv===-1?"active":""}" data-act="down">▼ Down</button>
+    <button class="btnMini" data-act="toggleComments">💬 Comments <b>(${commentCount})</b></button>
+    <button class="btnMini danger" data-act="reportPost">⚑ Report</button>
+    ${modCan()?`
+      <button class="btnMini" data-act="modHide">${p.hidden?"Unhide":"Hide"}</button>
+      <button class="btnMini danger" data-act="modRemove">Remove</button>
+      <button class="btnMini" data-act="modResolve">Resolve reports</button>
+    `:""}
+    <span class="pill">id:${escapeHtml(p.id.slice(-6))}</span>
+  </div>
+
+  <div class="commentBox hidden" data-comments>
+    <div class="row">
+      <textarea data-commentText placeholder="Write a comment..." maxlength="800" style="min-height:80px"></textarea>
+    </div>
+    <div class="row">
+      <button class="btnMini" data-act="addComment">Post comment</button>
+      <span class="tiny muted">Be respectful. No doxxing.</span>
+    </div>
+    <div class="sep"></div>
+    <div>
+      ${comments.length?comments.map(c=>commentHTML(p,c)).join(""):`<div class="tiny muted">No comments yet.</div>`}
+    </div>
+  </div>
+</div>`;
+  }
+
+  function commentHTML(p,c){
+    const rep = openReportCount(c)>0 ? `<span class="tag bad">reported:${openReportCount(c)}</span>` : "";
+    const modTags = modCan() ? [
+      c.hidden?`<span class="tag warn">hidden</span>`:"",
+      c.removed?`<span class="tag bad">removed</span>`:""
+    ].join("") : "";
+
+    const textRaw = c.removed ? "[Removed by moderators]" : (S.settings.profanity ? softCensor(c.text) : c.text);
+    const text = escapeHtml(textRaw);
+    const uv=c.userVote||0;
+
+    return `
+<div class="comment" data-comment="${c.id}">
+  <div class="cmeta">
+    <span class="pill">${escapeHtml(timeAgo(c.ts))}</span>
+    ${rep} ${modTags}
+    <span class="chip">Score <b>${c.score||0}</b></span>
+    <span class="pill">id:${escapeHtml(c.id.slice(-6))}</span>
+  </div>
+  <div class="ctext">${text}</div>
+  <div class="actions">
+    <button class="btnMini good ${uv===1?"active":""}" data-act="cup">▲</button>
+    <button class="btnMini danger ${uv===-1?"active":""}" data-act="cdown">▼</button>
+    <button class="btnMini danger" data-act="reportComment">⚑ Report</button>
+    ${modCan()?`
+      <button class="btnMini" data-act="cHide">${c.hidden?"Unhide":"Hide"}</button>
+      <button class="btnMini danger" data-act="cRemove">Remove</button>
+      <button class="btnMini" data-act="cResolve">Resolve reports</button>
+    `:""}
+  </div>
+</div>`;
+  }
+
+  function bindFeedHandlers(){
+    const feed=$("feed");
+    feed.querySelectorAll(".post").forEach(postEl=>{
+      const postId=postEl.dataset.post;
+      const p=S.posts.find(x=>x.id===postId);
+      if(!p) return;
+
+      postEl.addEventListener("click",(e)=>{
+        const btn=e.target.closest("button[data-act]");
+        if(!btn) return;
+        const act=btn.dataset.act;
+
+        if(act==="up"){ applyVote(p, +1); save(); render(); }
+        else if(act==="down"){ applyVote(p, -1); save(); render(); }
+        else if(act==="toggleComments"){
+          const box=postEl.querySelector("[data-comments]");
+          box.classList.toggle("hidden");
+        }
+        else if(act==="addComment"){
+          const ta=postEl.querySelector("textarea[data-commentText]");
+          const txt=String(ta.value||"").trim();
+          if(!txt){ toast("Comment is empty."); return; }
+          const pii = S.settings.piiWarn ? detectPII(txt) : {any:false};
+          if(pii.any && !confirm("This comment looks like it may include personal info (email/phone/address). Post anyway?")) return;
+
+          addComment(p.id, txt);
+          ta.value="";
+          save(); render();
+        }
+        else if(act==="reportPost"){
+          const reason=prompt("Report reason (spam, harassment, PII, etc.):","spam");
+          if(!reason) return;
+          addReport(p, "post", reason);
+          save(); render();
+          toast("Reported. Thanks for helping keep the board safe.", 1600);
+        }
+        else if(act==="modHide"){
+          if(!modCan()) return;
+          p.hidden = !p.hidden;
+          save(); render();
+        }
+        else if(act==="modRemove"){
+          if(!modCan()) return;
+          if(confirm("Remove this post? (Irreversible in this demo)")){ modRemove(p); save(); render(); }
+        }
+        else if(act==="modResolve"){
+          if(!modCan()) return;
+          modResolveReports(p);
+          save(); render();
+          toast("Post reports resolved.", 1200);
+        }
+      });
+
+      // Comment-level handlers (event delegation)
+      postEl.querySelectorAll(".comment").forEach(cEl=>{
+        const cid=cEl.dataset.comment;
+        const c=(p.comments||[]).find(x=>x.id===cid);
+        if(!c) return;
+
+        cEl.addEventListener("click",(e)=>{
+          const btn=e.target.closest("button[data-act]");
+          if(!btn) return;
+          const act=btn.dataset.act;
+
+          if(act==="cup"){ applyVote(c,+1); save(); render(); }
+          else if(act==="cdown"){ applyVote(c,-1); save(); render(); }
+          else if(act==="reportComment"){
+            const reason=prompt("Report reason:","harassment");
+            if(!reason) return;
+            addReport(c,"comment",reason);
+            save(); render();
+            toast("Comment reported.", 1200);
+          }
+          else if(act==="cHide"){
+            if(!modCan()) return;
+            c.hidden=!c.hidden; save(); render();
+          }
+          else if(act==="cRemove"){
+            if(!modCan()) return;
+            if(confirm("Remove this comment?")){ modRemove(c); save(); render(); }
+          }
+          else if(act==="cResolve"){
+            if(!modCan()) return;
+            modResolveReports(c); save(); render();
+          }
+        });
+      });
+    });
+  }
+
+  ///////////////////////////////
+  // Modal (reports review)
+  ///////////////////////////////
+  function openModal(title, meta, html){
+    $("modalTitle").textContent=title;
+    $("modalMeta").textContent=meta||"";
+    $("modalBody").innerHTML=html||"";
+    $("modalBg").style.display="flex";
+  }
+  function closeModal(){
+    $("modalBg").style.display="none";
+  }
+  $("btnCloseModal").onclick=closeModal;
+  $("modalBg").addEventListener("click",(e)=>{
+    if(e.target.id==="modalBg") closeModal();
+  });
+
+  function buildReportsView(){
+    if(!modCan()){
+      toast("Enable mod mode to review reports.");
+      return;
+    }
+    const items=[];
+    for(const p of S.posts){
+      const pr=(p.reports||[]).filter(r=>!r.resolved);
+      if(pr.length) items.push({kind:"post", postId:p.id, targetId:p.id, ts:Math.max(...pr.map(x=>x.ts)), count:pr.length});
+      for(const c of (p.comments||[])){
+        const cr=(c.reports||[]).filter(r=>!r.resolved);
+        if(cr.length) items.push({kind:"comment", postId:p.id, targetId:c.id, ts:Math.max(...cr.map(x=>x.ts)), count:cr.length});
+      }
+    }
+    items.sort((a,b)=>b.count-a.count || b.ts-a.ts);
+
+    if(!items.length){
+      openModal("Reports Queue","0 open reports", `<div class="card"><h4>All clear</h4><p>No unresolved reports.</p></div>`);
+      return;
+    }
+
+    const html = items.map(it=>{
+      const p=S.posts.find(x=>x.id===it.postId);
+      const target = (it.kind==="post") ? p : (p.comments||[]).find(x=>x.id===it.targetId);
+      const reps=(target.reports||[]).filter(r=>!r.resolved);
+      const snippet = escapeHtml(String(target.text||"").slice(0,220));
+      return `
+        <div class="post" style="margin-bottom:10px" data-qkind="${it.kind}" data-qpost="${it.postId}" data-qtarget="${it.targetId}">
+          <div class="postHeader">
+            <div class="meta">
+              <span class="tag bad">${it.kind}</span>
+              <span class="tag bad">open:${it.count}</span>
+              <span class="pill">id:${escapeHtml(it.targetId.slice(-6))}</span>
+              <span class="pill">${escapeHtml(timeAgo(it.ts))}</span>
+            </div>
+            <div class="meta">
+              <button class="btnMini" data-qact="jump">Jump</button>
+              <button class="btnMini" data-qact="hide">${target.hidden?"Unhide":"Hide"}</button>
+              <button class="btnMini danger" data-qact="remove">Remove</button>
+              <button class="btnMini" data-qact="resolve">Resolve</button>
+            </div>
+          </div>
+          <div class="content">${snippet || "[no text]"}</div>
+          <div class="tiny muted">Reports:</div>
+          <div class="tiny">${reps.map(r=>`• ${escapeHtml(r.reason)} (${escapeHtml(timeAgo(r.ts))})`).join("<br>")}</div>
+        </div>
+      `;
+    }).join("");
+
+    openModal("Reports Queue", `${items.length} items`, html);
+
+    // bind actions inside modal
+    const body=$("modalBody");
+    body.onclick=(e)=>{
+      const btn=e.target.closest("button[data-qact]");
+      if(!btn) return;
+      const card=e.target.closest("[data-qkind]");
+      if(!card) return;
+      const kind=card.dataset.qkind;
+      const postId=card.dataset.qpost;
+      const targetId=card.dataset.qtarget;
+
+      const p=S.posts.find(x=>x.id===postId);
+      if(!p) return;
+      const target = (kind==="post") ? p : (p.comments||[]).find(x=>x.id===targetId);
+      if(!target) return;
+
+      const act=btn.dataset.qact;
+      if(act==="jump"){
+        closeModal();
+        // switch sort to reported to find quickly if desired
+        // scroll to post in feed
+        setTimeout(()=>{
+          const el=document.querySelector(`.post[data-post="${postId}"]`);
+          if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+          // open comments if comment
+          if(kind==="comment" && el){
+            const box=el.querySelector("[data-comments]");
+            box.classList.remove("hidden");
+          }
+        }, 60);
+      }
+      if(act==="hide"){ target.hidden=!target.hidden; save(); render(); buildReportsView(); }
+      if(act==="remove"){ if(confirm("Remove content?")){ modRemove(target); save(); render(); buildReportsView(); } }
+      if(act==="resolve"){ modResolveReports(target); save(); render(); buildReportsView(); }
+    };
+  }
+
+  ///////////////////////////////
+  // Draft
+  ///////////////////////////////
+  function saveDraft(){
+    const draft = {
+      category: $("selCategory").value,
+      cw: $("selCW").value,
+      visibility: $("selVis").value,
+      text: $("txtPost").value
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    toast("Draft saved.", 900);
+  }
+  function loadDraft(){
+    const d=safeJSONParse(localStorage.getItem(DRAFT_KEY)||"");
+    if(!d) return;
+    $("selCategory").value = d.category || "general";
+    $("selCW").value = d.cw || "";
+    $("selVis").value = d.visibility || "public";
+    $("txtPost").value = d.text || "";
+    updateLen();
+  }
+  function clearDraft(){
+    localStorage.removeItem(DRAFT_KEY);
+    $("txtPost").value="";
+    updateLen();
+    toast("Cleared.", 900);
+  }
+
+  ///////////////////////////////
+  // Save/Load board
+  ///////////////////////////////
+  function save(){
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    $("uiSaved").textContent = new Date().toLocaleTimeString();
+  }
+  function load(fromUser=false){
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw){
+      if(fromUser) toast("No save found.");
+      return false;
+    }
+    const data=safeJSONParse(raw);
+    if(!data){
+      if(fromUser) toast("Save corrupted.");
+      return false;
+    }
+    // shallow merge
+    S.posts = Array.isArray(data.posts)?data.posts:[];
+    S.settings = Object.assign(S.settings, data.settings||{});
+    S.ui = Object.assign(S.ui, data.ui||{});
+    S.mod = Object.assign(S.mod, data.mod||{});
+    // fix missing fields
+    for(const p of S.posts){
+      p.comments = p.comments || [];
+      p.reports = p.reports || [];
+      p.up = p.up||0; p.down=p.down||0; p.userVote=p.userVote||0; p.score=(p.up-p.down);
+      for(const c of p.comments){
+        c.reports=c.reports||[];
+        c.up=c.up||0; c.down=c.down||0; c.userVote=c.userVote||0; c.score=(c.up-c.down);
+      }
+    }
+    applyUIState();
+    render();
+    return true;
+  }
+
+  ///////////////////////////////
+  // Mod auth (demo PIN hash)
+  ///////////////////////////////
+  async function modEnable(){
+    const pin=$("modPin").value.trim();
+    if(pin.length<4){ toast("PIN must be at least 4 characters."); return; }
+
+    const saved = safeJSONParse(localStorage.getItem(MOD_KEY)||"") || {};
+    if(saved.pinHash){
+      // verify
+      const h=await sha256Hex(pin);
+      if(h!==saved.pinHash){ toast("Incorrect PIN."); return; }
+      S.mod.enabled=true;
+      toast("Moderator mode enabled.", 1200);
+    }else{
+      // set new
+      const h=await sha256Hex(pin);
+      localStorage.setItem(MOD_KEY, JSON.stringify({pinHash:h}));
+      S.mod.enabled=true;
+      toast("Moderator PIN set and enabled.", 1400);
+    }
+    save();
+    render();
+  }
+  function modDisable(){
+    S.mod.enabled=false;
+    $("modPin").value="";
+    save();
+    render();
+    toast("Moderator mode disabled.", 900);
+  }
+
+  ///////////////////////////////
+  // Seeding sample data
+  ///////////////////////////////
+  function seedSample(){
+    const samples = [
+      {category:"relationships", cw:"", visibility:"public", text:"I pretended not to remember our anniversary because I was scared I’d mess it up. I did."},
+      {category:"work", cw:"", visibility:"public", text:"I’ve been coasting for months and nobody noticed. I feel guilty but also relieved."},
+      {category:"family", cw:"cw_abuse", visibility:"public", text:"I keep telling myself it wasn’t that bad, but certain sounds still make me freeze."},
+      {category:"school", cw:"", visibility:"public", text:"I changed my major for someone else. Now I don’t know who I’m doing this for."},
+      {category:"money", cw:"", visibility:"public", text:"I loaned money I couldn’t afford to lose. I’m angry at them, and at myself."},
+      {category:"victory", cw:"", visibility:"public", text:"I finally said no without apologizing. It felt like breathing for the first time."},
+      {category:"health", cw:"cw_addiction", visibility:"public", text:"I’m doing better, but the cravings come back when I’m lonely."},
+      {category:"general", cw:"", visibility:"public", text:"Sometimes I want to disappear for a week just to see if anyone would notice."},
+    ];
+    for(const s of samples){
+      const p=createPost(s);
+      // add a couple comments
+      if(Math.random()<0.6){
+        p.comments.push({id:uid("c"), ts:now()-Math.floor(Math.random()*3600e3*14), text:"You’re not alone. One day at a time.", up:2,down:0,userVote:0,score:2,hidden:false,removed:false,reports:[]});
+      }
+      if(Math.random()<0.4){
+        p.comments.push({id:uid("c"), ts:now()-Math.floor(Math.random()*3600e3*36), text:"Thank you for sharing this. It takes courage.", up:1,down:0,userVote:0,score:1,hidden:false,removed:false,reports:[]});
+      }
+      // random votes
+      p.up += Math.floor(Math.random()*15);
+      p.down += Math.floor(Math.random()*8);
+      p.score=p.up-p.down;
+      S.posts.push(p);
+    }
+    save();
+    render();
+    toast("Seeded sample posts.", 1200);
+  }
+
+  ///////////////////////////////
+  // UI bindings
+  ///////////////////////////////
+  function updateLen(){
+    $("uiLen").textContent = String(($("txtPost").value||"").length);
+  }
+  $("txtPost").addEventListener("input", updateLen);
+
+  $("btnDraft").onclick=saveDraft;
+  $("btnClearDraft").onclick=clearDraft;
+
+  $("btnPost").onclick=()=>{
+    const text=String($("txtPost").value||"").trim();
+    if(text.length<3){ toast("Post is too short."); return; }
+
+    if(S.settings.piiWarn){
+      const pii=detectPII(text);
+      if(pii.any){
+        const details = [
+          pii.email?"email":"", pii.phone?"phone":"", pii.addressHint?"address":""
+        ].filter(Boolean).join(", ");
+        if(!confirm(`This looks like it may include personal info (${details}). Post anyway?`)) return;
+      }
+    }
+
+    const category=$("selCategory").value;
+    const cw=$("selCW").value;
+    const visibility=$("selVis").value;
+
+    const p=createPost({text,category,cw,visibility});
+    S.posts.unshift(p);
+    $("txtPost").value="";
+    updateLen();
+    saveDraft();
+    save();
+    render();
+    toast("Posted.", 900);
+  };
+
+  $("btnNewPost").onclick=()=>{
+    // focus compose
+    $("txtPost").focus();
+  };
+
+  $("selSort").onchange=(e)=>{ S.ui.sort=e.target.value; render(); };
+  $("selFilter").onchange=(e)=>{ S.ui.filter=e.target.value; render(); };
+  $("txtSearch").oninput=(e)=>{ S.ui.search=e.target.value; render(); };
+
+  $("btnSeed").onclick=seedSample;
+
+  $("btnSave").onclick=()=>{ save(); toast("Saved.", 900); };
+  $("btnLoad").onclick=()=>{ const ok=load(true); if(ok) toast("Loaded.", 900); };
+  $("btnWipe").onclick=()=>{
+    if(confirm("Wipe board data (posts, comments, votes, reports)?")){
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(DRAFT_KEY);
+      // keep mod pin by default
+      location.reload();
+    }
+  };
+
+  $("btnModToggle").onclick=()=>modEnable();
+  $("btnModLogout").onclick=modDisable;
+
+  $("btnReviewReports").onclick=buildReportsView;
+  $("btnClearReports").onclick=()=>{
+    if(!modCan()){ toast("Enable mod mode first."); return; }
+    let cleared=0;
+    for(const p of S.posts){
+      const before=openReportCount(p);
+      modResolveReports(p);
+      cleared += before;
+      for(const c of (p.comments||[])){
+        const b=openReportCount(c);
+        modResolveReports(c);
+        cleared += b;
+      }
+    }
+    save(); render();
+    toast(`Resolved ${cleared} reports.`, 1200);
+  };
+
+  $("selProf").onchange=(e)=>{ S.settings.profanity = e.target.value==="on"; save(); render(); };
+  $("selPII").onchange=(e)=>{ S.settings.piiWarn = e.target.value==="on"; save(); render(); };
+  $("inpAutoHide").oninput=(e)=>{ S.settings.autoHideReports = clamp(Number(e.target.value)||4, 1, 99); save(); };
+
+  $("btnExport").onclick=()=>{
+    const blob=new Blob([JSON.stringify(S,null,2)], {type:"application/json"});
+    downloadBlob(blob, "confession_board_export.json");
+  };
+  $("btnImport").onclick=()=>{
+    const txt=$("txtJSON").value.trim();
+    if(!txt){ toast("Paste JSON into the box first."); return; }
+    const data=safeJSONParse(txt);
+    if(!data || !Array.isArray(data.posts)){ toast("Invalid JSON."); return; }
+    if(!confirm("Import will replace current board data. Continue?")) return;
+    // load into state
+    S.posts=data.posts||[];
+    S.settings=Object.assign(S.settings, data.settings||{});
+    S.ui=Object.assign(S.ui, data.ui||{});
+    S.mod=Object.assign(S.mod, data.mod||{});
+    save();
+    render();
+    toast("Imported.", 900);
+  };
+
+  function applyUIState(){
+    $("selSort").value = S.ui.sort || "hot";
+    $("selFilter").value = S.ui.filter || "all";
+    $("txtSearch").value = S.ui.search || "";
+  }
+
+  ///////////////////////////////
+  // Init
+  ///////////////////////////////
+  function init(){
+    // load settings/saved board
+    load(false);
+
+    // load draft if exists
+    loadDraft();
+    updateLen();
+    applyUIState();
+
+    // if empty, seed a couple (but not too intrusive)
+    if(S.posts.length===0){
+      // no auto seed; show empty UI
+    }
+    render();
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Digital Art Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+            --text-color: #ecf0f1;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            position: relative;
+            z-index: 2;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px var(--accent-color),
+                           0 0 20px var(--accent-color),
+                           0 0 30px var(--accent-color);
+            }
+            to {
+                text-shadow: 0 0 20px var(--secondary-color),
+                           0 0 30px var(--secondary-color),
+                           0 0 40px var(--secondary-color);
+            }
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px var(--shadow-color);
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            background: var(--accent-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px var(--shadow-color);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px var(--shadow-color);
+            background: var(--secondary-color);
+        }
+
+        .particle {
+            position: absolute;
+            background: var(--accent-color);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+            margin-top: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: var(--primary-color);
+            padding: 2rem;
+            border-radius: 15px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .modal.active {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2.5rem;
+            }
+
+            .canvas-container {
+                height: 400px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 100px;
+            height: 100px;
+            border: 5px solid var(--text-color);
+            border-top-color: var(--secondary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .particles-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .color-palette {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--text-color);
+            transition: transform 0.3s ease;
+        }
+
+        .color-option:hover {
+            transform: scale(1.2);
+        }
+
+        .tools-panel {
+            position: fixed;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .tool-btn:hover {
+            transform: scale(1.1);
+            background: var(--secondary-color);
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tool-btn:hover + .tooltip {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen">
+        <div class="loader"></div>
+    </div>
+
+    <div class="particles-background"></div>
+
+    <div class="container">
+        <header>
+            <h1>Interactive Digital Art Gallery</h1>
+        </header>
+
+        <div class="controls">
+            <button class="btn" id="clearBtn">Clear Canvas</button>
+            <button class="btn" id="downloadBtn">Download Creation</button>
+            <button class="btn" id="shareBtn">Share Art</button>
+            <button class="btn" id="settingsBtn">Settings</button>
+        </div>
+
+        <div class="color-palette">
+            <div class="color-option" style="background: #e74c3c" data-color="#e74c3c"></div>
+            <div class="color-option" style="background: #3498db" data-color="#3498db"></div>
+            <div class="color-option" style="background: #2ecc71" data-color="#2ecc71"></div>
+            <div class="color-option" style="background: #f1c40f" data-color="#f1c40f"></div>
+            <div class="color-option" style="background: #9b59b6" data-color="#9b59b6"></div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+
+        <div class="tools-panel">
+            <button class="tool-btn" data-tool="brush">
+                <i class="fas fa-paint-brush"></i>
+            </button>
+            <div class="tooltip">Brush Tool</div>
+
+            <button class="tool-btn" data-tool="eraser">
+                <i class="fas fa-eraser"></i>
+            </button>
+            <div class="tooltip">Eraser</div>
+
+            <button class="tool-btn" data-tool="shapes">
+                <i class="fas fa-shapes"></i>
+            </button>
+            <div class="tooltip">Shapes</div>
+        </div>
+
+        <div class="info-panel">
+            <h2>Statistics</h2>
+            <div class="stats">
+                <div class="stat-item">
+                    <h3>Particles</h3>
+                    <p id="particleCount">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>FPS</h3>
+                    <p id="fpsCounter">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Time Spent</h3>
+                    <p id="timeSpent">00:00</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <h2>Settings</h2>
+        <div class="settings-content">
+            <!-- Settings content will be dynamically generated -->
+        </div>
+    </div>
+
+    <div class="overlay"></div>
+
+    <script>
+        // Initialize variables
+        let currentColor = '#e74c3c';
+        let currentTool = 'brush';
+        let isDrawing = false;
+        let particles = [];
+        let lastTime = 0;
+        let fps = 0;
+        let startTime = Date.now();
+
+        // Get DOM elements
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clearBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const loadingScreen = document.querySelector('.loading-screen');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const toolBtns = document.querySelectorAll('.tool-btn');
+        const particleCountElement = document.getElementById('particleCount');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const timeSpentElement = document.getElementById('timeSpent');
+
+        // Set canvas size
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Particle class
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = Math.random() * 4 - 2;
+                this.speedY = Math.random() * 4 - 2;
+                this.life = 1;
+                this.decay = Math.random() * 0.02 + 0.02;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= this.decay;
+
+                if (this.size > 0.3) this.size -= 0.1;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Drawing functions
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (currentTool === 'brush') {
+                ctx.lineWidth = 5;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = currentColor;
+
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+
+                // Create particles
+                for (let i = 0; i < 3; i++) {
+                    particles.push(new Particle(x, y, currentColor));
+                }
+            } else if (currentTool === 'eraser') {
+                ctx.clearRect(x - 10, y - 10, 20, 20);
+            }
+        }
+
+        // Animation loop
+        function animate(timestamp) {
+            // Calculate FPS
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            fps = Math.round(1000 / deltaTime);
+            fpsCounter.textContent = fps;
+
+            // Update time spent
+            const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(timeSpent / 60);
+            const seconds = timeSpent % 60;
+            timeSpentElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            // Update and draw particles
+            particles = particles.filter(particle => particle.life > 0);
+            particleCountElement.textContent = particles.length;
+
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        clearBtn.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = [];
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'masterpiece.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        shareBtn.addEventListener('click', () => {
+            if (navigator.share) {
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], 'masterpiece.png', { type: 'image/png' });
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: 'My Digital Masterpiece',
+                            text: 'Check out my digital art creation!'
+                        });
+                    } catch (error) {
+                        console.error('Error sharing:', error);
+                    }
+                });
+            } else {
+                alert('Sharing is not supported on this browser');
+            }
+        });
+
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                currentColor = option.dataset.color;
+                colorOptions.forEach(opt => opt.style.transform = 'scale(1)');
+                option.style.transform = 'scale(1.2)';
+            });
+        });
+
+        toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentTool = btn.dataset.tool;
+                toolBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            loadingScreen.classList.add('hidden');
+            requestAnimationFrame(animate);
+        });
+
+        // Background particles
+        const particlesBackground = document.querySelector('.particles-background');
+        const particlesCtx = document.createElement('canvas');
+        particlesCtx.style.width = '100%';
+        particlesCtx.style.height = '100%';
+        particlesBackground.appendChild(particlesCtx);
+
+        function initBackgroundParticles() {
+            particlesCtx.width = window.innerWidth;
+            particlesCtx.height = window.innerHeight;
+            const ctx = particlesCtx.getContext('2d');
+
+            const particleCount = 100;
+            const backgroundParticles = [];
+
+            class BackgroundParticle {
+                constructor() {
+                    this.x = Math.random() * particlesCtx.width;
+                    this.y = Math.random() * particlesCtx.height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 2 - 1;
+                    this.speedY = Math.random() * 2 - 1;
+                }
+
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+
+                    if (this.x > particlesCtx.width) this.x = 0;
+                    if (this.x < 0) this.x = particlesCtx.width;
+                    if (this.y > particlesCtx.height) this.y = 0;
+                    if (this.y < 0) this.y = particlesCtx.height;
+                }
+
+                draw() {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            for (let i = 0; i < particleCount; i++) {
+                backgroundParticles.push(new BackgroundParticle());
+            }
+
+            function animateBackground() {
+                ctx.clearRect(0, 0, particlesCtx.width, particlesCtx.height);
+                
+                backgroundParticles.forEach(particle => {
+                    particle.update();
+                    particle.draw();
+                });
+
+                requestAnimationFrame(animateBackground);
+            }
+
+            animateBackground();
+        }
+
+        window.addEventListener('resize', () => {
+            if (particlesCtx) {
+                particlesCtx.width = window.innerWidth;
+                particlesCtx.height = window.innerHeight;
+            }
+        });
+
+        initBackgroundParticles();
+
+        // Settings modal functionality
+        const settingsModal = document.getElementById('settingsModal');
+        const overlay = document.querySelector('.overlay');
+
+        function toggleModal() {
+            settingsModal.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        settingsBtn.addEventListener('click', toggleModal);
+        overlay.addEventListener('click', toggleModal);
+
+        // Additional features and effects
+        function createRipple(x, y) {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            document.body.appendChild(ripple);
+
+            setTimeout(() => {
+                ripple.remove();
+            }, 1000);
+        }
+
+        document.addEventListener('click', (e) => {
+            createRipple(e.clientX, e.clientY);
+        });
+
+        // Easter egg
+        let konami = [];
+        const konamiCode = [
+            'ArrowUp', 'ArrowUp',
+            'ArrowDown', 'ArrowDown',
+            'ArrowLeft', 'ArrowRight',
+            'ArrowLeft', 'ArrowRight',
+            'b', 'a'
+        ];
+
+        document.addEventListener('keydown', (e) => {
+            konami.push(e.key);
+            konami = konami.slice(-10);
+            
+            if (JSON.stringify(konami) === JSON.stringify(konamiCode)) {
+                document.body.style.animation = 'rainbow 5s linear infinite';
+                setTimeout(() => {
+                    document.body.style.animation = '';
+                }, 5000);
+            }
+        });
+
+        // Add touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrawing(touch);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draw(touch);
+        });
+
+        canvas.addEventListener('touchend', stopDrawing);
+    </script>
+</body>
+</html>

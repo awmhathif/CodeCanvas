@@ -1,0 +1,4055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Music Visualizer Pro</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #14b8a6;
+            --bg-dark: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #252542;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #2d2d4a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gradient-1: linear-gradient(135deg, #6366f1, #ec4899);
+            --gradient-2: linear-gradient(135deg, #14b8a6, #6366f1);
+            --shadow: 0 4px 20px rgba(0,0,0,0.4);
+            --panel-width: 320px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Visualizer Canvas - Full Background */
+        #visualizerCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: var(--bg-dark);
+        }
+        
+        /* UI Overlay */
+        .ui-overlay {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            pointer-events: none;
+        }
+        
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: rgba(15, 15, 26, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-icon:hover {
+            background: var(--bg-card-hover);
+            transform: scale(1.05);
+        }
+        
+        .btn-icon.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Side Panels */
+        .side-panel {
+            width: var(--panel-width);
+            background: rgba(26, 26, 46, 0.92);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, width 0.3s ease;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .side-panel.right {
+            border-right: none;
+            border-left: 1px solid var(--border);
+        }
+        
+        .side-panel.collapsed {
+            width: 0;
+            border: none;
+        }
+        
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        /* Center Area - Now Playing */
+        .center-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            pointer-events: none;
+            min-width: 0;
+        }
+        
+        .now-playing-card {
+            background: rgba(26, 26, 46, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            pointer-events: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .album-art-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+        }
+        
+        .album-art {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            object-fit: cover;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: var(--text-muted);
+            box-shadow: var(--shadow);
+        }
+        
+        .album-art.playing {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .track-info h2 {
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-info p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        
+        /* Player Controls */
+        .player-bar {
+            background: rgba(15, 15, 26, 0.92);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            padding: 12px 20px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+        
+        .player-bar.hidden {
+            transform: translateY(100%);
+        }
+        
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .time-display {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            min-width: 45px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-card);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-1);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .progress-bar:hover .progress-fill {
+            background: var(--secondary);
+        }
+        
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .right-controls {
+            justify-content: flex-end;
+        }
+        
+        .main-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--gradient-1);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        
+        .play-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+        }
+        
+        .control-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            background: var(--bg-card);
+            color: var(--primary);
+        }
+        
+        .control-btn.active {
+            color: var(--primary);
+        }
+        
+        /* Volume Control */
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .volume-slider {
+            width: 100px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--bg-card);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Track List */
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .track-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .track-item.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-left: 3px solid var(--primary);
+        }
+        
+        .track-item.playing .track-number {
+            color: var(--primary);
+        }
+        
+        .track-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        
+        .track-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .track-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .track-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-artist {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .track-duration {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        
+        .track-actions {
+            display: none;
+            gap: 4px;
+        }
+        
+        .track-item:hover .track-actions {
+            display: flex;
+        }
+        
+        .track-item:hover .track-duration {
+            display: none;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+            background: var(--bg-dark);
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: var(--bg-card);
+            color: var(--text);
+        }
+        
+        /* Section */
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Visualization Controls */
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        
+        .viz-option {
+            padding: 12px;
+            background: var(--bg-dark);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .viz-option:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .viz-option.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .viz-option-icon {
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+        }
+        
+        .viz-option-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 16px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .slider-value {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--bg-dark);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        /* Color Picker */
+        .color-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.active {
+            border-color: white;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .drop-zone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+        }
+        
+        .drop-zone-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        .drop-zone-text span {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        /* Search */
+        .search-box {
+            position: relative;
+            margin-bottom: 12px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+        
+        /* Playlist Card */
+        .playlist-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-dark);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        
+        .playlist-card:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .playlist-cover {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: var(--gradient-1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        
+        .playlist-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .playlist-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .playlist-count {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        /* Equalizer */
+        .eq-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 150px;
+            padding: 0 10px;
+            margin-bottom: 16px;
+        }
+        
+        .eq-band {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .eq-slider {
+            width: 6px;
+            height: 120px;
+            -webkit-appearance: none;
+            background: var(--bg-dark);
+            border-radius: 3px;
+            writing-mode: vertical-lr;
+            direction: rtl;
+        }
+        
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .eq-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        
+        .eq-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .eq-preset {
+            padding: 6px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .eq-preset:hover, .eq-preset.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Toggle */
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-dark);
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        
+        .toggle input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+        
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Stats */
+        .stat-card {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        /* Fullscreen Mode */
+        .fullscreen-mode .header,
+        .fullscreen-mode .side-panel,
+        .fullscreen-mode .player-bar {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .fullscreen-mode:hover .header,
+        .fullscreen-mode:hover .side-panel:not(.collapsed),
+        .fullscreen-mode:hover .player-bar {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .fullscreen-mode .center-area {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .fullscreen-mode:hover .center-area {
+            opacity: 1;
+        }
+        
+        /* True Fullscreen - Hide All UI */
+        .true-fullscreen .ui-overlay {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .true-fullscreen:hover .ui-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* Fullscreen Exit Button */
+        .fullscreen-exit-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+            font-size: 0.9rem;
+        }
+        
+        .true-fullscreen .fullscreen-exit-btn {
+            display: block;
+        }
+        
+        .true-fullscreen:hover .fullscreen-exit-btn {
+            display: block;
+        }
+        
+        /* Panel Toggle Buttons */
+        .panel-toggle {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .panel-toggle:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .panel-toggle.left {
+            left: 0;
+            border-radius: 0 8px 8px 0;
+            border-left: none;
+        }
+        
+        .panel-toggle.right {
+            right: 0;
+            border-radius: 8px 0 0 8px;
+            border-right: none;
+        }
+        
+        .side-panel:not(.collapsed) ~ .panel-toggle.left {
+            left: var(--panel-width);
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            padding: 12px 24px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            border: 1px solid var(--border);
+        }
+        
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 0;
+            min-width: 180px;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+        
+        .context-menu.show {
+            display: block;
+        }
+        
+        .context-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        
+        .context-menu-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 6px 0;
+        }
+        
+        /* Rating Stars */
+        .rating {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .rating-star {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            transition: color 0.2s;
+        }
+        
+        .rating-star:hover,
+        .rating-star.active {
+            color: var(--warning);
+        }
+        
+        /* Mini Player */
+        .mini-player {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+            z-index: 100;
+            display: none;
+            border: 1px solid var(--border);
+        }
+        
+        .mini-player.active {
+            display: block;
+        }
+        
+        .mini-player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .mini-player-art {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mini-player-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .mini-player-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        /* Keyboard Shortcuts Panel */
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px 16px;
+        }
+        
+        .shortcut-key {
+            background: var(--bg-dark);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        
+        .shortcut-desc {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            :root {
+                --panel-width: 280px;
+            }
+            
+            .side-panel {
+                position: fixed;
+                top: 60px;
+                bottom: 90px;
+                z-index: 50;
+            }
+            
+            .side-panel.left {
+                left: 0;
+            }
+            
+            .side-panel.right {
+                right: 0;
+            }
+            
+            .side-panel.collapsed {
+                transform: translateX(-100%);
+            }
+            
+            .side-panel.right.collapsed {
+                transform: translateX(100%);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            :root {
+                --panel-width: 100%;
+            }
+            
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .logo-text {
+                display: none;
+            }
+            
+            .now-playing-card {
+                padding: 16px;
+            }
+            
+            .album-art-container {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .player-bar {
+                padding: 10px 12px;
+            }
+            
+            .volume-control {
+                display: none;
+            }
+            
+            .controls-row {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .main-controls {
+                order: -1;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .side-panel {
+                top: 0;
+                bottom: 0;
+            }
+        }
+        
+        /* Scrollbar for body */
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        body::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        body::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        /* Animation Classes */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .slide-up {
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Spectrum Analyzer Preview in Panel */
+        .spectrum-preview {
+            height: 60px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 2px;
+            padding: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .spectrum-bar {
+            width: 4px;
+            background: var(--gradient-1);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+        
+        /* Settings Sections */
+        .settings-section {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .settings-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Lyrics Display */
+        .lyrics-container {
+            text-align: center;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .lyrics-line {
+            padding: 8px;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+        
+        .lyrics-line.active {
+            color: var(--text);
+            font-size: 1.3rem;
+            font-weight: 500;
+        }
+        
+        /* Sleep Timer */
+        .timer-display {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .timer-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .timer-preset {
+            padding: 8px 16px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .timer-preset:hover, .timer-preset.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Hidden file input */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <!-- Visualizer Canvas -->
+        <canvas id="visualizerCanvas"></canvas>
+        
+        <!-- Fullscreen Exit Button -->
+        <button class="fullscreen-exit-btn" id="fullscreenExitBtn" onclick="toggleTrueFullscreen()">
+            Press ESC or Click to Exit Fullscreen
+        </button>
+        
+        <!-- UI Overlay -->
+        <div class="ui-overlay">
+            <!-- Header -->
+            <header class="header">
+                <div class="logo">
+                    <div class="logo-icon">🎵</div>
+                    <span class="logo-text">VisualizerPro</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="toggleLeftPanel()" title="Toggle Library">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="openModal('settingsModal')" title="Settings">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="toggleRightPanel()" title="Toggle Visualizer">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen Visual">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5h5V3H3v7h2V5zm9-2v2h5v5h2V3h-7zm7 14h-2v5h-5v2h7v-7zM5 19v-5H3v7h7v-2H5z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="toggleTrueFullscreen()" title="True Fullscreen">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Left Panel - Library -->
+                <aside class="side-panel left" id="leftPanel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6z"/></svg>
+                            Music Library
+                        </span>
+                        <button class="btn-icon" onclick="toggleLeftPanel()" style="width:28px;height:28px;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41z"/></svg>
+                        </button>
+                    </div>
+                    <div class="panel-content">
+                        <!-- Drop Zone -->
+                        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                            <div class="drop-zone-icon">📁</div>
+                            <p class="drop-zone-text">Drop music files here or <span>browse</span></p>
+                            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">
+                                Supports MP3, WAV, OGG, FLAC, M4A, AAC, WebM
+                            </p>
+                        </div>
+                        <input type="file" id="fileInput" multiple accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.wma,.webm">
+                        
+                        <!-- Search -->
+                        <div class="search-box">
+                            <svg class="search-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5l-1.5 1.5l-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16A6.5 6.5 0 0 1 3 9.5A6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14S14 12 14 9.5S12 5 9.5 5z"/></svg>
+                            <input type="text" class="search-input" id="searchInput" placeholder="Search tracks...">
+                        </div>
+                        
+                        <!-- Tabs -->
+                        <div class="tabs">
+                            <button class="tab active" onclick="switchLibraryTab('tracks')">Tracks</button>
+                            <button class="tab" onclick="switchLibraryTab('playlists')">Playlists</button>
+                            <button class="tab" onclick="switchLibraryTab('favorites')">Favorites</button>
+                        </div>
+                        
+                        <!-- Track List -->
+                        <div class="tab-content active" id="tracksTab">
+                            <div class="track-list" id="trackList">
+                                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                                    <p>No tracks loaded</p>
+                                    <p style="font-size:0.85rem;margin-top:8px;">Upload music files to get started</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Playlists Tab -->
+                        <div class="tab-content" id="playlistsTab">
+                            <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="openModal('createPlaylistModal')">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                                Create Playlist
+                            </button>
+                            <div id="playlistsList"></div>
+                        </div>
+                        
+                        <!-- Favorites Tab -->
+                        <div class="tab-content" id="favoritesTab">
+                            <div class="track-list" id="favoritesList">
+                                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                                    <p>No favorites yet</p>
+                                    <p style="font-size:0.85rem;margin-top:8px;">Click the heart on tracks to add</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+                
+                <!-- Center Area -->
+                <div class="center-area">
+                    <div class="now-playing-card" id="nowPlayingCard">
+                        <div class="album-art-container">
+                            <div class="album-art" id="albumArt">🎵</div>
+                        </div>
+                        <div class="track-info">
+                            <h2 id="trackTitle">No Track Playing</h2>
+                            <p id="trackArtist">Upload music to start</p>
+                        </div>
+                        <div class="rating" style="justify-content:center;margin-top:12px;" id="trackRating">
+                            <span class="rating-star" onclick="setRating(1)">☆</span>
+                            <span class="rating-star" onclick="setRating(2)">☆</span>
+                            <span class="rating-star" onclick="setRating(3)">☆</span>
+                            <span class="rating-star" onclick="setRating(4)">☆</span>
+                            <span class="rating-star" onclick="setRating(5)">☆</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Panel - Visualizer Controls -->
+                <aside class="side-panel right" id="rightPanel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M23 7V1h-6v2H7V1H1v6h2v10H1v6h6v-2h10v2h6v-6h-2V7h2zM3 3h2v2H3V3zm2 18H3v-2h2v2zm12-2H7v-2H5V7h2V5h10v2h2v10h-2v2zm4 2h-2v-2h2v2zM19 5V3h2v2h-2zm-5.27 4.16l-3.15-1.48l-.7 1.5l2.2 1.04l-1.56 2.45l-2.49-1.5l-.87 1.44l2.6 1.57l-1.86 2.93l1.28.81l1.85-2.91l2.58 1.56l.87-1.44l-2.48-1.5l1.59-2.5l2.17 1.02l.7-1.5l-2.73-1.49z"/></svg>
+                            Visualizer
+                        </span>
+                        <button class="btn-icon" onclick="toggleRightPanel()" style="width:28px;height:28px;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41z"/></svg>
+                        </button>
+                    </div>
+                    <div class="panel-content">
+                        <!-- Spectrum Preview -->
+                        <div class="spectrum-preview" id="spectrumPreview">
+                            <div class="spectrum-bar" style="height:20%"></div>
+                            <div class="spectrum-bar" style="height:40%"></div>
+                            <div class="spectrum-bar" style="height:60%"></div>
+                            <div class="spectrum-bar" style="height:80%"></div>
+                            <div class="spectrum-bar" style="height:100%"></div>
+                            <div class="spectrum-bar" style="height:80%"></div>
+                            <div class="spectrum-bar" style="height:60%"></div>
+                            <div class="spectrum-bar" style="height:40%"></div>
+                            <div class="spectrum-bar" style="height:20%"></div>
+                        </div>
+                        
+                        <!-- Visualization Type -->
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Visualization Type</span>
+                            </div>
+                            <div class="viz-grid" id="vizTypeGrid">
+                                <div class="viz-option active" data-viz="bars" onclick="setVisualization('bars')">
+                                    <div class="viz-option-icon">📊</div>
+                                    <div class="viz-option-name">Bars</div>
+                                </div>
+                                <div class="viz-option" data-viz="circular" onclick="setVisualization('circular')">
+                                    <div class="viz-option-icon">🔘</div>
+                                    <div class="viz-option-name">Circular</div>
+                                </div>
+                                <div class="viz-option" data-viz="waveform" onclick="setVisualization('waveform')">
+                                    <div class="viz-option-icon">〰️</div>
+                                    <div class="viz-option-name">Waveform</div>
+                                </div>
+                                <div class="viz-option" data-viz="particles" onclick="setVisualization('particles')">
+                                    <div class="viz-option-icon">✨</div>
+                                    <div class="viz-option-name">Particles</div>
+                                </div>
+                                <div class="viz-option" data-viz="spectrum" onclick="setVisualization('spectrum')">
+                                    <div class="viz-option-icon">📈</div>
+                                    <div class="viz-option-name">Spectrum</div>
+                                </div>
+                                <div class="viz-option" data-viz="radial" onclick="setVisualization('radial')">
+                                    <div class="viz-option-icon">🌀</div>
+                                    <div class="viz-option-name">Radial</div>
+                                </div>
+                                <div class="viz-option" data-viz="galaxy" onclick="setVisualization('galaxy')">
+                                    <div class="viz-option-icon">🌌</div>
+                                    <div class="viz-option-name">Galaxy</div>
+                                </div>
+                                <div class="viz-option" data-viz="geometric" onclick="setVisualization('geometric')">
+                                    <div class="viz-option-icon">🔷</div>
+                                    <div class="viz-option-name">Geometric</div>
+                                </div>
+                                <div class="viz-option" data-viz="lines" onclick="setVisualization('lines')">
+                                    <div class="viz-option-icon">📉</div>
+                                    <div class="viz-option-name">Lines</div>
+                                </div>
+                                <div class="viz-option" data-viz="pulse" onclick="setVisualization('pulse')">
+                                    <div class="viz-option-icon">💫</div>
+                                    <div class="viz-option-name">Pulse</div>
+                                </div>
+                                <div class="viz-option" data-viz="matrix" onclick="setVisualization('matrix')">
+                                    <div class="viz-option-icon">🖥️</div>
+                                    <div class="viz-option-name">Matrix</div>
+                                </div>
+                                <div class="viz-option" data-viz="fireworks" onclick="setVisualization('fireworks')">
+                                    <div class="viz-option-icon">🎆</div>
+                                    <div class="viz-option-name">Fireworks</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Color Theme -->
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Color Theme</span>
+                            </div>
+                            <div class="color-options" id="colorOptions">
+                                <div class="color-option active" style="background:linear-gradient(135deg,#6366f1,#ec4899)" data-color="purple-pink" onclick="setColorTheme('purple-pink')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#14b8a6,#6366f1)" data-color="teal-purple" onclick="setColorTheme('teal-purple')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#f59e0b,#ef4444)" data-color="orange-red" onclick="setColorTheme('orange-red')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#22c55e,#14b8a6)" data-color="green-teal" onclick="setColorTheme('green-teal')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)" data-color="blue-cyan" onclick="setColorTheme('blue-cyan')"></div>
+                                <div class="color-option" style="background:linear-gradient(135deg,#ec4899,#f43f5e)" data-color="pink-rose" onclick="setColorTheme('pink-rose')"></div>
+                                <div class="color-option" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)" data-color="rainbow" onclick="setColorTheme('rainbow')"></div>
+                                <div class="color-option" style="background:#ffffff" data-color="white" onclick="setColorTheme('white')"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Visual Settings -->
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Visual Settings</span>
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Sensitivity</span>
+                                    <span class="slider-value" id="sensitivityValue">50%</span>
+                                </div>
+                                <input type="range" class="slider" id="sensitivitySlider" min="10" max="100" value="50" onchange="updateSensitivity(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Smoothing</span>
+                                    <span class="slider-value" id="smoothingValue">80%</span>
+                                </div>
+                                <input type="range" class="slider" id="smoothingSlider" min="0" max="99" value="80" onchange="updateSmoothing(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Background Opacity</span>
+                                    <span class="slider-value" id="bgOpacityValue">100%</span>
+                                </div>
+                                <input type="range" class="slider" id="bgOpacitySlider" min="0" max="100" value="100" onchange="updateBgOpacity(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>Blur Effect</span>
+                                    <span class="slider-value" id="blurValue">0px</span>
+                                </div>
+                                <input type="range" class="slider" id="blurSlider" min="0" max="20" value="0" onchange="updateBlur(this.value)">
+                            </div>
+                        </div>
+                        
+                        <!-- Equalizer -->
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Equalizer</span>
+                            </div>
+                            <div class="eq-container" id="eqContainer">
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq60" min="-12" max="12" value="0" onchange="updateEQ(60, this.value)">
+                                    <span class="eq-label">60</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq170" min="-12" max="12" value="0" onchange="updateEQ(170, this.value)">
+                                    <span class="eq-label">170</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq310" min="-12" max="12" value="0" onchange="updateEQ(310, this.value)">
+                                    <span class="eq-label">310</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq600" min="-12" max="12" value="0" onchange="updateEQ(600, this.value)">
+                                    <span class="eq-label">600</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq1k" min="-12" max="12" value="0" onchange="updateEQ(1000, this.value)">
+                                    <span class="eq-label">1K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq3k" min="-12" max="12" value="0" onchange="updateEQ(3000, this.value)">
+                                    <span class="eq-label">3K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq6k" min="-12" max="12" value="0" onchange="updateEQ(6000, this.value)">
+                                    <span class="eq-label">6K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq12k" min="-12" max="12" value="0" onchange="updateEQ(12000, this.value)">
+                                    <span class="eq-label">12K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq14k" min="-12" max="12" value="0" onchange="updateEQ(14000, this.value)">
+                                    <span class="eq-label">14K</span>
+                                </div>
+                                <div class="eq-band">
+                                    <input type="range" class="eq-slider" id="eq16k" min="-12" max="12" value="0" onchange="updateEQ(16000, this.value)">
+                                    <span class="eq-label">16K</span>
+                                </div>
+                            </div>
+                            <div class="eq-presets">
+                                <button class="eq-preset active" onclick="setEQPreset('flat')">Flat</button>
+                                <button class="eq-preset" onclick="setEQPreset('rock')">Rock</button>
+                                <button class="eq-preset" onclick="setEQPreset('pop')">Pop</button>
+                                <button class="eq-preset" onclick="setEQPreset('jazz')">Jazz</button>
+                                <button class="eq-preset" onclick="setEQPreset('classical')">Classical</button>
+                                <button class="eq-preset" onclick="setEQPreset('electronic')">Electronic</button>
+                                <button class="eq-preset" onclick="setEQPreset('bass')">Bass Boost</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Performance -->
+                        <div class="section">
+                            <div class="section-header">
+                                <span class="section-title">Performance</span>
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label">
+                                    <span>FPS Limit</span>
+                                    <span class="slider-value" id="fpsValue">60</span>
+                                </div>
+                                <input type="range" class="slider" id="fpsSlider" min="15" max="144" value="60" onchange="updateFPS(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+            
+            <!-- Player Bar -->
+            <div class="player-bar" id="playerBar">
+                <div class="progress-container">
+                    <span class="time-display" id="currentTime">0:00</span>
+                    <div class="progress-bar" id="progressBar" onclick="seekTo(event)">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="time-display" id="totalTime">0:00</span>
+                </div>
+                <div class="controls-row">
+                    <div class="left-controls">
+                        <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M14.83 13.41l-1.41 1.41l3.13 3.13L14.5 20H20v-5.5l-2.04 2.04l-3.13-3.13M5.41 4L4 5.41l5.64 5.64l-1.04 1.65c-.33.61-.16 1.33.39 1.72l3.65 2.55c.61.43 1.47.22 1.8-.45l.23-.43L17 18.59l1.41-1.41L5.41 4m5.25 7.16l-3.62-3.62c-.07-.21-.14-.4-.14-.6c0-.71.58-1.29 1.29-1.29c.35 0 .68.14.92.39l3.23 3.23l-1.68 1.89z"/></svg>
+                        </button>
+                        <button class="control-btn" id="repeatBtn" onclick="toggleRepeat()" title="Repeat">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17 17H7v-3l-4 4l4 4v-3h12v-6h-2v4M7 7h10v3l4-4l-4-4v3H5v6h2V7z"/></svg>
+                        </button>
+                        <select id="playbackSpeed" onchange="changePlaybackSpeed(this.value)" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:0.8rem;">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                    <div class="main-controls">
+                        <button class="control-btn" onclick="previousTrack()" title="Previous">
+                            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6V6m3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                        </button>
+                        <button class="play-btn" id="playBtn" onclick="togglePlay()">
+                            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button class="control-btn" onclick="nextTrack()" title="Next">
+                            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M16 18h2V6h-2v12M6 18l8.5-6L6 6v12z"/></svg>
+                        </button>
+                    </div>
+                    <div class="right-controls">
+                        <button class="control-btn" onclick="openModal('sleepTimerModal')" title="Sleep Timer">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 20c4.42 0 8-3.58 8-8s-3.58-8-8-8s-8 3.58-8 8s3.58 8 8 8m0-18c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m.5 4v6.5l5.3 3.1l-.8 1.3l-6-3.5V6h1.5z"/></svg>
+                        </button>
+                        <div class="volume-control">
+                            <button class="control-btn" id="muteBtn" onclick="toggleMute()" title="Mute">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" id="volumeIcon"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02M3 9v6h4l5 5V4L7 9H3z"/></svg>
+                            </button>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80" oninput="changeVolume(this.value)">
+                        </div>
+                        <button class="control-btn" onclick="openModal('keyboardShortcutsModal')" title="Keyboard Shortcuts">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M19 10h-2V8h2v2m0 6h-2v-2h2v2m0-4h-2v-2h2v2m-3-2h-2v2h2v-2m-6-2h2V8H9v2m1.5 6h5v-2h-5v2M7 14h2v-2H7v2m0-4h2V8H7v2m-1 6h2v-2H6v2M5 6c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2H5z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mini Player -->
+        <div class="mini-player" id="miniPlayer">
+            <div class="mini-player-header">
+                <div class="mini-player-art" id="miniPlayerArt">🎵</div>
+                <div class="mini-player-info">
+                    <div class="track-name" id="miniPlayerTitle">No Track</div>
+                    <div class="track-artist" id="miniPlayerArtist">-</div>
+                </div>
+                <button class="btn-icon" onclick="closeMiniPlayer()" style="width:28px;height:28px;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41z"/></svg>
+                </button>
+            </div>
+            <div class="mini-player-controls">
+                <button class="control-btn" onclick="previousTrack()">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6V6m3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                </button>
+                <button class="play-btn" style="width:40px;height:40px;" onclick="togglePlay()">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" id="miniPlayIcon"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button class="control-btn" onclick="nextTrack()">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M16 18h2V6h-2v12M6 18l8.5-6L6 6v12z"/></svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Context Menu -->
+        <div class="context-menu" id="contextMenu">
+            <div class="context-menu-item" onclick="contextPlayNow()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Play Now
+            </div>
+            <div class="context-menu-item" onclick="contextPlayNext()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 18h2V6h-2v12M6 18l8.5-6L6 6v12z"/></svg>
+                Play Next
+            </div>
+            <div class="context-menu-item" onclick="contextAddToQueue()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6m0 4H3v2h12v-2M3 16h8v-2H3v2m11.5 4v-3.5H18v-2h-3.5V11h-2v3.5H9v2h3.5V20h2z"/></svg>
+                Add to Queue
+            </div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" onclick="contextAddToPlaylist()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                Add to Playlist
+            </div>
+            <div class="context-menu-item" onclick="contextToggleFavorite()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                Add to Favorites
+            </div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" onclick="contextShowInfo()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M13 9h-2V7h2v2m0 10h-2v-6h2v6m-1-15C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2z"/></svg>
+                Track Info
+            </div>
+            <div class="context-menu-item" style="color:var(--danger);" onclick="contextRemove()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z"/></svg>
+                Remove
+            </div>
+        </div>
+        
+        <!-- Notification -->
+        <div class="notification" id="notification"></div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Settings</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <div class="settings-section-title">Playback</div>
+                    <div class="toggle-group">
+                        <span>Auto-play next track</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="autoplayToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <span>Crossfade between tracks</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="crossfadeToggle" onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="slider-group" style="margin-top:12px;">
+                        <div class="slider-label">
+                            <span>Crossfade Duration</span>
+                            <span class="slider-value" id="crossfadeValue">3s</span>
+                        </div>
+                        <input type="range" class="slider" id="crossfadeSlider" min="1" max="10" value="3" oninput="document.getElementById('crossfadeValue').textContent = this.value + 's'">
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Visualization</div>
+                    <div class="toggle-group">
+                        <span>Reactive background</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="reactiveToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <span>Show spectrum in panel</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="spectrumToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <span>Beat detection (bass sync)</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="beatToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Storage</div>
+                    <div class="toggle-group">
+                        <span>Save playback position</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="savePositionToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <span>Remember last playlist</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="rememberPlaylistToggle" checked onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <button class="btn btn-secondary" style="width:100%;margin-top:12px;" onclick="clearStorage()">
+                        Clear All Data
+                    </button>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Import / Export</div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-secondary" style="flex:1;" onclick="exportSettings()">
+                            Export Settings
+                        </button>
+                        <button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('importSettingsInput').click()">
+                            Import Settings
+                        </button>
+                        <input type="file" id="importSettingsInput" accept=".json" style="display:none" onchange="importSettings(event)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Playlist Modal -->
+    <div class="modal-overlay" id="createPlaylistModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Playlist</h3>
+                <button class="modal-close" onclick="closeModal('createPlaylistModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Playlist Name</label>
+                    <input type="text" class="form-input" id="playlistNameInput" placeholder="My Awesome Playlist">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (optional)</label>
+                    <input type="text" class="form-input" id="playlistDescInput" placeholder="Add a description">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('createPlaylistModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="createPlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sleep Timer Modal -->
+    <div class="modal-overlay" id="sleepTimerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Sleep Timer</h3>
+                <button class="modal-close" onclick="closeModal('sleepTimerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="timer-display" id="timerDisplay">--:--</div>
+                <div class="timer-presets">
+                    <button class="timer-preset" onclick="setSleepTimer(5)">5 min</button>
+                    <button class="timer-preset" onclick="setSleepTimer(10)">10 min</button>
+                    <button class="timer-preset" onclick="setSleepTimer(15)">15 min</button>
+                    <button class="timer-preset" onclick="setSleepTimer(30)">30 min</button>
+                    <button class="timer-preset" onclick="setSleepTimer(45)">45 min</button>
+                    <button class="timer-preset" onclick="setSleepTimer(60)">1 hour</button>
+                    <button class="timer-preset" onclick="setSleepTimer(90)">1.5 hours</button>
+                    <button class="timer-preset" onclick="setSleepTimer(120)">2 hours</button>
+                </div>
+                <button class="btn btn-secondary" style="width:100%;margin-top:16px;" onclick="cancelSleepTimer()">Cancel Timer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Track Info Modal -->
+    <div class="modal-overlay" id="trackInfoModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Track Information</h3>
+                <button class="modal-close" onclick="closeModal('trackInfoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex;gap:16px;margin-bottom:16px;">
+                    <div id="infoAlbumArt" style="width:100px;height:100px;background:var(--bg-dark);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;">🎵</div>
+                    <div style="flex:1;">
+                        <h4 id="infoTitle" style="margin-bottom:4px;">-</h4>
+                        <p id="infoArtist" style="color:var(--text-muted);margin-bottom:8px;">-</p>
+                        <div class="rating" id="infoRating">
+                            <span class="rating-star">☆</span>
+                            <span class="rating-star">☆</span>
+                            <span class="rating-star">☆</span>
+                            <span class="rating-star">☆</span>
+                            <span class="rating-star">☆</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.8rem;">Duration</div>
+                            <div id="infoDuration">-</div>
+                        </div>
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.8rem;">Format</div>
+                            <div id="infoFormat">-</div>
+                        </div>
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.8rem;">Size</div>
+                            <div id="infoSize">-</div>
+                        </div>
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.8rem;">Play Count</div>
+                            <div id="infoPlayCount">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal-overlay" id="keyboardShortcutsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Keyboard Shortcuts</h3>
+                <button class="modal-close" onclick="closeModal('keyboardShortcutsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcuts-grid">
+                    <span class="shortcut-key">Space</span>
+                    <span class="shortcut-desc">Play / Pause</span>
+                    <span class="shortcut-key">←</span>
+                    <span class="shortcut-desc">Previous Track</span>
+                    <span class="shortcut-key">→</span>
+                    <span class="shortcut-desc">Next Track</span>
+                    <span class="shortcut-key">↑</span>
+                    <span class="shortcut-desc">Volume Up</span>
+                    <span class="shortcut-key">↓</span>
+                    <span class="shortcut-desc">Volume Down</span>
+                    <span class="shortcut-key">M</span>
+                    <span class="shortcut-desc">Mute / Unmute</span>
+                    <span class="shortcut-key">F</span>
+                    <span class="shortcut-desc">Toggle Fullscreen</span>
+                    <span class="shortcut-key">S</span>
+                    <span class="shortcut-desc">Toggle Shuffle</span>
+                    <span class="shortcut-key">R</span>
+                    <span class="shortcut-desc">Toggle Repeat</span>
+                    <span class="shortcut-key">L</span>
+                    <span class="shortcut-desc">Toggle Loop</span>
+                    <span class="shortcut-key">1-9</span>
+                    <span class="shortcut-desc">Seek to 10-90%</span>
+                    <span class="shortcut-key">Esc</span>
+                    <span class="shortcut-desc">Exit Fullscreen</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GLOBAL STATE ====================
+        const state = {
+            tracks: [],
+            playlists: [],
+            favorites: [],
+            queue: [],
+            history: [],
+            currentTrackIndex: -1,
+            isPlaying: false,
+            isMuted: false,
+            volume: 80,
+            shuffle: false,
+            repeat: 'none', // none, all, one
+            visualization: 'bars',
+            colorTheme: 'purple-pink',
+            sensitivity: 50,
+            smoothing: 0.8,
+            bgOpacity: 100,
+            blur: 0,
+            fps: 60,
+            sleepTimer: null,
+            sleepTimerEnd: null,
+            contextTrackIndex: -1,
+            settings: {
+                autoplay: true,
+                crossfade: false,
+                crossfadeDuration: 3,
+                reactive: true,
+                spectrum: true,
+                beat: true,
+                savePosition: true,
+                rememberPlaylist: true
+            },
+            statistics: {
+                totalPlayTime: 0,
+                trackPlayCounts: {}
+            }
+        };
+
+        // ==================== AUDIO CONTEXT ====================
+        let audioContext;
+        let analyser;
+        let gainNode;
+        let eqFilters = [];
+        let audio = new Audio();
+        audio.crossOrigin = 'anonymous';
+        
+        const eqFrequencies = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
+        const eqPresets = {
+            flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            rock: [4, 3, -2, -3, -1, 2, 4, 5, 5, 5],
+            pop: [-1, 2, 4, 4, 2, -1, -1, -1, -1, -1],
+            jazz: [3, 2, 0, 2, -2, -2, 0, 2, 3, 4],
+            classical: [4, 3, 2, 1, -1, -1, 0, 2, 3, 4],
+            electronic: [4, 3, 0, -2, -2, 0, 4, 5, 5, 4],
+            bass: [6, 5, 4, 2, 0, -1, -2, -2, -2, -2]
+        };
+
+        // Initialize Audio Context
+        function initAudioContext() {
+            if (audioContext) return;
+            
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = state.smoothing;
+            
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = state.volume / 100;
+            
+            // Create EQ filters
+            eqFrequencies.forEach((freq, index) => {
+                const filter = audioContext.createBiquadFilter();
+                filter.type = index === 0 ? 'lowshelf' : (index === eqFrequencies.length - 1 ? 'highshelf' : 'peaking');
+                filter.frequency.value = freq;
+                filter.Q.value = 1;
+                filter.gain.value = 0;
+                eqFilters.push(filter);
+            });
+            
+            // Connect audio source
+            const source = audioContext.createMediaElementSource(audio);
+            
+            // Connect chain: source -> eq filters -> gain -> analyser -> destination
+            source.connect(eqFilters[0]);
+            for (let i = 0; i < eqFilters.length - 1; i++) {
+                eqFilters[i].connect(eqFilters[i + 1]);
+            }
+            eqFilters[eqFilters.length - 1].connect(gainNode);
+            gainNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+        }
+
+        // ==================== CANVAS & VISUALIZATION ====================
+        const canvas = document.getElementById('visualizerCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        let particles = [];
+        let matrixColumns = [];
+        let fireworks = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initMatrixColumns();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Color themes
+        const colorThemes = {
+            'purple-pink': ['#6366f1', '#a855f7', '#ec4899'],
+            'teal-purple': ['#14b8a6', '#6366f1', '#a855f7'],
+            'orange-red': ['#f59e0b', '#f97316', '#ef4444'],
+            'green-teal': ['#22c55e', '#14b8a6', '#06b6d4'],
+            'blue-cyan': ['#3b82f6', '#06b6d4', '#22d3ee'],
+            'pink-rose': ['#ec4899', '#f43f5e', '#fb7185'],
+            'rainbow': ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#6366f1', '#a855f7'],
+            'white': ['#ffffff', '#e2e8f0', '#cbd5e1']
+        };
+
+        function getColors() {
+            return colorThemes[state.colorTheme] || colorThemes['purple-pink'];
+        }
+
+        function createGradient(x1, y1, x2, y2) {
+            const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+            const colors = getColors();
+            colors.forEach((color, i) => {
+                gradient.addColorStop(i / (colors.length - 1), color);
+            });
+            return gradient;
+        }
+
+        // Initialize Matrix columns
+        function initMatrixColumns() {
+            matrixColumns = [];
+            const columnWidth = 20;
+            const columns = Math.floor(canvas.width / columnWidth);
+            for (let i = 0; i < columns; i++) {
+                matrixColumns.push({
+                    x: i * columnWidth,
+                    y: Math.random() * canvas.height,
+                    speed: 2 + Math.random() * 5,
+                    chars: []
+                });
+            }
+        }
+
+        // Particle class
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 1;
+                this.decay = 0.01 + Math.random() * 0.02;
+                this.size = 2 + Math.random() * 4;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.size *= 0.99;
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color + Math.floor(this.life * 255).toString(16).padStart(2, '0');
+                ctx.fill();
+            }
+        }
+
+        // Firework class
+        class Firework {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.particles = [];
+                const colors = getColors();
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                for (let i = 0; i < 50; i++) {
+                    const angle = (Math.PI * 2 * i) / 50;
+                    const speed = 2 + Math.random() * 3;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1,
+                        color: color,
+                        size: 2 + Math.random() * 2
+                    });
+                }
+            }
+            
+            update() {
+                this.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.05;
+                    p.life -= 0.02;
+                    p.size *= 0.98;
+                });
+                this.particles = this.particles.filter(p => p.life > 0);
+            }
+            
+            draw() {
+                this.particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color + Math.floor(p.life * 255).toString(16).padStart(2, '0');
+                    ctx.fill();
+                });
+            }
+        }
+
+        // Main visualization loop
+        let lastFrameTime = 0;
+        const frameInterval = 1000 / state.fps;
+
+        function visualize(timestamp) {
+            if (timestamp - lastFrameTime < frameInterval) {
+                animationId = requestAnimationFrame(visualize);
+                return;
+            }
+            lastFrameTime = timestamp;
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            if (state.visualization === 'waveform') {
+                analyser.getByteTimeDomainData(dataArray);
+            } else {
+                analyser.getByteFrequencyData(dataArray);
+            }
+
+            // Clear canvas with opacity for trail effects
+            const opacity = state.bgOpacity / 100;
+            ctx.fillStyle = `rgba(15, 15, 26, ${opacity})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Apply blur if set
+            if (state.blur > 0) {
+                ctx.filter = `blur(${state.blur}px)`;
+            } else {
+                ctx.filter = 'none';
+            }
+
+            // Calculate average for beat detection
+            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            const bassAvg = Array.from(dataArray.slice(0, 10)).reduce((a, b) => a + b, 0) / 10;
+            const isBeat = bassAvg > 180 && state.settings.beat;
+
+            // Draw based on visualization type
+            switch (state.visualization) {
+                case 'bars':
+                    drawBars(dataArray, isBeat);
+                    break;
+                case 'circular':
+                    drawCircular(dataArray, isBeat);
+                    break;
+                case 'waveform':
+                    drawWaveform(dataArray);
+                    break;
+                case 'particles':
+                    drawParticles(dataArray, isBeat);
+                    break;
+                case 'spectrum':
+                    drawSpectrum(dataArray);
+                    break;
+                case 'radial':
+                    drawRadial(dataArray, isBeat);
+                    break;
+                case 'galaxy':
+                    drawGalaxy(dataArray, isBeat);
+                    break;
+                case 'geometric':
+                    drawGeometric(dataArray, isBeat);
+                    break;
+                case 'lines':
+                    drawLines(dataArray);
+                    break;
+                case 'pulse':
+                    drawPulse(dataArray, isBeat);
+                    break;
+                case 'matrix':
+                    drawMatrix(dataArray);
+                    break;
+                case 'fireworks':
+                    drawFireworks(dataArray, isBeat);
+                    break;
+            }
+
+            // Update spectrum preview in panel
+            if (state.settings.spectrum) {
+                updateSpectrumPreview(dataArray);
+            }
+
+            ctx.filter = 'none';
+            animationId = requestAnimationFrame(visualize);
+        }
+
+        // Visualization Drawing Functions
+        function drawBars(dataArray, isBeat) {
+            const barCount = 64;
+            const barWidth = canvas.width / barCount;
+            const sensitivity = state.sensitivity / 50;
+            
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = Math.floor(i * dataArray.length / barCount);
+                const value = dataArray[dataIndex] * sensitivity;
+                const barHeight = (value / 255) * canvas.height * 0.8;
+                
+                const x = i * barWidth;
+                const y = canvas.height - barHeight;
+                
+                const gradient = createGradient(x, canvas.height, x, y);
+                ctx.fillStyle = gradient;
+                
+                const scale = isBeat ? 1.1 : 1;
+                ctx.fillRect(x + 2, y, (barWidth - 4) * scale, barHeight);
+                
+                // Reflection
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(x + 2, canvas.height, (barWidth - 4) * scale, -barHeight * 0.3);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawCircular(dataArray, isBeat) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.25;
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            
+            const beatScale = isBeat ? 1.15 : 1;
+            
+            // Draw circular bars
+            const barCount = 180;
+            for (let i = 0; i < barCount; i++) {
+                const angle = (i / barCount) * Math.PI * 2;
+                const dataIndex = Math.floor(i * dataArray.length / barCount);
+                const value = dataArray[dataIndex] * sensitivity;
+                const barHeight = (value / 255) * radius * beatScale;
+                
+                const x1 = centerX + Math.cos(angle) * radius;
+                const y1 = centerY + Math.sin(angle) * radius;
+                const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+                
+                const colorIndex = Math.floor((i / barCount) * colors.length);
+                ctx.strokeStyle = colors[colorIndex % colors.length];
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+            
+            // Center circle
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 0.8);
+            colors.forEach((color, i) => {
+                gradient.addColorStop(i / colors.length, color + '40');
+            });
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.8 * beatScale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawWaveform(dataArray) {
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = createGradient(0, 0, canvas.width, 0);
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width / dataArray.length;
+            let x = 0;
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = (v * canvas.height / 2) * sensitivity;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            
+            ctx.stroke();
+            
+            // Mirror
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            x = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = canvas.height - (v * canvas.height / 2) * sensitivity;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawParticles(dataArray, isBeat) {
+            const colors = getColors();
+            const sensitivity = state.sensitivity / 50;
+            const bassValue = dataArray[0] * sensitivity;
+            
+            // Add new particles on beat
+            if (isBeat || Math.random() < bassValue / 500) {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                particles.push(new Particle(
+                    canvas.width / 2 + (Math.random() - 0.5) * 200,
+                    canvas.height / 2 + (Math.random() - 0.5) * 200,
+                    color
+                ));
+            }
+            
+            // Update and draw particles
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => {
+                p.update();
+                // Add frequency-based movement
+                const freq = dataArray[Math.floor(Math.random() * dataArray.length)] / 255;
+                p.vx += (Math.random() - 0.5) * freq * 2;
+                p.vy += (Math.random() - 0.5) * freq * 2;
+                p.draw();
+            });
+            
+            // Limit particles
+            if (particles.length > 500) {
+                particles = particles.slice(-500);
+            }
+        }
+
+        function drawSpectrum(dataArray) {
+            const sensitivity = state.sensitivity / 50;
+            const barCount = 128;
+            const barWidth = canvas.width / barCount;
+            
+            // Draw spectrum with gradient fill
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = Math.floor(i * dataArray.length / barCount);
+                const value = dataArray[dataIndex] * sensitivity;
+                const barHeight = (value / 255) * canvas.height * 0.8;
+                const x = i * barWidth;
+                const y = canvas.height - barHeight;
+                
+                if (i === 0) {
+                    ctx.lineTo(x, y);
+                } else {
+                    const prevX = (i - 1) * barWidth;
+                    const prevDataIndex = Math.floor((i - 1) * dataArray.length / barCount);
+                    const prevValue = dataArray[prevDataIndex] * sensitivity;
+                    const prevY = canvas.height - (prevValue / 255) * canvas.height * 0.8;
+                    
+                    const cpX = (prevX + x) / 2;
+                    ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                }
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            
+            const gradient = createGradient(0, 0, 0, canvas.height);
+            ctx.fillStyle = gradient;
+            ctx.globalAlpha = 0.7;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            // Stroke
+            ctx.strokeStyle = getColors()[0];
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawRadial(dataArray, isBeat) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const maxRadius = Math.min(canvas.width, canvas.height) * 0.4;
+            
+            const rings = 8;
+            for (let r = 0; r < rings; r++) {
+                const ringRadius = (maxRadius / rings) * (r + 1) * (isBeat ? 1.1 : 1);
+                const dataIndex = Math.floor((r / rings) * dataArray.length);
+                const value = dataArray[dataIndex] * sensitivity;
+                const alpha = value / 255;
+                
+                ctx.strokeStyle = colors[r % colors.length] + Math.floor(alpha * 200).toString(16).padStart(2, '0');
+                ctx.lineWidth = 3 + (value / 255) * 5;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, ringRadius + (value / 255) * 50, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Rotating lines
+            const lineCount = 36;
+            const time = Date.now() / 1000;
+            for (let i = 0; i < lineCount; i++) {
+                const angle = (i / lineCount) * Math.PI * 2 + time;
+                const dataIndex = Math.floor((i / lineCount) * dataArray.length);
+                const value = dataArray[dataIndex] * sensitivity;
+                const length = maxRadius * 0.3 + (value / 255) * maxRadius * 0.7;
+                
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + Math.cos(angle) * length,
+                    centerY + Math.sin(angle) * length
+                );
+                ctx.stroke();
+            }
+        }
+
+        function drawGalaxy(dataArray, isBeat) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const time = Date.now() / 2000;
+            
+            // Spiral arms
+            const arms = 4;
+            const pointsPerArm = 100;
+            
+            for (let arm = 0; arm < arms; arm++) {
+                const armOffset = (arm / arms) * Math.PI * 2;
+                
+                for (let i = 0; i < pointsPerArm; i++) {
+                    const progress = i / pointsPerArm;
+                    const dataIndex = Math.floor(progress * dataArray.length);
+                    const value = dataArray[dataIndex] * sensitivity;
+                    
+                    const angle = armOffset + progress * Math.PI * 4 + time;
+                    const radius = progress * Math.min(canvas.width, canvas.height) * 0.4;
+                    const wobble = Math.sin(progress * 10 + time * 2) * 20 * (value / 255);
+                    
+                    const x = centerX + Math.cos(angle) * (radius + wobble);
+                    const y = centerY + Math.sin(angle) * (radius + wobble);
+                    const size = 2 + (value / 255) * 4 * (1 - progress);
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fillStyle = colors[arm % colors.length] + Math.floor((1 - progress) * 200).toString(16).padStart(2, '0');
+                    ctx.fill();
+                }
+            }
+            
+            // Center glow
+            const bassValue = dataArray[0] * sensitivity;
+            const glowRadius = 30 + (bassValue / 255) * 50 * (isBeat ? 1.3 : 1);
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(0.5, colors[1] + '80');
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawGeometric(dataArray, isBeat) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const time = Date.now() / 1000;
+            
+            const shapes = 6;
+            for (let s = 0; s < shapes; s++) {
+                const dataIndex = Math.floor((s / shapes) * dataArray.length);
+                const value = dataArray[dataIndex] * sensitivity;
+                const sides = 3 + s;
+                const radius = 50 + s * 40 + (value / 255) * 60 * (isBeat ? 1.2 : 1);
+                const rotation = time * (0.5 - s * 0.1);
+                
+                ctx.strokeStyle = colors[s % colors.length];
+                ctx.lineWidth = 2 + (value / 255) * 3;
+                ctx.beginPath();
+                
+                for (let i = 0; i <= sides; i++) {
+                    const angle = (i / sides) * Math.PI * 2 + rotation;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.closePath();
+                ctx.stroke();
+            }
+        }
+
+        function drawLines(dataArray) {
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const lineCount = 32;
+            
+            for (let l = 0; l < lineCount; l++) {
+                const y = (canvas.height / lineCount) * l;
+                
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                
+                for (let i = 0; i < dataArray.length; i += 4) {
+                    const x = (i / dataArray.length) * canvas.width;
+                    const value = dataArray[i] * sensitivity;
+                    const offset = (value / 255) * 40 * Math.sin(l * 0.5);
+                    
+                    ctx.lineTo(x, y + offset);
+                }
+                
+                ctx.strokeStyle = colors[l % colors.length] + '80';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        function drawPulse(dataArray, isBeat) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const bassValue = dataArray[0] * sensitivity;
+            
+            // Pulsing circles
+            const circles = 8;
+            for (let i = 0; i < circles; i++) {
+                const progress = (i / circles);
+                const baseRadius = progress * Math.min(canvas.width, canvas.height) * 0.4;
+                const pulseOffset = (bassValue / 255) * 50 * (1 - progress) * (isBeat ? 1.5 : 1);
+                const radius = baseRadius + pulseOffset;
+                
+                ctx.strokeStyle = colors[i % colors.length] + Math.floor((1 - progress) * 150).toString(16).padStart(2, '0');
+                ctx.lineWidth = 3 + (1 - progress) * 5;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+                        // Center pulse
+            const centerRadius = 20 + (bassValue / 255) * 80 * (isBeat ? 1.5 : 1);
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, centerRadius);
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawMatrix(dataArray) {
+            const sensitivity = state.sensitivity / 50;
+            const colors = getColors();
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()<>[]{}';
+            
+            ctx.font = '14px monospace';
+            
+            matrixColumns.forEach((col, i) => {
+                const dataIndex = Math.floor((i / matrixColumns.length) * dataArray.length);
+                const value = dataArray[dataIndex] * sensitivity;
+                col.speed = 2 + (value / 255) * 8;
+                
+                col.y += col.speed;
+                if (col.y > canvas.height) {
+                    col.y = 0;
+                    col.chars = [];
+                }
+                
+                const charCount = Math.floor(col.y / 20);
+                while (col.chars.length < charCount) {
+                    col.chars.push(chars[Math.floor(Math.random() * chars.length)]);
+                }
+                
+                col.chars.forEach((char, j) => {
+                    const y = j * 20;
+                    const alpha = 1 - (col.y - y) / canvas.height;
+                    const colorIndex = j % colors.length;
+                    
+                    if (j === col.chars.length - 1) {
+                        ctx.fillStyle = '#ffffff';
+                    } else {
+                        ctx.fillStyle = colors[colorIndex] + Math.floor(alpha * 200).toString(16).padStart(2, '0');
+                    }
+                    ctx.fillText(char, col.x, y);
+                });
+            });
+        }
+
+        function drawFireworks(dataArray, isBeat) {
+            const sensitivity = state.sensitivity / 50;
+            const bassValue = dataArray[0] * sensitivity;
+            
+            if (isBeat || (bassValue > 200 && Math.random() < 0.3)) {
+                fireworks.push(new Firework(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height * 0.6
+                ));
+            }
+            
+            fireworks = fireworks.filter(fw => fw.particles.length > 0);
+            fireworks.forEach(fw => {
+                fw.update();
+                fw.draw();
+            });
+            
+            if (fireworks.length > 20) {
+                fireworks = fireworks.slice(-20);
+            }
+        }
+
+        function updateSpectrumPreview(dataArray) {
+            const bars = document.querySelectorAll('#spectrumPreview .spectrum-bar');
+            const step = Math.floor(dataArray.length / bars.length);
+            
+            bars.forEach((bar, i) => {
+                const value = dataArray[i * step];
+                const height = 20 + (value / 255) * 80;
+                bar.style.height = height + '%';
+            });
+        }
+
+        // ==================== FILE HANDLING ====================
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        async function handleFiles(files) {
+            const audioExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma', 'webm'];
+            
+            for (const file of files) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (audioExtensions.includes(ext)) {
+                    await addTrack(file);
+                }
+            }
+            
+            renderTrackList();
+            saveToStorage();
+            showNotification(`Added ${files.length} track(s)`);
+        }
+
+        async function addTrack(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const track = {
+                        id: Date.now() + Math.random(),
+                        name: file.name.replace(/\.[^/.]+$/, ''),
+                        artist: 'Unknown Artist',
+                        album: 'Unknown Album',
+                        duration: 0,
+                        size: file.size,
+                        format: file.name.split('.').pop().toUpperCase(),
+                        data: e.target.result,
+                        artwork: null,
+                        rating: 0,
+                        playCount: 0,
+                        dateAdded: Date.now(),
+                        favorite: false,
+                        tags: []
+                    };
+                    
+                    // Try to extract metadata
+                    try {
+                        const metadata = await extractMetadata(file);
+                        if (metadata) {
+                            track.name = metadata.title || track.name;
+                            track.artist = metadata.artist || track.artist;
+                            track.album = metadata.album || track.album;
+                            track.artwork = metadata.artwork;
+                        }
+                    } catch (err) {
+                        console.log('Could not extract metadata');
+                    }
+                    
+                    // Get duration
+                    const tempAudio = new Audio(e.target.result);
+                    tempAudio.addEventListener('loadedmetadata', () => {
+                        track.duration = tempAudio.duration;
+                        state.tracks.push(track);
+                        resolve();
+                    });
+                    tempAudio.addEventListener('error', () => {
+                        state.tracks.push(track);
+                        resolve();
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function extractMetadata(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const buffer = e.target.result;
+                    const view = new DataView(buffer);
+                    
+                    // Check for ID3v2 tag
+                    if (view.getUint8(0) === 0x49 && view.getUint8(1) === 0x44 && view.getUint8(2) === 0x33) {
+                        // ID3v2 found - basic parsing
+                        const size = ((view.getUint8(6) & 0x7f) << 21) |
+                                    ((view.getUint8(7) & 0x7f) << 14) |
+                                    ((view.getUint8(8) & 0x7f) << 7) |
+                                    (view.getUint8(9) & 0x7f);
+                        
+                        resolve({
+                            title: null,
+                            artist: null,
+                            album: null,
+                            artwork: null
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                };
+                reader.readAsArrayBuffer(file.slice(0, 128000));
+            });
+        }
+
+        // ==================== TRACK RENDERING ====================
+        function renderTrackList() {
+            const trackList = document.getElementById('trackList');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filteredTracks = state.tracks.filter(track => 
+                track.name.toLowerCase().includes(searchTerm) ||
+                track.artist.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredTracks.length === 0) {
+                trackList.innerHTML = `
+                    <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                        <p>${state.tracks.length === 0 ? 'No tracks loaded' : 'No matches found'}</p>
+                        <p style="font-size:0.85rem;margin-top:8px;">
+                            ${state.tracks.length === 0 ? 'Upload music files to get started' : 'Try a different search term'}
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+            
+            trackList.innerHTML = filteredTracks.map((track, index) => {
+                const actualIndex = state.tracks.indexOf(track);
+                const isActive = actualIndex === state.currentTrackIndex;
+                const isPlaying = isActive && state.isPlaying;
+                
+                return `
+                    <div class="track-item ${isActive ? 'active' : ''} ${isPlaying ? 'playing' : ''}" 
+                         data-index="${actualIndex}"
+                         onclick="playTrack(${actualIndex})"
+                         oncontextmenu="showContextMenu(event, ${actualIndex})">
+                        <div class="track-thumb">
+                            ${track.artwork ? `<img src="${track.artwork}" alt="">` : '🎵'}
+                        </div>
+                        <div class="track-details">
+                            <div class="track-name">${track.name}</div>
+                            <div class="track-artist">${track.artist}</div>
+                        </div>
+                        <span class="track-duration">${formatTime(track.duration)}</span>
+                        <div class="track-actions">
+                            <button class="btn-icon" style="width:28px;height:28px;" onclick="event.stopPropagation();toggleFavorite(${actualIndex})">
+                                ${track.favorite ? '❤️' : '🤍'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderFavorites() {
+            const favoritesList = document.getElementById('favoritesList');
+            const favorites = state.tracks.filter(t => t.favorite);
+            
+            if (favorites.length === 0) {
+                favoritesList.innerHTML = `
+                    <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                        <p>No favorites yet</p>
+                        <p style="font-size:0.85rem;margin-top:8px;">Click the heart on tracks to add</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            favoritesList.innerHTML = favorites.map((track) => {
+                const actualIndex = state.tracks.indexOf(track);
+                const isActive = actualIndex === state.currentTrackIndex;
+                
+                return `
+                    <div class="track-item ${isActive ? 'active' : ''}" 
+                         data-index="${actualIndex}"
+                         onclick="playTrack(${actualIndex})">
+                        <div class="track-thumb">
+                            ${track.artwork ? `<img src="${track.artwork}" alt="">` : '🎵'}
+                        </div>
+                        <div class="track-details">
+                            <div class="track-name">${track.name}</div>
+                            <div class="track-artist">${track.artist}</div>
+                        </div>
+                        <span class="track-duration">${formatTime(track.duration)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderPlaylists() {
+            const playlistsList = document.getElementById('playlistsList');
+            
+            if (state.playlists.length === 0) {
+                playlistsList.innerHTML = `
+                    <div style="text-align:center;padding:30px 20px;color:var(--text-muted);">
+                        <p>No playlists yet</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            playlistsList.innerHTML = state.playlists.map((playlist, index) => `
+                <div class="playlist-card" onclick="openPlaylist(${index})">
+                    <div class="playlist-cover">📋</div>
+                    <div class="playlist-info">
+                        <div class="playlist-name">${playlist.name}</div>
+                        <div class="playlist-count">${playlist.tracks.length} tracks</div>
+                    </div>
+                    <button class="btn-icon" style="width:28px;height:28px;" 
+                            onclick="event.stopPropagation();deletePlaylist(${index})">
+                        🗑️
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // ==================== PLAYBACK CONTROLS ====================
+        function playTrack(index) {
+            if (index < 0 || index >= state.tracks.length) return;
+            
+            initAudioContext();
+            
+            const track = state.tracks[index];
+            state.currentTrackIndex = index;
+            
+            audio.src = track.data;
+            audio.play().then(() => {
+                state.isPlaying = true;
+                updatePlayButton();
+                updateNowPlaying();
+                track.playCount++;
+                state.statistics.trackPlayCounts[track.id] = (state.statistics.trackPlayCounts[track.id] || 0) + 1;
+                
+                if (!state.history.includes(index)) {
+                    state.history.push(index);
+                    if (state.history.length > 50) state.history.shift();
+                }
+                
+                saveToStorage();
+                renderTrackList();
+            }).catch(err => {
+                console.error('Playback error:', err);
+                showNotification('Error playing track');
+            });
+            
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            if (!animationId) {
+                visualize(0);
+            }
+        }
+
+        function togglePlay() {
+            if (state.tracks.length === 0) {
+                showNotification('No tracks loaded');
+                return;
+            }
+            
+            initAudioContext();
+            
+            if (state.currentTrackIndex === -1) {
+                playTrack(0);
+                return;
+            }
+            
+            if (state.isPlaying) {
+                audio.pause();
+                state.isPlaying = false;
+            } else {
+                audio.play();
+                state.isPlaying = true;
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            }
+            
+            updatePlayButton();
+        }
+
+        function stopPlayback() {
+            audio.pause();
+            audio.currentTime = 0;
+            state.isPlaying = false;
+            updatePlayButton();
+        }
+
+        function nextTrack() {
+            if (state.tracks.length === 0) return;
+            
+            let nextIndex;
+            
+            if (state.shuffle) {
+                nextIndex = Math.floor(Math.random() * state.tracks.length);
+            } else if (state.queue.length > 0) {
+                nextIndex = state.queue.shift();
+            } else {
+                nextIndex = (state.currentTrackIndex + 1) % state.tracks.length;
+            }
+            
+            playTrack(nextIndex);
+        }
+
+        function previousTrack() {
+            if (state.tracks.length === 0) return;
+            
+            if (audio.currentTime > 3) {
+                audio.currentTime = 0;
+                return;
+            }
+            
+            let prevIndex;
+            if (state.history.length > 1) {
+                state.history.pop();
+                prevIndex = state.history[state.history.length - 1];
+            } else {
+                prevIndex = (state.currentTrackIndex - 1 + state.tracks.length) % state.tracks.length;
+            }
+            
+            playTrack(prevIndex);
+        }
+
+        function seekTo(event) {
+            const rect = event.target.getBoundingClientRect();
+            const percent = (event.clientX - rect.left) / rect.width;
+            audio.currentTime = percent * audio.duration;
+        }
+
+        function changeVolume(value) {
+            state.volume = value;
+            audio.volume = value / 100;
+            if (gainNode) {
+                gainNode.gain.value = value / 100;
+            }
+            state.isMuted = value === 0;
+            updateVolumeIcon();
+            saveToStorage();
+        }
+
+        function toggleMute() {
+            state.isMuted = !state.isMuted;
+            audio.muted = state.isMuted;
+            updateVolumeIcon();
+        }
+
+        function changePlaybackSpeed(speed) {
+            audio.playbackRate = parseFloat(speed);
+        }
+
+        function toggleShuffle() {
+            state.shuffle = !state.shuffle;
+            document.getElementById('shuffleBtn').classList.toggle('active', state.shuffle);
+            showNotification(state.shuffle ? 'Shuffle On' : 'Shuffle Off');
+            saveToStorage();
+        }
+
+        function toggleRepeat() {
+            const modes = ['none', 'all', 'one'];
+            const currentIndex = modes.indexOf(state.repeat);
+            state.repeat = modes[(currentIndex + 1) % modes.length];
+            
+            const repeatBtn = document.getElementById('repeatBtn');
+            repeatBtn.classList.toggle('active', state.repeat !== 'none');
+            
+            const labels = { none: 'Repeat Off', all: 'Repeat All', one: 'Repeat One' };
+            showNotification(labels[state.repeat]);
+            saveToStorage();
+        }
+
+        // ==================== UI UPDATES ====================
+        function updatePlayButton() {
+            const playIcon = document.getElementById('playIcon');
+            const miniPlayIcon = document.getElementById('miniPlayIcon');
+            const albumArt = document.getElementById('albumArt');
+            
+            if (state.isPlaying) {
+                playIcon.innerHTML = '<path d="M14 19h4V5h-4v14zm-8 0h4V5H6v14z"/>';
+                if (miniPlayIcon) miniPlayIcon.innerHTML = '<path d="M14 19h4V5h-4v14zm-8 0h4V5H6v14z"/>';
+                albumArt.classList.add('playing');
+            } else {
+                playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                if (miniPlayIcon) miniPlayIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                albumArt.classList.remove('playing');
+            }
+        }
+
+        function updateNowPlaying() {
+            const track = state.tracks[state.currentTrackIndex];
+            if (!track) return;
+            
+            document.getElementById('trackTitle').textContent = track.name;
+            document.getElementById('trackArtist').textContent = track.artist;
+            
+            const albumArt = document.getElementById('albumArt');
+            if (track.artwork) {
+                albumArt.innerHTML = `<img src="${track.artwork}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">`;
+            } else {
+                albumArt.innerHTML = '🎵';
+            }
+            
+            // Update mini player
+            document.getElementById('miniPlayerTitle').textContent = track.name;
+            document.getElementById('miniPlayerArtist').textContent = track.artist;
+            
+            // Update rating display
+            updateRatingDisplay(track.rating);
+            
+            // Update document title
+            document.title = `${track.name} - VisualizerPro`;
+        }
+
+        function updateRatingDisplay(rating) {
+            const stars = document.querySelectorAll('#trackRating .rating-star');
+            stars.forEach((star, index) => {
+                star.textContent = index < rating ? '★' : '☆';
+                star.classList.toggle('active', index < rating);
+            });
+        }
+
+        function updateVolumeIcon() {
+            const volumeIcon = document.getElementById('volumeIcon');
+            const volume = state.isMuted ? 0 : state.volume;
+            
+            if (volume === 0) {
+                volumeIcon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27L7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21L21 19.73l-9-9L4.27 3zM12 4L9.91 6.09L12 8.18V4z"/>';
+            } else if (volume < 50) {
+                volumeIcon.innerHTML = '<path d="M7 9v6h4l5 5V4l-5 5H7z"/>';
+            } else {
+                volumeIcon.innerHTML = '<path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02M3 9v6h4l5 5V4L7 9H3z"/>';
+            }
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Audio time update
+        audio.addEventListener('timeupdate', () => {
+            const current = audio.currentTime;
+            const duration = audio.duration || 0;
+            
+            document.getElementById('currentTime').textContent = formatTime(current);
+            document.getElementById('totalTime').textContent = formatTime(duration);
+            document.getElementById('progressFill').style.width = `${(current / duration) * 100}%`;
+            
+            // Update statistics
+            state.statistics.totalPlayTime += 0.25; // Approximate for timeupdate frequency
+        });
+
+        audio.addEventListener('ended', () => {
+            if (state.repeat === 'one') {
+                audio.currentTime = 0;
+                audio.play();
+            } else if (state.repeat === 'all' || state.currentTrackIndex < state.tracks.length - 1) {
+                nextTrack();
+            } else if (state.settings.autoplay) {
+                nextTrack();
+            } else {
+                state.isPlaying = false;
+                updatePlayButton();
+            }
+        });
+
+        // ==================== VISUALIZATION CONTROLS ====================
+        function setVisualization(type) {
+            state.visualization = type;
+            document.querySelectorAll('.viz-option').forEach(opt => {
+                opt.classList.toggle('active', opt.dataset.viz === type);
+            });
+            saveToStorage();
+        }
+
+        function setColorTheme(theme) {
+            state.colorTheme = theme;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.toggle('active', opt.dataset.color === theme);
+            });
+            saveToStorage();
+        }
+
+        function updateSensitivity(value) {
+            state.sensitivity = parseInt(value);
+            document.getElementById('sensitivityValue').textContent = value + '%';
+            saveToStorage();
+        }
+
+        function updateSmoothing(value) {
+            state.smoothing = value / 100;
+            if (analyser) {
+                analyser.smoothingTimeConstant = state.smoothing;
+            }
+            document.getElementById('smoothingValue').textContent = value + '%';
+            saveToStorage();
+        }
+
+        function updateBgOpacity(value) {
+            state.bgOpacity = parseInt(value);
+            document.getElementById('bgOpacityValue').textContent = value + '%';
+            saveToStorage();
+        }
+
+        function updateBlur(value) {
+            state.blur = parseInt(value);
+            document.getElementById('blurValue').textContent = value + 'px';
+            saveToStorage();
+        }
+
+        function updateFPS(value) {
+            state.fps = parseInt(value);
+            document.getElementById('fpsValue').textContent = value;
+            saveToStorage();
+        }
+
+        // ==================== EQUALIZER ====================
+        function updateEQ(freq, value) {
+            const index = eqFrequencies.indexOf(freq);
+            if (index !== -1 && eqFilters[index]) {
+                eqFilters[index].gain.value = parseFloat(value);
+            }
+        }
+
+        function setEQPreset(preset) {
+            const values = eqPresets[preset];
+            if (!values) return;
+            
+            document.querySelectorAll('.eq-preset').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.toLowerCase().includes(preset));
+            });
+            
+            const sliderIds = ['eq60', 'eq170', 'eq310', 'eq600', 'eq1k', 'eq3k', 'eq6k', 'eq12k', 'eq14k', 'eq16k'];
+            
+            values.forEach((value, index) => {
+                const slider = document.getElementById(sliderIds[index]);
+                if (slider) {
+                    slider.value = value;
+                    updateEQ(eqFrequencies[index], value);
+                }
+            });
+            
+            showNotification(`EQ: ${preset.charAt(0).toUpperCase() + preset.slice(1)}`);
+        }
+
+        // ==================== PANEL TOGGLES ====================
+        function toggleLeftPanel() {
+            document.getElementById('leftPanel').classList.toggle('collapsed');
+        }
+
+        function toggleRightPanel() {
+            document.getElementById('rightPanel').classList.toggle('collapsed');
+        }
+
+        function toggleFullscreen() {
+            document.getElementById('appContainer').classList.toggle('fullscreen-mode');
+        }
+
+        function toggleTrueFullscreen() {
+            const container = document.getElementById('appContainer');
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().then(() => {
+                    container.classList.add('true-fullscreen');
+                }).catch(err => {
+                    console.error('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+                container.classList.remove('true-fullscreen');
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.getElementById('appContainer').classList.remove('true-fullscreen');
+            }
+        });
+
+        // ==================== LIBRARY TABS ====================
+        function switchLibraryTab(tab) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            if (tab === 'playlists') renderPlaylists();
+            if (tab === 'favorites') renderFavorites();
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', () => {
+            renderTrackList();
+        });
+
+        // ==================== PLAYLIST MANAGEMENT ====================
+        function createPlaylist() {
+            const name = document.getElementById('playlistNameInput').value.trim();
+            const desc = document.getElementById('playlistDescInput').value.trim();
+            
+            if (!name) {
+                showNotification('Please enter a playlist name');
+                return;
+            }
+            
+            state.playlists.push({
+                id: Date.now(),
+                name: name,
+                description: desc,
+                tracks: [],
+                dateCreated: Date.now()
+            });
+            
+            closeModal('createPlaylistModal');
+            renderPlaylists();
+            saveToStorage();
+            showNotification(`Playlist "${name}" created`);
+            
+            document.getElementById('playlistNameInput').value = '';
+            document.getElementById('playlistDescInput').value = '';
+        }
+
+        function deletePlaylist(index) {
+            if (confirm('Delete this playlist?')) {
+                const name = state.playlists[index].name;
+                state.playlists.splice(index, 1);
+                renderPlaylists();
+                saveToStorage();
+                showNotification(`Playlist "${name}" deleted`);
+            }
+        }
+
+        function openPlaylist(index) {
+            const playlist = state.playlists[index];
+            showNotification(`Playing playlist: ${playlist.name}`);
+            // Play first track in playlist if any
+            if (playlist.tracks.length > 0) {
+                playTrack(playlist.tracks[0]);
+            }
+        }
+
+        // ==================== FAVORITES ====================
+        function toggleFavorite(index) {
+            state.tracks[index].favorite = !state.tracks[index].favorite;
+            renderTrackList();
+            renderFavorites();
+            saveToStorage();
+            showNotification(state.tracks[index].favorite ? 'Added to favorites' : 'Removed from favorites');
+        }
+
+        function setRating(rating) {
+            if (state.currentTrackIndex === -1) return;
+            state.tracks[state.currentTrackIndex].rating = rating;
+            updateRatingDisplay(rating);
+            saveToStorage();
+        }
+
+        // ==================== CONTEXT MENU ====================
+        function showContextMenu(event, index) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            state.contextTrackIndex = index;
+            const menu = document.getElementById('contextMenu');
+            
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('show');
+            
+            // Close on click outside
+            setTimeout(() => {
+                document.addEventListener('click', hideContextMenu);
+            }, 0);
+        }
+
+        function hideContextMenu() {
+            document.getElementById('contextMenu').classList.remove('show');
+            document.removeEventListener('click', hideContextMenu);
+        }
+
+        function contextPlayNow() {
+            playTrack(state.contextTrackIndex);
+            hideContextMenu();
+        }
+
+        function contextPlayNext() {
+            state.queue.unshift(state.contextTrackIndex);
+            showNotification('Added to play next');
+            hideContextMenu();
+        }
+
+        function contextAddToQueue() {
+            state.queue.push(state.contextTrackIndex);
+            showNotification('Added to queue');
+            hideContextMenu();
+        }
+
+        function contextAddToPlaylist() {
+            // For now, just show notification - could open playlist selector modal
+            showNotification('Select a playlist to add to');
+            hideContextMenu();
+        }
+
+        function contextToggleFavorite() {
+            toggleFavorite(state.contextTrackIndex);
+            hideContextMenu();
+        }
+
+        function contextShowInfo() {
+            const track = state.tracks[state.contextTrackIndex];
+            
+            document.getElementById('infoTitle').textContent = track.name;
+            document.getElementById('infoArtist').textContent = track.artist;
+            document.getElementById('infoDuration').textContent = formatTime(track.duration);
+            document.getElementById('infoFormat').textContent = track.format;
+            document.getElementById('infoSize').textContent = formatFileSize(track.size);
+            document.getElementById('infoPlayCount').textContent = track.playCount;
+            
+            openModal('trackInfoModal');
+            hideContextMenu();
+        }
+
+        function contextRemove() {
+            if (confirm('Remove this track?')) {
+                const name = state.tracks[state.contextTrackIndex].name;
+                state.tracks.splice(state.contextTrackIndex, 1);
+                
+                if (state.currentTrackIndex === state.contextTrackIndex) {
+                    stopPlayback();
+                    state.currentTrackIndex = -1;
+                } else if (state.currentTrackIndex > state.contextTrackIndex) {
+                    state.currentTrackIndex--;
+                }
+                
+                renderTrackList();
+                saveToStorage();
+                showNotification(`Removed "${name}"`);
+            }
+            hideContextMenu();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ==================== SLEEP TIMER ====================
+        function setSleepTimer(minutes) {
+            if (state.sleepTimer) {
+                clearInterval(state.sleepTimer);
+            }
+            
+            state.sleepTimerEnd = Date.now() + minutes * 60 * 1000;
+            
+            document.querySelectorAll('.timer-preset').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(minutes.toString())) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            state.sleepTimer = setInterval(updateSleepTimer, 1000);
+            updateSleepTimer();
+            
+            showNotification(`Sleep timer set for ${minutes} minutes`);
+        }
+
+        function updateSleepTimer() {
+            if (!state.sleepTimerEnd) return;
+            
+            const remaining = state.sleepTimerEnd - Date.now();
+            
+            if (remaining <= 0) {
+                cancelSleepTimer();
+                stopPlayback();
+                showNotification('Sleep timer ended');
+                return;
+            }
+            
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            document.getElementById('timerDisplay').textContent = 
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function cancelSleepTimer() {
+            if (state.sleepTimer) {
+                clearInterval(state.sleepTimer);
+                state.sleepTimer = null;
+            }
+            state.sleepTimerEnd = null;
+            document.getElementById('timerDisplay').textContent = '--:--';
+            document.querySelectorAll('.timer-preset').forEach(btn => btn.classList.remove('active'));
+            showNotification('Sleep timer cancelled');
+        }
+
+        // ==================== MODALS ====================
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+
+        // ==================== MINI PLAYER ====================
+        function showMiniPlayer() {
+            document.getElementById('miniPlayer').classList.add('active');
+        }
+
+        function closeMiniPlayer() {
+            document.getElementById('miniPlayer').classList.remove('active');
+        }
+
+        // ==================== NOTIFICATIONS ====================
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 2500);
+        }
+
+        // ==================== SETTINGS ====================
+        function updateSettings() {
+            state.settings.autoplay = document.getElementById('autoplayToggle').checked;
+            state.settings.crossfade = document.getElementById('crossfadeToggle').checked;
+            state.settings.reactive = document.getElementById('reactiveToggle').checked;
+            state.settings.spectrum = document.getElementById('spectrumToggle').checked;
+            state.settings.beat = document.getElementById('beatToggle').checked;
+            state.settings.savePosition = document.getElementById('savePositionToggle').checked;
+            state.settings.rememberPlaylist = document.getElementById('rememberPlaylistToggle').checked;
+            saveToStorage();
+        }
+
+        function loadSettingsToUI() {
+            document.getElementById('autoplayToggle').checked = state.settings.autoplay;
+            document.getElementById('crossfadeToggle').checked = state.settings.crossfade;
+            document.getElementById('reactiveToggle').checked = state.settings.reactive;
+            document.getElementById('spectrumToggle').checked = state.settings.spectrum;
+            document.getElementById('beatToggle').checked = state.settings.beat;
+            document.getElementById('savePositionToggle').checked = state.settings.savePosition;
+            document.getElementById('rememberPlaylistToggle').checked = state.settings.rememberPlaylist;
+            
+            document.getElementById('sensitivitySlider').value = state.sensitivity;
+            document.getElementById('sensitivityValue').textContent = state.sensitivity + '%';
+            document.getElementById('smoothingSlider').value = state.smoothing * 100;
+            document.getElementById('smoothingValue').textContent = Math.round(state.smoothing * 100) + '%';
+            document.getElementById('bgOpacitySlider').value = state.bgOpacity;
+            document.getElementById('bgOpacityValue').textContent = state.bgOpacity + '%';
+            document.getElementById('blurSlider').value = state.blur;
+            document.getElementById('blurValue').textContent = state.blur + 'px';
+            document.getElementById('fpsSlider').value = state.fps;
+            document.getElementById('fpsValue').textContent = state.fps;
+            document.getElementById('volumeSlider').value = state.volume;
+        }
+
+        function exportSettings() {
+            const data = {
+                settings: state.settings,
+                playlists: state.playlists,
+                visualization: state.visualization,
+                colorTheme: state.colorTheme,
+                sensitivity: state.sensitivity,
+                smoothing: state.smoothing,
+                volume: state.volume
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'visualizer-settings.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showNotification('Settings exported');
+        }
+
+        function importSettings(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.settings) Object.assign(state.settings, data.settings);
+                    if (data.playlists) state.playlists = data.playlists;
+                    if (data.visualization) state.visualization = data.visualization;
+                    if (data.colorTheme) state.colorTheme = data.colorTheme;
+                    if (data.sensitivity) state.sensitivity = data.sensitivity;
+                    if (data.smoothing) state.smoothing = data.smoothing;
+                    if (data.volume) state.volume = data.volume;
+                    
+                    loadSettingsToUI();
+                    setVisualization(state.visualization);
+                    setColorTheme(state.colorTheme);
+                    changeVolume(state.volume);
+                    saveToStorage();
+                    
+                    showNotification('Settings imported');
+                } catch (err) {
+                    showNotification('Invalid settings file');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==================== LOCAL STORAGE ====================
+        function saveToStorage() {
+            try {
+                const saveData = {
+                    tracks: state.tracks.map(t => ({
+                        ...t,
+                        data: t.data.substring(0, 100) + '...' // Don't save full data
+                    })),
+                    playlists: state.playlists,
+                    favorites: state.favorites,
+                    settings: state.settings,
+                    visualization: state.visualization,
+                    colorTheme: state.colorTheme,
+                    sensitivity: state.sensitivity,
+                    smoothing: state.smoothing,
+                    bgOpacity: state.bgOpacity,
+                    blur: state.blur,
+                    fps: state.fps,
+                    volume: state.volume,
+                    shuffle: state.shuffle,
+                    repeat: state.repeat,
+                    currentTrackIndex: state.currentTrackIndex,
+                    currentTime: audio.currentTime,
+                    statistics: state.statistics
+                };
+                
+                localStorage.setItem('visualizerState', JSON.stringify(saveData));
+            } catch (e) {
+                console.warn('Could not save to storage:', e);
+            }
+        }
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('visualizerState');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    
+                    if (data.playlists) state.playlists = data.playlists;
+                    if (data.settings) Object.assign(state.settings, data.settings);
+                    if (data.visualization) state.visualization = data.visualization;
+                    if (data.colorTheme) state.colorTheme = data.colorTheme;
+                    if (data.sensitivity) state.sensitivity = data.sensitivity;
+                    if (data.smoothing) state.smoothing = data.smoothing;
+                    if (data.bgOpacity) state.bgOpacity = data.bgOpacity;
+                    if (data.blur) state.blur = data.blur;
+                    if (data.fps) state.fps = data.fps;
+                    if (data.volume) state.volume = data.volume;
+                    if (data.shuffle) state.shuffle = data.shuffle;
+                    if (data.repeat) state.repeat = data.repeat;
+                    if (data.statistics) state.statistics = data.statistics;
+                    
+                    // Apply loaded settings
+                    loadSettingsToUI();
+                    setVisualization(state.visualization);
+                    setColorTheme(state.colorTheme);
+                    changeVolume(state.volume);
+                    
+                    if (state.shuffle) document.getElementById('shuffleBtn').classList.add('active');
+                    if (state.repeat !== 'none') document.getElementById('repeatBtn').classList.add('active');
+                }
+            } catch (e) {
+                console.warn('Could not load from storage:', e);
+            }
+        }
+
+        function clearStorage() {
+            if (confirm('Clear all data? This cannot be undone.')) {
+                localStorage.removeItem('visualizerState');
+                location.reload();
+            }
+        }
+
+        // ==================== KEYBOARD SHORTCUTS ====================
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger if typing in input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowRight':
+                    if (e.shiftKey) {
+                        audio.currentTime = Math.min(audio.currentTime + 10, audio.duration);
+                    } else {
+                        nextTrack();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (e.shiftKey) {
+                        audio.currentTime = Math.max(audio.currentTime - 10, 0);
+                    } else {
+                        previousTrack();
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    changeVolume(Math.min(state.volume + 5, 100));
+                    document.getElementById('volumeSlider').value = state.volume;
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    changeVolume(Math.max(state.volume - 5, 0));
+                    document.getElementById('volumeSlider').value = state.volume;
+                    break;
+                case 'KeyM':
+                    toggleMute();
+                    break;
+                case 'KeyF':
+                    toggleTrueFullscreen();
+                    break;
+                case 'KeyS':
+                    if (!e.ctrlKey) toggleShuffle();
+                    break;
+                case 'KeyR':
+                    toggleRepeat();
+                    break;
+                case 'KeyL':
+                    if (state.repeat !== 'one') {
+                        state.repeat = 'one';
+                    } else {
+                        state.repeat = 'none';
+                    }
+                    document.getElementById('repeatBtn').classList.toggle('active', state.repeat !== 'none');
+                    showNotification(state.repeat === 'one' ? 'Loop One' : 'Loop Off');
+                    break;
+                case 'Escape':
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    }
+                    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+                    break;
+                case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
+                case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': case 'Digit9':
+                    const percent = parseInt(e.code.replace('Digit', '')) * 10;
+                    audio.currentTime = (percent / 100) * audio.duration;
+                    break;
+            }
+        });
+
+        // ==================== MEDIA SESSION API ====================
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', togglePlay);
+            navigator.mediaSession.setActionHandler('pause', togglePlay);
+            navigator.mediaSession.setActionHandler('previoustrack', previousTrack);
+            navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+            navigator.mediaSession.setActionHandler('seekbackward', () => {
+                audio.currentTime = Math.max(audio.currentTime - 10, 0);
+            });
+            navigator.mediaSession.setActionHandler('seekforward', () => {
+                audio.currentTime = Math.min(audio.currentTime + 10, audio.duration);
+            });
+        }
+
+        // Update media session metadata when track changes
+        function updateMediaSession() {
+            if ('mediaSession' in navigator && state.currentTrackIndex !== -1) {
+                const track = state.tracks[state.currentTrackIndex];
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.name,
+                    artist: track.artist,
+                    album: track.album,
+                    artwork: track.artwork ? [{ src: track.artwork }] : []
+                });
+            }
+        }
+
+        // ==================== RESPONSIVE HANDLING ====================
+        function handleResize() {
+            const isMobile = window.innerWidth < 768;
+            
+            if (isMobile) {
+                document.getElementById('leftPanel').classList.add('collapsed');
+                document.getElementById('rightPanel').classList.add('collapsed');
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+
+        // ==================== INITIALIZATION ====================
+        function init() {
+            loadFromStorage();
+            renderTrackList();
+            renderPlaylists();
+            handleResize();
+            
+            // Start visualization loop (will show static until audio plays)
+            initAudioContext();
+            visualize(0);
+            
+            // Handle visibility change
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && state.isPlaying) {
+                    // Reduce visualization when tab is hidden
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                    }
+                } else if (!document.hidden && state.isPlaying) {
+                    // Resume visualization
+                    if (!animationId) {
+                        visualize(0);
+                    }
+                }
+            });
+            
+            console.log('🎵 VisualizerPro initialized');
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>

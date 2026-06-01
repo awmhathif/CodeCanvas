@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orrery — Planetary Alignment & Orbital Mechanics</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#020208;--panel:rgba(6,8,18,.94);--border:rgba(80,120,200,.15);--text:#c8d4e8;--text2:#7888a8;--text3:#4a5670;--accent:#4a9eff;--accent2:#6db3ff;--gold:#ffd866;--glow:rgba(74,158,255,.08)}
+html,body{height:100%;overflow:hidden;font-family:'SF Mono','Consolas','Menlo',monospace;background:var(--bg);color:var(--text)}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+.ui{position:fixed;z-index:10;pointer-events:none}
+.ui>*{pointer-events:auto}
+
+.top-bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;padding:8px 14px;gap:10px;background:var(--panel);border-bottom:1px solid var(--border);backdrop-filter:blur(10px);z-index:20}
+.top-bar .logo{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.top-bar .logo span{color:var(--gold)}
+.top-bar .sep{width:1px;height:20px;background:var(--border)}
+.top-bar .info{font-size:10px;color:var(--text2)}
+.top-bar .info .v{color:var(--accent2);font-weight:600}
+.controls{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:8px 14px;gap:8px;background:var(--panel);border-top:1px solid var(--border);backdrop-filter:blur(10px);z-index:20;flex-wrap:wrap}
+.btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:rgba(20,30,50,.6);color:var(--text);cursor:pointer;font-size:10px;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.btn:hover{border-color:var(--accent);background:rgba(30,50,80,.5)}
+.btn.active{background:rgba(74,158,255,.15);border-color:var(--accent);color:var(--accent2)}
+.btn.primary{background:linear-gradient(135deg,#2563eb,#7c3aed);border:none;color:#fff;font-weight:600}
+.slider-group{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)}
+.slider-group input[type=range]{width:80px;accent-color:var(--accent);height:3px;cursor:pointer}
+.slider-group .sv{color:var(--accent2);min-width:40px;text-align:right;font-weight:600}
+select.ctrl-sel{padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:rgba(20,30,50,.8);color:var(--text);font-size:10px;font-family:inherit;cursor:pointer}
+
+.side-panel{position:fixed;top:36px;right:0;bottom:36px;width:280px;background:var(--panel);border-left:1px solid var(--border);backdrop-filter:blur(10px);z-index:15;overflow-y:auto;transform:translateX(100%);transition:transform .3s;padding:12px}
+.side-panel.open{transform:translateX(0)}
+.side-panel::-webkit-scrollbar{width:3px}
+.side-panel::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+.side-panel h3{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.planet-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;margin-bottom:2px;font-size:10px}
+.planet-row:hover{background:var(--glow)}
+.planet-row.selected{background:rgba(74,158,255,.12);border:1px solid var(--border)}
+.planet-row .p-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.planet-row .p-name{font-weight:600;min-width:60px}
+.planet-row .p-info{color:var(--text3);font-size:9px}
+.planet-detail{margin-top:12px;padding:10px;background:rgba(10,15,30,.6);border-radius:8px;border:1px solid var(--border)}
+.planet-detail .pd-title{font-size:12px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.planet-detail .pd-row{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.planet-detail .pd-row .lbl{color:var(--text3)}
+.planet-detail .pd-row .val{color:var(--accent2);font-weight:600}
+
+.event-panel{position:fixed;top:36px;left:0;bottom:36px;width:260px;background:var(--panel);border-right:1px solid var(--border);backdrop-filter:blur(10px);z-index:15;overflow-y:auto;transform:translateX(-100%);transition:transform .3s;padding:12px}
+.event-panel.open{transform:translateX(0)}
+.event-panel h3{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.event-item{padding:8px;background:rgba(10,15,30,.6);border-radius:6px;border:1px solid var(--border);margin-bottom:6px;font-size:10px;cursor:pointer;transition:border-color .15s}
+.event-item:hover{border-color:var(--accent)}
+.event-item .ev-name{font-weight:600;color:var(--gold);margin-bottom:3px}
+.event-item .ev-desc{color:var(--text3);line-height:1.4}
+.event-item .ev-date{color:var(--accent2);margin-top:3px;font-size:9px}
+
+.tooltip{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:10px;pointer-events:none;z-index:50;opacity:0;transition:opacity .15s;backdrop-filter:blur(8px);max-width:200px}
+.tooltip.show{opacity:1}
+.tooltip .tt-name{font-weight:700;color:var(--accent2);margin-bottom:2px;font-size:11px}
+.tooltip .tt-row{color:var(--text2);line-height:1.5}
+
+.hud{position:fixed;top:42px;left:8px;font-size:9px;color:var(--text3);z-index:11;pointer-events:none;line-height:1.7}
+.hud .hv{color:var(--accent2)}
+
+.kepler-law{position:fixed;top:42px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--gold);z-index:11;pointer-events:none;text-align:center;opacity:0;transition:opacity .5s}
+.kepler-law.show{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="top-bar ui">
+<div class="logo">ORRERY <span>✦</span></div>
+<div class="sep"></div>
+<div class="info">Date: <span class="v" id="dateDisplay">2025-01-01</span></div>
+<div class="sep"></div>
+<div class="info">Year: <span class="v" id="yearDisplay">0.000</span></div>
+<div class="sep"></div>
+<div class="info" id="alignInfo"></div>
+<div style="flex:1"></div>
+<button class="btn" id="btnPlanets">☰ Planets</button>
+<button class="btn" id="btnEvents">✦ Events</button>
+<button class="btn" id="btnHelp">? Help</button>
+</div>
+
+<div class="controls ui">
+<button class="btn" id="btnRew">⏪</button>
+<button class="btn active" id="btnPlay">▶ Play</button>
+<button class="btn" id="btnFwd">⏩</button>
+<div class="sep" style="height:20px"></div>
+<div class="slider-group">Speed: <input type="range" id="speedSlider" min="-3" max="5" step="0.1" value="1"><span class="sv" id="speedVal">10×</span></div>
+<div class="sep" style="height:20px"></div>
+<select class="ctrl-sel" id="viewSelect">
+<option value="top">Top View</option>
+<option value="side">Side View</option>
+<option value="perspective" selected>Perspective</option>
+<option value="ecliptic">Ecliptic</option>
+</select>
+<select class="ctrl-sel" id="scaleSelect">
+<option value="log" selected>Log Scale</option>
+<option value="linear">Linear</option>
+<option value="compact">Compact</option>
+</select>
+<div class="sep" style="height:20px"></div>
+<button class="btn" id="btnOrbits">◌ Orbits</button>
+<button class="btn" id="btnLabels">Aa Labels</button>
+<button class="btn" id="btnTrails">~ Trails</button>
+<button class="btn" id="btnVectors">→ Velocity</button>
+<button class="btn" id="btnGrid"># Grid</button>
+<button class="btn" id="btnAU">AU Rings</button>
+<div class="sep" style="height:20px"></div>
+<button class="btn" id="btnReset">↺ Reset</button>
+<select class="ctrl-sel" id="focusSelect"><option value="sun">Focus: Sun</option></select>
+</div>
+
+<div class="side-panel" id="sidePanel"><div id="sidePanelContent"></div></div>
+<div class="event-panel" id="eventPanel"><div id="eventPanelContent"></div></div>
+<div class="tooltip" id="tooltip"></div>
+<div class="hud" id="hud"></div>
+<div class="kepler-law" id="keplerLaw"></div>
+
+<script>
+"use strict";
+
+/* ═══════════════ CONSTANTS ═══════════════ */
+const PI=Math.PI,TAU=PI*2,DEG=PI/180,AU=149597870.7;
+const YEAR_DAYS=365.25,DAY_SEC=86400;
+
+/* ═══════════════ PLANET DATA (J2000 epoch) ═══════════════ */
+const PLANETS=[
+{name:'Mercury',symbol:'☿',color:'#b0a090',radius:2439.7,mass:3.301e23,
+ a:0.387098,e:0.20563,i:7.005*DEG,omega:29.124*DEG,Omega:48.331*DEG,M0:174.796*DEG,
+ period:87.969,rotPeriod:58.646,axialTilt:0.034*DEG,
+ desc:'Smallest planet, extreme temperatures, no atmosphere',moons:0},
+{name:'Venus',symbol:'♀',color:'#e8c870',radius:6051.8,mass:4.867e24,
+ a:0.723332,e:0.00677,i:3.3947*DEG,omega:54.884*DEG,Omega:76.680*DEG,M0:50.115*DEG,
+ period:224.701,rotPeriod:-243.025,axialTilt:177.36*DEG,
+ desc:'Retrograde rotation, greenhouse atmosphere, hottest surface',moons:0},
+{name:'Earth',symbol:'🜨',color:'#4488cc',radius:6371.0,mass:5.972e24,
+ a:1.000001,e:0.01671,i:0.00005*DEG,omega:114.208*DEG,Omega:-11.260*DEG,M0:358.617*DEG,
+ period:365.256,rotPeriod:0.9973,axialTilt:23.44*DEG,
+ desc:'Our home, liquid water, diverse life',moons:1},
+{name:'Mars',symbol:'♂',color:'#cc6644',radius:3389.5,mass:6.417e23,
+ a:1.523679,e:0.0934,i:1.850*DEG,omega:286.502*DEG,Omega:49.558*DEG,M0:19.412*DEG,
+ period:686.980,rotPeriod:1.026,axialTilt:25.19*DEG,
+ desc:'The Red Planet, thin atmosphere, Olympus Mons',moons:2},
+{name:'Jupiter',symbol:'♃',color:'#d4a050',radius:69911,mass:1.898e27,
+ a:5.2026,e:0.0489,i:1.303*DEG,omega:273.867*DEG,Omega:100.464*DEG,M0:20.020*DEG,
+ period:4332.59,rotPeriod:0.4135,axialTilt:3.13*DEG,
+ desc:'Gas giant, Great Red Spot, 95 known moons',moons:95},
+{name:'Saturn',symbol:'♄',color:'#e8d090',radius:58232,mass:5.683e26,
+ a:9.5549,e:0.0565,i:2.489*DEG,omega:339.392*DEG,Omega:113.665*DEG,M0:317.020*DEG,
+ period:10759.22,rotPeriod:0.4440,axialTilt:26.73*DEG,
+ desc:'Ring system, lowest density planet, 146 moons',moons:146},
+{name:'Uranus',symbol:'♅',color:'#88ccdd',radius:25362,mass:8.681e25,
+ a:19.2184,e:0.0457,i:0.773*DEG,omega:96.999*DEG,Omega:74.006*DEG,M0:142.238*DEG,
+ period:30688.5,rotPeriod:-0.7183,axialTilt:97.77*DEG,
+ desc:'Ice giant, extreme axial tilt, faint rings',moons:28},
+{name:'Neptune',symbol:'♆',color:'#4466cc',radius:24622,mass:1.024e26,
+ a:30.110,e:0.0113,i:1.770*DEG,omega:276.336*DEG,Omega:131.784*DEG,M0:256.228*DEG,
+ period:60182.0,rotPeriod:0.6713,axialTilt:28.32*DEG,
+ desc:'Windiest planet, Great Dark Spot, Triton',moons:16}
+];
+
+const SUN={name:'Sun',color:'#ffdd44',radius:696340,mass:1.989e30};
+
+const ALIGNMENT_EVENTS=[
+{name:'Inner Planet Alignment',desc:'Mercury, Venus, Earth, and Mars align within 30° sector',planets:[0,1,2,3],threshold:30},
+{name:'Gas Giant Conjunction',desc:'Jupiter and Saturn within 5° — rare "Great Conjunction"',planets:[4,5],threshold:5},
+{name:'Full Planetary Parade',desc:'All 8 planets within 180° sector — extremely rare',planets:[0,1,2,3,4,5,6,7],threshold:180},
+{name:'Venus-Jupiter Conjunction',desc:'Venus and Jupiter appear close — brightest conjunction',planets:[1,4],threshold:8},
+{name:'Mars Opposition',desc:'Mars at opposition — closest approach to Earth',planets:[2,3],threshold:3,type:'opposition'},
+{name:'Mercury Transit Window',desc:'Mercury near inferior conjunction with Earth',planets:[0,2],threshold:4,type:'transit'},
+{name:'Outer System Alignment',desc:'Jupiter through Neptune within 90° sector',planets:[4,5,6,7],threshold:90},
+{name:'Terrestrial Lineup',desc:'Mercury through Mars in a line within 20°',planets:[0,1,2,3],threshold:20}
+];
+
+/* ═══════════════ STATE ═══════════════ */
+let STATE={
+ time:0,speed:10,playing:true,
+ showOrbits:true,showLabels:true,showTrails:true,showVectors:false,showGrid:false,showAU:true,
+ viewMode:'perspective',scaleMode:'log',focusPlanet:-1,selectedPlanet:-1,
+ camYaw:0.4,camPitch:0.6,camDist:35,targetYaw:0.4,targetPitch:0.6,targetDist:35,
+ dragging:false,lastMX:0,lastMY:0,
+ trails:PLANETS.map(()=>[]),
+ detectedEvents:[]
+};
+
+/* ═══════════════ KEPLER SOLVER ═══════════════ */
+function solveKepler(M,e,tol=1e-10){
+ let E=M;
+ for(let i=0;i<50;i++){
+  const dE=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+  E-=dE;
+  if(Math.abs(dE)<tol)break;
+ }
+ return E;
+}
+
+function getPlanetPosition(p,daysSinceEpoch){
+ const n=TAU/p.period;
+ const M=(p.M0+n*daysSinceEpoch)%(TAU);
+ const E=solveKepler(M,p.e);
+ const cosE=Math.cos(E),sinE=Math.sin(E);
+ const x_orb=p.a*(cosE-p.e);
+ const y_orb=p.a*Math.sqrt(1-p.e*p.e)*sinE;
+ const cosO=Math.cos(p.Omega),sinO=Math.sin(p.Omega);
+ const cosw=Math.cos(p.omega),sinw=Math.sin(p.omega);
+ const cosi=Math.cos(p.i),sini=Math.sin(p.i);
+ const Px=cosO*cosw-sinO*sinw*cosi;
+ const Py=sinO*cosw+cosO*sinw*cosi;
+ const Pz=sinw*sini;
+ const Qx=-cosO*sinw-sinO*cosw*cosi;
+ const Qy=-sinO*sinw+cosO*cosw*cosi;
+ const Qz=cosw*sini;
+ const x=x_orb*Px+y_orb*Qx;
+ const y=x_orb*Py+y_orb*Qy;
+ const z=x_orb*Pz+y_orb*Qz;
+ // Velocity (vis-viva)
+ const r=Math.sqrt(x*x+y*y+z*z);
+ const v=Math.sqrt(39.4784*(1/r-1/(2*p.a))); // GM_sun ≈ 39.4784 AU³/yr²
+ // True anomaly
+ const nu=Math.atan2(y_orb,x_orb);
+ return{x,y,z,r,v,M,E,nu};
+}
+
+function getOrbitPoints(p,n=200){
+ const pts=[];
+ for(let i=0;i<=n;i++){
+  const day=p.period*i/n;
+  const pos=getPlanetPosition(p,day);
+  pts.push(pos);
+ }
+ return pts;
+}
+
+/* ═══════════════ SCALE ═══════════════ */
+function scaleR(au){
+ switch(STATE.scaleMode){
+  case'log':return 3+Math.log(1+au*3)*5;
+  case'linear':return au*1.0;
+  case'compact':return 2+Math.pow(au,0.45)*6;
+ }
+ return au;
+}
+function planetVisualRadius(p,idx){
+ const base=idx<4?0.15:0.3;
+ return base+Math.log(1+p.radius/6000)*0.12;
+}
+
+/* ═══════════════ 3D MATH ═══════════════ */
+function v3(x,y,z){return{x:x||0,y:y||0,z:z||0}}
+function v3add(a,b){return{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}}
+function v3sub(a,b){return{x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}}
+function v3mul(a,s){return{x:a.x*s,y:a.y*s,z:a.z*s}}
+function v3len(a){return Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z)}
+function v3norm(a){const l=v3len(a)||1;return{x:a.x/l,y:a.y/l,z:a.z/l}}
+function v3dot(a,b){return a.x*b.x+a.y*b.y+a.z*b.z}
+function v3cross(a,b){return{x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}}
+
+function project(p3,cam){
+ const dx=p3.x-cam.eye.x,dy=p3.y-cam.eye.y,dz=p3.z-cam.eye.z;
+ const rx=v3dot({x:dx,y:dy,z:dz},cam.right);
+ const ry=v3dot({x:dx,y:dy,z:dz},cam.up);
+ const rz=v3dot({x:dx,y:dy,z:dz},cam.fwd);
+ if(rz<0.1)return null;
+ const f=cam.focalLength/rz;
+ return{x:cam.cx+rx*f,y:cam.cy-ry*f,z:rz};
+}
+
+function buildCamera(){
+ let yaw=STATE.camYaw,pitch=STATE.camPitch,dist=STATE.camDist;
+ let target=v3(0,0,0);
+ if(STATE.focusPlanet>=0){
+  const p=PLANETS[STATE.focusPlanet];
+  const pos=getPlanetPosition(p,STATE.time);
+  const sr=scaleR(pos.r);
+  const ratio=sr/(pos.r||1);
+  target={x:pos.x*ratio,y:pos.z*ratio,z:pos.y*ratio};
+ }
+ const cp=Math.cos(pitch),sp=Math.sin(pitch),cy=Math.cos(yaw),sy=Math.sin(yaw);
+ const eye={x:target.x+dist*cp*sy,y:target.y+dist*sp,z:target.z+dist*cp*cy};
+ const fwd=v3norm(v3sub(target,eye));
+ const worldUp={x:0,y:1,z:0};
+ const right=v3norm(v3cross(fwd,worldUp));
+ const up=v3cross(right,fwd);
+ return{eye,fwd,right,up,target,focalLength:W*0.8,cx:W/2,cy:H/2};
+}
+
+/* ═══════════════ CANVAS ═══════════════ */
+const cv=document.getElementById('c');
+const ctx=cv.getContext('2d');
+let W,H,dpr;
+function resize(){
+ dpr=window.devicePixelRatio||1;
+ W=window.innerWidth;H=window.innerHeight;
+ cv.width=W*dpr;cv.height=H*dpr;
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',resize);
+resize();
+
+/* ═══════════════ RENDER ═══════════════ */
+function drawStarfield(cam){
+ // Procedural stars
+ for(let i=0;i<400;i++){
+  const seed=i*127.1+i*i*0.013;
+  const phi=(Math.sin(seed)*0.5+0.5)*TAU;
+  const theta=Math.acos(Math.cos(seed*311.7)*0.999);
+  const r=800;
+  const sx=r*Math.sin(theta)*Math.cos(phi);
+  const sy=r*Math.cos(theta);
+  const sz=r*Math.sin(theta)*Math.sin(phi);
+  const p=project({x:sx,y:sy,z:sz},cam);
+  if(!p||p.x<0||p.x>W||p.y<0||p.y>H)continue;
+  const bright=0.2+0.8*(Math.sin(seed*43.1)*0.5+0.5);
+  const twinkle=0.7+0.3*Math.sin(STATE.time*0.05+seed);
+  const a=bright*twinkle;
+  const sz2=0.5+bright*1.5;
+  ctx.fillStyle=`rgba(200,210,240,${a})`;
+  ctx.beginPath();ctx.arc(p.x,p.y,sz2,0,TAU);ctx.fill();
+ }
+}
+
+function drawGrid(cam){
+ if(!STATE.showGrid)return;
+ ctx.strokeStyle='rgba(40,60,100,0.08)';
+ ctx.lineWidth=0.5;
+ for(let i=-40;i<=40;i+=2){
+  const p1=project({x:i,y:0,z:-40},cam);
+  const p2=project({x:i,y:0,z:40},cam);
+  if(p1&&p2){ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke()}
+  const p3=project({x:-40,y:0,z:i},cam);
+  const p4=project({x:40,y:0,z:i},cam);
+  if(p3&&p4){ctx.beginPath();ctx.moveTo(p3.x,p3.y);ctx.lineTo(p4.x,p4.y);ctx.stroke()}
+ }
+}
+
+function drawAURings(cam){
+ if(!STATE.showAU)return;
+ for(let au=1;au<=32;au*=2){
+  const sr=scaleR(au);
+  const pts=[];
+  for(let a=0;a<=64;a++){
+   const angle=a/64*TAU;
+   const p=project({x:Math.cos(angle)*sr,y:0,z:Math.sin(angle)*sr},cam);
+   if(p)pts.push(p);
+  }
+  if(pts.length<2)continue;
+  ctx.strokeStyle='rgba(60,80,120,0.12)';
+  ctx.lineWidth=0.5;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // AU label
+  const lp=pts[0];
+  if(lp){
+   ctx.fillStyle='rgba(80,100,140,0.4)';
+   ctx.font='8px monospace';
+   ctx.fillText(au+' AU',lp.x+4,lp.y-4);
+  }
+ }
+}
+
+function drawOrbit(planet,cam){
+ if(!STATE.showOrbits)return;
+ const pts=getOrbitPoints(planet,180);
+ const projected=pts.map(p=>{
+  const sr=scaleR(p.r);
+  const ratio=sr/(p.r||1);
+  return project({x:p.x*ratio,y:p.z*ratio,z:p.y*ratio},cam);
+ }).filter(Boolean);
+ if(projected.length<2)return;
+ ctx.strokeStyle=planet.color+'40';
+ ctx.lineWidth=0.8;
+ ctx.beginPath();
+ projected.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+ ctx.closePath();
+ ctx.stroke();
+}
+
+function drawSun(cam){
+ const p=project({x:0,y:0,z:0},cam);
+ if(!p)return;
+ const sr=Math.max(4,600/p.z);
+ // Glow layers
+ for(let i=4;i>=0;i--){
+  const r=sr*(1+i*0.8);
+  const a=0.03/(i+1);
+  const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
+  grad.addColorStop(0,`rgba(255,230,100,${a})`);
+  grad.addColorStop(1,'rgba(255,200,50,0)');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.fill();
+ }
+ // Core
+ const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,sr);
+ grad.addColorStop(0,'#fff8e0');
+ grad.addColorStop(0.3,'#ffdd66');
+ grad.addColorStop(1,'#ff9900');
+ ctx.fillStyle=grad;
+ ctx.beginPath();ctx.arc(p.x,p.y,sr,0,TAU);ctx.fill();
+ // Corona spikes
+ ctx.strokeStyle='rgba(255,220,80,0.15)';
+ ctx.lineWidth=1;
+ for(let i=0;i<12;i++){
+  const a=i/12*TAU+STATE.time*0.01;
+  const len=sr*(1.5+0.5*Math.sin(STATE.time*0.1+i*2));
+  ctx.beginPath();
+  ctx.moveTo(p.x+Math.cos(a)*sr*0.8,p.y+Math.sin(a)*sr*0.8);
+  ctx.lineTo(p.x+Math.cos(a)*len,p.y+Math.sin(a)*len);
+  ctx.stroke();
+ }
+ return p;
+}
+
+function drawPlanet(planet,idx,cam,positions){
+ const pos=positions[idx];
+ const sr=scaleR(pos.r);
+ const ratio=sr/(pos.r||1);
+ const w={x:pos.x*ratio,y:pos.z*ratio,z:pos.y*ratio};
+ const p=project(w,cam);
+ if(!p)return null;
+ const vr=planetVisualRadius(planet,idx);
+ const screenR=Math.max(2,vr*cam.focalLength/p.z);
+
+ // Trail
+ if(STATE.showTrails){
+  const trail=STATE.trails[idx];
+  trail.push({x:p.x,y:p.y});
+  if(trail.length>300)trail.shift();
+  if(trail.length>1){
+   for(let i=1;i<trail.length;i++){
+    const a=i/trail.length*0.4;
+    ctx.strokeStyle=planet.color+Math.floor(a*255).toString(16).padStart(2,'0');
+    ctx.lineWidth=0.5+a;
+    ctx.beginPath();ctx.moveTo(trail[i-1].x,trail[i-1].y);ctx.lineTo(trail[i].x,trail[i].y);ctx.stroke();
+   }
+  }
+ }
+
+ // Velocity vector
+ if(STATE.showVectors){
+  const vScale=3;
+  const dt=0.5;
+  const pos2=getPlanetPosition(planet,STATE.time+dt);
+  const sr2=scaleR(pos2.r);
+  const ratio2=sr2/(pos2.r||1);
+  const w2={x:pos2.x*ratio2,y:pos2.z*ratio2,z:pos2.y*ratio2};
+  const p2=project(w2,cam);
+  if(p2){
+   const dx=(p2.x-p.x)*vScale,dy=(p2.y-p.y)*vScale;
+   ctx.strokeStyle=planet.color+'88';
+   ctx.lineWidth=1.5;
+   ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+dx,p.y+dy);ctx.stroke();
+   // Arrowhead
+   const ang=Math.atan2(dy,dx);
+   ctx.fillStyle=planet.color+'88';
+   ctx.beginPath();
+   ctx.moveTo(p.x+dx,p.y+dy);
+   ctx.lineTo(p.x+dx-6*Math.cos(ang-0.4),p.y+dy-6*Math.sin(ang-0.4));
+   ctx.lineTo(p.x+dx-6*Math.cos(ang+0.4),p.y+dy-6*Math.sin(ang+0.4));
+   ctx.fill();
+  }
+ }
+
+ // Glow
+ const glowR=screenR*3;
+ const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR);
+ grad.addColorStop(0,planet.color+'30');
+ grad.addColorStop(1,planet.color+'00');
+ ctx.fillStyle=grad;
+ ctx.beginPath();ctx.arc(p.x,p.y,glowR,0,TAU);ctx.fill();
+
+ // Planet body
+ const bodyGrad=ctx.createRadialGradient(p.x-screenR*0.3,p.y-screenR*0.3,0,p.x,p.y,screenR);
+ bodyGrad.addColorStop(0,'#ffffff40');
+ bodyGrad.addColorStop(0.5,planet.color);
+ bodyGrad.addColorStop(1,planet.color+'88');
+ ctx.fillStyle=bodyGrad;
+ ctx.beginPath();ctx.arc(p.x,p.y,screenR,0,TAU);ctx.fill();
+
+ // Saturn rings
+ if(idx===5){
+  ctx.strokeStyle=planet.color+'66';
+  ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(p.x,p.y,screenR*2.2,screenR*0.5,0.2,0,TAU);ctx.stroke();
+  ctx.strokeStyle=planet.color+'33';
+  ctx.beginPath();ctx.ellipse(p.x,p.y,screenR*1.8,screenR*0.4,0.2,0,TAU);ctx.stroke();
+ }
+
+ // Uranus rings (faint)
+ if(idx===6){
+  ctx.strokeStyle=planet.color+'22';
+  ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.ellipse(p.x,p.y,screenR*1.6,screenR*1.4,1.2,0,TAU);ctx.stroke();
+ }
+
+ // Label
+ if(STATE.showLabels){
+  ctx.fillStyle=planet.color+'cc';
+  ctx.font='bold 10px monospace';
+  ctx.textAlign='center';
+  ctx.fillText(planet.name,p.x,p.y-screenR-6);
+  ctx.font='8px monospace';
+  ctx.fillStyle=planet.color+'77';
+  ctx.fillText(pos.r.toFixed(2)+' AU',p.x,p.y-screenR-16);
+ }
+
+ // Selection ring
+ if(STATE.selectedPlanet===idx){
+  ctx.strokeStyle=planet.color;
+  ctx.lineWidth=1.5;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.arc(p.x,p.y,screenR+6,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+ }
+
+ return{x:p.x,y:p.y,z:p.z,screenR,idx,world:w};
+}
+
+function drawAlignmentLines(screenPositions,cam){
+ STATE.detectedEvents=[];
+ ALIGNMENT_EVENTS.forEach(evt=>{
+  const angles=evt.planets.map(i=>{
+   const pos=getPlanetPosition(PLANETS[i],STATE.time);
+   return Math.atan2(pos.y,pos.x);
+  });
+  // Check angular spread
+  const sorted=[...angles].sort((a,b)=>a-b);
+  let minSpread=TAU;
+  for(let i=0;i<sorted.length;i++){
+   let spread=sorted[(i+sorted.length-1)%sorted.length]-sorted[i];
+   if(spread<0)spread+=TAU;
+   spread=TAU-spread;
+   if(spread<minSpread)minSpread=spread;
+  }
+  const spreadDeg=minSpread*180/PI;
+  if(spreadDeg<=evt.threshold){
+   STATE.detectedEvents.push({...evt,spread:spreadDeg});
+   // Draw alignment line
+   const sunP=project({x:0,y:0,z:0},cam);
+   if(!sunP)return;
+   evt.planets.forEach(i=>{
+    const sp=screenPositions[i];
+    if(!sp)return;
+    ctx.strokeStyle='rgba(255,215,70,0.15)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(sunP.x,sunP.y);ctx.lineTo(sp.x,sp.y);ctx.stroke();
+    ctx.setLineDash([]);
+   });
+   // Highlight arc
+   ctx.strokeStyle='rgba(255,215,70,0.08)';
+   ctx.lineWidth=2;
+  }
+ });
+}
+
+function drawKeplerInfo(){
+ if(STATE.selectedPlanet<0)return;
+ const p=PLANETS[STATE.selectedPlanet];
+ const pos=getPlanetPosition(p,STATE.time);
+ const el=document.getElementById('keplerLaw');
+ const T=p.period/YEAR_DAYS;
+ const ratio=(T*T)/(p.a*p.a*p.a);
+ el.innerHTML=`<div style="font-size:11px">Kepler's 3rd Law: T² / a³ = <span style="color:#4a9eff;font-weight:700">${ratio.toFixed(4)}</span> ≈ 1.000</div>
+<div style="font-size:9px;color:#7888a8;margin-top:2px">${p.name}: T=${T.toFixed(3)} yr, a=${p.a.toFixed(3)} AU, e=${p.e.toFixed(4)}, ν=${(pos.nu*180/PI).toFixed(1)}°</div>`;
+ el.classList.add('show');
+}
+
+/* ═══════════════ MAIN RENDER ═══════════════ */
+function render(){
+ ctx.fillStyle='#020208';
+ ctx.fillRect(0,0,W,H);
+
+ // Camera
+ const cam=buildCamera();
+
+ drawStarfield(cam);
+ drawGrid(cam);
+ drawAURings(cam);
+
+ // Compute all positions
+ const positions=PLANETS.map(p=>getPlanetPosition(p,STATE.time));
+
+ // Draw orbits
+ PLANETS.forEach((p,i)=>drawOrbit(p,cam));
+
+ // Draw sun
+ drawSun(cam);
+
+ // Draw planets (sorted by depth for correct overlap)
+ const renderOrder=PLANETS.map((_,i)=>i);
+ const screenPositions=new Array(PLANETS.length);
+ // First pass: compute screen positions
+ renderOrder.forEach(i=>{
+  const pos=positions[i];
+  const sr=scaleR(pos.r);
+  const ratio=sr/(pos.r||1);
+  const p3={x:pos.x*ratio,y:pos.z*ratio,z:pos.y*ratio};
+  const sp=project(p3,cam);
+  screenPositions[i]=sp?{...sp,idx:i}:null;
+ });
+ // Sort by z (farthest first)
+ renderOrder.sort((a,b)=>{
+  const za=screenPositions[a]?screenPositions[a].z:9999;
+  const zb=screenPositions[b]?screenPositions[b].z:9999;
+  return zb-za;
+ });
+ const drawnPositions=[];
+ renderOrder.forEach(i=>{
+  const r=drawPlanet(PLANETS[i],i,cam,positions);
+  if(r)drawnPositions[i]=r;
+ });
+
+ // Alignment detection and visualization
+ drawAlignmentLines(drawnPositions,cam);
+
+ // HUD
+ const totalE=positions.reduce((s,p)=>s+p.v,0);
+ document.getElementById('hud').innerHTML=`
+  <div>Planets: <span class="hv">8</span> · Solver: <span class="hv">Kepler</span></div>
+  <div>Epoch: <span class="hv">J2000 + ${STATE.time.toFixed(1)}d</span></div>
+  <div>Alignments: <span class="hv">${STATE.detectedEvents.length}</span></div>
+  ${STATE.focusPlanet>=0?`<div>Focus: <span class="hv">${PLANETS[STATE.focusPlanet].name}</span></div>`:''}`;
+
+ // Date display
+ const epochDate=new Date(2000,0,1);
+ const currentDate=new Date(epochDate.getTime()+STATE.time*DAY_SEC*1000);
+ document.getElementById('dateDisplay').textContent=currentDate.toISOString().split('T')[0];
+ document.getElementById('yearDisplay').textContent=(STATE.time/YEAR_DAYS).toFixed(3);
+
+ // Alignment info
+ if(STATE.detectedEvents.length>0){
+  document.getElementById('alignInfo').innerHTML=STATE.detectedEvents.map(e=>`<span style="color:${e.spread<10?'#ffd866':'#6db3ff'}">${e.name} (${e.spread.toFixed(1)}°)</span>`).join(' · ');
+ }else{
+  document.getElementById('alignInfo').textContent='No current alignments';
+ }
+
+ drawKeplerInfo();
+
+ // Store drawn positions for mouse interaction
+ STATE._drawnPositions=drawnPositions;
+}
+
+/* ═══════════════ ANIMATION LOOP ═══════════════ */
+let lastT=0;
+function animate(ts){
+ const dt=Math.min((ts-lastT)/1000,0.1);
+ lastT=ts;
+ if(STATE.playing)STATE.time+=STATE.speed*dt;
+ // Camera smoothing
+ STATE.camYaw+=(STATE.targetYaw-STATE.camYaw)*Math.min(1,dt*8);
+ STATE.camPitch+=(STATE.targetPitch-STATE.camPitch)*Math.min(1,dt*8);
+ STATE.camDist+=(STATE.targetDist-STATE.camDist)*Math.min(1,dt*8);
+ render();
+ requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+/* ═══════════════ INTERACTION ═══════════════ */
+cv.addEventListener('mousedown',e=>{STATE.dragging=true;STATE.lastMX=e.clientX;STATE.lastMY=e.clientY});
+cv.addEventListener('mousemove',e=>{
+ if(STATE.dragging){
+  STATE.targetYaw+=(e.clientX-STATE.lastMX)*0.005;
+  STATE.targetPitch+=(e.clientY-STATE.lastMY)*0.005;
+  STATE.targetPitch=Math.max(-PI/2+0.01,Math.min(PI/2-0.01,STATE.targetPitch));
+  STATE.lastMX=e.clientX;STATE.lastMY=e.clientY;
+ }
+ // Tooltip
+ const mx=e.clientX,my=e.clientY;
+ const tt=document.getElementById('tooltip');
+ let found=false;
+ if(STATE._drawnPositions){
+  for(let i=0;i<PLANETS.length;i++){
+   const dp=STATE._drawnPositions[i];
+   if(!dp)continue;
+   const dx=mx-dp.x,dy=my-dp.y;
+   if(dx*dx+dy*dy<(dp.screenR+12)*(dp.screenR+12)){
+    const pos=getPlanetPosition(PLANETS[i],STATE.time);
+    tt.innerHTML=`<div class="tt-name" style="color:${PLANETS[i].color}">${PLANETS[i].symbol} ${PLANETS[i].name}</div>
+     <div class="tt-row">Distance: ${pos.r.toFixed(4)} AU</div>
+     <div class="tt-row">Velocity: ${(pos.v*AU/YEAR_DAYS/1000).toFixed(2)} km/s</div>
+     <div class="tt-row">True anomaly: ${(pos.nu*180/PI).toFixed(1)}°</div>
+     <div class="tt-row">Period: ${(PLANETS[i].period/YEAR_DAYS).toFixed(3)} yr</div>`;
+    tt.style.left=Math.min(mx+16,W-210)+'px';
+    tt.style.top=Math.min(my+16,H-100)+'px';
+    tt.classList.add('show');
+    found=true;
+    break;
+   }
+  }
+ }
+ if(!found)tt.classList.remove('show');
+});
+cv.addEventListener('mouseup',()=>STATE.dragging=false);
+cv.addEventListener('mouseleave',()=>{STATE.dragging=false;document.getElementById('tooltip').classList.remove('show')});
+cv.addEventListener('wheel',e=>{STATE.targetDist=Math.max(3,Math.min(200,STATE.targetDist+e.deltaY*0.03))},{passive:true});
+cv.addEventListener('dblclick',e=>{
+ const mx=e.clientX,my=e.clientY;
+ if(!STATE._drawnPositions)return;
+ for(let i=0;i<PLANETS.length;i++){
+  const dp=STATE._drawnPositions[i];
+  if(!dp)continue;
+  if((mx-dp.x)**2+(my-dp.y)**2<(dp.screenR+15)**2){
+   STATE.selectedPlanet=i;
+   STATE.focusPlanet=i;
+   STATE.targetDist=Math.max(5,scaleR(PLANETS[i].a)*2.5);
+   updateFocusSelect();
+   renderSidePanel();
+   return;
+  }
+ }
+ STATE.focusPlanet=-1;STATE.selectedPlanet=-1;
+ updateFocusSelect();
+});
+// Touch
+cv.addEventListener('touchstart',e=>{
+ if(e.touches.length===1){STATE.dragging=true;STATE.lastMX=e.touches[0].clientX;STATE.lastMY=e.touches[0].clientY}
+},{passive:true});
+cv.addEventListener('touchmove',e=>{
+ if(STATE.dragging&&e.touches.length===1){
+  STATE.targetYaw+=(e.touches[0].clientX-STATE.lastMX)*0.005;
+  STATE.targetPitch+=(e.touches[0].clientY-STATE.lastMY)*0.005;
+  STATE.targetPitch=Math.max(-PI/2+0.01,Math.min(PI/2-0.01,STATE.targetPitch));
+  STATE.lastMX=e.touches[0].clientX;STATE.lastMY=e.touches[0].clientY;
+ }
+},{passive:true});
+cv.addEventListener('touchend',()=>STATE.dragging=false);
+
+/* ═══════════════ CONTROLS ═══════════════ */
+function toggleBtn(id,key){
+ const btn=document.getElementById(id);
+ STATE[key]=!STATE[key];
+ btn.classList.toggle('active',STATE[key]);
+}
+
+document.getElementById('btnPlay').addEventListener('click',()=>{
+ STATE.playing=!STATE.playing;
+ document.getElementById('btnPlay').textContent=STATE.playing?'▶ Play':'❚❚ Pause';
+ document.getElementById('btnPlay').classList.toggle('active',STATE.playing);
+});
+document.getElementById('btnRew').addEventListener('click',()=>{STATE.time-=365;STATE.trails=PLANETS.map(()=>[])});
+document.getElementById('btnFwd').addEventListener('click',()=>{STATE.time+=365;STATE.trails=PLANETS.map(()=>[])});
+document.getElementById('btnOrbits').addEventListener('click',()=>toggleBtn('btnOrbits','showOrbits'));
+document.getElementById('btnLabels').addEventListener('click',()=>toggleBtn('btnLabels','showLabels'));
+document.getElementById('btnTrails').addEventListener('click',()=>{toggleBtn('btnTrails','showTrails');if(!STATE.showTrails)STATE.trails=PLANETS.map(()=>[])});
+document.getElementById('btnVectors').addEventListener('click',()=>toggleBtn('btnVectors','showVectors'));
+document.getElementById('btnGrid').addEventListener('click',()=>toggleBtn('btnGrid','showGrid'));
+document.getElementById('btnAU').addEventListener('click',()=>toggleBtn('btnAU','showAU'));
+document.getElementById('btnReset').addEventListener('click',()=>{
+ STATE.time=0;STATE.targetYaw=0.4;STATE.targetPitch=0.6;STATE.targetDist=35;
+ STATE.focusPlanet=-1;STATE.selectedPlanet=-1;STATE.trails=PLANETS.map(()=>[]);
+ updateFocusSelect();
+});
+// Initial active states
+['btnOrbits','btnLabels','btnTrails','btnAU'].forEach(id=>document.getElementById(id).classList.add('active'));
+
+document.getElementById('speedSlider').addEventListener('input',e=>{
+ const v=parseFloat(e.target.value);
+ STATE.speed=Math.pow(10,v);
+ const label=STATE.speed>=1?STATE.speed.toFixed(0)+'×':STATE.speed.toFixed(2)+'×';
+ document.getElementById('speedVal').textContent=label;
+});
+
+document.getElementById('viewSelect').addEventListener('change',e=>{
+ const v=e.target.value;
+ switch(v){
+  case'top':STATE.targetPitch=PI/2-0.01;STATE.targetYaw=0;break;
+  case'side':STATE.targetPitch=0.05;STATE.targetYaw=0;break;
+  case'perspective':STATE.targetPitch=0.6;STATE.targetYaw=0.4;break;
+  case'ecliptic':STATE.targetPitch=0.1;STATE.targetYaw=0.8;break;
+ }
+});
+document.getElementById('scaleSelect').addEventListener('change',e=>{
+ STATE.scaleMode=e.target.value;STATE.trails=PLANETS.map(()=>[]);
+});
+
+// Focus select
+function updateFocusSelect(){
+ const sel=document.getElementById('focusSelect');
+ sel.innerHTML='<option value="sun">Focus: Sun</option>'+PLANETS.map((p,i)=>`<option value="${i}"${STATE.focusPlanet===i?' selected':''}>Focus: ${p.name}</option>`).join('');
+}
+updateFocusSelect();
+document.getElementById('focusSelect').addEventListener('change',e=>{
+ const v=e.target.value;
+ STATE.focusPlanet=v==='sun'?-1:parseInt(v);
+ STATE.selectedPlanet=STATE.focusPlanet;
+ if(STATE.focusPlanet>=0)STATE.targetDist=Math.max(5,scaleR(PLANETS[STATE.focusPlanet].a)*2.5);
+ else STATE.targetDist=35;
+ renderSidePanel();
+});
+
+/* ═══════════════ SIDE PANEL ═══════════════ */
+document.getElementById('btnPlanets').addEventListener('click',()=>{
+ document.getElementById('sidePanel').classList.toggle('open');
+ document.getElementById('eventPanel').classList.remove('open');
+ renderSidePanel();
+});
+document.getElementById('btnEvents').addEventListener('click',()=>{
+ document.getElementById('eventPanel').classList.toggle('open');
+ document.getElementById('sidePanel').classList.remove('open');
+ renderEventPanel();
+});
+
+function renderSidePanel(){
+ let html='<h3>Solar System</h3>';
+ PLANETS.forEach((p,i)=>{
+  const pos=getPlanetPosition(p,STATE.time);
+  html+=`<div class="planet-row${STATE.selectedPlanet===i?' selected':''}" data-idx="${i}">
+   <div class="p-dot" style="background:${p.color}"></div>
+   <span class="p-name">${p.symbol} ${p.name}</span>
+   <span class="p-info">${pos.r.toFixed(2)} AU</span>
+  </div>`;
+ });
+ if(STATE.selectedPlanet>=0){
+  const p=PLANETS[STATE.selectedPlanet];
+  const pos=getPlanetPosition(p,STATE.time);
+  const T=p.period/YEAR_DAYS;
+  const vKm=(pos.v*AU/YEAR_DAYS/1000);
+  const perihelion=p.a*(1-p.e);
+  const aphelion=p.a*(1+p.e);
+  html+=`<div class="planet-detail">
+   <div class="pd-title" style="color:${p.color}">${p.symbol} ${p.name}</div>
+   <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${p.desc}</div>
+   <div class="pd-row"><span class="lbl">Semi-major axis</span><span class="val">${p.a.toFixed(4)} AU</span></div>
+   <div class="pd-row"><span class="lbl">Eccentricity</span><span class="val">${p.e.toFixed(5)}</span></div>
+   <div class="pd-row"><span class="lbl">Inclination</span><span class="val">${(p.i/DEG).toFixed(3)}°</span></div>
+   <div class="pd-row"><span class="lbl">Period</span><span class="val">${T.toFixed(3)} yr (${p.period.toFixed(1)} d)</span></div>
+   <div class="pd-row"><span class="lbl">Current dist</span><span class="val">${pos.r.toFixed(4)} AU</span></div>
+   <div class="pd-row"><span class="lbl">Velocity</span><span class="val">${vKm.toFixed(2)} km/s</span></div>
+   <div class="pd-row"><span class="lbl">True anomaly</span><span class="val">${(pos.nu*180/PI).toFixed(2)}°</span></div>
+   <div class="pd-row"><span class="lbl">Mean anomaly</span><span class="val">${(pos.M*180/PI).toFixed(2)}°</span></div>
+   <div class="pd-row"><span class="lbl">Ecc. anomaly</span><span class="val">${(pos.E*180/PI).toFixed(2)}°</span></div>
+   <div class="pd-row"><span class="lbl">Perihelion</span><span class="val">${perihelion.toFixed(4)} AU</span></div>
+   <div class="pd-row"><span class="lbl">Aphelion</span><span class="val">${aphelion.toFixed(4)} AU</span></div>
+   <div class="pd-row"><span class="lbl">Radius</span><span class="val">${p.radius.toFixed(0)} km</span></div>
+   <div class="pd-row"><span class="lbl">Mass</span><span class="val">${p.mass.toExponential(2)} kg</span></div>
+   <div class="pd-row"><span class="lbl">Axial tilt</span><span class="val">${(p.axialTilt/DEG).toFixed(2)}°</span></div>
+   <div class="pd-row"><span class="lbl">Rotation</span><span class="val">${Math.abs(p.rotPeriod).toFixed(3)} d${p.rotPeriod<0?' (retro)':''}</span></div>
+   <div class="pd-row"><span class="lbl">Moons</span><span class="val">${p.moons}</span></div>
+   <div class="pd-row"><span class="lbl">T²/a³</span><span class="val">${(T*T/(p.a*p.a*p.a)).toFixed(6)}</span></div>
+  </div>`;
+ }
+ document.getElementById('sidePanelContent').innerHTML=html;
+ document.querySelectorAll('.planet-row').forEach(el=>el.addEventListener('click',()=>{
+  const idx=parseInt(el.dataset.idx);
+  STATE.selectedPlanet=idx;STATE.focusPlanet=idx;
+  STATE.targetDist=Math.max(5,scaleR(PLANETS[idx].a)*2.5);
+  updateFocusSelect();renderSidePanel();
+ }));
+}
+
+function renderEventPanel(){
+ let html='<h3>✦ Alignment Events</h3>';
+ html+='<div style="font-size:10px;color:var(--text3);margin-bottom:10px">Detected alignments update in real-time as the simulation runs. Click to jump to favorable time windows.</div>';
+ ALIGNMENT_EVENTS.forEach((evt,i)=>{
+  const active=STATE.detectedEvents.find(e=>e.name===evt.name);
+  html+=`<div class="event-item" data-eidx="${i}" style="${active?'border-color:var(--gold);background:rgba(255,216,102,.05)':''}">
+   <div class="ev-name">${active?'🔥 ':''}${evt.name}</div>
+   <div class="ev-desc">${evt.desc}</div>
+   <div class="ev-date">Planets: ${evt.planets.map(j=>PLANETS[j].name).join(', ')} · Threshold: ${evt.threshold}°${active?' · Current: '+active.spread.toFixed(1)+'°':''}</div>
+  </div>`;
+ });
+ html+='<h3 style="margin-top:16px">⚙ Orbital Mechanics</h3>';
+ html+='<div style="font-size:10px;color:var(--text3);line-height:1.6">';
+ html+='<b style="color:var(--accent2)">Kepler\'s 1st Law:</b> Planets orbit in ellipses with the Sun at one focus.<br><br>';
+ html+='<b style="color:var(--accent2)">Kepler\'s 2nd Law:</b> Equal areas swept in equal times — planets move faster near perihelion.<br><br>';
+ html+='<b style="color:var(--accent2)">Kepler\'s 3rd Law:</b> T² = a³ — orbital period squared equals semi-major axis cubed (in AU/years).<br><br>';
+ html+='<b style="color:var(--accent2)">Newton-Raphson:</b> The Kepler equation M = E − e·sin(E) is solved iteratively to find eccentric anomaly E from mean anomaly M.<br><br>';
+ html+='<b style="color:var(--accent2)">Vis-viva:</b> v² = GM(2/r − 1/a) gives orbital velocity at any distance r.</div>';
+ document.getElementById('eventPanelContent').innerHTML=html;
+ document.querySelectorAll('.event-item').forEach(el=>el.addEventListener('click',()=>{
+  const idx=parseInt(el.dataset.eidx);
+  const evt=ALIGNMENT_EVENTS[idx];
+  // Fast-forward to find alignment
+  let t=STATE.time;
+  for(let step=0;step<50000;step++){
+   t+=1;
+   const angles=evt.planets.map(i=>{const pos=getPlanetPosition(PLANETS[i],t);return Math.atan2(pos.y,pos.x)});
+   const sorted=[...angles].sort((a,b)=>a-b);
+   let minSpread=TAU;
+   for(let i=0;i<sorted.length;i++){
+    let spread=sorted[(i+sorted.length-1)%sorted.length]-sorted[i];
+    if(spread<0)spread+=TAU;spread=TAU-spread;
+    if(spread<minSpread)minSpread=spread;
+   }
+   if(minSpread*180/PI<=evt.threshold){
+    STATE.time=t;STATE.trails=PLANETS.map(()=>[]);
+    toast(`Jumped to ${evt.name} alignment`);
+    renderEventPanel();return;
+   }
+  }
+  toast('Alignment not found within search window');
+ }));
+}
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+
+/* ═══════════════ HELP ═══════════════ */
+document.getElementById('btnHelp').addEventListener('click',()=>{
+ const sp=document.getElementById('sidePanel');
+ sp.classList.toggle('open');
+ document.getElementById('eventPanel').classList.remove('open');
+ document.getElementById('sidePanelContent').innerHTML=`
+  <h3>Help — Orrery</h3>
+  <div style="font-size:10px;color:var(--text2);line-height:1.7">
+  <b style="color:var(--accent2)">Navigation</b><br>
+  • Drag to orbit camera<br>
+  • Scroll to zoom in/out<br>
+  • Double-click a planet to focus<br>
+  • Double-click space to unfocus<br><br>
+  <b style="color:var(--accent2)">Controls</b><br>
+  • Play/Pause: animate time<br>
+  • ⏪⏩: jump ±1 year<br>
+  • Speed slider: 0.001× to 100,000×<br>
+  • View presets: Top, Side, Perspective, Ecliptic<br>
+  • Scale: Log (default), Linear, Compact<br><br>
+  <b style="color:var(--accent2)">Toggles</b><br>
+  • Orbits: elliptical orbit paths<br>
+  • Labels: planet names and distances<br>
+  • Trails: position history traces<br>
+  • Velocity: velocity vectors with arrows<br>
+  • Grid: reference grid plane<br>
+  • AU Rings: distance reference circles<br><br>
+  <b style="color:var(--accent2)">Alignment Events</b><br>
+  8 predefined alignment events are detected in real-time. Click events in the Events panel to fast-forward to the next occurrence (searches up to ~137 years ahead).<br><br>
+  <b style="color:var(--accent2)">Physics</b><br>
+  All orbits use J2000 Keplerian elements with Newton-Raphson Kepler equation solver (50 iterations, 10⁻¹⁰ tolerance). Positions computed via orbital element → 3D coordinate transformation. Velocities from vis-viva equation. Kepler's 3rd law verified for each planet in the detail panel (T²/a³ ≈ 1.000).<br><br>
+  <b style="color:var(--accent2)">Data</b><br>
+  8 planets with accurate J2000 orbital elements: semi-major axis (a), eccentricity (e), inclination (i), argument of perihelion (ω), longitude of ascending node (Ω), mean anomaly at epoch (M₀). Physical data includes radius, mass, rotation period, axial tilt, and moon count.
+  </div>`;
+});
+
+/* ═══════════════ KEYBOARD ═══════════════ */
+document.addEventListener('keydown',e=>{
+ if(e.target.tagName==='INPUT')return;
+ switch(e.key){
+  case' ':e.preventDefault();document.getElementById('btnPlay').click();break;
+  case'ArrowRight':STATE.time+=30;STATE.trails=PLANETS.map(()=>[]);break;
+  case'ArrowLeft':STATE.time-=30;STATE.trails=PLANETS.map(()=>[]);break;
+  case'ArrowUp':STATE.targetDist=Math.max(3,STATE.targetDist*0.85);break;
+  case'ArrowDown':STATE.targetDist=Math.min(200,STATE.targetDist*1.18);break;
+  case'o':case'O':toggleBtn('btnOrbits','showOrbits');break;
+  case'l':case'L':toggleBtn('btnLabels','showLabels');break;
+  case't':case'T':toggleBtn('btnTrails','showTrails');if(!STATE.showTrails)STATE.trails=PLANETS.map(()=>[]);break;
+  case'v':case'V':toggleBtn('btnVectors','showVectors');break;
+  case'g':case'G':toggleBtn('btnGrid','showGrid');break;
+  case'r':case'R':document.getElementById('btnReset').click();break;
+  case'Escape':
+   document.getElementById('sidePanel').classList.remove('open');
+   document.getElementById('eventPanel').classList.remove('open');
+   STATE.selectedPlanet=-1;STATE.focusPlanet=-1;updateFocusSelect();
+   document.getElementById('keplerLaw').classList.remove('show');break;
+  case'1':case'2':case'3':case'4':case'5':case'6':case'7':case'8':{
+   const idx=parseInt(e.key)-1;
+   STATE.selectedPlanet=idx;STATE.focusPlanet=idx;
+   STATE.targetDist=Math.max(5,scaleR(PLANETS[idx].a)*2.5);
+   updateFocusSelect();renderSidePanel();break;}
+  case'0':STATE.focusPlanet=-1;STATE.selectedPlanet=-1;STATE.targetDist=35;updateFocusSelect();break;
+ }
+});
+
+</script>
+</body>
+</html>

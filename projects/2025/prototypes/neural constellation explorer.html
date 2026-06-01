@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neural Constellation Explorer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000818;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2;
+            background: rgba(0, 8, 24, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #0ff;
+            backdrop-filter: blur(5px);
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        .slider {
+            width: 200px;
+            margin: 5px 0;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0088ff;
+        }
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2;
+            background: rgba(0, 8, 24, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #0ff;
+            backdrop-filter: blur(5px);
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="constellation"></canvas>
+    
+    <div class="controls">
+        <h3>Neural Constellation Controls</h3>
+        <div class="slider-container">
+            <label>Connection Strength</label>
+            <input type="range" min="0" max="100" value="50" class="slider" id="connectionStrength">
+        </div>
+        <div class="slider-container">
+            <label>Node Energy</label>
+            <input type="range" min="0" max="100" value="70" class="slider" id="nodeEnergy">
+        </div>
+        <div class="slider-container">
+            <label>Quantum Entropy</label>
+            <input type="range" min="0" max="100" value="30" class="slider" id="quantumEntropy">
+        </div>
+        <button id="addNode">Add Neural Node</button>
+        <button id="togglePhase">Toggle Phase Shift</button>
+        <button id="resetSim">Reset Simulation</button>
+    </div>
+
+    <div class="info-panel">
+        <h3>System Status</h3>
+        <p id="nodeCount">Active Nodes: 0</p>
+        <p id="systemEnergy">System Energy: 0%</p>
+        <p id="phaseState">Phase State: Normal</p>
+    </div>
+
+    <script>
+        class NeuralNode {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 3 + 2;
+                this.energy = Math.random();
+                this.connections = [];
+                this.phase = Math.random() * Math.PI * 2;
+                this.quantumState = Math.random();
+            }
+
+            update(width, height, nodes, params) {
+                // Update position with velocity
+                this.x += this.vx * params.nodeEnergy;
+                this.y += this.vy * params.nodeEnergy;
+
+                // Boundary checks with elastic collision
+                if (this.x < 0 || this.x > width) {
+                    this.vx *= -1;
+                    this.x = Math.max(0, Math.min(width, this.x));
+                }
+                if (this.y < 0 || this.y > height) {
+                    this.vy *= -1;
+                    this.y = Math.max(0, Math.min(height, this.y));
+                }
+
+                // Quantum effects
+                if (Math.random() < params.quantumEntropy * 0.01) {
+                    this.quantumState = Math.random();
+                    this.vx += (Math.random() - 0.5) * 0.5;
+                    this.vy += (Math.random() - 0.5) * 0.5;
+                }
+
+                // Update phase
+                this.phase += 0.02;
+                if (this.phase > Math.PI * 2) this.phase -= Math.PI * 2;
+
+                // Update connections based on proximity
+                this.connections = nodes.filter(node => {
+                    if (node === this) return false;
+                    const dx = this.x - node.x;
+                    const dy = this.y - node.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    return distance < 150 * params.connectionStrength * 0.01;
+                });
+            }
+
+            draw(ctx, params) {
+                // Draw node
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${200 + this.quantumState * 160}, 100%, 50%, ${0.7 + Math.sin(this.phase) * 0.3})`;
+                ctx.fill();
+
+                // Draw connections
+                this.connections.forEach(node => {
+                    const dx = node.x - this.x;
+                    const dy = node.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const strength = 1 - (distance / (150 * params.connectionStrength * 0.01));
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(node.x, node.y);
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${strength * 0.5})`;
+                    ctx.lineWidth = strength * 2;
+                    ctx.stroke();
+
+                    // Draw quantum interference patterns
+                    if (Math.random() < params.quantumEntropy * 0.01) {
+                        const midX = (this.x + node.x) / 2;
+                        const midY = (this.y + node.y) / 2;
+                        const angle = Math.atan2(dy, dx);
+                        
+                        ctx.beginPath();
+                        ctx.arc(midX, midY, Math.random() * 5, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(0, 255, 255, ${strength * 0.3})`;
+                        ctx.fill();
+                    }
+                });
+            }
+        }
+
+        class ConstellationSimulation {
+            constructor() {
+                this.canvas = document.getElementById('constellation');
+                this.ctx = this.canvas.getContext('2d');
+                this.nodes = [];
+                this.params = {
+                    connectionStrength: 0.5,
+                    nodeEnergy: 0.7,
+                    quantumEntropy: 0.3,
+                    phaseShift: false
+                };
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.addInitialNodes();
+                this.animate();
+                this.updateInfo();
+            }
+
+            setupCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                window.addEventListener('resize', () => {
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                });
+            }
+
+            setupEventListeners() {
+                document.getElementById('connectionStrength').addEventListener('input', (e) => {
+                    this.params.connectionStrength = e.target.value / 100;
+                });
+                document.getElementById('nodeEnergy').addEventListener('input', (e) => {
+                    this.params.nodeEnergy = e.target.value / 100;
+                });
+                document.getElementById('quantumEntropy').addEventListener('input', (e) => {
+                    this.params.quantumEntropy = e.target.value / 100;
+                });
+                document.getElementById('addNode').addEventListener('click', () => {
+                    this.addNode();
+                });
+                document.getElementById('togglePhase').addEventListener('click', () => {
+                    this.params.phaseShift = !this.params.phaseShift;
+                });
+                document.getElementById('resetSim').addEventListener('click', () => {
+                    this.nodes = [];
+                    this.addInitialNodes();
+                });
+
+                this.canvas.addEventListener('click', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.addNode(x, y);
+                });
+            }
+
+            addInitialNodes() {
+                for (let i = 0; i < 20; i++) {
+                    this.addNode();
+                }
+            }
+
+            addNode(x, y) {
+                const nodeX = x || Math.random() * this.canvas.width;
+                const nodeY = y || Math.random() * this.canvas.height;
+                this.nodes.push(new NeuralNode(nodeX, nodeY));
+            }
+
+            updateInfo() {
+                document.getElementById('nodeCount').textContent = `Active Nodes: ${this.nodes.length}`;
+                document.getElementById('systemEnergy').textContent = 
+                    `System Energy: ${Math.round(this.params.nodeEnergy * 100)}%`;
+                document.getElementById('phaseState').textContent = 
+                    `Phase State: ${this.params.phaseShift ? 'Shifted' : 'Normal'}`;
+            }
+
+            animate() {
+                this.ctx.fillStyle = 'rgba(0, 8, 24, 0.1)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.nodes.forEach(node => {
+                    node.update(this.canvas.width, this.canvas.height, this.nodes, this.params);
+                    node.draw(this.ctx, this.params);
+                });
+
+                if (this.params.phaseShift) {
+                    this.ctx.fillStyle = 'rgba(0, 255, 255, 0.03)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+
+                this.updateInfo();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // Start the simulation
+        window.onload = () => {
+            new ConstellationSimulation();
+        };
+    </script>
+</body>
+</html>

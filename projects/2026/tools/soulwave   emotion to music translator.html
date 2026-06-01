@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoulWave — Emotion to Music Translator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#08080f;--surface:rgba(14,14,24,0.96);--card:rgba(20,20,36,0.92);
+--border:rgba(255,255,255,0.06);--text:#d4d8e8;--dim:#556;
+--joy:#ffbe0b;--sadness:#4361ee;--anger:#ef233c;--fear:#7209b7;
+--love:#ff006e;--calm:#00f5d4;--hope:#80ffdb;--tension:#f72585;
+--nostalgia:#c77dff;--wonder:#4cc9f0;--melancholy:#3a0ca3;--triumph:#ffd60a;
+--radius:12px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:13px;user-select:none}
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+#header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10}
+.brand{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--joy),var(--love),var(--calm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
+.brand small{font-weight:400;font-size:10px;-webkit-text-fill-color:var(--dim);margin-left:6px;letter-spacing:1px;text-transform:uppercase}
+.hdr-group{display:flex;align-items:center;gap:6px}
+.btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;transition:all .2s;font-family:inherit;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.15)}
+.btn.primary{background:linear-gradient(135deg,var(--love),var(--joy));border:none;color:#fff;font-weight:600}
+.btn.primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn.active{background:rgba(255,190,11,0.12);border-color:var(--joy);color:var(--joy)}
+.btn.sm{padding:4px 10px;font-size:10px}
+#main{flex:1;display:flex;overflow:hidden}
+#left-panel{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#left-panel .panel-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--joy);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between}
+#left-panel .panel-body{flex:1;overflow-y:auto;padding:10px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#left-panel .panel-body::-webkit-scrollbar{width:4px}
+#left-panel .panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#canvas-wrap{flex:1;position:relative;overflow:hidden}
+#canvas-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+#draw-canvas{z-index:3;cursor:crosshair}
+#viz-canvas{z-index:2}
+#bg-canvas{z-index:1}
+#right-panel{width:280px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#right-panel .panel-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--calm);text-transform:uppercase;letter-spacing:1px}
+#right-panel .panel-body{flex:1;overflow-y:auto;padding:10px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.emotion-btn{width:100%;padding:8px 12px;margin-bottom:4px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px}
+.emotion-btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+.emotion-btn.active{border-width:2px}
+.emotion-btn .emo-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.emotion-btn .emo-name{font-size:12px;font-weight:600;flex:1}
+.emotion-btn .emo-key{font-size:9px;color:var(--dim);font-family:monospace;background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:3px}
+.section{margin-bottom:14px}
+.section h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:8px;padding:0 2px}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.slider-row label{font-size:11px;color:var(--dim);width:60px;flex-shrink:0}
+.slider-row input[type=range]{flex:1;height:4px;-webkit-appearance:none;background:rgba(255,255,255,0.08);border-radius:2px;outline:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--calm);cursor:pointer}
+.slider-row .val{font-size:10px;color:var(--dim);width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.curve-slot{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px;cursor:pointer;transition:all .2s;position:relative}
+.curve-slot:hover{background:rgba(255,255,255,0.06)}
+.curve-slot.active{border-color:var(--joy)}
+.curve-slot .cs-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.curve-slot .cs-name{font-size:12px;font-weight:600}
+.curve-slot .cs-emotion{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.curve-slot canvas{width:100%;height:40px;border-radius:4px}
+.curve-slot .cs-actions{display:flex;gap:4px;margin-top:6px}
+.scale-display{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px}
+.scale-display h5{font-size:11px;font-weight:600;margin-bottom:6px}
+.note-grid{display:flex;flex-wrap:wrap;gap:3px}
+.note-pill{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.05);border:1px solid var(--border)}
+.note-pill.active-note{background:rgba(0,245,212,0.15);border-color:var(--calm);color:var(--calm)}
+#toolbar{display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+#toolbar .sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.preset-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer;transition:all .2s}
+.preset-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+.preset-card .pc-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.preset-card .pc-desc{font-size:10px;color:var(--dim)}
+#transport{display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+#transport .t-time{font-size:12px;font-variant-numeric:tabular-nums;color:var(--dim);min-width:50px}
+#transport .t-bar{flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;cursor:pointer;position:relative;overflow:visible}
+#transport .t-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--love),var(--joy));transition:width 50ms}
+#transport .t-playhead{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(255,255,255,0.4);transform:translateX(-50%);pointer-events:none}
+.timeline-lane{height:30px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:4px;margin-bottom:4px;position:relative;overflow:hidden}
+.timeline-note{position:absolute;height:100%;border-radius:3px;opacity:0.7;transition:opacity .15s}
+.timeline-note:hover{opacity:1}
+@media(max-width:900px){
+  #left-panel,#right-panel{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+<div class="brand">SoulWave<small>Emotion→Music</small></div>
+<div class="hdr-group">
+<div class="btn" id="btn-help">? Help</div>
+<div class="btn" id="btn-export">⬇ Export WAV</div>
+<div class="btn" id="btn-clear-all">✕ Clear All</div>
+</div>
+</div>
+<div id="main">
+<div id="left-panel">
+<div class="panel-header"><span>Emotions</span></div>
+<div class="panel-body" id="emotion-list"></div>
+</div>
+<div id="center">
+<div id="toolbar">
+<div class="btn sm active" data-tool="draw" title="Draw curve">✏️ Draw</div>
+<div class="btn sm" data-tool="erase" title="Erase">🗑️ Erase</div>
+<div class="btn sm" data-tool="smooth" title="Smooth curve">〰️ Smooth</div>
+<div class="sep"></div>
+<div class="btn sm" id="btn-undo">↩ Undo</div>
+<div class="btn sm" id="btn-redo">↪ Redo</div>
+<div class="sep"></div>
+<label style="font-size:10px;color:var(--dim)">Brush:</label>
+<input type="range" id="brush-size" min="2" max="30" value="8" style="width:60px;height:4px;-webkit-appearance:none;background:rgba(255,255,255,0.1);border-radius:2px;outline:none">
+<div class="sep"></div>
+<label style="font-size:10px;color:var(--dim)">Snap:</label>
+<div class="btn sm" id="btn-snap">Off</div>
+<div class="sep"></div>
+<div class="btn sm primary" id="btn-play-main">▶ Play</div>
+<div class="btn sm" id="btn-stop-main">⏹ Stop</div>
+<div class="btn sm" id="btn-loop-main">🔁</div>
+</div>
+<div id="canvas-wrap">
+<canvas id="bg-canvas"></canvas>
+<canvas id="viz-canvas"></canvas>
+<canvas id="draw-canvas"></canvas>
+</div>
+<div id="transport">
+<span class="t-time" id="t-cur">0:00.0</span>
+<div class="t-bar" id="t-bar"><div class="t-fill" id="t-fill" style="width:0"></div><div class="t-playhead" id="t-head" style="left:0"></div></div>
+<span class="t-time" id="t-dur">0:08.0</span>
+<div class="slider-row" style="margin:0;width:120px">
+<label>BPM</label>
+<input type="range" id="bpm-slider" min="40" max="200" value="90">
+<span class="val" id="bpm-val">90</span>
+</div>
+</div>
+</div>
+<div id="right-panel">
+<div class="panel-header">Music Engine</div>
+<div class="panel-body" id="music-panel"></div>
+</div>
+</div>
+</div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const TAU=Math.PI*2;
+
+/* ===== EMOTION DEFINITIONS ===== */
+const EMOTIONS=[
+  {id:'joy',name:'Joy',icon:'☀️',color:'#ffbe0b',key:'1',
+   scale:[0,2,4,7,9,12,14,16],mode:'major pentatonic',baseOctave:4,
+   rhythm:'bouncy',arpStyle:'up',synthType:'bell',tempo:1.15,reverb:0.3,
+   desc:'Bright, uplifting melodies in major pentatonic'},
+  {id:'sadness',name:'Sadness',icon:'🌧️',color:'#4361ee',key:'2',
+   scale:[0,2,3,5,7,8,10,12],mode:'natural minor',baseOctave:3,
+   rhythm:'slow',arpStyle:'down',synthType:'pad',tempo:0.7,reverb:0.6,
+   desc:'Descending minor phrases, slow and spacious'},
+  {id:'anger',name:'Anger',icon:'🔥',color:'#ef233c',key:'3',
+   scale:[0,1,3,5,6,8,10,12],mode:'phrygian',baseOctave:2,
+   rhythm:'aggressive',arpStyle:'random',synthType:'distorted',tempo:1.3,reverb:0.15,
+   desc:'Dissonant intervals, driving rhythms, low register'},
+  {id:'fear',name:'Fear',icon:'👁️',color:'#7209b7',key:'4',
+   scale:[0,1,4,5,7,8,11,12],mode:'hungarian minor',baseOctave:3,
+   rhythm:'tremolo',arpStyle:'zigzag',synthType:'theremin',tempo:0.9,reverb:0.5,
+   desc:'Tritones and augmented seconds, unstable and eerie'},
+  {id:'love',name:'Love',icon:'💗',color:'#ff006e',key:'5',
+   scale:[0,2,4,5,7,9,11,12],mode:'major',baseOctave:4,
+   rhythm:'flowing',arpStyle:'wave',synthType:'strings',tempo:0.85,reverb:0.5,
+   desc:'Warm major melodies, legato phrasing'},
+  {id:'calm',name:'Calm',icon:'🌊',color:'#00f5d4',key:'6',
+   scale:[0,2,4,7,9,12,14,16],mode:'pentatonic',baseOctave:4,
+   rhythm:'ambient',arpStyle:'up',synthType:'sine',tempo:0.6,reverb:0.7,
+   desc:'Open pentatonic, long tones, spacious reverb'},
+  {id:'hope',name:'Hope',icon:'🌅',color:'#80ffdb',key:'7',
+   scale:[0,2,4,5,7,9,11,12],mode:'lydian',baseOctave:4,
+   rhythm:'building',arpStyle:'up',synthType:'shimmer',tempo:0.95,reverb:0.45,
+   desc:'Lydian brightness, ascending motion, growing energy'},
+  {id:'tension',name:'Tension',icon:'⚡',color:'#f72585',key:'8',
+   scale:[0,1,2,3,4,5,6,7,8,9,10,11],mode:'chromatic',baseOctave:3,
+   rhythm:'staccato',arpStyle:'random',synthType:'pulse',tempo:1.1,reverb:0.2,
+   desc:'Chromatic clusters, staccato hits, building dread'},
+  {id:'nostalgia',name:'Nostalgia',icon:'🍂',color:'#c77dff',key:'9',
+   scale:[0,2,3,5,7,9,10,12],mode:'dorian',baseOctave:3,
+   rhythm:'waltz',arpStyle:'wave',synthType:'music_box',tempo:0.8,reverb:0.55,
+   desc:'Dorian mode, bittersweet, music box timbre'},
+  {id:'wonder',name:'Wonder',icon:'✨',color:'#4cc9f0',key:'0',
+   scale:[0,2,4,6,8,10,12],mode:'whole tone',baseOctave:4,
+   rhythm:'floating',arpStyle:'random',synthType:'celesta',tempo:0.75,reverb:0.6,
+   desc:'Whole tone scale, dreamy and weightless'},
+  {id:'melancholy',name:'Melancholy',icon:'🌙',color:'#3a0ca3',key:'Q',
+   scale:[0,2,3,5,7,8,11,12],mode:'harmonic minor',baseOctave:3,
+   rhythm:'rubato',arpStyle:'down',synthType:'cello',tempo:0.65,reverb:0.55,
+   desc:'Harmonic minor, expressive rubato, deep warmth'},
+  {id:'triumph',name:'Triumph',icon:'🏆',color:'#ffd60a',key:'W',
+   scale:[0,2,4,5,7,9,11,12],mode:'mixolydian',baseOctave:3,
+   rhythm:'fanfare',arpStyle:'up',synthType:'brass',tempo:1.2,reverb:0.35,
+   desc:'Bold intervals, fanfare rhythms, bright brass'}
+];
+
+/* ===== STATE ===== */
+const ST={
+  activeEmotion:'joy',
+  curves:[],
+  activeCurve:null,
+  tool:'draw',
+  brushSize:8,
+  snap:false,
+  bpm:90,
+  duration:8,
+  playing:false,
+  looping:false,
+  playStart:0,
+  playTime:0,
+  undoStack:[],
+  redoStack:[],
+  synthNodes:[],
+  activeNotes:new Set()
+};
+
+let audioCtx=null,masterGain=null,reverbNode=null,analyser=null,compressor=null;
+let freqData=null;
+
+/* ===== AUDIO ENGINE ===== */
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  masterGain=audioCtx.createGain();masterGain.gain.value=0.5;
+  compressor=audioCtx.createDynamicsCompressor();
+  compressor.threshold.value=-20;compressor.knee.value=20;compressor.ratio.value=6;
+  analyser=audioCtx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.85;
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  // Reverb
+  reverbNode=audioCtx.createConvolver();
+  const rate=audioCtx.sampleRate,len=rate*2.5;
+  const buf=audioCtx.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2)}
+  reverbNode.buffer=buf;
+  const dryGain=audioCtx.createGain();dryGain.gain.value=0.7;
+  const wetGain=audioCtx.createGain();wetGain.gain.value=0.3;
+  masterGain.connect(dryGain);dryGain.connect(compressor);
+  masterGain.connect(reverbNode);reverbNode.connect(wetGain);wetGain.connect(compressor);
+  compressor.connect(analyser);analyser.connect(audioCtx.destination);
+}
+
+function midiToFreq(note){return 440*Math.pow(2,(note-69)/12)}
+
+function createSynth(type,freq,time,dur,vel=0.5){
+  initAudio();
+  const now=audioCtx.currentTime;
+  const t=now+time;
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  const filter=audioCtx.createBiquadFilter();
+  filter.type='lowpass';filter.frequency.value=2000;filter.Q.value=1;
+  gain.gain.value=0;
+
+  switch(type){
+    case'bell':
+      osc.type='sine';filter.frequency.value=4000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.4,t+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur*0.9);break;
+    case'pad':
+      osc.type='sawtooth';filter.frequency.value=1200;filter.Q.value=2;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.2,t+dur*0.3);
+      gain.gain.linearRampToValueAtTime(vel*0.15,t+dur*0.7);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    case'distorted':
+      osc.type='sawtooth';filter.frequency.value=800;filter.Q.value=5;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.35,t+0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur*0.6);break;
+    case'theremin':
+      osc.type='sine';filter.frequency.value=3000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.25,t+0.05);
+      gain.gain.setValueAtTime(vel*0.25,t+dur*0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      osc.frequency.setValueAtTime(freq,t);
+      osc.frequency.linearRampToValueAtTime(freq*1.02,t+dur*0.5);
+      osc.frequency.linearRampToValueAtTime(freq*0.98,t+dur);break;
+    case'strings':
+      osc.type='sawtooth';filter.frequency.value=2500;filter.Q.value=1;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.18,t+dur*0.15);
+      gain.gain.setValueAtTime(vel*0.18,t+dur*0.75);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    case'sine':
+      osc.type='sine';filter.frequency.value=5000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.3,t+dur*0.2);
+      gain.gain.setValueAtTime(vel*0.25,t+dur*0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    case'shimmer':
+      osc.type='triangle';filter.frequency.value=6000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.3,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(vel*0.1,t+dur*0.5);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    case'pulse':
+      osc.type='square';filter.frequency.value=1500;filter.Q.value=3;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.2,t+0.003);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur*0.4);break;
+    case'music_box':
+      osc.type='sine';filter.frequency.value=8000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.35,t+0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur*0.7);break;
+    case'celesta':
+      osc.type='triangle';filter.frequency.value=5000;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.3,t+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur*0.8);break;
+    case'cello':
+      osc.type='sawtooth';filter.frequency.value=1800;filter.Q.value=2;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.2,t+dur*0.2);
+      gain.gain.setValueAtTime(vel*0.18,t+dur*0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    case'brass':
+      osc.type='sawtooth';filter.frequency.value=3000;filter.Q.value=1.5;
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.3,t+0.03);
+      gain.gain.setValueAtTime(vel*0.25,t+dur*0.7);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);break;
+    default:
+      osc.type='sine';gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(vel*0.3,t+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  }
+  if(type!=='theremin')osc.frequency.setValueAtTime(freq,t);
+  osc.connect(filter);filter.connect(gain);gain.connect(masterGain);
+  osc.start(t);osc.stop(t+dur+0.1);
+  return{osc,gain};
+}
+
+/* ===== CURVE → MUSIC TRANSLATION ===== */
+function curveToNotes(curve){
+  if(!curve.points||curve.points.length<2)return[];
+  const emo=EMOTIONS.find(e=>e.id===curve.emotion)||EMOTIONS[0];
+  const notes=[];
+  const bpm=ST.bpm*emo.tempo;
+  const beatDur=60/bpm;
+  const totalBeats=ST.duration/beatDur;
+
+  // Sample curve at regular beat intervals
+  const stepsPerBeat=emo.rhythm==='aggressive'||emo.rhythm==='staccato'?4:
+                      emo.rhythm==='waltz'?3:
+                      emo.rhythm==='ambient'||emo.rhythm==='rubato'?1:2;
+  const totalSteps=Math.floor(totalBeats*stepsPerBeat);
+  const stepDur=beatDur/stepsPerBeat;
+
+  for(let i=0;i<totalSteps;i++){
+    const tNorm=i/totalSteps; // 0..1 across duration
+    const val=sampleCurve(curve,tNorm);
+    if(val===null)continue;
+
+    // val is 0 (bottom) to 1 (top)
+    const intensity=val; // height = intensity
+
+    // Determine note from scale
+    const scaleLen=emo.scale.length;
+    let scaleIdx;
+    switch(emo.arpStyle){
+      case'up':scaleIdx=Math.floor(val*(scaleLen-1));break;
+      case'down':scaleIdx=Math.floor((1-val)*(scaleLen-1));break;
+      case'wave':scaleIdx=Math.floor((Math.sin(tNorm*TAU*2)*0.5+0.5)*val*(scaleLen-1));break;
+      case'zigzag':scaleIdx=Math.floor(((i%2===0?val:1-val))*(scaleLen-1));break;
+      case'random':scaleIdx=Math.floor(Math.random()*scaleLen*val);break;
+      default:scaleIdx=Math.floor(val*(scaleLen-1));
+    }
+    scaleIdx=clamp(scaleIdx,0,scaleLen-1);
+
+    const semitone=emo.scale[scaleIdx];
+    const midi=emo.baseOctave*12+12+semitone; // C of baseOctave + scale degree
+    const freq=midiToFreq(midi);
+
+    // Rhythm variation
+    let noteDur=stepDur*0.9;
+    let velocity=0.3+intensity*0.5;
+
+    if(emo.rhythm==='ambient')noteDur=stepDur*2.5;
+    if(emo.rhythm==='staccato')noteDur=stepDur*0.3;
+    if(emo.rhythm==='tremolo')noteDur=stepDur*0.5;
+    if(emo.rhythm==='rubato')noteDur=stepDur*(0.8+Math.sin(tNorm*TAU)*0.6);
+    if(emo.rhythm==='flowing')noteDur=stepDur*1.5;
+    if(emo.rhythm==='fanfare'){noteDur=i%4===0?stepDur*2:stepDur*0.7;velocity=i%4===0?velocity*1.3:velocity*0.8}
+    if(emo.rhythm==='waltz'){velocity=i%3===0?velocity*1.2:velocity*0.7}
+    if(emo.rhythm==='bouncy'){noteDur=i%2===0?stepDur*0.6:stepDur*1.2}
+
+    // Skip some notes based on curve density for feel
+    const skipChance=emo.rhythm==='ambient'?0.5:emo.rhythm==='staccato'?0.3:0.15;
+    if(intensity<0.05||Math.random()<skipChance*(1-intensity))continue;
+
+    notes.push({
+      time:i*stepDur,
+      freq,midi,
+      dur:Math.max(0.05,noteDur),
+      vel:clamp(velocity,0.05,0.8),
+      synth:emo.synthType,
+      emotion:emo.id,
+      color:emo.color
+    });
+  }
+  return notes;
+}
+
+function sampleCurve(curve,tNorm){
+  // tNorm: 0..1 across canvas width
+  const pts=curve.points;
+  if(!pts||pts.length===0)return null;
+
+  // Find the Y value at the given X position
+  // Points are stored as {x:0..1, y:0..1} normalized
+  let leftIdx=-1,rightIdx=-1;
+  for(let i=0;i<pts.length;i++){
+    if(pts[i].x<=tNorm)leftIdx=i;
+    if(pts[i].x>=tNorm&&rightIdx===-1)rightIdx=i;
+  }
+  if(leftIdx===-1&&rightIdx===-1)return null;
+  if(leftIdx===-1)return 1-pts[rightIdx].y;
+  if(rightIdx===-1)return 1-pts[leftIdx].y;
+  if(leftIdx===rightIdx)return 1-pts[leftIdx].y;
+
+  const lp=pts[leftIdx],rp=pts[rightIdx];
+  const t=(tNorm-lp.x)/(rp.x-lp.x||0.001);
+  return 1-lerp(lp.y,rp.y,t);
+}
+
+/* ===== PLAY ===== */
+let allNotes=[];
+let scheduledTimeout=null;
+
+function generateAllNotes(){
+  allNotes=[];
+  ST.curves.forEach(c=>{allNotes.push(...curveToNotes(c))});
+  allNotes.sort((a,b)=>a.time-b.time);
+}
+
+function playAll(){
+  initAudio();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  stopAll();
+  generateAllNotes();
+  if(allNotes.length===0)return;
+  ST.playing=true;ST.playStart=performance.now();ST.playTime=0;
+  allNotes.forEach(n=>{
+    createSynth(n.synth,n.freq,n.time,n.dur,n.vel);
+  });
+  updatePlayBtn();
+}
+
+function stopAll(){
+  ST.playing=false;ST.playTime=0;ST.playStart=0;
+  if(scheduledTimeout){clearTimeout(scheduledTimeout);scheduledTimeout=null}
+  updatePlayBtn();
+}
+
+function updatePlayBtn(){
+  $('#btn-play-main').textContent=ST.playing?'⏸ Pause':'▶ Play';
+}
+
+/* ===== CANVAS SETUP ===== */
+const bgCanvas=$('#bg-canvas'),bgCtx=bgCanvas.getContext('2d');
+const vizCanvas=$('#viz-canvas'),vizCtx=vizCanvas.getContext('2d');
+const drawCanvas=$('#draw-canvas'),drawCtx=drawCanvas.getContext('2d');
+let CW,CH;
+
+function resizeCanvases(){
+  const wrap=$('#canvas-wrap');
+  CW=wrap.clientWidth;CH=wrap.clientHeight;
+  [bgCanvas,vizCanvas,drawCanvas].forEach(c=>{c.width=CW;c.height=CH});
+  drawBg();renderCurves();
+}
+window.addEventListener('resize',resizeCanvases);
+setTimeout(resizeCanvases,50);
+
+function drawBg(){
+  const ctx=bgCtx;
+  ctx.clearRect(0,0,CW,CH);
+  // Background gradient
+  const g=ctx.createLinearGradient(0,0,0,CH);
+  g.addColorStop(0,'#0d0d1a');g.addColorStop(1,'#080810');
+  ctx.fillStyle=g;ctx.fillRect(0,0,CW,CH);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=1;
+  const gridX=CW/16,gridY=CH/8;
+  for(let x=gridX;x<CW;x+=gridX){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke()}
+  for(let y=gridY;y<CH;y+=gridY){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke()}
+
+  // Horizontal center guide
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.setLineDash([6,6]);
+  ctx.beginPath();ctx.moveTo(0,CH/2);ctx.lineTo(CW,CH/2);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,0.12)';ctx.font='10px sans-serif';ctx.textAlign='left';
+  ctx.fillText('HIGH',8,16);ctx.fillText('LOW',8,CH-8);
+  ctx.textAlign='center';
+  for(let i=0;i<=8;i++){ctx.fillText(i+'s',i/8*CW,CH-24)}
+
+  // Emotion color bar at top
+  if(ST.activeEmotion){
+    const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion);
+    if(emo){
+      const eg=ctx.createLinearGradient(0,0,CW,0);
+      eg.addColorStop(0,emo.color+'00');eg.addColorStop(0.5,emo.color+'15');eg.addColorStop(1,emo.color+'00');
+      ctx.fillStyle=eg;ctx.fillRect(0,0,CW,3);
+    }
+  }
+}
+
+/* ===== CURVE RENDERING ===== */
+function renderCurves(){
+  const ctx=drawCtx;
+  ctx.clearRect(0,0,CW,CH);
+
+  ST.curves.forEach((curve,ci)=>{
+    if(!curve.points||curve.points.length<2)return;
+    const emo=EMOTIONS.find(e=>e.id===curve.emotion)||EMOTIONS[0];
+    const isActive=ST.activeCurve===ci;
+
+    // Draw filled area
+    ctx.beginPath();
+    ctx.moveTo(curve.points[0].x*CW,CH);
+    curve.points.forEach(p=>ctx.lineTo(p.x*CW,p.y*CH));
+    ctx.lineTo(curve.points[curve.points.length-1].x*CW,CH);
+    ctx.closePath();
+    const grad=ctx.createLinearGradient(0,0,0,CH);
+    grad.addColorStop(0,emo.color+(isActive?'30':'18'));
+    grad.addColorStop(1,emo.color+'00');
+    ctx.fillStyle=grad;ctx.fill();
+
+    // Draw line
+    ctx.beginPath();
+    curve.points.forEach((p,i)=>{
+      if(i===0)ctx.moveTo(p.x*CW,p.y*CH);
+      else ctx.lineTo(p.x*CW,p.y*CH);
+    });
+    ctx.strokeStyle=emo.color;ctx.lineWidth=isActive?3:2;ctx.globalAlpha=isActive?1:0.6;
+    ctx.stroke();ctx.globalAlpha=1;
+
+    // Glow
+    if(isActive){
+      ctx.shadowColor=emo.color;ctx.shadowBlur=12;
+      ctx.beginPath();
+      curve.points.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x*CW,p.y*CH);else ctx.lineTo(p.x*CW,p.y*CH)});
+      ctx.strokeStyle=emo.color+'66';ctx.lineWidth=1;ctx.stroke();
+      ctx.shadowBlur=0;
+    }
+
+    // Label
+    const firstPt=curve.points[Math.floor(curve.points.length*0.05)];
+    if(firstPt){
+      ctx.fillStyle=emo.color;ctx.font='bold 10px sans-serif';ctx.textAlign='left';
+      ctx.fillText(emo.icon+' '+emo.name,firstPt.x*CW+4,firstPt.y*CH-8);
+    }
+  });
+
+  // Playhead
+  if(ST.playing){
+    const elapsed=(performance.now()-ST.playStart)/1000;
+    const pct=elapsed/ST.duration;
+    if(pct<=1){
+      const x=pct*CW;
+      ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1;
+      ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke();
+      ctx.setLineDash([]);
+      // Glow dot at intersections
+      ST.curves.forEach(curve=>{
+        const val=sampleCurve(curve,pct);
+        if(val!==null){
+          const emo=EMOTIONS.find(e=>e.id===curve.emotion);
+          const y=(1-val)*CH;
+          ctx.fillStyle=emo?emo.color:'#fff';
+          ctx.beginPath();ctx.arc(x,y,5,0,TAU);ctx.fill();
+          ctx.fillStyle=(emo?emo.color:'#fff')+'44';
+          ctx.beginPath();ctx.arc(x,y,12,0,TAU);ctx.fill();
+        }
+      });
+    }
+  }
+}
+
+/* ===== VISUALIZER ===== */
+function renderViz(){
+  const ctx=vizCtx;
+  ctx.clearRect(0,0,CW,CH);
+  if(!analyser||!freqData)return;
+  analyser.getByteFrequencyData(freqData);
+
+  // Subtle frequency bars at bottom
+  const barCount=64;
+  const barW=CW/barCount;
+  for(let i=0;i<barCount;i++){
+    const fi=Math.floor(i*(freqData.length*0.5)/barCount);
+    const val=freqData[fi]/255;
+    const h=val*CH*0.15;
+    const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion)||EMOTIONS[0];
+    ctx.fillStyle=emo.color+'22';
+    ctx.fillRect(i*barW,CH-h,barW-1,h);
+  }
+}
+
+/* ===== DRAWING ===== */
+let isDrawing=false;
+let drawPoints=[];
+
+function getCanvasPos(e){
+  const rect=drawCanvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/rect.width;
+  const y=(e.clientY-rect.top)/rect.height;
+  return{x:clamp(x,0,1),y:clamp(y,0,1)};
+}
+
+drawCanvas.addEventListener('mousedown',e=>{
+  initAudio();
+  const pos=getCanvasPos(e);
+  if(ST.tool==='draw'){
+    isDrawing=true;
+    drawPoints=[pos];
+    // Preview sound
+    previewNote(pos);
+  }else if(ST.tool==='erase'){
+    isDrawing=true;
+    eraseAt(pos);
+  }else if(ST.tool==='smooth'){
+    isDrawing=true;
+    smoothAt(pos);
+  }
+});
+
+drawCanvas.addEventListener('mousemove',e=>{
+  if(!isDrawing)return;
+  const pos=getCanvasPos(e);
+  if(ST.tool==='draw'){
+    drawPoints.push(pos);
+    renderDrawPreview();
+    previewNote(pos);
+  }else if(ST.tool==='erase'){
+    eraseAt(pos);
+  }else if(ST.tool==='smooth'){
+    smoothAt(pos);
+  }
+});
+
+drawCanvas.addEventListener('mouseup',()=>{
+  if(!isDrawing)return;
+  isDrawing=false;
+  if(ST.tool==='draw'&&drawPoints.length>1){
+    commitCurve();
+  }
+  drawPoints=[];
+});
+
+drawCanvas.addEventListener('mouseleave',()=>{
+  if(isDrawing&&ST.tool==='draw'&&drawPoints.length>1){
+    commitCurve();
+  }
+  isDrawing=false;drawPoints=[];
+});
+
+// Touch
+drawCanvas.addEventListener('touchstart',e=>{
+  e.preventDefault();initAudio();
+  const t=e.touches[0];const pos=getCanvasPos(t);
+  if(ST.tool==='draw'){isDrawing=true;drawPoints=[pos];previewNote(pos)}
+  else if(ST.tool==='erase'){isDrawing=true;eraseAt(pos)}
+  else if(ST.tool==='smooth'){isDrawing=true;smoothAt(pos)}
+},{passive:false});
+drawCanvas.addEventListener('touchmove',e=>{
+  e.preventDefault();if(!isDrawing)return;
+  const t=e.touches[0];const pos=getCanvasPos(t);
+  if(ST.tool==='draw'){drawPoints.push(pos);renderDrawPreview();previewNote(pos)}
+  else if(ST.tool==='erase')eraseAt(pos);
+  else if(ST.tool==='smooth')smoothAt(pos);
+},{passive:false});
+drawCanvas.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(isDrawing&&ST.tool==='draw'&&drawPoints.length>1)commitCurve();
+  isDrawing=false;drawPoints=[];
+},{passive:false});
+
+function renderDrawPreview(){
+  // Will be rendered in the next renderCurves call during animation
+}
+
+let lastPreviewTime=0;
+function previewNote(pos){
+  const now=performance.now();
+  if(now-lastPreviewTime<100)return;
+  lastPreviewTime=now;
+  const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion);
+  if(!emo)return;
+  const val=1-pos.y;
+  const scaleIdx=Math.floor(val*(emo.scale.length-1));
+  const semitone=emo.scale[clamp(scaleIdx,0,emo.scale.length-1)];
+  const midi=emo.baseOctave*12+12+semitone;
+  const freq=midiToFreq(midi);
+  createSynth(emo.synthType,freq,0,0.15,0.2+val*0.2);
+}
+
+function commitCurve(){
+  // Sort by X and remove duplicates
+  const sorted=drawPoints.slice().sort((a,b)=>a.x-b.x);
+  // Subsample for performance
+  const maxPts=200;
+  let pts;
+  if(sorted.length>maxPts){
+    pts=[];
+    for(let i=0;i<maxPts;i++){
+      const idx=Math.floor(i/(maxPts-1)*(sorted.length-1));
+      pts.push(sorted[idx]);
+    }
+  }else{
+    pts=sorted;
+  }
+
+  // Save undo state
+  saveUndo();
+
+  const curve={
+    id:Date.now(),
+    emotion:ST.activeEmotion,
+    points:pts,
+    name:EMOTIONS.find(e=>e.id===ST.activeEmotion)?.name+' '+( ST.curves.filter(c=>c.emotion===ST.activeEmotion).length+1)
+  };
+  ST.curves.push(curve);
+  ST.activeCurve=ST.curves.length-1;
+  renderCurves();renderRightPanel();renderCurveList();
+}
+
+function eraseAt(pos){
+  const radius=ST.brushSize/CW;
+  let changed=false;
+  ST.curves.forEach(curve=>{
+    const before=curve.points.length;
+    curve.points=curve.points.filter(p=>Math.hypot(p.x-pos.x,p.y-pos.y)>radius);
+    if(curve.points.length<before)changed=true;
+  });
+  // Remove empty curves
+  ST.curves=ST.curves.filter(c=>c.points.length>=2);
+  if(changed){renderCurves();renderCurveList()}
+}
+
+function smoothAt(pos){
+  const radius=ST.brushSize/CW*2;
+  ST.curves.forEach(curve=>{
+    curve.points.forEach((p,i)=>{
+      if(Math.hypot(p.x-pos.x,p.y-pos.y)<radius){
+        const window=5;
+        let sumY=0,count=0;
+        for(let j=Math.max(0,i-window);j<=Math.min(curve.points.length-1,i+window);j++){
+          sumY+=curve.points[j].y;count++;
+        }
+        p.y=lerp(p.y,sumY/count,0.3);
+      }
+    });
+  });
+  renderCurves();
+}
+
+/* ===== UNDO/REDO ===== */
+function saveUndo(){
+  ST.undoStack.push(JSON.parse(JSON.stringify(ST.curves)));
+  if(ST.undoStack.length>30)ST.undoStack.shift();
+  ST.redoStack=[];
+}
+
+function undo(){
+  if(ST.undoStack.length===0)return;
+  ST.redoStack.push(JSON.parse(JSON.stringify(ST.curves)));
+  ST.curves=ST.undoStack.pop();
+  ST.activeCurve=ST.curves.length>0?ST.curves.length-1:null;
+  renderCurves();renderCurveList();renderRightPanel();
+}
+
+function redo(){
+  if(ST.redoStack.length===0)return;
+  ST.undoStack.push(JSON.parse(JSON.stringify(ST.curves)));
+  ST.curves=ST.redoStack.pop();
+  ST.activeCurve=ST.curves.length>0?ST.curves.length-1:null;
+  renderCurves();renderCurveList();renderRightPanel();
+}
+
+/* ===== LEFT PANEL: EMOTIONS ===== */
+function renderEmotionList(){
+  const el=$('#emotion-list');
+  let html='<div class="section"><h4>Choose Emotion Color</h4>';
+  EMOTIONS.forEach(emo=>{
+    const active=ST.activeEmotion===emo.id;
+    html+=`<div class="emotion-btn ${active?'active':''}" style="${active?'border-color:'+emo.color+';background:'+emo.color+'10':''}" data-emo="${emo.id}">
+      <div class="emo-dot" style="background:${emo.color}"></div>
+      <div class="emo-name">${emo.icon} ${emo.name}</div>
+      <div class="emo-key">${emo.key}</div>
+    </div>`;
+  });
+  html+='</div>';
+
+  // Curve list
+  html+='<div class="section"><h4>Your Curves</h4><div id="curve-list-inner"></div></div>';
+
+  // Presets
+  html+=`<div class="section"><h4>Quick Presets</h4>
+    <div class="preset-card" data-preset="rise"><div class="pc-name">📈 Rising Arc</div><div class="pc-desc">Building emotion, hope growing</div></div>
+    <div class="preset-card" data-preset="fall"><div class="pc-name">📉 Falling Arc</div><div class="pc-desc">Fading, letting go, release</div></div>
+    <div class="preset-card" data-preset="wave"><div class="pc-name">🌊 Wave</div><div class="pc-desc">Ebb and flow, breathing rhythm</div></div>
+    <div class="preset-card" data-preset="peak"><div class="pc-name">⛰️ Mountain Peak</div><div class="pc-desc">Build to climax then resolve</div></div>
+    <div class="preset-card" data-preset="pulse"><div class="pc-name">💓 Heartbeat</div><div class="pc-desc">Rhythmic pulses of feeling</div></div>
+    <div class="preset-card" data-preset="chaos"><div class="pc-name">🌀 Chaos</div><div class="pc-desc">Turbulent, unpredictable emotion</div></div>
+    <div class="preset-card" data-preset="flat_high"><div class="pc-name">— Sustained High</div><div class="pc-desc">Steady intense feeling</div></div>
+    <div class="preset-card" data-preset="valley"><div class="pc-name">🕳️ Valley</div><div class="pc-desc">Descend into depths, then climb out</div></div>
+  </div>`;
+
+  el.innerHTML=html;
+
+  // Bind emotion buttons
+
+  $$('.emotion-btn').forEach(btn=>{
+    btn.onclick=()=>{ST.activeEmotion=btn.dataset.emo;renderEmotionList();drawBg()};
+  });
+
+  // Bind presets
+
+  $$('.preset-card').forEach(card=>{
+    card.onclick=()=>applyPreset(card.dataset.preset);
+  });
+
+  renderCurveList();
+}
+
+function renderCurveList(){
+  const inner=document.getElementById('curve-list-inner');
+  if(!inner)return;
+  if(ST.curves.length===0){inner.innerHTML='<div style="color:var(--dim);font-size:11px;padding:8px;text-align:center">Draw on the canvas to create emotional curves</div>';return}
+  inner.innerHTML=ST.curves.map((c,i)=>{
+    const emo=EMOTIONS.find(e=>e.id===c.emotion)||EMOTIONS[0];
+    return`<div class="curve-slot ${ST.activeCurve===i?'active':''}" data-idx="${i}">
+      <div class="cs-top">
+        <span class="cs-name">${c.name}</span>
+        <span class="cs-emotion" style="background:${emo.color}22;color:${emo.color}">${emo.icon}</span>
+      </div>
+      <div class="cs-actions">
+        <div class="btn sm" onclick="event.stopPropagation();ST.activeCurve=${i};renderCurves();renderCurveList()">Select</div>
+        <div class="btn sm" onclick="event.stopPropagation();playSingleCurve(${i})">▶</div>
+        <div class="btn sm" onclick="event.stopPropagation();saveUndo();ST.curves.splice(${i},1);ST.activeCurve=null;renderCurves();renderCurveList();renderRightPanel()">✕</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function playSingleCurve(idx){
+  initAudio();if(audioCtx.state==='suspended')audioCtx.resume();
+  const notes=curveToNotes(ST.curves[idx]);
+  notes.forEach(n=>createSynth(n.synth,n.freq,n.time,n.dur,n.vel));
+  ST.playing=true;ST.playStart=performance.now();
+  updatePlayBtn();
+}
+
+/* ===== PRESETS ===== */
+function applyPreset(type){
+  saveUndo();
+  const pts=[];const steps=100;
+  for(let i=0;i<=steps;i++){
+    const x=i/steps;let y;
+    switch(type){
+      case'rise':y=1-x;break;
+      case'fall':y=x;break;
+      case'wave':y=0.3+Math.sin(x*TAU*2)*0.25;break;
+      case'peak':y=1-Math.pow(Math.abs(x-0.5)*2,1.5);y=1-y;break;
+      case'pulse':y=0.3+Math.abs(Math.sin(x*TAU*4))*0.4;y=1-y+0.2;break;
+      case'chaos':y=0.5+Math.sin(x*30)*0.15+Math.sin(x*17)*0.1+Math.cos(x*7)*0.15;break;
+      case'flat_high':y=0.15+Math.sin(x*TAU)*0.03;break;
+      case'valley':y=0.8*Math.pow(Math.abs(x-0.5)*2,2);y=Math.max(0.1,y);break;
+      default:y=0.5;
+    }
+    pts.push({x,y:clamp(y,0.02,0.98)});
+  }
+  const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion);
+  ST.curves.push({id:Date.now(),emotion:ST.activeEmotion,points:pts,name:(emo?.name||'Curve')+' '+type});
+  ST.activeCurve=ST.curves.length-1;
+  renderCurves();renderCurveList();renderRightPanel();
+}
+
+/* ===== RIGHT PANEL: MUSIC ENGINE ===== */
+function renderRightPanel(){
+  const el=$('#music-panel');
+  const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion)||EMOTIONS[0];
+
+  let html=`
+    <div class="section">
+      <h4>Active Emotion</h4>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px;background:${emo.color}10;border:1px solid ${emo.color}33;border-radius:8px;margin-bottom:8px">
+        <span style="font-size:28px">${emo.icon}</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:${emo.color}">${emo.name}</div>
+          <div style="font-size:10px;color:var(--dim)">${emo.desc}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Musical Scale: ${emo.mode}</h4>
+      <div class="scale-display">
+        <div class="note-grid">${emo.scale.map(s=>{
+          const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+          const name=names[s%12];
+          return`<span class="note-pill">${name}${Math.floor((s+emo.baseOctave*12)/12)}</span>`;
+        }).join('')}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Parameters</h4>
+      <div class="slider-row"><label>Volume</label><input type="range" min="0" max="100" value="50" id="vol-slider"><span class="val" id="vol-val">50%</span></div>
+      <div class="slider-row"><label>Reverb</label><input type="range" min="0" max="100" value="${Math.round(emo.reverb*100)}" id="rev-slider"><span class="val" id="rev-val">${Math.round(emo.reverb*100)}%</span></div>
+      <div class="slider-row"><label>Tempo</label><input type="range" min="40" max="200" value="${ST.bpm}" id="tempo-slider2"><span class="val" id="tempo-val2">${ST.bpm}</span></div>
+      <div class="slider-row"><label>Duration</label><input type="range" min="2" max="30" value="${ST.duration}" id="dur-slider"><span class="val" id="dur-val">${ST.duration}s</span></div>
+    </div>
+
+    <div class="section">
+      <h4>Synthesis</h4>
+      <div style="font-size:11px;color:var(--dim);line-height:1.6;padding:6px;background:rgba(255,255,255,0.02);border-radius:6px;border:1px solid var(--border)">
+        <div><strong>Synth:</strong> ${emo.synthType}</div>
+        <div><strong>Rhythm:</strong> ${emo.rhythm}</div>
+        <div><strong>Arp Pattern:</strong> ${emo.arpStyle}</div>
+        <div><strong>Base Octave:</strong> ${emo.baseOctave}</div>
+        <div><strong>Tempo Factor:</strong> ×${emo.tempo}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Note Timeline</h4>
+      <div id="note-timeline"></div>
+    </div>
+
+    <div class="section">
+      <h4>Emotional Mapping Guide</h4>
+      <div style="font-size:11px;color:var(--dim);line-height:1.6;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px;border:1px solid var(--border)">
+        <strong>Height</strong> = pitch & intensity<br>
+        <strong>Slope up</strong> = rising energy<br>
+        <strong>Slope down</strong> = release, resolution<br>
+        <strong>Peaks</strong> = emotional climax<br>
+        <strong>Valleys</strong> = quiet, introspective<br>
+        <strong>Jagged</strong> = turbulent, conflicted<br>
+        <strong>Smooth</strong> = flowing, peaceful<br>
+        <strong>Layer curves</strong> = emotional complexity
+      </div>
+    </div>
+  `;
+
+  el.innerHTML=html;
+
+  // Bind sliders
+  const volSlider=$('#vol-slider');
+  if(volSlider)volSlider.oninput=()=>{const v=volSlider.value/100;$('#vol-val').textContent=Math.round(v*100)+'%';if(masterGain)masterGain.gain.value=v};
+  const revSlider=$('#rev-slider');
+  if(revSlider)revSlider.oninput=()=>{$('#rev-val').textContent=revSlider.value+'%'};
+  const tempoSlider=$('#tempo-slider2');
+  if(tempoSlider)tempoSlider.oninput=()=>{ST.bpm=parseInt(tempoSlider.value);$('#tempo-val2').textContent=ST.bpm;$('#bpm-slider').value=ST.bpm;$('#bpm-val').textContent=ST.bpm};
+  const durSlider=$('#dur-slider');
+  if(durSlider)durSlider.oninput=()=>{ST.duration=parseInt(durSlider.value);$('#dur-val').textContent=ST.duration+'s';$('#t-dur').textContent=formatTime(ST.duration)};
+
+  renderNoteTimeline();
+}
+
+function renderNoteTimeline(){
+  const el=$('#note-timeline');
+  if(!el)return;
+  generateAllNotes();
+  if(allNotes.length===0){el.innerHTML='<div style="color:var(--dim);font-size:10px;text-align:center;padding:10px">Draw curves to see notes</div>';return}
+
+  // Group by emotion
+  const groups={};
+  allNotes.forEach(n=>{
+    if(!groups[n.emotion])groups[n.emotion]=[];
+    groups[n.emotion].push(n);
+  });
+
+  let html='';
+  Object.entries(groups).forEach(([eid,notes])=>{
+    const emo=EMOTIONS.find(e=>e.id===eid);
+    html+=`<div style="font-size:10px;color:${emo?emo.color:'#fff'};margin-bottom:2px">${emo?emo.icon+' '+emo.name:eid} (${notes.length} notes)</div>`;
+    html+=`<div class="timeline-lane">`;
+    notes.forEach(n=>{
+      const left=(n.time/ST.duration)*100;
+      const width=Math.max(0.5,(n.dur/ST.duration)*100);
+      html+=`<div class="timeline-note" style="left:${left}%;width:${width}%;background:${n.color||'#fff'};opacity:${0.3+n.vel*0.7}"></div>`;
+    });
+    html+=`</div>`;
+  });
+  el.innerHTML=html;
+}
+
+/* ===== TRANSPORT ===== */
+function formatTime(s){
+  const m=Math.floor(s/60);const sec=s%60;
+  return m+':'+sec.toFixed(1).padStart(4,'0');
+}
+
+$('#t-bar').onclick=e=>{
+  const rect=$('#t-bar').getBoundingClientRect();
+  const pct=clamp((e.clientX-rect.left)/rect.width,0,1);
+  // Can't really seek Web Audio, but update visual
+};
+
+/* ===== EXPORT WAV ===== */
+function exportWAV(){
+  initAudio();
+  generateAllNotes();
+  if(allNotes.length===0)return;
+
+  const sampleRate=44100;
+  const duration=ST.duration+1;
+  const numSamples=Math.ceil(sampleRate*duration);
+  const buffer=new Float32Array(numSamples);
+
+  // Offline render each note
+  allNotes.forEach(note=>{
+    const freq=note.freq;
+    const startSample=Math.floor(note.time*sampleRate);
+    const durSamples=Math.floor(note.dur*sampleRate);
+    const vel=note.vel*0.3;
+
+    for(let i=0;i<durSamples;i++){
+      const t=i/sampleRate;
+      const env=Math.exp(-t*3/note.dur);
+      let sample;
+      switch(note.synth){
+        case'bell':case'music_box':case'celesta':
+          sample=Math.sin(TAU*freq*t)*env;break;
+        case'pad':case'strings':case'cello':
+          sample=(Math.sin(TAU*freq*t)+0.3*Math.sin(TAU*freq*2*t))*env*0.7;break;
+        case'distorted':case'brass':
+          sample=Math.tanh(Math.sin(TAU*freq*t)*3)*env;break;
+        case'theremin':case'sine':
+          sample=Math.sin(TAU*freq*t)*env;break;
+        case'shimmer':
+          sample=(Math.sin(TAU*freq*t)+Math.sin(TAU*freq*1.005*t))*0.5*env;break;
+        case'pulse':case'square':
+          sample=(Math.sin(TAU*freq*t)>0?1:-1)*env*0.5;break;
+        default:
+          sample=Math.sin(TAU*freq*t)*env;
+      }
+      const idx=startSample+i;
+      if(idx>=0&&idx<numSamples)buffer[idx]+=sample*vel;
+    }
+  });
+
+  // Normalize
+  let max=0;
+  for(let i=0;i<numSamples;i++)max=Math.max(max,Math.abs(buffer[i]));
+  if(max>0){const norm=0.9/max;for(let i=0;i<numSamples;i++)buffer[i]*=norm}
+
+  // Encode WAV
+  const wavBuf=new ArrayBuffer(44+numSamples*2);
+  const view=new DataView(wavBuf);
+  const writeStr=(o,s)=>{for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i))};
+  writeStr(0,'RIFF');view.setUint32(4,36+numSamples*2,true);writeStr(8,'WAVE');
+  writeStr(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);
+  view.setUint16(22,1,true);view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);
+  writeStr(36,'data');view.setUint32(40,numSamples*2,true);
+  for(let i=0;i<numSamples;i++){
+    const s=Math.max(-1,Math.min(1,buffer[i]));
+    view.setInt16(44+i*2,s<0?s*0x8000:s*0x7FFF,true);
+  }
+
+  const blob=new Blob([wavBuf],{type:'audio/wav'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='soulwave-export.wav';a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ===== TOOLBAR EVENTS ===== */
+
+$$('#toolbar [data-tool]').forEach(btn=>{
+  btn.onclick=()=>{
+
+    $$('#toolbar [data-tool]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');ST.tool=btn.dataset.tool;
+    drawCanvas.style.cursor=ST.tool==='draw'?'crosshair':ST.tool==='erase'?'cell':'grab';
+  };
+});
+
+$('#brush-size').oninput=e=>{ST.brushSize=parseInt(e.target.value)};
+$('#btn-snap').onclick=()=>{ST.snap=!ST.snap;$('#btn-snap').textContent=ST.snap?'On':'Off';$('#btn-snap').classList.toggle('active')};
+$('#btn-undo').onclick=undo;$('#btn-redo').onclick=redo;
+$('#btn-play-main').onclick=()=>{if(ST.playing)stopAll();else playAll()};
+$('#btn-stop-main').onclick=stopAll;
+$('#btn-loop-main').onclick=()=>{ST.looping=!ST.looping;$('#btn-loop-main').classList.toggle('active')};
+$('#bpm-slider').oninput=e=>{ST.bpm=parseInt(e.target.value);$('#bpm-val').textContent=ST.bpm};
+$('#btn-export').onclick=exportWAV;
+$('#btn-clear-all').onclick=()=>{saveUndo();ST.curves=[];ST.activeCurve=null;renderCurves();renderCurveList();renderRightPanel()};
+$('#btn-help').onclick=()=>{
+  alert('SoulWave — Emotion to Music Translator\n\n'+
+    '1. Choose an emotion from the left panel\n'+
+    '2. Draw curves on the canvas — height = intensity\n'+
+    '3. Each emotion maps to a unique musical scale, rhythm, and timbre\n'+
+    '4. Layer multiple emotion curves for complex compositions\n'+
+    '5. Use presets for common emotional arcs\n'+
+    '6. Press Play to hear your emotional landscape\n'+
+    '7. Export as WAV to save your creation\n\n'+
+    'Keyboard: 1-9,0,Q,W = emotions | Space = play/stop | Z = undo | X = redo\n'+
+    'D = draw | E = erase | S = smooth | C = clear');
+};
+
+/* ===== KEYBOARD ===== */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key.toLowerCase();
+  // Emotion keys
+  const emoKey=EMOTIONS.find(em=>em.key.toLowerCase()===k);
+  if(emoKey){ST.activeEmotion=emoKey.id;renderEmotionList();renderRightPanel();drawBg();return}
+
+  if(k===' '){e.preventDefault();if(ST.playing)stopAll();else playAll()}
+  else if(k==='z'&&!e.shiftKey){e.preventDefault();undo()}
+  else if(k==='z'&&e.shiftKey){e.preventDefault();redo()}
+  else if(k==='x'){e.preventDefault();redo()}
+  else if(k==='d'){$$('#toolbar [data-tool]').forEach(b=>b.classList.remove('active'));$('[data-tool="draw"]').classList.add('active');ST.tool='draw';drawCanvas.style.cursor='crosshair'}
+  else if(k==='e'&&!e.ctrlKey){$$('#toolbar [data-tool]').forEach(b=>b.classList.remove('active'));$('[data-tool="erase"]').classList.add('active');ST.tool='erase';drawCanvas.style.cursor='cell'}
+  else if(k==='s'&&!e.ctrlKey){e.preventDefault();$$('#toolbar [data-tool]').forEach(b=>b.classList.remove('active'));$('[data-tool="smooth"]').classList.add('active');ST.tool='smooth';drawCanvas.style.cursor='grab'}
+  else if(k==='c'){saveUndo();ST.curves=[];ST.activeCurve=null;renderCurves();renderCurveList();renderRightPanel()}
+  else if(k==='l'){$('#btn-loop-main').click()}
+});
+
+/* ===== ANIMATION LOOP ===== */
+function animate(){
+  requestAnimationFrame(animate);
+
+  // Update play position
+  if(ST.playing){
+    const elapsed=(performance.now()-ST.playStart)/1000;
+    if(elapsed>=ST.duration){
+      if(ST.looping){ST.playStart=performance.now();playAll()}
+      else stopAll();
+    }
+    const pct=clamp(elapsed/ST.duration,0,1);
+    $('#t-fill').style.width=(pct*100)+'%';
+    $('#t-head').style.left=(pct*100)+'%';
+    $('#t-cur').textContent=formatTime(elapsed);
+  }
+
+  renderCurves();
+
+  // Draw active stroke preview
+  if(isDrawing&&ST.tool==='draw'&&drawPoints.length>1){
+    const ctx=drawCtx;
+    const emo=EMOTIONS.find(e=>e.id===ST.activeEmotion);
+    ctx.strokeStyle=(emo?emo.color:'#fff')+'88';ctx.lineWidth=2;
+    ctx.setLineDash([4,4]);ctx.beginPath();
+    drawPoints.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x*CW,p.y*CH);else ctx.lineTo(p.x*CW,p.y*CH)});
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  renderViz();
+}
+
+/* ===== INIT ===== */
+renderEmotionList();
+renderRightPanel();
+$('#t-dur').textContent=formatTime(ST.duration);
+requestAnimationFrame(animate);
+
+</script>
+</body>
+</html>

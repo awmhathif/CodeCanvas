@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dreams - Interactive Glowing Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .control-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 320px;
+            background: rgba(20, 20, 30, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .control-panel.collapsed {
+            transform: translateX(340px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .panel-title {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .toggle-panel {
+            position: absolute;
+            left: -40px;
+            top: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(102, 126, 234, 0.9);
+            border: none;
+            border-radius: 10px 0 0 10px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-panel:hover {
+            background: rgba(102, 126, 234, 1);
+            transform: translateX(-5px);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #a0a0b0;
+            font-weight: 500;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .value-display {
+            min-width: 40px;
+            text-align: right;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .color-picker-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .mode-btn {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .preset-themes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .theme-btn {
+            height: 50px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .theme-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .theme-btn:hover::before {
+            opacity: 0.2;
+        }
+
+        .theme-btn.active {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .action-btn {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        .action-btn.primary:hover {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .stats {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(20, 20, 30, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #a0a0b0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(102, 126, 234, 0.9);
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                width: 280px;
+                right: 10px;
+                top: 10px;
+            }
+            
+            .mode-selector {
+                grid-template-columns: 1fr;
+            }
+            
+            .preset-themes {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Custom scrollbar */
+        .control-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .control-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="control-panel" id="controlPanel">
+        <button class="toggle-panel" onclick="togglePanel()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6" />
+            </svg>
+        </button>
+        
+        <div class="panel-header">
+            <h2 class="panel-title">Neon Dreams</h2>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Visualization Mode</label>
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('particles')">Particles</button>
+                <button class="mode-btn" onclick="setMode('waves')">Waves</button>
+                <button class="mode-btn" onclick="setMode('constellation')">Constellation</button>
+                <button class="mode-btn" onclick="setMode('matrix')">Matrix</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Primary Color</label>
+            <div class="color-picker-wrapper">
+                <input type="color" id="primaryColor" value="#667eea" onchange="updateColors()">
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Secondary Color</label>
+            <div class="color-picker-wrapper">
+                <input type="color" id="secondaryColor" value="#764ba2" onchange="updateColors()">
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Particle Count</label>
+            <div class="slider-container">
+                <input type="range" id="particleCount" min="50" max="500" value="200" oninput="updateValue('particleCount')">
+                <span class="value-display" id="particleCountValue">200</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Speed</label>
+            <div class="slider-container">
+                <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1" oninput="updateValue('speed')">
+                <span class="value-display" id="speedValue">1.0</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Glow Intensity</label>
+            <div class="slider-container">
+                <input type="range" id="glowIntensity" min="0" max="100" value="50" oninput="updateValue('glowIntensity')">
+                <span class="value-display" id="glowIntensityValue">50</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Connection Distance</label>
+            <div class="slider-container">
+                <input type="range" id="connectionDistance" min="50" max="300" value="150" oninput="updateValue('connectionDistance')">
+                <span class="value-display" id="connectionDistanceValue">150</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Mouse Interaction</label>
+            <div class="slider-container">
+                <input type="range" id="mouseRadius" min="0" max="200" value="100" oninput="updateValue('mouseRadius')">
+                <span class="value-display" id="mouseRadiusValue">100</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label class="control-label">Preset Themes</label>
+            <div class="preset-themes">
+                <button class="theme-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)" onclick="applyTheme('purple')"></button>
+                <button class="theme-btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" onclick="applyTheme('pink')"></button>
+                <button class="theme-btn" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" onclick="applyTheme('blue')"></button>
+                <button class="theme-btn" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" onclick="applyTheme('green')"></button>
+                <button class="theme-btn" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%)" onclick="applyTheme('sunset')"></button>
+                <button class="theme-btn" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%)" onclick="applyTheme('ocean')"></button>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="action-btn" onclick="resetSettings()">Reset</button>
+            <button class="action-btn" onclick="toggleFullscreen()">Fullscreen</button>
+            <button class="action-btn" onclick="saveImage()">Save Image</button>
+            <button class="action-btn primary" onclick="toggleAnimation()">
+                <span id="playPauseText">Pause</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="stats" id="stats">
+        FPS: <span id="fps">60</span> | Particles: <span id="particleStats">200</span>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Configuration
+        let config = {
+            mode: 'particles',
+            primaryColor: '#667eea',
+            secondaryColor: '#764ba2',
+            particleCount: 200,
+            speed: 1,
+            glowIntensity: 50,
+            connectionDistance: 150,
+            mouseRadius: 100,
+            isAnimating: true
+        };
+        
+        // Mouse position
+        let mouse = {
+            x: width / 2,
+            y: height / 2
+        };
+        
+        // Particles array
+        let particles = [];
+        
+        // FPS calculation
+        let fps = 60;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        
+        // Particle class
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 3 + 1;
+                this.color = Math.random() > 0.5 ? config.primaryColor : config.secondaryColor;
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+            
+            update() {
+                this.x += this.vx * config.speed;
+                this.y += this.vy * config.speed;
+                
+                // Bounce off walls
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+                
+                // Mouse interaction
+                const dx = mouse.x - this.x;
+                const dy = mouse.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < config.mouseRadius) {
+                    const force = (config.mouseRadius - distance) / config.mouseRadius;
+                    const angle = Math.atan2(dy, dx);
+                    this.vx -= Math.cos(angle) * force * 0.5;
+                    this.vy -= Math.sin(angle) * force * 0.5;
+                }
+                
+                // Limit velocity
+                const maxSpeed = 5;
+                const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (currentSpeed > maxSpeed) {
+                    this.vx = (this.vx / currentSpeed) * maxSpeed;
+                    this.vy = (this.vy / currentSpeed) * maxSpeed;
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                
+                // Glow effect
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 3);
+                gradient.addColorStop(0, this.color + Math.floor(this.opacity * 255).toString(16).padStart(2, '0'));
+                gradient.addColorStop(1, this.color + '00');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Core particle
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+        
+        // Wave visualization
+        class WaveVisualization {
+            constructor() {
+                this.time = 0;
+                this.waves = [];
+                for (let i = 0; i < 5; i++) {
+                    this.waves.push({
+                        amplitude: Math.random() * 50 + 30,
+                        frequency: Math.random() * 0.02 + 0.01,
+                        phase: Math.random() * Math.PI * 2,
+                        speed: Math.random() * 0.02 + 0.01
+                    });
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                
+                for (let i = 0; i < this.waves.length; i++) {
+                    const wave = this.waves[i];
+                    ctx.beginPath();
+                    ctx.strokeStyle = i % 2 === 0 ? config.primaryColor : config.secondaryColor;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.8;
+                    
+                    for (let x = 0; x < width; x += 5) {
+                        const y = height / 2 + 
+                                 Math.sin(x * wave.frequency + this.time * wave.speed + wave.phase) * wave.amplitude +
+                                 Math.sin(x * wave.frequency * 2 + this.time * wave.speed * 1.5) * wave.amplitude * 0.3;
+                        
+                        if (x === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    
+                    ctx.stroke();
+                    
+                    // Glow effect
+                    ctx.shadowBlur = config.glowIntensity;
+                    ctx.shadowColor = i % 2 === 0 ? config.primaryColor : config.secondaryColor;
+                    ctx.stroke();
+                }
+                
+                this.time += config.speed;
+                ctx.restore();
+            }
+        }
+        
+        // Constellation visualization
+        class ConstellationVisualization {
+            constructor() {
+                this.stars = [];
+                for (let i = 0; i < 100; i++) {
+                    this.stars.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        size: Math.random() * 2 + 1,
+                        twinkle: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                
+                // Draw connections
+                ctx.strokeStyle = config.primaryColor + '30';
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i < this.stars.length; i++) {
+                    for (let j = i + 1; j < this.stars.length; j++) {
+                        const dx = this.stars[i].x - this.stars[j].x;
+                        const dy = this.stars[i].y - this.stars[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < config.connectionDistance) {
+                            ctx.globalAlpha = (1 - distance / config.connectionDistance) * 0.5;
+                            ctx.beginPath();
+                            ctx.moveTo(this.stars[i].x, this.stars[i].y);
+                            ctx.lineTo(this.stars[j].x, this.stars[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                
+                // Draw stars
+                for (let star of this.stars) {
+                    star.twinkle += 0.05;
+                    const opacity = (Math.sin(star.twinkle) + 1) / 2;
+                    
+                    ctx.globalAlpha = opacity;
+                    ctx.fillStyle = config.secondaryColor;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Glow
+                    const gradient = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.size * 5);
+                    gradient.addColorStop(0, config.primaryColor + Math.floor(opacity * 255).toString(16).padStart(2, '0'));
+                    gradient.addColorStop(1, config.primaryColor + '00');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size * 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        // Matrix visualization
+        class MatrixVisualization {
+            constructor() {
+                this.columns = Math.floor(width / 20);
+                this.drops = [];
+                for (let i = 0; i < this.columns; i++) {
+                    this.drops[i] = Math.random() * -100;
+                }
+                this.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+            }
+            
+            draw() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, width, height);
+                
+                ctx.font = '15px monospace';
+                
+                for (let i = 0; i < this.drops.length; i++) {
+                    const char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                    const x = i * 20;
+                    const y = this.drops[i] * 20;
+                    
+                    // Gradient effect
+                    const gradient = ctx.createLinearGradient(x, y - 100, x, y);
+                    gradient.addColorStop(0, config.primaryColor + '00');
+                    gradient.addColorStop(0.5, config.primaryColor + '80');
+                    gradient.addColorStop(1, config.secondaryColor);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillText(char, x, y);
+                    
+                    if (y > height && Math.random() > 0.975) {
+                        this.drops[i] = 0;
+                    }
+                    
+                    this.drops[i] += config.speed;
+                }
+            }
+        }
+        
+        let waveViz = new WaveVisualization();
+        let constellationViz = new ConstellationVisualization();
+        let matrixViz = new MatrixVisualization();
+        
+        // Initialize particles
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        // Animation loop
+        function animate() {
+            if (!config.isAnimating) {
+                requestAnimationFrame(animate);
+                return;
+            }
+            
+            // Clear canvas with fade effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw based on mode
+            switch (config.mode) {
+                case 'particles':
+                    // Update and draw particles
+                    for (let particle of particles) {
+                        particle.update();
+                        particle.draw();
+                    }
+                    
+                    // Draw connections
+                    ctx.strokeStyle = config.primaryColor + '30';
+                    ctx.lineWidth = 1;
+                    
+                    for (let i = 0; i < particles.length; i++) {
+                        for (let j = i + 1; j < particles.length; j++) {
+                            const dx = particles[i].x - particles[j].x;
+                            const dy = particles[i].y - particles[j].y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < config.connectionDistance) {
+                                ctx.globalAlpha = (1 - distance / config.connectionDistance) * 0.5;
+                                ctx.beginPath();
+                                ctx.moveTo(particles[i].x, particles[i].y);
+                                ctx.lineTo(particles[j].x, particles[j].y);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                    break;
+                    
+                case 'waves':
+                    waveViz.draw();
+                    break;
+                    
+                case 'constellation':
+                    constellationViz.draw();
+                    break;
+                    
+                case 'matrix':
+                    matrixViz.draw();
+                    break;
+            }
+            
+            // Calculate FPS
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+                document.getElementById('fps').textContent = fps;
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Event listeners
+        canvas.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        canvas.addEventListener('click', (e) => {
+            // Create explosion effect at click position
+            for (let i = 0; i < 20; i++) {
+                const particle = new Particle();
+                particle.x = e.clientX;
+                particle.y = e.clientY;
+                particle.vx = (Math.random() - 0.5) * 10;
+                particle.vy = (Math.random() - 0.5) * 10;
+                particles.push(particle);
+            }
+            
+            // Remove oldest particles if too many
+            if (particles.length > config.particleCount + 50) {
+                particles.splice(0, 20);
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Reinitialize matrix columns
+            matrixViz.columns = Math.floor(width / 20);
+            matrixViz.drops = [];
+            for (let i = 0; i < matrixViz.columns; i++) {
+                matrixViz.drops[i] = Math.random() * -100;
+            }
+        });
+        
+        // Control functions
+        function togglePanel() {
+            document.getElementById('controlPanel').classList.toggle('collapsed');
+        }
+        
+        function setMode(mode) {
+            config.mode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (mode === 'particles') {
+                initParticles();
+            }
+        }
+        
+        function updateColors() {
+            config.primaryColor = document.getElementById('primaryColor').value;
+            config.secondaryColor = document.getElementById('secondaryColor').value;
+            
+            // Update particle colors
+            particles.forEach(particle => {
+                particle.color = Math.random() > 0.5 ? config.primaryColor : config.secondaryColor;
+            });
+        }
+        
+        function updateValue(id) {
+            const element = document.getElementById(id);
+            const value = element.value;
+            document.getElementById(id + 'Value').textContent = value;
+            
+            switch (id) {
+                case 'particleCount':
+                    config.particleCount = parseInt(value);
+                    document.getElementById('particleStats').textContent = value;
+                    initParticles();
+                    break;
+                case 'speed':
+                    config.speed = parseFloat(value);
+                    break;
+                case 'glowIntensity':
+                    config.glowIntensity = parseInt(value);
+                    break;
+                case 'connectionDistance':
+                    config.connectionDistance = parseInt(value);
+                    break;
+                case 'mouseRadius':
+                    config.mouseRadius = parseInt(value);
+                    break;
+            }
+        }
+        
+        function applyTheme(theme) {
+            const themes = {
+                purple: ['#667eea', '#764ba2'],
+                pink: ['#f093fb', '#f5576c'],
+                blue: ['#4facfe', '#00f2fe'],
+                green: ['#43e97b', '#38f9d7'],
+                sunset: ['#fa709a', '#fee140'],
+                ocean: ['#30cfd0', '#330867']
+            };
+            
+            const colors = themes[theme];
+            config.primaryColor = colors[0];
+            config.secondaryColor = colors[1];
+            
+            document.getElementById('primaryColor').value = colors[0];
+            document.getElementById('secondaryColor').value = colors[1];
+            
+            updateColors();
+            showNotification(`Theme applied: ${theme}`);
+        }
+        
+        function resetSettings() {
+            config = {
+                mode: 'particles',
+                primaryColor: '#667eea',
+                secondaryColor: '#764ba2',
+                particleCount: 200,
+                speed: 1,
+                glowIntensity: 50,
+                connectionDistance: 150,
+                mouseRadius: 100,
+                isAnimating: true
+            };
+            
+            // Update UI
+            document.getElementById('primaryColor').value = config.primaryColor;
+            document.getElementById('secondaryColor').value = config.secondaryColor;
+            document.getElementById('particleCount').value = config.particleCount;
+            document.getElementById('speed').value = config.speed;
+            document.getElementById('glowIntensity').value = config.glowIntensity;
+            document.getElementById('connectionDistance').value = config.connectionDistance;
+            document.getElementById('mouseRadius').value = config.mouseRadius;
+            
+            // Update displays
+            updateValue('particleCount');
+            updateValue('speed');
+            updateValue('glowIntensity');
+            updateValue('connectionDistance');
+            updateValue('mouseRadius');
+            
+            // Reset mode
+            setMode('particles');
+            document.querySelector('.mode-btn').click();
+            
+            initParticles();
+            showNotification('Settings reset to default');
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        function saveImage() {
+            const link = document.createElement('a');
+            link.download = `neon-dreams-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            showNotification('Image saved successfully');
+        }
+        
+        function toggleAnimation() {
+            config.isAnimating = !config.isAnimating;
+            document.getElementById('playPauseText').textContent = config.isAnimating ? 'Pause' : 'Play';
+            showNotification(config.isAnimating ? 'Animation resumed' : 'Animation paused');
+        }
+        
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Initialize
+        initParticles();
+        animate();
+    </script>
+</body>
+</html>

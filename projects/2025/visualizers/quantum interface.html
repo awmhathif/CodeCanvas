@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Interface</title>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #ff00e6;
+            --tertiary: #7d00ff;
+            --accent: #ff9500;
+            --dark: #0b0b1a;
+            --glow-intensity: 10px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: var(--dark);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #universe-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #galaxy-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #holographic-ui {
+            width: 90vw;
+            max-width: 1200px;
+            height: 80vh;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: float 10s ease-in-out infinite;
+        }
+
+        .panel {
+            position: absolute;
+            border-radius: 15px;
+            background-color: rgba(11, 11, 26, 0.6);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 0 var(--glow-intensity) var(--primary);
+            border: 1px solid var(--primary);
+            padding: 20px;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .panel:hover {
+            transform: translateZ(20px) scale(1.02);
+            box-shadow: 0 0 calc(var(--glow-intensity) * 2) var(--primary);
+        }
+
+        #main-panel {
+            width: 70%;
+            height: 60%;
+            top: 5%;
+            left: 15%;
+        }
+
+        #side-panel {
+            width: 25%;
+            height: 90%;
+            top: 5%;
+            right: 1%;
+        }
+
+        #bottom-panel {
+            width: 65%;
+            height: 25%;
+            bottom: 5%;
+            left: 17.5%;
+        }
+
+        .panel-header {
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            height: calc(100% - 40px);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #quantum-visualizer {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #dimension-controls {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+
+        .control-button {
+            background: none;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-button:hover {
+            background-color: var(--primary);
+            color: var(--dark);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .metric {
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .metric-label {
+            color: var(--accent);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            color: white;
+            font-weight: 300;
+        }
+
+        .metric-bar {
+            height: 4px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.1);
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .metric-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 70%;
+            border-radius: 2px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: width 0.5s;
+        }
+
+        .portal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--tertiary), transparent);
+            animation: pulse 3s infinite alternate;
+            box-shadow: 0 0 30px var(--tertiary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .portal::after {
+            content: '';
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: 50%;
+            border: 2px solid var(--secondary);
+            animation: rotate 10s linear infinite;
+        }
+
+        .portal::before {
+            content: '';
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            animation: rotate 15s linear infinite reverse;
+        }
+
+        #audio-visualizer {
+            width: 100%;
+            height: 90px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .audio-bar {
+            position: absolute;
+            bottom: 0;
+            background: linear-gradient(to top, var(--primary), var(--secondary));
+            width: 3px;
+            border-radius: 3px 3px 0 0;
+            transition: height 0.1s;
+        }
+
+        #voice-interface {
+            text-align: center;
+            padding: 15px 0;
+        }
+
+        #voice-status {
+            color: var(--accent);
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        #particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #data-output {
+            height: 90%;
+            overflow-y: auto;
+            padding-right: 10px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--primary);
+            line-height: 1.4;
+        }
+
+        #data-output::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #data-output::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        #data-output::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 5px;
+        }
+
+        .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8), rgba(255,255,255,0));
+            box-shadow: 0 0 15px var(--accent);
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotateX(2deg); }
+            50% { transform: translateY(-20px) rotateX(-2deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .show-notification {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            #holographic-ui {
+                flex-direction: column;
+            }
+            
+            #side-panel {
+                width: 70%;
+                height: 40%;
+                top: auto;
+                right: 15%;
+                bottom: 5%;
+            }
+            
+            #main-panel {
+                width: 90%;
+                height: 50%;
+                left: 5%;
+            }
+            
+            #bottom-panel {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="universe-container">
+        <canvas id="galaxy-canvas"></canvas>
+    </div>
+
+    <div id="holographic-ui">
+        <div class="panel" id="main-panel">
+            <div class="panel-header">
+                <span>Quantum Dimension Visualizer</span>
+                <span id="dimension-status">Status: Stable</span>
+            </div>
+            <div class="panel-content">
+                <div id="quantum-visualizer">
+                    <div class="portal" id="dimensional-portal"></div>
+                </div>
+                <div id="dimension-controls">
+                    <button class="control-button" id="dimension-shift">Shift Dimension</button>
+                    <button class="control-button" id="stabilize">Stabilize</button>
+                    <button class="control-button" id="accelerate">Accelerate Particles</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="side-panel">
+            <div class="panel-header">
+                <span>Dimensional Metrics</span>
+                <span id="sync-status">◉ Synced</span>
+            </div>
+            <div class="panel-content">
+                <div class="metric">
+                    <div class="metric-label">Quantum Coherence</div>
+                    <div class="metric-value" id="coherence-value">87.4%</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" id="coherence-fill" style="width: 87.4%;"></div>
+                    </div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Entanglement Density</div>
+                    <div class="metric-value" id="entanglement-value">64.2%</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" id="entanglement-fill" style="width: 64.2%;"></div>
+                    </div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Dimensional Stability</div>
+                    <div class="metric-value" id="stability-value">92.8%</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" id="stability-fill" style="width: 92.8%;"></div>
+                    </div>
+                </div>
+                <div id="audio-visualizer"></div>
+                <div id="voice-interface">
+                    <div id="voice-status">Voice Interface Ready</div>
+                    <button class="control-button" id="voice-command">Enable Voice Commands</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="bottom-panel">
+            <div class="panel-header">
+                <span>Quantum Data Stream</span>
+                <span id="data-rate">1024 qbits/s</span>
+            </div>
+            <div class="panel-content">
+                <div id="data-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="particles"></div>
+
+    <div class="notification" id="notification">Action completed successfully</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Galaxy background
+            const galaxyCanvas = document.getElementById('galaxy-canvas');
+            const galaxyCtx = galaxyCanvas.getContext('2d');
+            
+            // Set canvas to window size
+            function resizeCanvas() {
+                galaxyCanvas.width = window.innerWidth;
+                galaxyCanvas.height = window.innerHeight;
+            }
+            
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            
+            // Star field
+            const stars = [];
+            const galaxies = [];
+            const starCount = Math.min(window.innerWidth, window.innerHeight) * 0.4;
+            const galaxyCount = 3;
+            
+            class Star {
+                constructor() {
+                    this.x = Math.random() * galaxyCanvas.width;
+                    this.y = Math.random() * galaxyCanvas.height;
+                    this.size = Math.random() * 2;
+                    this.speed = Math.random() * 0.5;
+                    this.brightness = Math.random();
+                    this.color = `rgba(255, 255, 255, ${this.brightness})`;
+                }
+                
+                update() {
+                    this.y += this.speed;
+                    if (this.y > galaxyCanvas.height) {
+                        this.y = 0;
+                        this.x = Math.random() * galaxyCanvas.width;
+                    }
+                    this.brightness = 0.2 + Math.sin(Date.now() * 0.001 * this.speed) * 0.3;
+                    this.color = `rgba(255, 255, 255, ${this.brightness})`;
+                }
+                
+                draw() {
+                    galaxyCtx.fillStyle = this.color;
+                    galaxyCtx.beginPath();
+                    galaxyCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    galaxyCtx.fill();
+                }
+            }
+            
+            class Galaxy {
+                constructor() {
+                    this.x = Math.random() * galaxyCanvas.width;
+                    this.y = Math.random() * galaxyCanvas.height;
+                    this.size = 50 + Math.random() * 100;
+                    this.rotation = Math.random() * Math.PI * 2;
+                    this.rotationSpeed = (Math.random() - 0.5) * 0.001;
+                    this.hue = Math.random() * 360;
+                    this.stars = [];
+                    
+                    for (let i = 0; i < 500; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = Math.random() * this.size;
+                        const brightness = 0.5 + Math.random() * 0.5;
+                        const starSize = 0.5 + Math.random();
+                        
+                        this.stars.push({
+                            angle,
+                            distance,
+                            brightness,
+                            size: starSize,
+                            speed: 0.001 + Math.random() * 0.003
+                        });
+                    }
+                }
+                
+                update() {
+                    this.rotation += this.rotationSpeed;
+                    
+                    for (const star of this.stars) {
+                        star.angle += star.speed;
+                    }
+                }
+                
+                draw() {
+                    galaxyCtx.save();
+                    galaxyCtx.translate(this.x, this.y);
+                    galaxyCtx.rotate(this.rotation);
+                    
+                    for (const star of this.stars) {
+                        const x = Math.cos(star.angle) * star.distance;
+                        const y = Math.sin(star.angle) * star.distance;
+                        
+                        galaxyCtx.fillStyle = `hsla(${this.hue}, 100%, 80%, ${star.brightness})`;
+                        galaxyCtx.beginPath();
+                        galaxyCtx.arc(x, y, star.size, 0, Math.PI * 2);
+                        galaxyCtx.fill();
+                    }
+                    
+                    galaxyCtx.restore();
+                }
+            }
+            
+            // Initialize stars and galaxies
+            for (let i = 0; i < starCount; i++) {
+                stars.push(new Star());
+            }
+            
+            for (let i = 0; i < galaxyCount; i++) {
+                galaxies.push(new Galaxy());
+            }
+            
+            // Animation loop
+            function animateGalaxy() {
+                galaxyCtx.clearRect(0, 0, galaxyCanvas.width, galaxyCanvas.height);
+                galaxyCtx.fillStyle = 'rgba(11, 11, 26, 0.1)';
+                galaxyCtx.fillRect(0, 0, galaxyCanvas.width, galaxyCanvas.height);
+                
+                for (const star of stars) {
+                    star.update();
+                    star.draw();
+                }
+                
+                for (const galaxy of galaxies) {
+                    galaxy.update();
+                    galaxy.draw();
+                }
+                
+                requestAnimationFrame(animateGalaxy);
+            }
+            
+            animateGalaxy();
+
+            // Audio visualizer setup
+            const audioVisualizer = document.getElementById('audio-visualizer');
+            const barCount = 24;
+            const bars = [];
+            
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'audio-bar';
+                bar.style.left = `${(i / barCount) * 100}%`;
+                bar.style.height = '0px';
+                audioVisualizer.appendChild(bar);
+                bars.push(bar);
+            }
+            
+            function updateAudioVisualizer() {
+                for (let i = 0; i < barCount; i++) {
+                    const height = Math.random() * 80;
+                    bars[i].style.height = `${height}px`;
+                }
+                
+                requestAnimationFrame(updateAudioVisualizer);
+            }
+            
+            updateAudioVisualizer();
+
+            // Quantum visualizer
+            const quantumVisualizer = document.getElementById('quantum-visualizer');
+            let particles = [];
+            const particleCount = 100;
+            
+            class Particle {
+                constructor() {
+                    this.x = quantumVisualizer.offsetWidth / 2;
+                    this.y = quantumVisualizer.offsetHeight / 2;
+                    this.size = 2 + Math.random() * 3;
+                    this.speedX = (Math.random() - 0.5) * 3;
+                    this.speedY = (Math.random() - 0.5) * 3;
+                    this.color = this.getRandomColor();
+                    this.life = 100 + Math.random() * 200;
+                    this.maxLife = this.life;
+                }
+                
+                getRandomColor() {
+                    const colors = [
+                        'rgba(0, 243, 255, 0.7)',
+                        'rgba(255, 0, 230, 0.7)',
+                        'rgba(125, 0, 255, 0.7)',
+                        'rgba(255, 149, 0, 0.7)'
+                    ];
+                    return colors[Math.floor(Math.random() * colors.length)];
+                }
+                
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    
+                    // Boundary collision
+                    if (this.x <= 0 || this.x >= quantumVisualizer.offsetWidth) {
+                        this.speedX *= -1;
+                    }
+                    
+                    if (this.y <= 0 || this.y >= quantumVisualizer.offsetHeight) {
+                        this.speedY *= -1;
+                    }
+                    
+                    this.life--;
+                    return this.life > 0;
+                }
+                
+                draw(ctx) {
+                    const opacity = this.life / this.maxLife;
+                    ctx.globalAlpha = opacity;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Draw connections between particles
+                    particles.forEach(p => {
+                        const distance = Math.sqrt((this.x - p.x) ** 2 + (this.y - p.y) ** 2);
+                        if (distance < 100) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 * (1 - distance / 100)})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.moveTo(this.x, this.y);
+                            ctx.lineTo(p.x, p.y);
+                            ctx.stroke();
+                        }
+                    });
+                }
+            }
+            
+            // Set up canvas for particle system
+            const particleCanvas = document.createElement('canvas');
+            particleCanvas.width = quantumVisualizer.offsetWidth;
+            particleCanvas.height = quantumVisualizer.offsetHeight;
+            particleCanvas.style.position = 'absolute';
+            particleCanvas.style.top = '0';
+            particleCanvas.style.left = '0';
+            particleCanvas.style.width = '100%';
+            particleCanvas.style.height = '100%';
+            quantumVisualizer.appendChild(particleCanvas);
+            
+            const particleCtx = particleCanvas.getContext('2d');
+            
+            function resizeParticleCanvas() {
+                particleCanvas.width = quantumVisualizer.offsetWidth;
+                particleCanvas.height = quantumVisualizer.offsetHeight;
+            }
+            
+            window.addEventListener('resize', resizeParticleCanvas);
+            
+            // Initialize particles
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+            
+            function animateParticles() {
+                particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+                
+                // Update and draw particles
+                particles = particles.filter(p => p.update());
+                particles.forEach(p => p.draw(particleCtx));
+                
+                // Add new particles
+                if (particles.length < particleCount) {
+                    particles.push(new Particle());
+                }
+                
+                requestAnimationFrame(animateParticles);
+            }
+            
+            animateParticles();
+
+            // Metrics updating
+            function updateMetrics() {
+                const coherenceEl = document.getElementById('coherence-value');
+                const coherenceFill = document.getElementById('coherence-fill');
+                const entanglementEl = document.getElementById('entanglement-value');
+                const entanglementFill = document.getElementById('entanglement-fill');
+                const stabilityEl = document.getElementById('stability-value');
+                const stabilityFill = document.getElementById('stability-fill');
+                
+                // Generate random fluctuations
+                const coherence = 80 + Math.random() * 15;
+                const entanglement = 60 + Math.random() * 30;
+                const stability = 85 + Math.random() * 10;
+                
+                coherenceEl.textContent = `${coherence.toFixed(1)}%`;
+                coherenceFill.style.width = `${coherence}%`;
+                
+                entanglementEl.textContent = `${entanglement.toFixed(1)}%`;
+                entanglementFill.style.width = `${entanglement}%`;
+                
+                stabilityEl.textContent = `${stability.toFixed(1)}%`;
+                stabilityFill.style.width = `${stability}%`;
+                
+                setTimeout(updateMetrics, 2000);
+            }
+            
+            updateMetrics();
+
+            // Data stream simulation
+            const dataOutput = document.getElementById('data-output');
+            const dataEntries = [
+                "Quantum field stabilized in sector 7G",
+                "Entanglement ratio increasing by 0.3% per cycle",
+                "Dimensional boundary integrity at nominal levels",
+                "Detected anomaly in quantum foam density",
+                "Probability wave collapsed successfully",
+                "Parallel universe synchronization at 94.7%",
+                "Time dilation factor: 1.0032",
+                "Qubit coherence maintaining stability",
+                "Dark energy fluctuations within normal parameters",
+                "Multiverse branch point detected",
+                "Reality anchor points secure",
+                "Quantum decoherence prevented",
+                "Wavefunction evolution proceeding normally",
+                "String vibration harmonics aligned",
+                "Holographic principle verification complete",
+                "M-theory projection stable"
+            ];
+            
+            function addDataEntry() {
+                const entry = dataEntries[Math.floor(Math.random() * dataEntries.length)];
+                const timestamp = new Date().toLocaleTimeString();
+                const element = document.createElement('div');
+                element.textContent = `[${timestamp}] ${entry}`;
+                dataOutput.appendChild(element);
+                
+                // Keep only the last 50 entries
+                if (dataOutput.children.length > 50) {
+                    dataOutput.removeChild(dataOutput.children[0]);
+                }
+                
+                // Auto-scroll to bottom
+                dataOutput.scrollTop = dataOutput.scrollHeight;
+                
+                setTimeout(addDataEntry, 1000 + Math.random() * 2000);
+            }
+            
+            addDataEntry();
+
+            // Floating orbs effect
+            const orbCount = 10;
+            
+            for (let i = 0; i < orbCount; i++) {
+                createOrb();
+            }
+            
+            function createOrb() {
+                const orb = document.createElement('div');
+                orb.className = 'floating-orb';
+                
+                const size = 10 + Math.random() * 20;
+                const top = Math.random() * window.innerHeight;
+                const left = Math.random() * window.innerWidth;
+                const duration = 10 + Math.random() * 20;
+                
+                orb.style.width = `${size}px`;
+                orb.style.height = `${size}px`;
+                orb.style.top = `${top}px`;
+                orb.style.left = `${left}px`;
+                
+                document.body.appendChild(orb);
+                
+                // Animate the orb
+                const targetX = Math.random() * window.innerWidth;
+                const targetY = Math.random() * window.innerHeight;
+                
+                orb.animate([
+                    { top: `${top}px`, left: `${left}px` },
+                    { top: `${targetY}px`, left: `${targetX}px` }
+                ], {
+                    duration: duration * 1000,
+                    easing: 'ease-in-out',
+                    fill: 'forwards'
+                }).addEventListener('finish', () => {
+                    orb.remove();
+                    createOrb();
+                });
+            }
+
+            // UI Interactions
+            function showNotification(message) {
+                const notification = document.getElementById('notification');
+                notification.textContent = message;
+                notification.classList.add('show-notification');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show-notification');
+                }, 3000);
+            }
+            
+            document.getElementById('dimension-shift').addEventListener('click', function() {
+                // Change colors
+                const root = document.documentElement;
+                const hue = Math.floor(Math.random() * 360);
+                
+                root.style.setProperty('--primary', `hsl(${hue}, 100%, 50%)`);
+                root.style.setProperty('--secondary', `hsl(${(hue + 120) % 360}, 100%, 50%)`);
+                root.style.setProperty('--tertiary', `hsl(${(hue + 240) % 360}, 100%, 50%)`);
+                
+                // Update particle speeds
+                particles.forEach(p => {
+                    p.speedX *= 1.5;
+                    p.speedY *= 1.5;
+                });
+                
+                document.getElementById('dimension-status').textContent = 'Status: Shifting';
+                showNotification('Dimensional shift initiated');
+                
+                setTimeout(() => {
+                    document.getElementById('dimension-status').textContent = 'Status: Unstable';
+                }, 2000);
+            });
+            
+            document.getElementById('stabilize').addEventListener('click', function() {
+                // Reset particle speeds
+                particles.forEach(p => {
+                    p.speedX = (Math.random() - 0.5) * 3;
+                    p.speedY = (Math.random() - 0.5) * 3;
+                });
+                
+                document.getElementById('dimension-status').textContent = 'Status: Stabilizing';
+                showNotification('Quantum field stabilization in progress');
+                
+                setTimeout(() => {
+                    document.getElementById('dimension-status').textContent = 'Status: Stable';
+                }, 2000);
+            });
+            
+            document.getElementById('accelerate').addEventListener('click', function() {
+                // Increase particle speeds
+                particles.forEach(p => {
+                    p.speedX *= 2;
+                    p.speedY *= 2;
+                });
+                
+                showNotification('Particle acceleration successful');
+            });
+            
+            document.getElementById('voice-command').addEventListener('click', function() {
+                // Simulate voice commands
+                this.disabled = true;
+                document.getElementById('voice-status').textContent = 'Listening...';
+                
+                setTimeout(() => {
+                    document.getElementById('voice-status').textContent = 'Processing command...';
+                    
+                    setTimeout(() => {
+                        document.getElementById('voice-status').textContent = 'Command executed: Scan dimensional anomalies';
+                        this.disabled = false;
+                        
+                        setTimeout(() => {
+                            document.getElementById('voice-status').textContent = 'Voice Interface Ready';
+                        }, 3000);
+                    }, 1500);
+                }, 1500);
+            });
+            
+            // Portal interaction
+            document.getElementById('dimensional-portal').addEventListener('click', function() {
+                // Create pulse effect
+                const pulse = document.createElement('div');
+                pulse.style.position = 'absolute';
+                pulse.style.top = '50%';
+                pulse.style.left = '50%';
+                pulse.style.transform = 'translate(-50%, -50%)';
+                pulse.style.width = '150px';
+                pulse.style.height = '150px';
+                pulse.style.borderRadius = '50%';
+                pulse.style.background = 'transparent';
+                pulse.style.border = `2px solid var(--accent)`;
+                pulse.style.zIndex = '1';
+                
+                quantumVisualizer.appendChild(pulse);
+                
+                pulse.animate([
+                    { width: '150px', height: '150px', opacity: 1 },
+                    { width: '300px', height: '300px', opacity: 0 }
+                ], {
+                    duration: 1000,
+                    easing: 'ease-out'
+                }).addEventListener('finish', () => {
+                    pulse.remove();
+                });
+                
+                // Generate new particles
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle());
+                }
+                
+                showNotification('Portal activated');
+            });
+
+            // Interactive drag for panels
+            const panels = document.querySelectorAll('.panel');
+            
+            panels.forEach(panel => {
+                let isDragging = false;
+                let offsetX, offsetY;
+                
+                panel.addEventListener('mousedown', function(e) {
+                    if (e.target.tagName !== 'BUTTON') {
+                        isDragging = true;
+                        offsetX = e.clientX - panel.getBoundingClientRect().left;
+                        offsetY = e.clientY - panel.getBoundingClientRect().top;
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        const x = e.clientX - offsetX;
+                        const y = e.clientY - offsetY;
+                        
+                        panel.style.left = `${x}px`;
+                        panel.style.top = `${y}px`;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    isDragging = false;
+                });
+            });
+
+            // Fancy color cycling for UI elements
+            function cyclePrimaryColor() {
+                const time = Date.now() * 0.001;
+                const hue = (time * 10) % 360;
+                
+                document.documentElement.style.setProperty('--primary', `hsl(${hue}, 100%, 50%)`);
+                document.documentElement.style.setProperty('--secondary', `hsl(${(hue + 120) % 360}, 100%, 50%)`);
+                document.documentElement.style.setProperty('--tertiary', `hsl(${(hue + 240) % 360}, 100%, 50%)`);
+                
+                requestAnimationFrame(cyclePrimaryColor);
+            }
+            
+            // Uncomment to enable color cycling
+            // cyclePrimaryColor();
+        });
+    </script>
+</body>
+</html>

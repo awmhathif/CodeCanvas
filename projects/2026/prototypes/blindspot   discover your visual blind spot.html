@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlindSpot — Discover Your Visual Blind Spot</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#08080e;--surface:rgba(14,16,26,0.96);--card:rgba(20,24,40,0.92);
+--border:rgba(255,255,255,0.06);--text:#d0d8e8;--dim:#556;
+--accent:#6c5ce7;--accent2:#00cec9;--accent3:#fd79a8;--warm:#fdcb6e;
+--green:#55efc4;--red:#ff7675;--blue:#74b9ff;
+--radius:12px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;user-select:none}
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+#header{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10}
+.brand{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
+.brand small{font-weight:400;font-size:10px;-webkit-text-fill-color:var(--dim);margin-left:6px;letter-spacing:1px;text-transform:uppercase}
+.hdr-group{display:flex;align-items:center;gap:8px}
+.btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;transition:all .2s;font-family:inherit}
+.btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.15)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-weight:600}
+.btn.primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn.active{background:rgba(108,92,231,0.15);border-color:var(--accent);color:var(--accent)}
+.btn.sm{padding:5px 12px;font-size:11px}
+
+#main{flex:1;display:flex;overflow:hidden;position:relative}
+#canvas-area{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+canvas{display:block}
+#sidebar{width:340px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#sidebar .panel-header{padding:14px 18px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between}
+#sidebar .panel-body{flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#sidebar .panel-body::-webkit-scrollbar{width:4px}
+#sidebar .panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.section{margin-bottom:18px}
+.section h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.info-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;font-size:12px;line-height:1.7;color:var(--dim)}
+.info-card strong{color:var(--text)}
+.info-card .highlight{color:var(--accent2);font-weight:600}
+
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.stat-row:last-child{border:none}
+.stat-row .label{color:var(--dim)}
+.stat-row .value{font-weight:600;font-variant-numeric:tabular-nums}
+
+.progress-ring{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(108,92,231,0.06);border-radius:var(--radius);margin-bottom:10px}
+.progress-ring canvas{flex-shrink:0}
+.progress-ring .pr-info{flex:1}
+.progress-ring .pr-info .pr-label{font-size:11px;color:var(--dim);margin-bottom:2px}
+.progress-ring .pr-info .pr-value{font-size:20px;font-weight:700}
+
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.slider-row label{font-size:11px;color:var(--dim);width:80px;flex-shrink:0}
+.slider-row input[type=range]{flex:1;height:4px;-webkit-appearance:none;background:rgba(255,255,255,0.08);border-radius:2px;outline:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid rgba(255,255,255,0.2)}
+.slider-row .val{font-size:10px;color:var(--dim);width:32px;text-align:right;font-variant-numeric:tabular-nums}
+
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.mode-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;transition:all .25s;text-align:center}
+.mode-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+.mode-card.active{border-color:var(--accent);background:rgba(108,92,231,0.1)}
+.mode-card .mc-icon{font-size:24px;margin-bottom:4px}
+.mode-card .mc-name{font-size:11px;font-weight:600}
+.mode-card .mc-desc{font-size:9px;color:var(--dim);margin-top:2px}
+
+.tab-row{display:flex;border-bottom:1px solid var(--border)}
+.tab-row .tab{flex:1;padding:9px;text-align:center;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);border-bottom:2px solid transparent;transition:all .2s}
+.tab-row .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+.eye-toggle{display:flex;gap:6px;margin-bottom:10px}
+.eye-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.03);cursor:pointer;text-align:center;transition:all .2s;font-size:12px;font-weight:600}
+.eye-btn:hover{background:rgba(255,255,255,0.06)}
+.eye-btn.active{border-color:var(--accent);background:rgba(108,92,231,0.1)}
+
+#overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}
+#overlay.hidden{display:none}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:560px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:24px;margin-bottom:6px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.modal p{font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:16px}
+.modal .btn{margin:4px}
+
+.step-indicator{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:16px}
+.step-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1);transition:all .3s}
+.step-dot.active{background:var(--accent);box-shadow:0 0 10px rgba(108,92,231,0.5)}
+.step-dot.done{background:var(--green)}
+
+.instruction-box{background:rgba(0,206,201,0.06);border:1px solid rgba(0,206,201,0.2);border-radius:var(--radius);padding:16px;margin-bottom:16px;text-align:left}
+.instruction-box h3{font-size:14px;color:var(--accent2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.instruction-box p{font-size:12px;color:var(--dim);line-height:1.6}
+.instruction-box .warn{color:var(--warm);font-weight:600;margin-top:8px;font-size:11px}
+
+#toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(108,92,231,0.2);border:1px solid var(--accent);color:var(--accent);padding:8px 24px;border-radius:24px;font-size:12px;z-index:60;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+
+.anatomy-svg{max-width:100%;margin:12px 0}
+
+@media(max-width:900px){
+  #sidebar{width:280px}
+}
+@media(max-width:700px){
+  #sidebar{display:none}
+  #main{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+<div class="brand">👁️ BlindSpot<small>Visual Science Explorer</small></div>
+<div class="hdr-group">
+<div class="btn sm" id="btn-help">❓ How It Works</div>
+<div class="btn sm" id="btn-reset">↻ Reset</div>
+<div class="btn sm" id="btn-fullscreen">⛶ Fullscreen</div>
+</div>
+</div>
+<div id="main">
+<div id="canvas-area">
+<canvas id="gc"></canvas>
+</div>
+<div id="sidebar">
+<div class="tab-row">
+<div class="tab active" data-tab="discover">Discover</div>
+<div class="tab" data-tab="explore">Explore</div>
+<div class="tab" data-tab="science">Science</div>
+</div>
+<div class="panel-body" id="sidebar-content"></div>
+</div>
+</div>
+</div>
+<div id="overlay" class="hidden"><div class="modal" id="modal-content"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const TAU=Math.PI*2;
+
+/* =========== STATE =========== */
+const S={
+  mode:'find',       // find | map | fill | demo | pattern | moving | custom
+  eye:'right',       // which eye to CLOSE (testing left eye's blind spot by closing right, etc.)
+  phase:'intro',     // intro | calibrate | searching | found | mapping | complete
+  tab:'discover',
+
+  // Screen & calibration
+  screenDist:60,     // cm from screen (estimated)
+  pxPerCm:0,         // computed
+
+  // Fixation point
+  fixX:0, fixY:0,
+
+  // Blind spot data (normalized to fixation)
+  blindSpot:null,    // {cx,cy,rx,ry} in px offset from fixation
+  mappedPoints:[],   // [{x,y,visible}] boundary mapping
+  boundaryPoints:[], // final boundary [{x,y}]
+
+  // Search state
+  searchX:0, searchY:0,
+  searchSpeed:2,
+  searchDir:1,
+  searchPhase:0,     // 0=horizontal sweep, 1=found horizontal, 2=vertical sweep, 3=done
+  lastVisible:true,
+  disappearX:0, disappearY:0,
+  reappearX:0, reappearY:0,
+  disappearYmin:0, disappearYmax:0,
+  foundCenter:{x:0,y:0},
+  foundRadiusX:0, foundRadiusY:0,
+
+  // Mapping state
+  mapAngle:0,
+  mapRadius:0,
+  mapDir:1,
+  mapPoints:[],
+
+  // Demo / visualization
+  demoTime:0,
+  demoFill:'pattern',  // pattern | color | image
+  showGrid:false,
+  showOverlay:true,
+  animPhase:0,
+
+  // Interaction
+  mouseX:0, mouseY:0,
+  probeX:0, probeY:0,
+  probeVisible:true,
+  
+  // Results
+  spotWidthDeg:0, spotHeightDeg:0,
+  spotAreaDeg:0,
+  measurements:[],
+};
+
+/* =========== CANVAS =========== */
+const canvas=$('#gc');
+const ctx=canvas.getContext('2d');
+let CW,CH;
+
+function resize(){
+  const area=$('#canvas-area');
+  CW=canvas.width=area.clientWidth;
+  CH=canvas.height=area.clientHeight;
+  // Estimate px per cm (assume 96 DPI as fallback)
+  const dpi=window.devicePixelRatio*96||96;
+  S.pxPerCm=dpi/2.54;
+  updateFixation();
+}
+window.addEventListener('resize',resize);
+
+function updateFixation(){
+  // Fixation point: in the center-ish, offset based on which eye
+  if(S.eye==='right'){
+    // Close right eye, look with left → blind spot is to the RIGHT of fixation
+    S.fixX=CW*0.35;
+  }else{
+    // Close left eye, look with right → blind spot is to the LEFT of fixation
+    S.fixX=CW*0.65;
+  }
+  S.fixY=CH*0.5;
+}
+
+resize();
+
+/* =========== SCIENCE DATA =========== */
+// The blind spot is approximately:
+// - 15° temporal from fixation (toward the ear side)
+// - Slightly below horizontal meridian (~1.5° below)
+// - About 5.5° wide and 7.5° tall
+// At 60cm viewing distance, 1° ≈ 1.05 cm ≈ ~40px at 96dpi
+
+function degToPx(deg){
+  const cmPerDeg=S.screenDist*Math.tan(Math.PI/180);
+  return cmPerDeg*S.pxPerCm*deg;
+}
+
+function pxToDeg(px){
+  const cmPerDeg=S.screenDist*Math.tan(Math.PI/180);
+  return px/(cmPerDeg*S.pxPerCm);
+}
+
+function getExpectedBlindSpot(){
+  const xDeg=S.eye==='right'?15:-15; // temporal side
+  const yDeg=1.5; // slightly below
+  const wDeg=5.5, hDeg=7.5;
+  return{
+    cx:S.fixX+degToPx(xDeg),
+    cy:S.fixY+degToPx(yDeg),
+    rx:degToPx(wDeg/2),
+    ry:degToPx(hDeg/2)
+  };
+}
+
+/* =========== MODES =========== */
+
+function startFind(){
+  S.mode='find';S.phase='searching';
+  S.searchPhase=0;
+  S.searchDir=1;
+  // Start probe to the expected side
+  const expected=getExpectedBlindSpot();
+  S.searchX=S.eye==='right'?S.fixX+50:S.fixX-50;
+  S.searchY=S.fixY;
+  S.lastVisible=true;
+  S.disappearX=0;S.reappearX=0;
+  S.disappearYmin=0;S.disappearYmax=0;
+  renderSidebar();
+}
+
+function startMap(){
+  if(!S.blindSpot){
+    toast('Find your blind spot first!');return;
+  }
+  S.mode='map';S.phase='mapping';
+  S.mapAngle=0;S.mapRadius=0;S.mapDir=1;
+  S.mapPoints=[];
+  S.boundaryPoints=[];
+  renderSidebar();
+}
+
+function startDemo(){
+  S.mode='demo';S.demoTime=0;
+  renderSidebar();
+}
+
+/* =========== DRAWING =========== */
+let lastTime=0;
+
+function draw(now){
+  requestAnimationFrame(draw);
+  const dt=Math.min((now-(lastTime||now))/1000,0.1);
+  lastTime=now;
+  S.demoTime+=dt;
+  S.animPhase+=dt;
+
+  ctx.clearRect(0,0,CW,CH);
+
+  // Background
+  drawBackground();
+
+  switch(S.mode){
+    case'find':drawFindMode(dt);break;
+    case'map':drawMapMode(dt);break;
+    case'demo':drawDemoMode(dt);break;
+    case'fill':drawFillMode(dt);break;
+    case'pattern':drawPatternMode(dt);break;
+    case'moving':drawMovingMode(dt);break;
+    case'custom':drawCustomMode(dt);break;
+  }
+
+  // Always draw fixation cross on top
+  drawFixation();
+
+  // Draw blind spot overlay
+  if(S.blindSpot&&S.showOverlay&&S.mode!=='demo'&&S.mode!=='fill'&&S.mode!=='pattern'){
+    drawBlindSpotOverlay();
+  }
+
+  // Instructions overlay on canvas
+  drawInstructions();
+}
+
+function drawBackground(){
+  ctx.fillStyle='#0a0a12';ctx.fillRect(0,0,CW,CH);
+  
+  // Subtle grid
+  if(S.showGrid){
+    ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=1;
+    for(let x=0;x<CW;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke()}
+    for(let y=0;y<CH;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke()}
+  }
+
+  // Distance rings from fixation (in degrees)
+  if(S.showGrid){
+    ctx.strokeStyle='rgba(255,255,255,0.04)';
+    for(let deg=5;deg<=30;deg+=5){
+      const r=degToPx(deg);
+      ctx.beginPath();ctx.arc(S.fixX,S.fixY,r,0,TAU);ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.06)';ctx.font='9px sans-serif';ctx.textAlign='center';
+      ctx.fillText(deg+'°',S.fixX+r+12,S.fixY-4);
+    }
+  }
+}
+
+function drawFixation(){
+  const x=S.fixX,y=S.fixY;
+  const sz=12;
+  // Outer glow
+  ctx.fillStyle='rgba(0,206,201,0.1)';
+  ctx.beginPath();ctx.arc(x,y,sz+8,0,TAU);ctx.fill();
+  // Cross
+  ctx.strokeStyle='#00cec9';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(x-sz,y);ctx.lineTo(x+sz,y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y-sz);ctx.lineTo(x,y+sz);ctx.stroke();
+  // Center dot
+  ctx.fillStyle='#00cec9';
+  ctx.beginPath();ctx.arc(x,y,3,0,TAU);ctx.fill();
+  // Label
+  ctx.fillStyle='rgba(0,206,201,0.5)';ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.fillText('FIXATE HERE',x,y+sz+16);
+  ctx.fillText('(keep staring at this +)',x,y+sz+28);
+}
+
+function drawProbe(x,y,radius,color,pulse){
+  const r=radius||10;
+  const c=color||'#ff7675';
+  if(pulse){
+    const p=Math.sin(S.animPhase*3)*0.3+0.7;
+    ctx.globalAlpha=p;
+  }
+  ctx.fillStyle=c;
+  ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();
+  // Glow
+  ctx.fillStyle=c+'33';
+  ctx.beginPath();ctx.arc(x,y,r+6,0,TAU);ctx.fill();
+  ctx.globalAlpha=1;
+}
+
+function drawBlindSpotOverlay(){
+  const bs=S.blindSpot;
+  // Dashed ellipse
+  ctx.strokeStyle='rgba(255,118,117,0.3)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Filled area
+  ctx.fillStyle='rgba(255,118,117,0.05)';
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.fill();
+
+  // Center mark
+  ctx.fillStyle='rgba(255,118,117,0.4)';
+  ctx.beginPath();ctx.arc(bs.cx,bs.cy,3,0,TAU);ctx.fill();
+
+  // Label
+  ctx.fillStyle='rgba(255,118,117,0.5)';ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.fillText('BLIND SPOT',bs.cx,bs.cy-bs.ry-8);
+
+  // Boundary points
+  if(S.boundaryPoints.length>2){
+    ctx.strokeStyle='rgba(255,118,117,0.4)';ctx.lineWidth=1.5;ctx.setLineDash([]);
+    ctx.beginPath();
+    S.boundaryPoints.forEach((p,i)=>{
+      if(i===0)ctx.moveTo(S.fixX+p.x,S.fixY+p.y);
+      else ctx.lineTo(S.fixX+p.x,S.fixY+p.y);
+    });
+    ctx.closePath();ctx.stroke();
+  }
+  
+  // Mapped points
+  S.mapPoints.forEach(p=>{
+    ctx.fillStyle=p.visible?'rgba(85,239,196,0.6)':'rgba(255,118,117,0.6)';
+    ctx.beginPath();ctx.arc(S.fixX+p.x,S.fixY+p.y,3,0,TAU);ctx.fill();
+  });
+}
+
+function drawInstructions(){
+  if(S.phase==='searching'||S.phase==='mapping'){
+    const eyeToClose=S.eye==='right'?'RIGHT':'LEFT';
+    const eyeToUse=S.eye==='right'?'LEFT':'RIGHT';
+    ctx.fillStyle='rgba(253,203,110,0.8)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+    ctx.fillText(`Close your ${eyeToClose} eye • Look at the + with your ${eyeToUse} eye`,CW/2,30);
+    ctx.fillStyle='rgba(253,203,110,0.5)';ctx.font='12px sans-serif';
+    ctx.fillText(`Keep your face ~${S.screenDist}cm from the screen`,CW/2,48);
+  }
+}
+
+/* =========== FIND MODE =========== */
+function drawFindMode(dt){
+  const speed=S.searchSpeed*degToPx(1)*dt; // degrees per second in px
+
+  if(S.searchPhase===0){
+    // Horizontal sweep — move probe outward from fixation
+    const dir=S.eye==='right'?1:-1;
+    S.searchX+=dir*speed*S.searchDir;
+
+    // Bounds check
+    const maxDist=degToPx(25);
+    const distFromFix=Math.abs(S.searchX-S.fixX);
+    if(distFromFix>maxDist)S.searchDir*=-1;
+    if(dir>0&&S.searchX<S.fixX+degToPx(5))S.searchDir=1;
+    if(dir<0&&S.searchX>S.fixX-degToPx(5))S.searchDir=-1;
+
+    drawProbe(S.searchX,S.fixY,12,'#ff7675',true);
+    
+    // Instruction
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Press SPACE when the red dot DISAPPEARS',CW/2,CH-40);
+    ctx.fillText('(The dot will vanish when it enters your blind spot)',CW/2,CH-22);
+  }
+  else if(S.searchPhase===1){
+    // Found disappearance point, now find reappearance
+    const dir=S.eye==='right'?1:-1;
+    S.searchX+=dir*speed*0.8;
+
+    drawProbe(S.searchX,S.fixY,12,'#ff7675',true);
+
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Press SPACE when the red dot REAPPEARS',CW/2,CH-40);
+  }
+  else if(S.searchPhase===2){
+    // Vertical sweep — find top/bottom of blind spot
+    const midX=(S.disappearX+S.reappearX)/2;
+    S.searchX=midX;
+    S.searchY+=speed*S.searchDir*0.7;
+
+    const maxVDist=degToPx(10);
+    if(Math.abs(S.searchY-S.fixY)>maxVDist)S.searchDir*=-1;
+
+    drawProbe(midX,S.searchY,12,'#ff7675',true);
+
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Press SPACE when the dot DISAPPEARS (finding vertical extent)',CW/2,CH-40);
+  }
+  else if(S.searchPhase===3){
+    // Finding bottom boundary
+    const midX=(S.disappearX+S.reappearX)/2;
+    S.searchX=midX;
+    S.searchY+=speed*S.searchDir*0.7;
+
+    drawProbe(midX,S.searchY,12,'#ff7675',true);
+
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Press SPACE when the dot REAPPEARS',CW/2,CH-40);
+  }
+  else if(S.searchPhase>=4){
+    // Done! Show result
+    if(S.blindSpot){
+      drawProbe(S.blindSpot.cx,S.blindSpot.cy,6,'#ff767588',false);
+    }
+    ctx.fillStyle='rgba(85,239,196,0.8)';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('✓ Blind spot located!',CW/2,CH-50);
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+    ctx.fillText('Use the sidebar to explore and map it in detail',CW/2,CH-30);
+  }
+}
+
+/* =========== MAP MODE =========== */
+function drawMapMode(dt){
+  if(!S.blindSpot)return;
+
+  const bs=S.blindSpot;
+  // Sweep a probe around the blind spot boundary
+  S.mapAngle+=dt*0.5; // slow rotation
+  if(S.mapAngle>TAU){S.mapAngle-=TAU}
+
+  // Probe moves in and out along current angle
+  S.mapRadius+=S.mapDir*degToPx(0.5)*dt;
+  const maxR=Math.max(bs.rx,bs.ry)*2;
+  if(S.mapRadius>maxR)S.mapDir=-1;
+  if(S.mapRadius<0){S.mapRadius=0;S.mapDir=1;S.mapAngle+=TAU/16}
+
+  const px=bs.cx+Math.cos(S.mapAngle)*S.mapRadius;
+  const py=bs.cy+Math.sin(S.mapAngle)*S.mapRadius;
+
+  drawProbe(px,py,8,'#74b9ff',true);
+
+  // Draw all mapped points
+  S.mapPoints.forEach(p=>{
+    ctx.fillStyle=p.visible?'rgba(85,239,196,0.5)':'rgba(255,118,117,0.5)';
+    ctx.beginPath();ctx.arc(S.fixX+p.x,S.fixY+p.y,3,0,TAU);ctx.fill();
+  });
+
+  // Scanning line
+  ctx.strokeStyle='rgba(116,185,255,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(bs.cx,bs.cy);ctx.lineTo(px,py);ctx.stroke();
+
+  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Press SPACE=invisible  V=visible (for the blue dot)',CW/2,CH-40);
+  ctx.fillText(`Mapping angle: ${Math.round(S.mapAngle*180/Math.PI)}° | Points: ${S.mapPoints.length}`,CW/2,CH-22);
+}
+
+/* =========== DEMO MODE — What the blind spot "looks like" =========== */
+function drawDemoMode(dt){
+  if(!S.blindSpot)return;
+  const bs=S.blindSpot;
+
+  // Draw background pattern that will be "filled in"
+  drawDemoBackground();
+
+  // The blind spot area — show what the brain "fills in"
+  ctx.save();
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.clip();
+
+  // Brain fills in by interpolating surrounding visual data
+  // Simulate this by blurring/stretching surrounding pattern into the blind spot
+  const grad=ctx.createRadialGradient(bs.cx,bs.cy,0,bs.cx,bs.cy,Math.max(bs.rx,bs.ry));
+  grad.addColorStop(0,'rgba(10,10,18,0.95)');
+  grad.addColorStop(0.7,'rgba(10,10,18,0.5)');
+  grad.addColorStop(1,'rgba(10,10,18,0)');
+
+  // Pulsing visibility to show what's there vs what's filled
+  const pulse=(Math.sin(S.demoTime*1.5)+1)/2;
+  ctx.globalAlpha=pulse;
+  ctx.fillStyle='rgba(255,50,50,0.2)';
+  ctx.fillRect(bs.cx-bs.rx,bs.cy-bs.ry,bs.rx*2,bs.ry*2);
+  ctx.globalAlpha=1;
+
+  ctx.restore();
+
+  // Boundary highlight
+  ctx.strokeStyle=`rgba(255,118,117,${0.3+pulse*0.4})`;ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.stroke();
+
+  // Moving objects that "vanish"
+  const objCount=5;
+  for(let i=0;i<objCount;i++){
+    const angle=S.demoTime*0.3+i*TAU/objCount;
+    const r=Math.max(bs.rx,bs.ry)*1.8;
+    const ox=bs.cx+Math.cos(angle)*r;
+    const oy=bs.cy+Math.sin(angle)*r*0.6;
+
+    // Check if inside blind spot
+    const dx=(ox-bs.cx)/bs.rx,dy=(oy-bs.cy)/bs.ry;
+    const inside=dx*dx+dy*dy<1;
+
+    if(!inside){
+      ctx.fillStyle=['#ff7675','#74b9ff','#55efc4','#fdcb6e','#a29bfe'][i];
+      ctx.beginPath();ctx.arc(ox,oy,8,0,TAU);ctx.fill();
+    }else{
+      // Ghost (show where it would be)
+      ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.arc(ox,oy,8,0,TAU);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Objects vanish inside your blind spot — your brain fills the gap!',CW/2,CH-30);
+}
+
+function drawDemoBackground(){
+  // Striped pattern to make filling-in visible
+  ctx.save();
+  for(let x=0;x<CW;x+=20){
+    ctx.fillStyle=x%40===0?'rgba(255,255,255,0.04)':'rgba(255,255,255,0.02)';
+    ctx.fillRect(x,0,10,CH);
+  }
+  for(let y=0;y<CH;y+=20){
+    ctx.fillStyle=y%40===0?'rgba(255,255,255,0.03)':'rgba(255,255,255,0.015)';
+    ctx.fillRect(0,y,CW,10);
+  }
+  ctx.restore();
+}
+
+/* =========== FILL-IN DEMO =========== */
+function drawFillMode(dt){
+  if(!S.blindSpot)return;
+  const bs=S.blindSpot;
+
+  // Draw colored background with a gap where blind spot is
+  const colors=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+
+  // Checkerboard
+  const tileSize=30;
+  for(let y=0;y<CH;y+=tileSize){
+    for(let x=0;x<CW;x+=tileSize){
+      const ci=((Math.floor(x/tileSize)+Math.floor(y/tileSize))%2);
+      ctx.fillStyle=ci?'rgba(108,92,231,0.15)':'rgba(0,206,201,0.15)';
+      ctx.fillRect(x,y,tileSize,tileSize);
+    }
+  }
+
+  // Show a red disc in the blind spot — close one eye and it disappears,
+  // brain fills with checkerboard pattern!
+  ctx.fillStyle='#e74c3c';
+  ctx.beginPath();ctx.arc(bs.cx,bs.cy,Math.min(bs.rx,bs.ry)*0.8,0,TAU);ctx.fill();
+
+  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Close one eye & stare at the + → the red circle should disappear!',CW/2,CH-40);
+  ctx.fillText('Your brain fills the gap with the checkerboard pattern.',CW/2,CH-22);
+}
+
+/* =========== PATTERN MODE =========== */
+function drawPatternMode(dt){
+  if(!S.blindSpot)return;
+  const bs=S.blindSpot;
+
+  // Draw line through blind spot — brain completes it
+  ctx.strokeStyle='#fdcb6e';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(bs.cx-bs.rx*3,bs.cy);ctx.lineTo(bs.cx+bs.rx*3,bs.cy);ctx.stroke();
+
+  // Gap indicator
+  ctx.strokeStyle='rgba(255,118,117,0.3)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Also draw vertical line
+  ctx.strokeStyle='#74b9ff';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(bs.cx,bs.cy-bs.ry*3);ctx.lineTo(bs.cx,bs.cy+bs.ry*3);ctx.stroke();
+
+  // Draw small shapes at blind spot — they complete patterns
+  const t=S.demoTime;
+  for(let i=0;i<8;i++){
+    const a=i*TAU/8+t*0.2;
+    const r=bs.rx*2;
+    const px=bs.cx+Math.cos(a)*r;
+    const py=bs.cy+Math.sin(a)*r*0.7;
+    ctx.fillStyle='rgba(85,239,196,0.6)';
+    ctx.beginPath();ctx.arc(px,py,6,0,TAU);ctx.fill();
+  }
+
+  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Close one eye & stare at + → Lines appear CONTINUOUS through the blind spot!',CW/2,CH-40);
+  ctx.fillText('Your brain interpolates the missing data to "complete" patterns.',CW/2,CH-22);
+}
+
+/* =========== MOVING OBJECT MODE =========== */
+function drawMovingMode(dt){
+  if(!S.blindSpot)return;
+  const bs=S.blindSpot;
+
+  // Moving dot that passes through blind spot
+  const period=4; // seconds for full pass
+  const t=(S.demoTime%period)/period;
+  const startX=bs.cx-bs.rx*3;
+  const endX=bs.cx+bs.rx*3;
+  const px=lerp(startX,endX,t);
+
+  // Is it inside blind spot?
+  const dx=(px-bs.cx)/bs.rx;
+  const inside=dx*dx<1;
+
+  // Draw trail
+  ctx.strokeStyle='rgba(253,203,110,0.15)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(startX,bs.cy);ctx.lineTo(endX,bs.cy);ctx.stroke();
+
+  // Draw dot
+  if(!inside){
+    ctx.fillStyle='#fdcb6e';
+    ctx.beginPath();ctx.arc(px,bs.cy,10,0,TAU);ctx.fill();
+    ctx.fillStyle='rgba(253,203,110,0.3)';
+    ctx.beginPath();ctx.arc(px,bs.cy,16,0,TAU);ctx.fill();
+  }
+
+  // Blind spot marker
+  ctx.strokeStyle='rgba(255,118,117,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.ellipse(bs.cx,bs.cy,bs.rx,bs.ry,0,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Close one eye & stare at + → Watch the moving dot vanish and reappear!',CW/2,CH-40);
+  ctx.fillText(`Ball ${inside?'IN BLIND SPOT — invisible!':'visible'}`,CW/2,CH-22);
+}
+
+/* =========== CUSTOM PROBE MODE =========== */
+function drawCustomMode(dt){
+  // User moves probe with mouse
+  drawProbe(S.mouseX,S.mouseY,10,'#a29bfe',false);
+
+  if(S.blindSpot){
+    const bs=S.blindSpot;
+    const dx=(S.mouseX-bs.cx)/bs.rx,dy=(S.mouseY-bs.cy)/bs.ry;
+    const inside=dx*dx+dy*dy<1;
+
+    ctx.fillStyle=inside?'rgba(255,118,117,0.8)':'rgba(85,239,196,0.8)';
+    ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText(inside?'⚠ INSIDE BLIND SPOT':'✓ Visible area',S.mouseX,S.mouseY-20);
+
+    // Distance from center of blind spot in degrees
+    const distPx=Math.hypot(S.mouseX-bs.cx,S.mouseY-bs.cy);
+    const distDeg=pxToDeg(distPx);
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='10px sans-serif';
+    ctx.fillText(`${distDeg.toFixed(1)}° from blind spot center`,S.mouseX,S.mouseY+24);
+  }
+
+  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Move your mouse around. Close one eye & stare at + to explore!',CW/2,CH-30);
+}
+
+/* =========== INPUT =========== */
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  S.mouseX=e.clientX-rect.left;S.mouseY=e.clientY-rect.top;
+});
+
+canvas.addEventListener('click',e=>{
+  if(S.mode==='custom')return;
+  // Click can also mark points in mapping mode
+  if(S.mode==='map'){
+    const ox=S.mouseX-S.fixX,oy=S.mouseY-S.fixY;
+    S.mapPoints.push({x:ox,y:oy,visible:true});
+    renderSidebar();
+  }
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key.toLowerCase();
+
+  if(k===' '){
+    e.preventDefault();
+    if(S.mode==='find'){
+      handleFindSpace();
+    }else if(S.mode==='map'){
+      // Mark current probe position as invisible
+      const bs=S.blindSpot;
+      if(bs){
+        const angle=S.mapAngle;const radius=S.mapRadius;
+        const ox=Math.cos(angle)*radius;
+        const oy=Math.sin(angle)*radius;
+        S.mapPoints.push({x:bs.cx-S.fixX+ox,y:bs.cy-S.fixY+oy,visible:false});
+        // Try to find boundary
+        updateBoundary();
+        renderSidebar();
+      }
+    }
+  }
+  else if(k==='v'&&S.mode==='map'){
+    const bs=S.blindSpot;
+    if(bs){
+      const angle=S.mapAngle;const radius=S.mapRadius;
+      const ox=Math.cos(angle)*radius;
+      const oy=Math.sin(angle)*radius;
+      S.mapPoints.push({x:bs.cx-S.fixX+ox,y:bs.cy-S.fixY+oy,visible:true});
+      updateBoundary();
+      renderSidebar();
+    }
+  }
+  else if(k==='g'){S.showGrid=!S.showGrid}
+  else if(k==='o'){S.showOverlay=!S.showOverlay}
+  else if(k==='1')switchMode('find');
+  else if(k==='2')switchMode('map');
+  else if(k==='3')switchMode('demo');
+  else if(k==='4')switchMode('fill');
+  else if(k==='5')switchMode('pattern');
+  else if(k==='6')switchMode('moving');
+  else if(k==='7')switchMode('custom');
+});
+
+function handleFindSpace(){
+  if(S.searchPhase===0){
+    // First disappearance
+    S.disappearX=S.searchX;
+    S.searchPhase=1;
+    toast('Disappearance at '+pxToDeg(Math.abs(S.disappearX-S.fixX)).toFixed(1)+'°');
+  }
+  else if(S.searchPhase===1){
+    // Reappearance
+    S.reappearX=S.searchX;
+    S.searchPhase=2;
+    S.searchDir=-1; // start scanning up
+    S.searchY=S.fixY;
+    toast('Reappearance marked. Now finding vertical extent...');
+  }
+  else if(S.searchPhase===2){
+    // Top boundary
+    S.disappearYmin=S.searchY;
+    S.searchPhase=3;
+    S.searchDir=1; // scan down
+    S.searchY=S.fixY;
+    toast('Top boundary marked. Find bottom...');
+  }
+  else if(S.searchPhase===3){
+    // Bottom boundary
+    S.disappearYmax=S.searchY;
+    S.searchPhase=4;
+
+    // Calculate blind spot
+    const cx=(S.disappearX+S.reappearX)/2;
+    const cy=(S.disappearYmin+S.disappearYmax)/2;
+    const rx=Math.abs(S.reappearX-S.disappearX)/2;
+    const ry=Math.abs(S.disappearYmax-S.disappearYmin)/2;
+
+    S.blindSpot={cx,cy,rx:Math.max(rx,10),ry:Math.max(ry,10)};
+    S.phase='found';
+
+    // Calculate degrees
+    S.spotWidthDeg=pxToDeg(rx*2);
+    S.spotHeightDeg=pxToDeg(ry*2);
+    S.spotAreaDeg=Math.PI*S.spotWidthDeg/2*S.spotHeightDeg/2;
+
+    const centerDeg=pxToDeg(Math.abs(cx-S.fixX));
+    S.measurements.push({
+      eye:S.eye,
+      centerDeg,
+      width:S.spotWidthDeg,
+      height:S.spotHeightDeg,
+      area:S.spotAreaDeg,
+      time:new Date().toLocaleTimeString()
+    });
+
+    toast('Blind spot found! ~'+S.spotWidthDeg.toFixed(1)+'° × '+S.spotHeightDeg.toFixed(1)+'°');
+    renderSidebar();
+  }
+}
+
+function updateBoundary(){
+  // From mapped invisible points, find convex boundary
+  const invisible=S.mapPoints.filter(p=>!p.visible);
+  if(invisible.length<3)return;
+
+  // Simple boundary: find points at extremes of each angle
+  const boundary=[];
+  const steps=24;
+  for(let i=0;i<steps;i++){
+    const angle=i*TAU/steps;
+    const dx=Math.cos(angle),dy=Math.sin(angle);
+    let maxR=0;
+    invisible.forEach(p=>{
+      const proj=p.x*dx+p.y*dy;
+      if(proj>maxR)maxR=proj;
+    });
+    if(maxR>0)boundary.push({x:dx*maxR,y:dy*maxR});
+  }
+  S.boundaryPoints=boundary;
+
+  // Update blind spot estimate
+  if(boundary.length>4){
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    boundary.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)});
+    S.blindSpot.rx=Math.max((maxX-minX)/2,10);
+    S.blindSpot.ry=Math.max((maxY-minY)/2,10);
+    S.spotWidthDeg=pxToDeg(S.blindSpot.rx*2);
+    S.spotHeightDeg=pxToDeg(S.blindSpot.ry*2);
+    S.spotAreaDeg=Math.PI*S.spotWidthDeg/2*S.spotHeightDeg/2;
+  }
+}
+
+function switchMode(mode){
+  if(mode==='find')startFind();
+  else if(mode==='map')startMap();
+  else if(mode==='demo')startDemo();
+  else{S.mode=mode;S.demoTime=0}
+  renderSidebar();
+}
+
+/* =========== SIDEBAR =========== */
+function renderSidebar(){
+  const el=$('#sidebar-content');
+  if(S.tab==='discover')renderDiscoverTab(el);
+  else if(S.tab==='explore')renderExploreTab(el);
+  else if(S.tab==='science')renderScienceTab(el);
+}
+
+function renderDiscoverTab(el){
+  let h='';
+  // Eye selection
+  h+=`<div class="section"><h4>👁️ Select Eye to Test</h4>
+    <div class="eye-toggle">
+      <div class="eye-btn ${S.eye==='right'?'active':''}" onclick="S.eye='right';updateFixation();renderSidebar()">Close RIGHT eye<br><small>Test left eye's blind spot</small></div>
+      <div class="eye-btn ${S.eye==='left'?'active':''}" onclick="S.eye='left';updateFixation();renderSidebar()">Close LEFT eye<br><small>Test right eye's blind spot</small></div>
+    </div>
+  </div>`;
+
+  // Distance
+  h+=`<div class="section"><h4>📏 Viewing Distance</h4>
+    <div class="slider-row"><label>Distance</label><input type="range" min="30" max="100" value="${S.screenDist}" id="dist-slider"><span class="val">${S.screenDist}cm</span></div>
+    <div class="info-card">Position your face <strong>${S.screenDist}cm</strong> (~${Math.round(S.screenDist/2.54)} inches) from the screen. Arm's length is usually about 60cm.</div>
+  </div>`;
+
+  // Instructions
+  h+=`<div class="section">
+    <div class="instruction-box">
+      <h3>🔍 How to Find Your Blind Spot</h3>
+      <p>1. Close your <strong>${S.eye==='right'?'RIGHT':'LEFT'}</strong> eye<br>
+      2. Stare at the <span class="highlight">teal + cross</span> with your other eye<br>
+      3. A red dot will move across the screen<br>
+      4. Press <strong>SPACE</strong> when the dot <strong>disappears</strong><br>
+      5. Press <strong>SPACE</strong> again when it <strong>reappears</strong><br>
+      6. Then we'll find the vertical extent</p>
+      <div class="warn">⚠ Keep your eye FIXED on the cross — don't follow the dot!</div>
+    </div>
+    <div class="btn primary" style="width:100%;text-align:center;padding:12px" onclick="startFind()">▶ Start Finding Blind Spot</div>
+  </div>`;
+
+  // Speed control
+  h+=`<div class="section"><h4>⚙️ Settings</h4>
+    <div class="slider-row"><label>Probe Speed</label><input type="range" min="0.5" max="5" step="0.1" value="${S.searchSpeed}" id="speed-slider"><span class="val">${S.searchSpeed}°/s</span></div>
+    <div class="slider-row"><label>Show Grid</label><div class="btn sm ${S.showGrid?'active':''}" onclick="S.showGrid=!S.showGrid;renderSidebar()">Grid ${S.showGrid?'ON':'OFF'}</div></div>
+    <div class="slider-row"><label>Show Overlay</label><div class="btn sm ${S.showOverlay?'active':''}" onclick="S.showOverlay=!S.showOverlay;renderSidebar()">Overlay ${S.showOverlay?'ON':'OFF'}</div></div>
+  </div>`;
+
+  // Results
+  if(S.blindSpot){
+    const bs=S.blindSpot;
+    const centerDeg=pxToDeg(Math.abs(bs.cx-S.fixX));
+    h+=`<div class="section"><h4>📊 Results</h4>
+      <div class="progress-ring">
+        <canvas id="ring-canvas" width="60" height="60"></canvas>
+        <div class="pr-info"><div class="pr-label">Blind Spot Found</div><div class="pr-value" style="color:var(--green)">✓</div></div>
+      </div>
+      <div class="info-card">
+        <div class="stat-row"><span class="label">Center offset</span><span class="value">${centerDeg.toFixed(1)}° from fixation</span></div>
+        <div class="stat-row"><span class="label">Width</span><span class="value">${S.spotWidthDeg.toFixed(1)}°</span></div>
+        <div class="stat-row"><span class="label">Height</span><span class="value">${S.spotHeightDeg.toFixed(1)}°</span></div>
+        <div class="stat-row"><span class="label">Area</span><span class="value">~${S.spotAreaDeg.toFixed(1)} sq°</span></div>
+        <div class="stat-row"><span class="label">Eye tested</span><span class="value">${S.eye==='right'?'Left (closed right)':'Right (closed left)'}</span></div>
+        <div class="stat-row"><span class="label">Typical range</span><span class="value">5-6° × 7-8°</span></div>
+      </div>
+    </div>`;
+  }
+
+  // Measurement history
+  if(S.measurements.length>0){
+    h+=`<div class="section"><h4>📋 Measurement History</h4>`;
+    S.measurements.forEach((m,i)=>{
+      h+=`<div class="info-card"><strong>#${i+1}</strong> (${m.time})<br>
+        Eye: ${m.eye==='right'?'Left':'Right'} | Center: ${m.centerDeg.toFixed(1)}°<br>
+        Size: ${m.width.toFixed(1)}° × ${m.height.toFixed(1)}° | Area: ${m.area.toFixed(1)} sq°</div>`;
+    });
+    h+=`</div>`;
+  }
+
+  el.innerHTML=h;
+
+  // Bind sliders
+  const distSlider=$('#dist-slider');
+  if(distSlider)distSlider.oninput=()=>{S.screenDist=parseInt(distSlider.value);distSlider.nextElementSibling.textContent=S.screenDist+'cm';renderSidebar()};
+  const speedSlider=$('#speed-slider');
+  if(speedSlider)speedSlider.oninput=()=>{S.searchSpeed=parseFloat(speedSlider.value);speedSlider.nextElementSibling.textContent=S.searchSpeed.toFixed(1)+'°/s'};
+
+  // Draw ring
+  const ringC=document.getElementById('ring-canvas');
+  if(ringC&&S.blindSpot){
+    const rc=ringC.getContext('2d');
+    rc.clearRect(0,0,60,60);
+    rc.strokeStyle='rgba(255,255,255,0.1)';rc.lineWidth=5;
+    rc.beginPath();rc.arc(30,30,24,0,TAU);rc.stroke();
+    rc.strokeStyle='var(--green)';rc.lineWidth=5;rc.lineCap='round';
+    rc.beginPath();rc.arc(30,30,24,-Math.PI/2,-Math.PI/2+TAU);rc.stroke();
+    rc.fillStyle='#55efc4';rc.font='bold 14px sans-serif';rc.textAlign='center';rc.textBaseline='middle';
+    rc.fillText('✓',30,30);
+  }
+}
+
+function renderExploreTab(el){
+  let h='';
+  h+=`<div class="section"><h4>🎮 Exploration Modes</h4>
+    <div class="mode-grid">
+      <div class="mode-card ${S.mode==='find'?'active':''}" onclick="switchMode('find')"><div class="mc-icon">🔍</div><div class="mc-name">Find</div><div class="mc-desc">Locate blind spot</div></div>
+      <div class="mode-card ${S.mode==='map'?'active':''}" onclick="switchMode('map')"><div class="mc-icon">🗺️</div><div class="mc-name">Map</div><div class="mc-desc">Map exact boundary</div></div>
+      <div class="mode-card ${S.mode==='demo'?'active':''}" onclick="switchMode('demo')"><div class="mc-icon">🎭</div><div class="mc-name">Vanishing</div><div class="mc-desc">Watch objects disappear</div></div>
+      <div class="mode-card ${S.mode==='fill'?'active':''}" onclick="switchMode('fill')"><div class="mc-icon">🧩</div><div class="mc-name">Fill-In</div><div class="mc-desc">See brain completion</div></div>
+      <div class="mode-card ${S.mode==='pattern'?'active':''}" onclick="switchMode('pattern')"><div class="mc-icon">〰️</div><div class="mc-name">Pattern</div><div class="mc-desc">Line completion</div></div>
+      <div class="mode-card ${S.mode==='moving'?'active':''}" onclick="switchMode('moving')"><div class="mc-icon">🔵</div><div class="mc-name">Moving</div><div class="mc-desc">Moving object vanishes</div></div>
+      <div class="mode-card ${S.mode==='custom'?'active':''}" onclick="switchMode('custom')"><div class="mc-icon">🖱️</div><div class="mc-name">Free Probe</div><div class="mc-desc">Mouse-controlled probe</div></div>
+    </div>
+  </div>`;
+
+  if(!S.blindSpot){
+    h+=`<div class="info-card" style="text-align:center;padding:20px">
+      <strong>Find your blind spot first!</strong><br>
+      <span style="color:var(--dim)">Switch to the "Discover" tab and run the finding procedure.</span><br><br>
+      <div class="btn primary" onclick="S.tab='discover';$$('.tab').forEach(t=>t.classList.remove('active'));$$('.tab')[0].classList.add('active');renderSidebar()">Go to Discover</div>
+    </div>`;
+  }else{
+    h+=`<div class="section"><h4>📐 Quick Estimate</h4>
+      <div class="info-card">
+        <strong>Alternatively</strong>, if the automatic detection didn't work well, you can use the expected physiological position:
+        <br><br>
+        <div class="btn sm" onclick="useExpected()">Use Expected Position</div>
+      </div>
+    </div>`;
+
+    h+=`<div class="section"><h4>Mode Info</h4>
+      <div class="info-card">`;
+    if(S.mode==='demo')h+=`<strong>Vanishing Demo:</strong> Objects orbit around your blind spot. Close one eye, stare at the +, and watch them vanish when they enter the blind zone. The boundary pulses to show the region.`;
+    else if(S.mode==='fill')h+=`<strong>Fill-In Demo:</strong> A red circle sits in your blind spot against a checkerboard pattern. When you close one eye and fixate on the +, the circle vanishes and your brain fills the space with the surrounding checkerboard.`;
+    else if(S.mode==='pattern')h+=`<strong>Pattern Completion:</strong> Lines pass through your blind spot. Your brain "completes" the lines so they appear continuous, even though there's actually no visual data in that region!`;
+    else if(S.mode==='moving')h+=`<strong>Moving Object:</strong> A ball moves horizontally across your blind spot. Watch it disappear and reappear as it passes through.`;
+    else if(S.mode==='custom')h+=`<strong>Free Probe:</strong> Move your mouse around the canvas. The indicator tells you when you're inside the estimated blind spot region.`;
+    else if(S.mode==='map')h+=`<strong>Boundary Mapping:</strong> A blue probe sweeps around. Press SPACE when it's invisible, V when visible. This builds a detailed map of your blind spot's actual shape.`;
+    else h+=`<strong>Find Mode:</strong> Follow the prompts to locate your blind spot using the disappearing probe technique.`;
+    h+=`</div></div>`;
+
+    // Map data
+    if(S.mapPoints.length>0){
+      h+=`<div class="section"><h4>🗺️ Mapped Points: ${S.mapPoints.length}</h4>
+        <div class="info-card">
+          <span style="color:var(--green)">● Visible: ${S.mapPoints.filter(p=>p.visible).length}</span> | 
+          <span style="color:var(--red)">● Invisible: ${S.mapPoints.filter(p=>!p.visible).length}</span>
+          ${S.boundaryPoints.length>0?`<br>Boundary points: ${S.boundaryPoints.length}`:''}
+          <br><br>
+          <div class="btn sm" onclick="S.mapPoints=[];S.boundaryPoints=[];renderSidebar()">Clear Map Data</div>
+        </div>
+      </div>`;
+    }
+  }
+
+  h+=`<div class="section"><h4>⌨️ Keyboard Shortcuts</h4>
+    <div class="info-card">
+      <div class="stat-row"><span class="label">Space</span><span class="value">Mark disappear/reappear</span></div>
+      <div class="stat-row"><span class="label">V</span><span class="value">Mark visible (mapping)</span></div>
+      <div class="stat-row"><span class="label">G</span><span class="value">Toggle grid</span></div>
+      <div class="stat-row"><span class="label">O</span><span class="value">Toggle overlay</span></div>
+      <div class="stat-row"><span class="label">1-7</span><span class="value">Switch modes</span></div>
+    </div>
+  </div>`;
+
+  el.innerHTML=h;
+}
+
+function renderScienceTab(el){
+  let h=`
+    <div class="section">
+      <h4>🧠 Why Do We Have a Blind Spot?</h4>
+      <div class="info-card">
+        <p>Every human eye has a <strong>blind spot</strong> (scotoma) — a region in your visual field where you literally <strong>cannot see anything</strong>.</p>
+        <p>This happens because of the <strong class="highlight">optic disc</strong> — the point where the optic nerve exits the retina. At this location, there are <strong>zero photoreceptor cells</strong> (no rods, no cones). Light hitting this spot produces no signal.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>👁️ Anatomy</h4>
+      <div class="info-card">
+        <p>The optic disc is located:</p>
+        <p>• <strong>~15° nasal</strong> from the fovea (center of gaze)</p>
+        <p>• <strong>~1.5° below</strong> the horizontal meridian</p>
+        <p>• Approximately <strong>5.5° wide × 7.5° tall</strong></p>
+        <p style="margin-top:8px">Because optics invert the image, the <strong>blind spot appears on the temporal side</strong> (toward your ear) of each eye's visual field:</p>
+        <p>• <strong>Left eye:</strong> blind spot is to the <strong>right</strong></p>
+        <p>• <strong>Right eye:</strong> blind spot is to the <strong>left</strong></p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>🧩 Why Don't We Notice It?</h4>
+      <div class="info-card">
+        <p>Three mechanisms prevent you from normally noticing your blind spot:</p>
+        <p><strong>1. Binocular compensation:</strong> With both eyes open, the blind spot of one eye is covered by the other eye's field of view.</p>
+        <p><strong>2. Neural filling-in:</strong> Your brain actively <strong>"paints over"</strong> the blind spot using information from surrounding visual areas. It extrapolates colors, patterns, and textures to create a seamless visual experience.</p>
+        <p><strong>3. Saccadic masking:</strong> Your eyes constantly make tiny movements (saccades), which help gather data from different positions, further disguising the gap.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>🔬 Filling-In Phenomena</h4>
+      <div class="info-card">
+        <p>The brain's filling-in mechanism is remarkably sophisticated:</p>
+        <p><strong>• Texture completion:</strong> Surrounding patterns are extended into the blind spot</p>
+        <p><strong>• Color spreading:</strong> Colors from edges are spread inward</p>
+        <p><strong>• Contour completion:</strong> Lines passing through appear continuous</p>
+        <p><strong>• Motion interpolation:</strong> Moving objects are predicted through the gap</p>
+        <p style="margin-top:8px">This is <strong>not</strong> just "ignoring" the gap — it's active construction. Your brain is literally <strong>inventing visual information</strong> based on context.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>📐 Size in Context</h4>
+      <div class="info-card">
+        <p>The blind spot is surprisingly large:</p>
+        <p>• At arm's length (~60cm), it's about the size of a <strong>lemon</strong></p>
+        <p>• It covers roughly <strong>6° × 8°</strong> of visual field</p>
+        <p>• That's about <strong>10×</strong> the size of the full moon in the sky</p>
+        <p>• In total visual field area, the blind spots represent about <strong>0.4%</strong> of each eye's view</p>
+        ${S.blindSpot?`<p style="margin-top:8px;color:var(--accent2)"><strong>Your measured blind spot:</strong> ${S.spotWidthDeg.toFixed(1)}° × ${S.spotHeightDeg.toFixed(1)}° (${S.spotAreaDeg.toFixed(1)} sq°)</p>`:''}
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>🐙 Fun Fact: Octopus Eyes</h4>
+      <div class="info-card">
+        <p>Octopuses and squids have <strong>no blind spot!</strong></p>
+        <p>Their retinas evolved differently — the photoreceptors face <strong>forward</strong> (toward the light), and nerve fibers run <strong>behind</strong> the retina. So there's no need for an optic disc hole.</p>
+        <p>Vertebrate eyes have the "wiring" in front of the photoreceptors (an evolutionary quirk), requiring the optic nerve to punch through the retina to exit — creating our blind spot.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>⚕️ Clinical Significance</h4>
+      <div class="info-card">
+        <p>While the natural blind spot is normal, <strong>enlarged or abnormally positioned</strong> blind spots can indicate:</p>
+        <p>• <strong>Glaucoma</strong> — increased intraocular pressure damages optic nerve fibers</p>
+        <p>• <strong>Papilledema</strong> — swelling of the optic disc due to elevated intracranial pressure</p>
+        <p>• <strong>Optic neuritis</strong> — inflammation of the optic nerve</p>
+        <p style="margin-top:8px;color:var(--warm)">⚠ This tool is for <strong>educational purposes only</strong>. If you notice vision changes, please consult an eye care professional.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>🔗 The Discoveries</h4>
+      <div class="info-card">
+        <p>The blind spot was discovered by <strong>Edme Mariotte</strong> in 1660. He famously demonstrated it to King Charles II, who used it to "decapitate" his subjects by positioning their heads in his blind spot!</p>
+        <p>The neural filling-in phenomenon was first seriously studied by <strong>Ramachandran</strong> in the 1990s, showing that the brain doesn't just "ignore" the gap but actively constructs missing information.</p>
+      </div>
+    </div>
+  `;
+
+  el.innerHTML=h;
+}
+
+function useExpected(){
+  S.blindSpot=getExpectedBlindSpot();
+  S.spotWidthDeg=5.5;S.spotHeightDeg=7.5;
+  S.spotAreaDeg=Math.PI*2.75*3.75;
+  S.phase='found';
+  toast('Using expected blind spot position (15° temporal, ~5.5°×7.5°)');
+  renderSidebar();
+}
+
+/* =========== UI EVENTS =========== */
+
+$$('.tab').forEach(t=>{
+  t.onclick=()=>{
+
+    $$('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+    S.tab=t.dataset.tab;renderSidebar();
+  };
+});
+
+$('#btn-reset').onclick=()=>{
+  S.blindSpot=null;S.phase='intro';S.mode='find';S.searchPhase=0;
+  S.mapPoints=[];S.boundaryPoints=[];S.measurements=[];
+  renderSidebar();toast('Reset complete');
+};
+
+$('#btn-fullscreen').onclick=()=>{
+  if(document.fullscreenElement)document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+};
+
+$('#btn-help').onclick=()=>{showHelpModal()};
+
+function showHelpModal(){
+  $('#overlay').classList.remove('hidden');
+  $('#modal-content').innerHTML=`
+    <h2>👁️ How It Works</h2>
+    <p>Every human has a <strong>blind spot</strong> in each eye where the optic nerve connects to the retina. There are NO photoreceptor cells at this point — you literally cannot see there.</p>
+    <p>Your brain normally fills in this gap so seamlessly you never notice it. This tool helps you <strong>find, map, and explore</strong> your personal blind spot.</p>
+    <div class="instruction-box">
+      <h3>📋 Quick Start</h3>
+      <p>1. Sit about <strong>60cm</strong> from your screen<br>
+      2. Choose which eye to test<br>
+      3. <strong>Close</strong> the selected eye<br>
+      4. <strong>Stare</strong> at the teal + cross — don't let your eye wander!<br>
+      5. Press <strong>SPACE</strong> when the red probe dot <strong>disappears</strong><br>
+      6. Follow prompts to fully locate the blind spot<br>
+      7. Then explore all the fascinating demos!</p>
+    </div>
+    <p style="font-size:11px;color:var(--dim)">7 exploration modes • Boundary mapping • Fill-in demos • Pattern completion • Moving object tests • Full neuroscience explanations</p>
+    <div class="btn primary" onclick="$('#overlay').classList.add('hidden')">Got It — Let's Explore!</div>
+  `;
+}
+
+function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2500)}
+
+/* =========== INIT =========== */
+renderSidebar();
+showHelpModal();
+requestAnimationFrame(draw);
+
+</script>
+</body>
+</html>

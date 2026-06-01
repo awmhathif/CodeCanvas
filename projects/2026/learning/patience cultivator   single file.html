@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Patience Cultivator — Single File</title>
+  <style>
+    /* A calm, paper-like theme (no glassmorphism, no dark-blue neon) */
+    :root{
+      --paper:#fbfaf6;
+      --paper2:#f3f1ea;
+      --ink:#1f2328;
+      --muted:#5b6472;
+      --line:#d7d3c8;
+      --accent:#2b6d4f;      /* forest green */
+      --accent2:#b46b2a;     /* clay */
+      --good:#2f7d55;
+      --warn:#b46b2a;
+      --bad:#a33a3a;
+
+      --shadow: 0 6px 22px rgba(20,20,20,.08);
+      --r:16px;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; background:var(--paper2); color:var(--ink); font-family:var(--sans); overflow:hidden}
+    #app{
+      position:fixed; inset:0;
+      display:grid;
+      grid-template-columns: 380px 1fr 360px;
+      gap:14px;
+      padding:14px;
+    }
+    .panel{
+      background:var(--paper);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-width: 260px;
+    }
+    .bar{
+      padding:14px 14px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      background:linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0));
+    }
+    h1{
+      font-size:14px;
+      margin:0;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .pill{
+      font-family:var(--mono);
+      font-size:11px;
+      padding:4px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+      background:rgba(0,0,0,.02);
+      white-space:nowrap;
+    }
+    .sec{
+      padding:14px;
+      border-bottom:1px solid var(--line);
+    }
+    .sec:last-child{border-bottom:0}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:6px; flex:1 1 auto}
+    label{font-size:12px; color:var(--muted)}
+    button, select, input[type="text"], input[type="number"], textarea{
+      font: inherit;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      padding:10px 12px;
+      outline:none;
+    }
+    button{
+      cursor:pointer;
+      background: #fff;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{border-color:#bfb8aa}
+    button:active{transform: translateY(1px)}
+    button.primary{
+      background: var(--accent);
+      border-color: var(--accent);
+      color:#fff;
+    }
+    button.primary:hover{background:#245a41}
+    button.ghost{
+      background: transparent;
+    }
+    button.bad{
+      border-color:#e2b7b7;
+      color: var(--bad);
+    }
+    button.bad:hover{border-color:#d79a9a}
+    input[type="range"]{width:100%}
+    textarea{
+      min-height: 88px;
+      resize: vertical;
+    }
+    .tiny{font-size:11px; color:var(--muted); line-height:1.35}
+    .sep{height:1px; background:var(--line); margin:12px 0}
+
+    /* Center "garden" */
+    #center{
+      position:relative;
+      background: radial-gradient(900px 500px at 30% 20%, rgba(43,109,79,.10) 0%, rgba(0,0,0,0) 60%),
+                  radial-gradient(900px 500px at 70% 70%, rgba(180,107,42,.10) 0%, rgba(0,0,0,0) 60%),
+                  var(--paper);
+    }
+    #canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+    #overlay{
+      position:absolute; left:14px; top:14px;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(255,255,255,.80);
+      backdrop-filter: blur(0px);
+      box-shadow: 0 8px 22px rgba(0,0,0,.06);
+      font-family:var(--mono);
+      font-size:12px;
+      color:#2f343c;
+      max-width:min(760px, calc(100% - 28px));
+    }
+    #toast{
+      position:absolute;
+      left:50%; bottom:14px;
+      transform:translateX(-50%);
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 28px rgba(0,0,0,.08);
+      display:none;
+      max-width:min(920px, calc(100% - 28px));
+      color:var(--ink);
+    }
+
+    /* Progress visuals */
+    .meter{
+      height:10px;
+      border-radius:999px;
+      background: #efece3;
+      border:1px solid var(--line);
+      overflow:hidden;
+    }
+    .meter > div{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, var(--accent), #5aa07c);
+      transition: width .25s ease;
+    }
+    .meter.alt > div{
+      background: linear-gradient(90deg, var(--accent2), #d7a06a);
+    }
+    .kpi{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .card{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: #fff;
+      padding:12px;
+    }
+    .card .v{
+      font-family:var(--mono);
+      font-size:14px;
+      color:var(--ink);
+    }
+    .card .k{
+      margin-top:4px;
+      font-size:11px;
+      color:var(--muted);
+      text-transform: uppercase;
+      letter-spacing:.4px;
+    }
+
+    /* Log */
+    #log{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      overflow:auto;
+      max-height: 280px;
+    }
+    .entry{
+      padding:10px 12px;
+      border-bottom:1px solid #eee9de;
+      font-family:var(--mono);
+      font-size:11px;
+      color:#37404a;
+      line-height:1.35;
+    }
+    .entry:last-child{border-bottom:0}
+    .tag{
+      display:inline-block;
+      font-family:var(--mono);
+      font-size:10px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      color:var(--muted);
+      background: rgba(0,0,0,.02);
+      margin-left:6px;
+      vertical-align:1px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px){
+      html,body{overflow:auto}
+      #app{grid-template-columns:1fr; grid-template-rows:auto 56vh auto; overflow:auto}
+      #center{height:56vh}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Left: Practice -->
+  <aside class="panel">
+    <div class="bar">
+      <div>
+        <h1>Patience Cultivator</h1>
+        <div class="sub">Rewards only come through sustained waiting. No grinding. No spam clicking.</div>
+      </div>
+      <div class="pill" id="statusPill">CALM</div>
+    </div>
+
+    <div class="sec">
+      <div class="row">
+        <button class="primary" id="btnStart">Begin Session</button>
+        <button id="btnPause">Pause</button>
+        <button class="ghost" id="btnBreath">1‑minute Breath</button>
+        <button class="bad" id="btnReset">Reset</button>
+      </div>
+      <div class="tiny" style="margin-top:10px">
+        The core rule: <b>patience grows when you keep the app open and do nothing compulsive</b>.
+        Switching tabs / frantic clicking reduces growth.
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Session Focus</label>
+      <div class="row" style="margin-top:8px">
+        <select id="focus">
+          <option value="stillness" selected>Stillness (best growth)</option>
+          <option value="reading">Reading (gentle growth)</option>
+          <option value="work">Work (steady growth)</option>
+          <option value="rest">Rest (slow growth)</option>
+        </select>
+        <select id="chime">
+          <option value="off" selected>Chime: Off</option>
+          <option value="soft">Chime: Soft</option>
+          <option value="medium">Chime: Medium</option>
+        </select>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="col">
+        <label>Patience (long‑term)</label>
+        <div class="meter"><div id="patBar"></div></div>
+        <div class="tiny"><span id="patTxt">—</span></div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="col">
+        <label>Composure (short‑term, recovers when calm)</label>
+        <div class="meter alt"><div id="comBar"></div></div>
+        <div class="tiny"><span id="comTxt">—</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Rules (tunable)</label>
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label>Growth Rate</label>
+          <input id="rate" type="range" min="0.25" max="2.0" step="0.01" value="1.0"/>
+        </div>
+        <div class="col">
+          <label>Distraction Penalty</label>
+          <input id="penalty" type="range" min="0" max="1" step="0.01" value="0.35"/>
+        </div>
+      </div>
+      <div class="tiny" style="margin-top:8px">
+        Growth Rate affects how fast patience accumulates. Distraction Penalty affects how harshly impatience drains composure.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Center: Garden -->
+  <main class="panel" id="center">
+    <canvas id="canvas"></canvas>
+    <div id="overlay"></div>
+    <div id="toast"></div>
+  </main>
+
+  <!-- Right: Rewards / Reflection -->
+  <aside class="panel">
+    <div class="bar">
+      <div>
+        <h1>Rewards & Reflection</h1>
+        <div class="sub">Rewards unlock only after sustained waiting (streak-based, not click-based).</div>
+      </div>
+      <div class="pill" id="dayPill">Day —</div>
+    </div>
+
+    <div class="sec">
+      <label>Progress</label>
+      <div class="kpi" style="margin-top:10px">
+        <div class="card">
+          <div class="v" id="streakV">0:00</div>
+          <div class="k">Current streak</div>
+        </div>
+        <div class="card">
+          <div class="v" id="bestV">0:00</div>
+          <div class="k">Best streak</div>
+        </div>
+        <div class="card">
+          <div class="v" id="tokensV">0</div>
+          <div class="k">Patience tokens</div>
+        </div>
+        <div class="card">
+          <div class="v" id="lvlV">1</div>
+          <div class="k">Cultivation level</div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <label>Reward Wheel (time‑locked)</label>
+      <div class="tiny" style="margin-top:8px">
+        You can only claim when a timer completes. Claiming early gives nothing.
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="btnClaim" disabled>Claim Reward</button>
+        <button id="btnSetGoal">Set Goal</button>
+      </div>
+      <div class="tiny" style="margin-top:8px">
+        Next reward in: <span id="nextReward">—</span>
+        <span class="tag" id="rewardTag">locked</span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Reflection Note (saved)</label>
+      <textarea id="note" placeholder="What did you notice while waiting? (Saved automatically)"></textarea>
+      <div class="tiny" style="margin-top:8px">
+        One sentence is enough. The habit is the point.
+      </div>
+    </div>
+
+    <div class="sec">
+      <label>Session Log</label>
+      <div id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const SAVE_KEY = "patience_cultivator_v1";
+
+  const $ = (q)=>document.querySelector(q);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const now=()=>performance.now();
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx=null;
+
+  function toast(msg, ms=1600){
+    const el=$("#toast");
+    el.textContent=msg;
+    el.style.display="block";
+    toast.until = now()+ms;
+  }
+  toast.until=0;
+
+  function fmtTime(sec){
+    sec=Math.max(0, Math.floor(sec));
+    const h=Math.floor(sec/3600);
+    const m=Math.floor((sec%3600)/60);
+    const s=sec%60;
+    if(h>0) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    return `${m}:${String(s).padStart(2,"0")}`;
+  }
+
+  function dayKey(){
+    // local day key
+    const d=new Date();
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), da=String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${da}`;
+  }
+
+  // ---------------- State ----------------
+  const S = {
+    v:1,
+    running:false,
+    paused:false,
+
+    // "Patience" grows slowly, persistent; 0..infty (we show level)
+    patienceXP: 0,
+    level: 1,
+
+    // composure 0..1 short-term; affects growth multiplier
+    composure: 0.85,
+
+    // streak tracking
+    streakSec: 0,
+    bestStreakSec: 0,
+
+    // reward
+    tokens: 0,
+    rewardGoalSec: 8*60,   // default 8 minutes
+    rewardReadyAt: null,   // epoch ms, set when session starts or claim made
+
+    // behavior signals
+    lastActionAt: Date.now(),
+    actionCountWindow: 0,
+    windowStartAt: Date.now(),
+    tabHiddenPenalty: 0,
+
+    // settings
+    focus: "stillness",
+    chime: "off",
+    growthRate: 1.0,
+    penalty: 0.35,
+
+    // journaling
+    note: "",
+
+    // daily stats
+    day: dayKey(),
+    todayTokens: 0,
+
+    // log
+    log: []
+  };
+
+  function addLog(kind, msg){
+    const t=new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+    S.log.unshift({t, kind, msg});
+    if(S.log.length>120) S.log.pop();
+    renderLog();
+  }
+
+  function save(){
+    const payload = {
+      ...S,
+      // do not persist transient window counters exactly; but ok to keep
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  }
+
+  function load(){
+    try{
+      const raw=localStorage.getItem(SAVE_KEY);
+      if(!raw) return;
+      const j=JSON.parse(raw);
+      if(!j || j.v!==1) return;
+      Object.assign(S, j);
+
+      // day rollover
+      const dk=dayKey();
+      if(S.day !== dk){
+        S.day = dk;
+        S.todayTokens = 0;
+        addLog("DAY", "New day. Fresh start.");
+      }
+    }catch{}
+  }
+
+  function resetAll(){
+    if(!confirm("Reset all progress? This clears patience, streaks, tokens, and notes.")) return;
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
+  }
+
+  // ---------------- Patience Mechanics ----------------
+  function focusMultiplier(){
+    switch(S.focus){
+      case "stillness": return 1.00;
+      case "reading": return 0.78;
+      case "work": return 0.70;
+      case "rest": return 0.55;
+      default: return 0.75;
+    }
+  }
+
+  function calmMultiplier(){
+    // composure boosts growth; low composure strongly reduces it
+    // 0 -> 0.10x, 1 -> 1.10x
+    return 0.10 + S.composure*1.00;
+  }
+
+  function distractionScore(){
+    // look at actions per 10s window + tab hidden
+    const t=Date.now();
+    const windowSec = Math.max(1, (t - S.windowStartAt)/1000);
+    const apm = (S.actionCountWindow / windowSec) * 60;
+    // threshold: >24 actions/min looks fidgety; <8 is calm
+    const fidget = clamp((apm - 8) / (24 - 8), 0, 1);
+    const hidden = clamp(S.tabHiddenPenalty, 0, 1);
+    return clamp(0.65*fidget + 0.35*hidden, 0, 1);
+  }
+
+  function registerAction(kind="action"){
+    const t=Date.now();
+    S.lastActionAt=t;
+
+    // count within rolling window
+    if(t - S.windowStartAt > 10000){
+      S.windowStartAt = t;
+      S.actionCountWindow = 0;
+    }
+    S.actionCountWindow++;
+
+    // small immediate composure hit for fidgeting
+    const hit = 0.006 + 0.010*clamp(S.penalty,0,1);
+    S.composure = clamp(S.composure - hit, 0, 1);
+
+    if(kind!=="tick") saveSoon();
+  }
+
+  let saveSoonT=0;
+  function saveSoon(){
+    saveSoonT = now() + 400;
+  }
+
+  function ensureRewardTimer(){
+    if(!S.rewardReadyAt){
+      S.rewardReadyAt = Date.now() + S.rewardGoalSec*1000;
+    }
+  }
+
+  function maybeChime(kind){
+    if(S.chime==="off") return;
+    const vol = S.chime==="soft" ? 0.06 : 0.12;
+    try{
+      if(!audioCtx) audioCtx = new AudioCtx();
+      const ctx=audioCtx;
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      o.type="sine";
+      o.frequency.value = kind==="reward" ? 660 : 528;
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(ctx.destination);
+      const t0=ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+0.35);
+      o.start(t0);
+      o.stop(t0+0.38);
+    }catch{}
+  }
+
+  function claimReward(){
+    const t=Date.now();
+    if(!S.rewardReadyAt) return;
+    if(t < S.rewardReadyAt){
+      toast("Not yet. The reward only comes when the time truly completes.");
+      addLog("CLAIM", "Attempted early claim (no reward).");
+      // composure penalty for impatience
+      S.composure = clamp(S.composure - (0.04 + 0.06*S.penalty), 0, 1);
+      registerAction("claim_early");
+      renderAll();
+      return;
+    }
+
+    // Reward: tokens scale with sustained calmness & streak; no clicking bonus.
+    // Base 1 token, plus small bonus if streak > goal by a lot.
+    const over = Math.max(0, (t - S.rewardReadyAt)/1000);
+    const bonus = Math.floor(clamp(over / (S.rewardGoalSec*0.75), 0, 3));
+    const gained = 1 + bonus;
+
+    S.tokens += gained;
+    S.todayTokens += gained;
+
+    // patience XP grows with each completed wait
+    const xpGain = (S.rewardGoalSec/60) * 2.0 * calmMultiplier() * focusMultiplier() * S.growthRate;
+    S.patienceXP += xpGain;
+
+    // level up curve
+    while(S.patienceXP >= xpToNext(S.level)){
+      S.patienceXP -= xpToNext(S.level);
+      S.level++;
+      addLog("LEVEL", `Level up → ${S.level}`);
+      toast(`Level up! You are now level ${S.level}.`, 1700);
+      maybeChime("level");
+    }
+
+    addLog("REWARD", `Claimed +${gained} token(s).`);
+    toast(`Reward claimed: +${gained} patience token(s).`, 1600);
+    maybeChime("reward");
+
+    // schedule next reward from now (not from previous target)
+    S.rewardReadyAt = Date.now() + S.rewardGoalSec*1000;
+
+    // claiming does not reset streak; impatience does.
+    registerAction("claim");
+    renderAll();
+    saveSoon();
+  }
+
+  function xpToNext(level){
+    // gentle growth: next XP increases slowly
+    return 60 + Math.floor(level*18 + Math.pow(level, 1.35)*8);
+  }
+
+  // ---------------- UI / Rendering ----------------
+  const canvas=$("#canvas");
+  const ctx=canvas.getContext("2d");
+
+  const garden = {
+    // visual metaphor: a plant grows with patience; composure affects sway/brightness
+    stem: 0.2,
+    leaves: 0.15,
+    bloom: 0.0,
+    wind: 0.0
+  };
+
+  function resize(){
+    const r=canvas.getBoundingClientRect();
+    const dpr=Math.min(devicePixelRatio||1, 2);
+    canvas.width=Math.floor(r.width*dpr);
+    canvas.height=Math.floor(r.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", resize);
+
+  function renderGarden(dt){
+    const w=canvas.clientWidth, h=canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+
+    // background paper texture (procedural)
+    ctx.save();
+    ctx.fillStyle = "#fbfaf6";
+    ctx.fillRect(0,0,w,h);
+
+    // subtle fibers
+    ctx.globalAlpha=0.07;
+    ctx.fillStyle="#000";
+    for(let i=0;i<140;i++){
+      const x=Math.random()*w;
+      const y=Math.random()*h;
+      const lw=40+Math.random()*120;
+      const ang=Math.random()*Math.PI*2;
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(ang);
+      ctx.fillRect(-lw/2, -0.5, lw, 1);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // compute growth targets from patience + level
+    const lvl=S.level;
+    const patNorm = clamp((lvl-1)/30 + (S.patienceXP/(xpToNext(lvl)*30)), 0, 1);
+    const comp=S.composure;
+
+    // animate
+    garden.wind = lerp(garden.wind, (1-comp)*0.7, 1-Math.pow(0.001, dt));
+    garden.stem = lerp(garden.stem, 0.25 + patNorm*0.65, 1-Math.pow(0.002, dt));
+    garden.leaves = lerp(garden.leaves, 0.18 + patNorm*0.70, 1-Math.pow(0.002, dt));
+    garden.bloom = lerp(garden.bloom, clamp((lvl-1)/18, 0, 1), 1-Math.pow(0.002, dt));
+
+    const cx=w*0.50, cy=h*0.82;
+    const stemH=h*(0.18 + garden.stem*0.55);
+    const sway = Math.sin(performance.now()*0.0012) * (10 + garden.wind*24);
+
+    // ground
+    ctx.save();
+    ctx.fillStyle = "#efece3";
+    ctx.fillRect(0, cy+18, w, h-(cy+18));
+    // subtle soil line
+    ctx.strokeStyle = "rgba(0,0,0,.10)";
+    ctx.beginPath();
+    ctx.moveTo(0, cy+18);
+    ctx.lineTo(w, cy+18);
+    ctx.stroke();
+    ctx.restore();
+
+    // pot
+    drawPot(cx, cy+18);
+
+    // stem path
+    ctx.save();
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    const stemCol = mixHex("#2b6d4f", "#1f2328", clamp((1-comp)*0.25,0,0.25));
+    ctx.strokeStyle = stemCol;
+    ctx.lineWidth = 10;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    const k1x = cx + sway*0.25;
+    const k1y = cy - stemH*0.35;
+    const k2x = cx + sway*0.60;
+    const k2y = cy - stemH*0.70;
+    const topX = cx + sway*0.85;
+    const topY = cy - stemH;
+    ctx.bezierCurveTo(k1x,k1y, k2x,k2y, topX,topY);
+    ctx.stroke();
+
+    // highlight
+    ctx.globalAlpha=0.18;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(cx-2, cy);
+    ctx.bezierCurveTo(k1x-2,k1y, k2x-2,k2y, topX-2,topY);
+    ctx.stroke();
+    ctx.restore();
+
+    // leaves
+    drawLeaves(cx, cy, topX, topY, stemH, garden.leaves, comp);
+
+    // bloom
+    drawBloom(topX, topY, garden.bloom, comp);
+
+    // calm rings when idle
+    const idleSec = (Date.now()-S.lastActionAt)/1000;
+    if(idleSec>8 && S.running && !S.paused){
+      drawCalmRings(w,h, idleSec);
+    }
+  }
+
+  function drawPot(cx, yTop){
+    const w=160, h=85;
+    ctx.save();
+    ctx.translate(cx, yTop);
+    ctx.fillStyle="#d9d0c1";
+    roundRect(-w/2, 0, w, h, 18);
+    ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,.10)";
+    ctx.stroke();
+    ctx.fillStyle="#cdbfaa";
+    roundRect(-w/2+14, 18, w-28, h-30, 14);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawLeaves(cx, cy, topX, topY, stemH, leafAmt, comp){
+    const n = Math.floor(2 + leafAmt*6);
+    const baseLen = 48 + leafAmt*120;
+    for(let i=0;i<n;i++){
+      const t = (i+1)/(n+1);
+      // position along stem
+      const px = lerp(cx, topX, t);
+      const py = lerp(cy, topY, t);
+      const side = (i%2===0) ? -1 : 1;
+      const len = baseLen * (0.35 + t*0.65);
+      const ang = side*(0.55 + t*0.55) + Math.sin(performance.now()*0.0014 + i)*0.08*(1-comp*0.7);
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(ang);
+      // leaf
+      const lw = 18 + t*26;
+      const lh = len*0.38;
+      ctx.fillStyle = mixHex("#2f7d55", "#5aa07c", clamp(comp,0,1));
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.quadraticCurveTo(lh*0.55, -lw, lh, 0);
+      ctx.quadraticCurveTo(lh*0.55, lw, 0, 0);
+      ctx.fill();
+
+      // vein
+      ctx.globalAlpha=0.22;
+      ctx.strokeStyle="#ffffff";
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(lh*0.92, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
+  function drawBloom(x, y, bloomAmt, comp){
+    if(bloomAmt<=0.02) return;
+    const petals = 6 + Math.floor(bloomAmt*6);
+    const r = 10 + bloomAmt*26;
+    const pulse = 1 + Math.sin(performance.now()*0.0018)*0.06*(1-comp*0.7);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(pulse, pulse);
+
+    // petals
+    for(let i=0;i<petals;i++){
+      const a = (i/petals)*Math.PI*2;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = mixHex("#b46b2a", "#d7a06a", clamp(comp,0,1));
+      ctx.beginPath();
+      ctx.ellipse(r*0.65, 0, r*0.70, r*0.32, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // center
+    ctx.globalAlpha=0.95;
+    ctx.fillStyle="#f3d27b";
+    ctx.beginPath();
+    ctx.arc(0,0, r*0.38, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.globalAlpha=0.15;
+    ctx.fillStyle="#000";
+    ctx.beginPath();
+    ctx.arc(2,2, r*0.38, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawCalmRings(w,h, idleSec){
+    const cx=w*0.50, cy=h*0.62;
+    const n=3;
+    for(let i=0;i<n;i++){
+      const t=(idleSec*0.35 + i*0.55);
+      const r=40 + (t%1)*140;
+      const a=clamp(1 - (t%1), 0, 1)*0.10;
+      ctx.save();
+      ctx.globalAlpha=a;
+      ctx.strokeStyle="#2b6d4f";
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function roundRect(x,y,w,h,r){
+    r=Math.max(0, Math.min(r, Math.min(w,h)/2));
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function mixHex(a,b,t){
+    // a,b like "#rrggbb"
+    const pa=parseInt(a.slice(1),16), pb=parseInt(b.slice(1),16);
+    const ar=(pa>>16)&255, ag=(pa>>8)&255, ab=pa&255;
+    const br=(pb>>16)&255, bg=(pb>>8)&255, bb=pb&255;
+    const r=Math.round(lerp(ar,br,t)), g=Math.round(lerp(ag,bg,t)), bl=Math.round(lerp(ab,bb,t));
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function renderAll(){
+    // bars
+    const lvl=S.level;
+    const xpNeed=xpToNext(lvl);
+    const patPct = clamp(S.patienceXP / xpNeed, 0, 1);
+    $("#patBar").style.width = (patPct*100).toFixed(1)+"%";
+    $("#patTxt").textContent = `Level ${lvl} • XP ${S.patienceXP.toFixed(1)} / ${xpNeed} • grows from sustained waiting`;
+
+    $("#comBar").style.width = (S.composure*100).toFixed(1)+"%";
+    $("#comTxt").textContent = `${Math.round(S.composure*100)}% • drops with fidgeting, recovers with calm`;
+
+    // KPIs
+    $("#streakV").textContent = fmtTime(S.streakSec);
+    $("#bestV").textContent = fmtTime(S.bestStreakSec);
+    $("#tokensV").textContent = String(S.tokens);
+    $("#lvlV").textContent = String(S.level);
+
+    // reward
+    ensureRewardTimer();
+    const t=Date.now();
+    const left = Math.max(0, Math.ceil((S.rewardReadyAt - t)/1000));
+    const ready = left===0;
+
+    $("#nextReward").textContent = ready ? "Ready" : fmtTime(left);
+    $("#rewardTag").textContent = ready ? "ready" : "locked";
+    $("#btnClaim").disabled = !ready;
+
+    // day
+    $("#dayPill").textContent = `Day ${S.day} • Today +${S.todayTokens}`;
+
+    // note
+    $("#note").value = S.note || "";
+
+    // status
+    $("#statusPill").textContent =
+      !S.running ? "IDLE" :
+      S.paused ? "PAUSED" :
+      (S.composure>0.72 ? "CALM" : S.composure>0.45 ? "WAVERING" : "RESTLESS");
+
+    // overlay
+    const idleSec = (Date.now()-S.lastActionAt)/1000;
+    const ds = distractionScore();
+    $("#overlay").innerHTML =
+      `focus=${S.focus}  rate=${S.growthRate.toFixed(2)}  penalty=${S.penalty.toFixed(2)}\n`+
+      `streak=${fmtTime(S.streakSec)}  idle=${idleSec.toFixed(1)}s  distraction=${ds.toFixed(2)}\n`+
+      `rule: patience grows when you keep waiting without chasing rewards.`;
+
+    renderLog();
+  }
+
+  function renderLog(){
+    const el=$("#log");
+    if(!S.log.length){
+      el.innerHTML = `<div class="entry">No entries yet. Begin a session and simply wait.</div>`;
+      return;
+    }
+    el.innerHTML = S.log.map(x=>`<div class="entry">[${x.t}] <b>${escapeHtml(x.kind)}</b> — ${escapeHtml(x.msg)}</div>`).join("");
+  }
+
+  function escapeHtml(s){
+    return (s??"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  // ---------------- Session Control ----------------
+  function begin(){
+    if(S.running && !S.paused) return;
+    S.running=true;
+    S.paused=false;
+    ensureRewardTimer();
+    addLog("SESSION", "Begin. (Try doing nothing for a while.)");
+    toast("Session started. Let the waiting do the work.");
+    maybeChime("start");
+    renderAll();
+    saveSoon();
+  }
+
+  function pause(){
+    if(!S.running) return;
+    S.paused=!S.paused;
+    addLog("SESSION", S.paused ? "Paused." : "Resumed.");
+    toast(S.paused ? "Paused." : "Resumed.");
+    registerAction("pause");
+    renderAll();
+    saveSoon();
+  }
+
+  // 1-minute breath: guided timer; rewards nothing directly, but helps composure recover
+  let breath = {on:false, t:0, phase:0};
+  function startBreath(){
+    breath.on=true;
+    breath.t=60;
+    breath.phase=0;
+    toast("Breath: inhale 4 • hold 2 • exhale 6 (repeat).", 2200);
+    addLog("BREATH", "1-minute breathing started.");
+    registerAction("breath");
+    renderAll();
+  }
+
+  // ---------------- Main loop ----------------
+  let lastT=now();
+  let autosaveAcc=0;
+
+  function tick(){
+    const t=now();
+    let dt=(t-lastT)/1000;
+    lastT=t;
+    dt=clamp(dt, 0, 0.2);
+
+    // toast hide
+    const te=$("#toast");
+    if(te.style.display!=="none" && t>toast.until) te.style.display="none";
+
+    // day rollover
+    const dk=dayKey();
+    if(S.day !== dk){
+      S.day = dk;
+      S.todayTokens = 0;
+      addLog("DAY", "New day. Fresh start.");
+      saveSoon();
+    }
+
+    // if tab hidden, build penalty over time
+    if(document.hidden){
+      S.tabHiddenPenalty = clamp(S.tabHiddenPenalty + dt*0.35, 0, 1);
+    }else{
+      // recover penalty slowly if visible
+      S.tabHiddenPenalty = clamp(S.tabHiddenPenalty - dt*0.25, 0, 1);
+    }
+
+    // breath timer
+    if(breath.on && !S.paused){
+      breath.t -= dt;
+      breath.phase += dt;
+      if(breath.t <= 0){
+        breath.on=false;
+        // composure boost for completing
+        S.composure = clamp(S.composure + 0.08, 0, 1);
+        addLog("BREATH", "Completed. Composure improved.");
+        toast("Breath complete.");
+        maybeChime("level");
+        saveSoon();
+      }
+    }
+
+    // core growth: only when running, not paused, and page visible
+    if(S.running && !S.paused){
+      // recover composure gently when idle (no actions)
+      const idleSec = (Date.now()-S.lastActionAt)/1000;
+      const idleBoost = clamp((idleSec-2)/20, 0, 1); // >2s gives boost
+      const ds = distractionScore();
+
+      // composure recovery depends on how calm you are (and not hidden)
+      const rec = (0.008 + 0.030*idleBoost) * (1 - ds) * (document.hidden?0.15:1.0);
+      S.composure = clamp(S.composure + rec*dt, 0, 1);
+
+      // impatience drain if fidgeting/hidden
+      const drain = (0.010 + 0.050*ds) * (0.3 + S.penalty) * (document.hidden?1.25:1.0);
+      S.composure = clamp(S.composure - drain*dt, 0, 1);
+
+      // streak only grows when visible (the "waiting" is the practice)
+      if(!document.hidden){
+        S.streakSec += dt;
+        S.bestStreakSec = Math.max(S.bestStreakSec, S.streakSec);
+      }
+
+      // patience XP grows slowly, scaled by composure, focus, and anti-distraction
+      const baseXPperSec = 0.020; // very slow: ~1.2 XP/min at rate 1, then multipliers
+      const mult = S.growthRate * focusMultiplier() * calmMultiplier() * (1 - ds*0.85) * (document.hidden?0.10:1.0);
+      const xpGain = baseXPperSec * mult * dt;
+      S.patienceXP += xpGain;
+
+      // small decay on streak if extremely restless (teaches sustained calm)
+      if(S.composure < 0.18 && ds > 0.65){
+        S.streakSec = Math.max(0, S.streakSec - dt*2.2);
+      }
+
+      // leveling (slow, steady)
+      while(S.patienceXP >= xpToNext(S.level)){
+        S.patienceXP -= xpToNext(S.level);
+        S.level++;
+        addLog("LEVEL", `Level up → ${S.level}`);
+        toast(`Level up: ${S.level}.`, 1600);
+        maybeChime("level");
+      }
+
+      // reward readiness UI update
+      ensureRewardTimer();
+
+      // gentle milestone logs (not spammy)
+      maybeMilestones();
+    }
+
+    // autosave (and "saveSoon" debounce)
+    autosaveAcc += dt;
+    if(autosaveAcc >= 20){
+      autosaveAcc = 0;
+      save();
+    }
+    if(saveSoonT && t>saveSoonT){
+      saveSoonT=0;
+      save();
+    }
+
+    renderAll();
+    renderGarden(dt);
+
+    requestAnimationFrame(tick);
+  }
+
+  let lastMilestoneMin = 0;
+  function maybeMilestones(){
+    const min = Math.floor(S.streakSec/60);
+    if(min>0 && min!==lastMilestoneMin && (min===1 || min===3 || min===5 || min===10 || min===15 || min===20 || min===30 || min===45 || min===60)){
+      lastMilestoneMin=min;
+      addLog("MILESTONE", `Streak reached ${min} minute(s).`);
+      if(S.chime!=="off") maybeChime("level");
+    }
+  }
+
+  // ---------------- UI wiring ----------------
+  function wire(){
+    $("#btnStart").onclick=()=>{ registerAction("start"); begin(); };
+    $("#btnPause").onclick=()=>{ registerAction("pause"); pause(); };
+    $("#btnBreath").onclick=()=>{ registerAction("breath"); startBreath(); };
+
+    $("#btnReset").onclick=()=>{ registerAction("reset"); resetAll(); };
+
+    $("#focus").onchange=(e)=>{ S.focus=e.target.value; addLog("FOCUS", `Focus set to ${S.focus}.`); registerAction("focus"); saveSoon(); };
+    $("#chime").onchange=(e)=>{ S.chime=e.target.value; addLog("CHIME", `Chime set to ${S.chime}.`); registerAction("chime"); saveSoon(); };
+
+    $("#rate").oninput=(e)=>{ S.growthRate=Number(e.target.value); registerAction("rate"); };
+    $("#penalty").oninput=(e)=>{ S.penalty=Number(e.target.value); registerAction("penalty"); };
+
+    $("#btnClaim").onclick=()=>{ registerAction("claim"); claimReward(); };
+
+    $("#btnSetGoal").onclick=()=>{
+      registerAction("goal");
+      const curMin = Math.max(1, Math.round(S.rewardGoalSec/60));
+      const v = prompt("Reward goal (minutes). Rewards only claim after waiting this long.\nRecommended: 5–30.", String(curMin));
+      if(v===null) return;
+      const min = clamp(parseInt(v,10)||curMin, 1, 180);
+      S.rewardGoalSec = min*60;
+      // reset reward timer from now
+      S.rewardReadyAt = Date.now() + S.rewardGoalSec*1000;
+      addLog("GOAL", `Reward goal set to ${min} minute(s).`);
+      toast(`Goal set to ${min} min. Next reward timer restarted.`, 1800);
+      saveSoon();
+    };
+
+    $("#note").addEventListener("input",(e)=>{
+      S.note = e.target.value;
+      // no action penalty for journaling; it's part of practice
+      saveSoon();
+    });
+
+    // passive fidget detection: lots of clicks/keys drains composure
+    window.addEventListener("pointerdown", (e)=>{
+      // ignore clicking inside textarea (writing notes)
+      const tag = (e.target && e.target.tagName) ? e.target.tagName : "";
+      if(tag==="TEXTAREA" || tag==="INPUT" || tag==="SELECT") return;
+      registerAction("pointer");
+    }, {passive:true});
+
+    window.addEventListener("keydown",(e)=>{
+      const tag=(e.target && e.target.tagName) ? e.target.tagName : "";
+      if(tag==="TEXTAREA" || tag==="INPUT" || tag==="SELECT") return;
+      // Only count "fidget" keys (not modifiers)
+      if(e.key.length===1 || ["Enter","Backspace","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
+        registerAction("key");
+      }
+      if(e.key===" "){ e.preventDefault(); } // prevent page scroll
+      if(e.key==="b" || e.key==="B") startBreath();
+      if(e.key==="p" || e.key==="P") pause();
+    });
+
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden){
+        // if user leaves tab, streak doesn't progress; composure will drain a bit
+        addLog("FOCUS", "Tab hidden (attention drift).");
+      }else{
+        addLog("FOCUS", "Tab visible (return).");
+      }
+      saveSoon();
+    });
+  }
+
+  // ---------------- Boot ----------------
+  function boot(){
+    load();
+    // UI init from state
+    $("#focus").value = S.focus;
+    $("#chime").value = S.chime;
+    $("#rate").value = S.growthRate;
+    $("#penalty").value = S.penalty;
+
+    if(!S.rewardReadyAt) S.rewardReadyAt = Date.now() + S.rewardGoalSec*1000;
+    $("#dayPill").textContent = `Day ${S.day}`;
+
+    wire();
+    resize();
+    renderAll();
+    requestAnimationFrame(tick);
+
+    addLog("SYSTEM", "Loaded.");
+    toast("Tip: set a goal (5–30 min), then minimize fidgeting.");
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

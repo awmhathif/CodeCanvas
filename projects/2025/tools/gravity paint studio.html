@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Paint Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #canvas {
+            display: block;
+            cursor: crosshair;
+            background: #0f0f1e;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            max-width: 280px;
+            z-index: 1000;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #a0a0c0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #2a2a4a;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            padding: 8px;
+            font-size: 11px;
+            background: #2a2a4a;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        }
+
+        .preset-colors {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .preset-color {
+            width: 100%;
+            height: 35px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .preset-color:hover {
+            transform: scale(1.1);
+            border-color: white;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                max-width: 250px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <h2>🎨 Gravity Paint</h2>
+        
+        <div class="mode-buttons">
+            <button class="mode-btn active" data-mode="normal">Normal</button>
+            <button class="mode-btn" data-mode="attract">Attract</button>
+            <button class="mode-btn" data-mode="repel">Repel</button>
+        </div>
+
+        <div class="preset-colors">
+            <div class="preset-color" style="background: #FF6B6B;" data-color="#FF6B6B"></div>
+            <div class="preset-color" style="background: #4ECDC4;" data-color="#4ECDC4"></div>
+            <div class="preset-color" style="background: #45B7D1;" data-color="#45B7D1"></div>
+            <div class="preset-color" style="background: #FFA07A;" data-color="#FFA07A"></div>
+            <div class="preset-color" style="background: #98D8C8;" data-color="#98D8C8"></div>
+            <div class="preset-color" style="background: #F7DC6F;" data-color="#F7DC6F"></div>
+            <div class="preset-color" style="background: #BB8FCE;" data-color="#BB8FCE"></div>
+            <div class="preset-color" style="background: #85C1E2;" data-color="#85C1E2"></div>
+            <div class="preset-color" style="background: #F8B739;" data-color="#F8B739"></div>
+            <div class="preset-color" style="background: #52BE80;" data-color="#52BE80"></div>
+        </div>
+        
+        <div class="control-group">
+            <label>Color <span class="value-display" id="colorValue">#FF6B6B</span></label>
+            <input type="color" id="colorPicker" value="#FF6B6B">
+        </div>
+        
+        <div class="control-group">
+            <label>Brush Size <span class="value-display" id="sizeValue">20</span></label>
+            <input type="range" id="brushSize" min="5" max="50" value="20">
+        </div>
+        
+        <div class="control-group">
+            <label>Gravity <span class="value-display" id="gravityValue">0.3</span></label>
+            <input type="range" id="gravity" min="0" max="1" step="0.05" value="0.3">
+        </div>
+        
+        <div class="control-group">
+            <label>Wind Force <span class="value-display" id="windValue">0.0</span></label>
+            <input type="range" id="wind" min="-0.5" max="0.5" step="0.05" value="0">
+        </div>
+        
+        <div class="control-group">
+            <label>Particle Life <span class="value-display" id="lifeValue">120</span></label>
+            <input type="range" id="particleLife" min="30" max="300" value="120">
+        </div>
+        
+        <div class="control-group">
+            <label>Emission Rate <span class="value-display" id="emissionValue">5</span></label>
+            <input type="range" id="emission" min="1" max="15" value="5">
+        </div>
+        
+        <div class="button-group">
+            <button id="clearBtn">Clear Canvas</button>
+            <button id="saveBtn">Save Image</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Particle class
+        class Particle {
+            constructor(x, y, color, mode) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 3 + 2;
+                this.color = color;
+                this.life = settings.particleLife;
+                this.maxLife = settings.particleLife;
+                this.mode = mode;
+                this.alpha = 1;
+            }
+
+            update(particles) {
+                // Apply gravity
+                this.vy += settings.gravity;
+                
+                // Apply wind
+                this.vx += settings.wind;
+                
+                // Apply friction
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+
+                // Particle interactions
+                if (this.mode === 'attract' || this.mode === 'repel') {
+                    particles.forEach(other => {
+                        if (other === this) return;
+                        
+                        const dx = other.x - this.x;
+                        const dy = other.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 100 && dist > 0) {
+                            const force = this.mode === 'attract' ? 0.1 : -0.1;
+                            const fx = (dx / dist) * force;
+                            const fy = (dy / dist) * force;
+                            
+                            this.vx += fx;
+                            this.vy += fy;
+                        }
+                    });
+                }
+
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off walls
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.vx *= -0.5;
+                }
+                if (this.x > canvas.width - this.radius) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.5;
+                }
+                if (this.y > canvas.height - this.radius) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -0.5;
+                    this.vx *= 0.95; // Friction on ground
+                }
+
+                // Update life
+                this.life--;
+                this.alpha = this.life / this.maxLife;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add glow effect
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        // Settings
+        const settings = {
+            color: '#FF6B6B',
+            brushSize: 20,
+            gravity: 0.3,
+            wind: 0,
+            particleLife: 120,
+            emission: 5,
+            mode: 'normal'
+        };
+
+        const particles = [];
+        let isDrawing = false;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // Control event listeners
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            settings.color = e.target.value;
+            document.getElementById('colorValue').textContent = e.target.value;
+        });
+
+        document.querySelectorAll('.preset-color').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const color = e.target.getAttribute('data-color');
+                settings.color = color;
+                document.getElementById('colorPicker').value = color;
+                document.getElementById('colorValue').textContent = color;
+            });
+        });
+
+        document.getElementById('brushSize').addEventListener('input', (e) => {
+            settings.brushSize = parseInt(e.target.value);
+            document.getElementById('sizeValue').textContent = e.target.value;
+        });
+
+        document.getElementById('gravity').addEventListener('input', (e) => {
+            settings.gravity = parseFloat(e.target.value);
+            document.getElementById('gravityValue').textContent = e.target.value;
+        });
+
+        document.getElementById('wind').addEventListener('input', (e) => {
+            settings.wind = parseFloat(e.target.value);
+            document.getElementById('windValue').textContent = e.target.value;
+        });
+
+        document.getElementById('particleLife').addEventListener('input', (e) => {
+            settings.particleLife = parseInt(e.target.value);
+            document.getElementById('lifeValue').textContent = e.target.value;
+        });
+
+        document.getElementById('emission').addEventListener('input', (e) => {
+            settings.emission = parseInt(e.target.value);
+            document.getElementById('emissionValue').textContent = e.target.value;
+        });
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                settings.mode = e.target.getAttribute('data-mode');
+            });
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            ctx.fillStyle = '#0f0f1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            particles.length = 0;
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'gravity-paint.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isDrawing = false;
+        });
+
+        // Animation loop
+        function animate() {
+            // Fade effect instead of clearing
+            ctx.fillStyle = 'rgba(15, 15, 30, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Emit particles when drawing
+            if (isDrawing) {
+                for (let i = 0; i < settings.emission; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * settings.brushSize;
+                    const x = mouseX + Math.cos(angle) * radius;
+                    const y = mouseY + Math.sin(angle) * radius;
+                    particles.push(new Particle(x, y, settings.color, settings.mode));
+                }
+            }
+
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(particles);
+                particles[i].draw();
+
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize with dark background
+        ctx.fillStyle = '#0f0f1e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Ludo 3D — Classic Board Game</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:'Segoe UI',system-ui,sans-serif;color:#fff;touch-action:none;user-select:none}
+canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);z-index:10;font-size:13px;pointer-events:none}
+#hud>div{pointer-events:auto}
+.player-indicator{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-weight:600;font-size:13px;transition:all .3s}
+.player-indicator.active{transform:scale(1.1);box-shadow:0 0 12px rgba(255,255,255,.3)}
+.pi-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.5)}
+#dice-area{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:20;text-align:center}
+#dice-btn{width:72px;height:72px;border-radius:50%;border:3px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);backdrop-filter:blur(6px);color:#fff;font-size:28px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+#dice-btn:hover{transform:scale(1.1);background:rgba(255,255,255,.25)}
+#dice-btn:active{transform:scale(.95)}
+#dice-btn.rolling{animation:diceShake .1s infinite alternate}
+#dice-btn.disabled{opacity:.4;pointer-events:none}
+@keyframes diceShake{0%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(8deg) scale(1.05)}}
+#msg{position:fixed;bottom:160px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;font-size:15px;font-weight:500;padding:6px 18px;border-radius:20px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);white-space:nowrap;transition:opacity .3s;pointer-events:none}
+#controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:8px}
+#controls button{padding:8px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);backdrop-filter:blur(4px);color:#fff;font-size:12px;cursor:pointer;transition:all .2s}
+#controls button:hover{background:rgba(255,255,255,.2)}
+#overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(10px)}
+#overlay.hidden{display:none}
+.overlay-box{background:rgba(30,30,60,.95);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:30px;text-align:center;max-width:380px;width:90%}
+.overlay-box h1{font-size:28px;margin-bottom:4px}
+.overlay-box h2{font-size:18px;font-weight:400;opacity:.7;margin-bottom:20px}
+.overlay-box p{font-size:13px;opacity:.6;margin-bottom:16px;line-height:1.6}
+.start-btn{padding:12px 32px;border-radius:24px;border:none;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;margin:4px}
+.start-btn:hover{transform:scale(1.05)}
+.sb-2{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff}
+.sb-3{background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff}
+.sb-4{background:linear-gradient(135deg,#3498db,#2980b9);color:#fff}
+.player-setup{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+.ps-item{padding:8px 12px;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;transition:all .2s;min-width:70px}
+.ps-item.sel{border-color:#fff;background:rgba(255,255,255,.15)}
+.ps-item .ps-label{opacity:.6;font-size:10px;margin-bottom:2px}
+#winner-overlay{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(10px)}
+#winner-overlay.show{display:flex}
+#cam-indicator{position:fixed;top:50px;right:12px;z-index:10;font-size:11px;opacity:.5;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="dice-area"><button id="dice-btn">🎲</button></div>
+<div id="msg">Roll the dice to begin!</div>
+<div id="controls">
+<button onclick="resetCamera()">🔄 Reset View</button>
+<button onclick="toggleTopView()">⬆ Top View</button>
+<button onclick="newGame()">🆕 New Game</button>
+</div>
+<div id="cam-indicator">Drag to rotate • Scroll to zoom</div>
+<canvas id="c"></canvas>
+
+<div id="overlay">
+<div class="overlay-box">
+<h1>🎲 Ludo 3D</h1>
+<h2>Classic Board Game</h2>
+<p>Race your four tokens around the board and into your home triangle. Roll a 6 to enter the board. Land on opponents to send them back!</p>
+<div class="player-setup">
+<div class="ps-item sel" data-humans="1" onclick="setHumans(1)"><div class="ps-label">Solo</div>1 Human</div>
+<div class="ps-item" data-humans="2" onclick="setHumans(2)"><div class="ps-label">Duo</div>2 Humans</div>
+<div class="ps-item" data-humans="3" onclick="setHumans(3)"><div class="ps-label">Trio</div>3 Humans</div>
+<div class="ps-item" data-humans="4" onclick="setHumans(4)"><div class="ps-label">All</div>4 Humans</div>
+</div>
+<button class="start-btn sb-4" onclick="startGame()">Start Game</button>
+</div>
+</div>
+
+<div id="winner-overlay">
+<div class="overlay-box">
+<h1 id="winner-text">🏆 Player Wins!</h1>
+<h2 id="winner-sub"></h2>
+<button class="start-btn sb-4" onclick="newGame()">Play Again</button>
+</div>
+</div>
+
+<script>
+"use strict";
+
+// ==================== GAME CONFIG ====================
+const COLORS = [
+  {name:'Red',    hex:'#e74c3c', r:0.91, g:0.30, b:0.24, light:[1,.45,.35]},
+  {name:'Green',  hex:'#2ecc71', r:0.18, g:0.80, b:0.44, light:[.3,.95,.55]},
+  {name:'Yellow', hex:'#f1c40f', r:0.95, g:0.77, b:0.06, light:[1,.9,.2]},
+  {name:'Blue',   hex:'#3498db', r:0.20, g:0.60, b:0.86, light:[.35,.7,1]}
+];
+
+// Board geometry constants
+const B = 15; // board is 15x15 grid
+const CS = 1.0; // cell size
+
+// ==================== BOARD DEFINITION ====================
+// The Ludo board path (52 squares, clockwise, starting from Red's start)
+// Using grid coordinates [row, col] where 0,0 is top-left
+// We define the main track as an array of 52 positions
+
+function buildBoardPaths() {
+  // Main circular track (52 cells)
+  // Starting from Red's start position (row 6, col 1), going clockwise
+  const track = [];
+  // Bottom of left arm going up: (6,0) to (6,5) — but we define per the standard layout
+  // Let me define using standard Ludo notation
+  // Red starts at position 0, Green at 13, Yellow at 26, Blue at 39
+
+  // Left arm bottom row (going right): row 6
+  for(let c=0;c<6;c++) track.push([6,c]);
+  // Left arm going up: col 6
+  for(let r=5;r>=0;r--) track.push([r,6]);
+  // Top row going right
+  track.push([0,7]);
+  // Top arm going down: col 8
+  for(let r=0;r<6;r++) track.push([r,8]);
+  // Top row right: row 6
+  for(let c=9;c<=14;c++) track.push([6,c]);
+  // Right col going down
+  track.push([7,14]);
+  // Right arm going up (actually going down then left)
+  for(let r=8;r<=14;r--) {/* fix */}
+
+  // Let me redo this properly with the standard Ludo 15x15 grid
+  // The track goes: Red start → clockwise around the board → back to Red entry
+  track.length = 0;
+
+  // Segment 1: Bottom of left arm, row 6, going left to right (cols 0-5)
+  // Actually let me think about this differently.
+  // Standard Ludo board positions:
+
+  // Red home: top-left, starts entering at (6,1)
+  // Green home: top-right, starts at (1,8)
+  // Yellow home: bottom-right, starts at (8,13)
+  // Blue home: bottom-left, starts at (13,6)
+
+  // Track (52 positions), I'll define them explicitly:
+  // Going clockwise from Red's entry:
+
+  // Red's column going up (col 0, rows 6→1), then across top...
+  // Actually, the canonical path:
+
+  // Left column going UP: (6,0),(5,0),(4,0),(3,0),(2,0),(1,0)
+  // Top-left corner turn: (0,0) → no wait
+
+  // Let me just hardcode the 52-cell path carefully.
+  // The board center is at (7,7). Arms extend in 4 directions.
+  // Each arm is 3 cols wide, 6 rows deep.
+
+  // Path starts at Red's entry square and goes clockwise:
+  const p = [];
+
+  // Red enters at row=6, col=1 → goes UP along col=0
+  // Segment: left arm, right column going up
+  p.push([6,0]); // 0 - Red START
+  p.push([5,0]);
+  p.push([4,0]);
+  p.push([3,0]);
+  p.push([2,0]); // 4
+  p.push([1,0]); // 5
+  // Turn right along top
+  p.push([0,0]); // 6
+  p.push([0,1]); // 7
+  p.push([0,2]); // 8
+  p.push([0,3]); // 9
+  p.push([0,4]); // 10
+  p.push([0,5]); // 11
+  // Enter top arm, going down along col=6
+  p.push([0,6]); // 12
+  // Now Green's entry column
+  p.push([1,6]); // 13 - Green START
+  p.push([2,6]);
+  p.push([3,6]);
+  p.push([4,6]);
+  p.push([5,6]); // 17
+  // Cross to right side of top arm
+  // Wait, I need to reconsider the geometry.
+
+  // STANDARD LUDO BOARD (15x15):
+  // The cross-shaped track with 3-wide arms:
+  // Columns 0-5: left arm (rows 6-8 are the 3 rows)
+  // Rows 0-5: top arm (cols 6-8 are the 3 cols)
+  // Columns 9-14: right arm (rows 6-8)
+  // Rows 9-14: bottom arm (cols 6-8)
+  // Center: rows 6-8, cols 6-8 (3x3 home)
+  // Corners: row 0-5/col 0-5, row 0-5/col 9-14, row 9-14/col 9-14, row 9-14/col 0-5
+
+  // Home bases (yards):
+  // Red: rows 0-5, cols 0-5 (top-left)
+  // Green: rows 0-5, cols 9-14 (top-right)
+  // Yellow: rows 9-14, cols 9-14 (bottom-right)
+  // Blue: rows 9-14, cols 0-5 (bottom-left)
+
+  // The 52-cell track goes clockwise:
+  track.length = 0;
+
+  // Starting from Red's entry (the colored square just outside Red's yard)
+  // Red enters the track heading DOWN along col 0 of the left arm... no.
+
+  // Let me use a well-known layout:
+  // The track squares for a standard Ludo board, 52 total:
+
+  // Red's start square: row 6, col 1
+  // Path from Red's start clockwise:
+
+  // Actually, I'll define the 4 arms and connect them properly.
+  // Each arm has outer track (2 rows of 6 = 12 cells) + 1 corner cell = 13 per quadrant
+
+  // QUADRANT 1 (Red, top-left yard):
+  // Entry: row 6, col 1
+  // Path goes: left arm bottom row RIGHT, then up the left arm left col, across top...
+
+  // OK, I'll define the 52-cell path as absolute coordinates.
+  // Standard path, starting at Red's start (index 0):
+
+  return buildTrackExplicit();
+}
+
+function buildTrackExplicit() {
+  const t = [];
+
+  // ---- Red's section (starts heading up-left, going clockwise) ----
+  // Row 6, cols 1→6 (left arm, going right along row 6)
+  t.push([6,1]); // 0: Red START
+  t.push([6,2]);
+  t.push([6,3]);
+  t.push([6,4]);
+  t.push([6,5]); // 4
+
+  // Up col 6, rows 5→0 (top arm left column, going up)
+  t.push([5,6]); // 5
+  t.push([4,6]);
+  t.push([3,6]);
+  t.push([2,6]);
+  t.push([1,6]);
+  t.push([0,6]); // 10
+
+  // Row 0, cols 7→8 (top edge)
+  t.push([0,7]); // 11
+  t.push([0,8]); // 12
+
+  // ---- Green's section ----
+  // Down col 8, rows 1→6 (top arm right column, going down)
+  t.push([1,8]); // 13: Green START
+  t.push([2,8]);
+  t.push([3,8]);
+  t.push([4,8]);
+  t.push([5,8]); // 17
+
+  // Row 6, cols 9→14 (right arm, going right along row 6)
+  t.push([6,9]); // 18
+  t.push([6,10]);
+  t.push([6,11]);
+  t.push([6,12]);
+  t.push([6,13]);
+  t.push([6,14]); // 23
+
+  // Col 14, rows 7→8 (right edge)
+  t.push([7,14]); // 24
+  t.push([8,14]); // 25
+
+  // ---- Yellow's section ----
+  // Row 8, cols 13→8 (right arm, going left along row 8)
+  t.push([8,13]); // 26: Yellow START
+  t.push([8,12]);
+  t.push([8,11]);
+  t.push([8,10]);
+  t.push([8,9]); // 30
+
+  // Down col 8, rows 9→14 (bottom arm right col, going down)
+  t.push([9,8]); // 31
+  t.push([10,8]);
+  t.push([11,8]);
+  t.push([12,8]);
+  t.push([13,8]);
+  t.push([14,8]); // 36
+
+  // Row 14, cols 7→6 (bottom edge)
+  t.push([14,7]); // 37
+  t.push([14,6]); // 38
+
+  // ---- Blue's section ----
+  // Up col 6, rows 13→8 (bottom arm left col, going up)
+  t.push([13,6]); // 39: Blue START
+  t.push([12,6]);
+  t.push([11,6]);
+  t.push([10,6]);
+  t.push([9,6]); // 43
+
+  // Row 8, cols 5→0 (left arm, going left along row 8)
+  t.push([8,5]); // 44
+  t.push([8,4]);
+  t.push([8,3]);
+  t.push([8,2]);
+  t.push([8,1]);
+  t.push([8,0]); // 49
+
+  // Col 0, rows 7→6 (left edge)
+  t.push([7,0]); // 50
+  t.push([6,0]); // 51 → loops back to 0
+
+  // Start indices for each player (where they enter the board)
+  const starts = [0, 13, 26, 39];
+
+  // Home columns (the 5 colored squares + final home triangle)
+  // Red: row 7, cols 1→5, then home at (7,7) center
+  const homes = [
+    [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]], // Red home column
+    [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]], // Green home column
+    [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], // Yellow home column
+    [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]]  // Blue home column
+  ];
+
+  // Yard positions (where pieces wait before entering)
+  const yards = [
+    [[2,2],[2,3],[3,2],[3,3]],       // Red yard
+    [[2,11],[2,12],[3,11],[3,12]],    // Green yard
+    [[11,11],[11,12],[12,11],[12,12]],// Yellow yard
+    [[11,2],[11,3],[12,2],[12,3]]     // Blue yard
+  ];
+
+  // The entry point is one before the start on the track
+  // When a piece enters play, it goes to starts[player]
+  // The last track square before entering home column:
+  // Red: track[51] = (6,0), then turns into home column at (7,1)
+  // Green: track[12] = (0,8), then turns into home column at (1,7)
+  // Yellow: track[25] = (8,14), then turns into home column at (7,13)
+  // Blue: track[38] = (14,6), then turns into home column at (13,7)
+  const homeEntryTrackIdx = [51, 12, 25, 38]; // last track index before home
+
+  return { track: t, starts, homes, yards, homeEntryTrackIdx };
+}
+
+const BOARD = buildTrackExplicit();
+
+// Safe squares (star positions) — typically at start positions and some midpoints
+const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47]; // start positions + midpoints
+
+// ==================== GAME STATE ====================
+let numHumans = 1;
+let gameStarted = false;
+let currentPlayer = 0; // 0=Red, 1=Green, 2=Yellow, 3=Blue
+let diceValue = 0;
+let diceRolled = false;
+let isRolling = false;
+let consecutiveSixes = 0;
+let gameOver = false;
+let selectedPiece = -1;
+let movablePieces = [];
+let animating = false;
+
+// Pieces: 4 players × 4 pieces
+// state: 'yard', 'track', 'home_col', 'home'
+// trackPos: index on BOARD.track (0-51)
+// homePos: index on BOARD.homes[player] (0-5, where 5 = center/finished)
+const pieces = [];
+
+function initPieces() {
+  pieces.length = 0;
+  for(let p=0;p<4;p++) {
+    for(let i=0;i<4;i++) {
+      pieces.push({
+        player: p,
+        index: i,
+        state: 'yard',
+        trackPos: -1,
+        homePos: -1,
+        animX: 0, animY: 0, animZ: 0,
+        targetX: 0, targetY: 0, targetZ: 0,
+        bounceT: 0,
+        highlighted: false
+      });
+    }
+  }
+  updatePiecePositions();
+}
+
+function gridToWorld(row, col) {
+  // Convert grid position to 3D world coordinates
+  // Board centered at origin, each cell is CS wide
+  const x = (col - 7) * CS;
+  const z = (row - 7) * CS;
+  return [x, 0, z];
+}
+
+function updatePiecePositions() {
+  for(const pc of pieces) {
+    let r, c;
+    if(pc.state === 'yard') {
+      [r,c] = BOARD.yards[pc.player][pc.index];
+    } else if(pc.state === 'track') {
+      [r,c] = BOARD.track[pc.trackPos];
+    } else if(pc.state === 'home_col') {
+      [r,c] = BOARD.homes[pc.player][pc.homePos];
+    } else { // 'home' - finished
+      // Place in center area
+      const angles = [Math.PI, Math.PI/2, 0, -Math.PI/2];
+      const a = angles[pc.player] + (pc.index-1.5)*0.3;
+      r = 7 + Math.sin(a)*0.8;
+      c = 7 + Math.cos(a)*0.8;
+    }
+    const [x,,z] = gridToWorld(r, c);
+    pc.targetX = x;
+    pc.targetY = pc.state==='home' ? 0.8 : 0.5;
+    pc.targetZ = z;
+  }
+}
+
+// ==================== GAME LOGIC ====================
+function setHumans(n) {
+  numHumans = n;
+  document.querySelectorAll('.ps-item').forEach(el => {
+    el.classList.toggle('sel', parseInt(el.dataset.humans) === n);
+  });
+}
+
+function startGame() {
+  document.getElementById('overlay').classList.add('hidden');
+  gameStarted = true;
+  gameOver = false;
+  currentPlayer = 0;
+  diceValue = 0;
+  diceRolled = false;
+  consecutiveSixes = 0;
+  initPieces();
+  updateHUD();
+  showMsg(COLORS[0].name + "'s turn — Roll the dice!");
+  enableDice();
+}
+
+function newGame() {
+  document.getElementById('winner-overlay').classList.remove('show');
+  document.getElementById('overlay').classList.remove('hidden');
+  gameStarted = false;
+  gameOver = false;
+}
+
+function showMsg(text) {
+  document.getElementById('msg').textContent = text;
+  document.getElementById('msg').style.opacity = '1';
+}
+
+function updateHUD() {
+  const hud = document.getElementById('hud');
+  let html = '';
+  for(let i=0;i<4;i++) {
+    const c = COLORS[i];
+    const isAI = i >= numHumans;
+    const active = i === currentPlayer && !gameOver;
+    const finished = countFinished(i);
+    html += `<div class="player-indicator ${active?'active':''}" style="background:${active?c.hex+'44':'rgba(0,0,0,.3)'};border:2px solid ${c.hex}">`;
+    html += `<span class="pi-dot" style="background:${c.hex}"></span>`;
+    html += `${c.name}${isAI?' 🤖':''} `;
+    html += `<span style="opacity:.6">${finished}/4</span>`;
+    html += `</div>`;
+  }
+  hud.innerHTML = html;
+}
+
+function countFinished(player) {
+  return pieces.filter(p => p.player === player && p.state === 'home').length;
+}
+
+function countOnBoard(player) {
+  return pieces.filter(p => p.player === player && (p.state === 'track' || p.state === 'home_col')).length;
+}
+
+function countInYard(player) {
+  return pieces.filter(p => p.player === player && p.state === 'yard').length;
+}
+
+function enableDice() {
+  const btn = document.getElementById('dice-btn');
+  btn.classList.remove('disabled');
+  btn.textContent = '🎲';
+  diceRolled = false;
+}
+
+function disableDice() {
+  document.getElementById('dice-btn').classList.add('disabled');
+}
+
+function rollDice() {
+  if(isRolling || diceRolled || animating || gameOver || !gameStarted) return;
+  isRolling = true;
+  const btn = document.getElementById('dice-btn');
+  btn.classList.add('rolling');
+  disableDice();
+
+  let rollCount = 0;
+  const rollInterval = setInterval(() => {
+    btn.textContent = Math.floor(Math.random()*6)+1;
+    rollCount++;
+    if(rollCount > 12) {
+      clearInterval(rollInterval);
+      diceValue = Math.floor(Math.random()*6)+1;
+      btn.textContent = diceValue;
+      btn.classList.remove('rolling');
+      isRolling = false;
+      diceRolled = true;
+      onDiceRolled();
+    }
+  }, 60);
+}
+
+function onDiceRolled() {
+  if(diceValue === 6) {
+    consecutiveSixes++;
+    if(consecutiveSixes >= 3) {
+      showMsg(COLORS[currentPlayer].name + " rolled three 6s! Turn forfeited.");
+      consecutiveSixes = 0;
+      setTimeout(() => nextTurn(), 1000);
+      return;
+    }
+  } else {
+    consecutiveSixes = 0;
+  }
+
+  // Find movable pieces
+  movablePieces = findMovablePieces(currentPlayer, diceValue);
+
+  if(movablePieces.length === 0) {
+    showMsg(COLORS[currentPlayer].name + " rolled " + diceValue + " — no valid moves!");
+    setTimeout(() => {
+      if(diceValue === 6) {
+        diceRolled = false;
+        enableDice();
+        showMsg(COLORS[currentPlayer].name + "'s bonus turn — Roll again!");
+      } else {
+        nextTurn();
+      }
+    }, 800);
+    return;
+  }
+
+  // Highlight movable pieces
+  pieces.forEach(p => p.highlighted = false);
+  movablePieces.forEach(idx => pieces[idx].highlighted = true);
+
+  showMsg(COLORS[currentPlayer].name + " rolled " + diceValue + " — select a piece!");
+
+  // If AI, auto-select
+  if(currentPlayer >= numHumans) {
+    setTimeout(() => aiSelectPiece(), 600);
+  }
+}
+
+function findMovablePieces(player, dice) {
+  const result = [];
+  const playerPieces = pieces.filter(p => p.player === player);
+
+  for(const pc of playerPieces) {
+    const idx = pc.player * 4 + pc.index;
+
+    if(pc.state === 'yard') {
+      if(dice === 6) {
+        // Check if start square is blocked by own double
+        if(!isOwnBlockAt(player, BOARD.starts[player])) {
+          result.push(idx);
+        }
+      }
+    } else if(pc.state === 'track') {
+      // Can move forward on track
+      const newPos = getNewTrackPos(player, pc.trackPos, dice);
+      if(newPos !== null) {
+        result.push(idx);
+      }
+    } else if(pc.state === 'home_col') {
+      // Move forward in home column
+      const newHome = pc.homePos + dice;
+      if(newHome <= 5) {
+        result.push(idx);
+      }
+    }
+  }
+  return result;
+}
+
+function getNewTrackPos(player, currentTrackPos, steps) {
+  // Calculate new position, considering home entry
+  const homeEntry = BOARD.homeEntryTrackIdx[player];
+  let pos = currentTrackPos;
+
+  for(let s=0; s<steps; s++) {
+    if(pos === homeEntry) {
+      // Enter home column
+      const homeSteps = steps - s - 1;
+      if(homeSteps <= 5) {
+        return {type:'home_col', pos: homeSteps};
+      } else {
+        return null; // Can't overshoot home
+      }
+    }
+    pos = (pos + 1) % 52;
+  }
+
+  // Check if landing on own block
+  if(isOwnBlockAt(player, pos)) return null;
+
+  return {type:'track', pos: pos};
+}
+
+function isOwnBlockAt(player, trackPos) {
+  const count = pieces.filter(p => p.player === player && p.state === 'track' && p.trackPos === trackPos).length;
+  return count >= 2;
+}
+
+function selectPiece(pieceIdx) {
+  if(!diceRolled || animating || gameOver) return;
+  if(!movablePieces.includes(pieceIdx)) return;
+
+  const pc = pieces[pieceIdx];
+  pieces.forEach(p => p.highlighted = false);
+  animating = true;
+  disableDice();
+
+  if(pc.state === 'yard') {
+    // Move to start
+    pc.state = 'track';
+    pc.trackPos = BOARD.starts[pc.player];
+    updatePiecePositions();
+    pc.bounceT = 1;
+
+    setTimeout(() => {
+      checkCapture(pc);
+      finishMove();
+    }, 400);
+  } else if(pc.state === 'track') {
+    const result = getNewTrackPos(pc.player, pc.trackPos, diceValue);
+    if(result.type === 'home_col') {
+      pc.state = 'home_col';
+      pc.homePos = result.pos;
+      pc.trackPos = -1;
+      if(result.pos === 5) {
+        pc.state = 'home';
+      }
+      updatePiecePositions();
+      pc.bounceT = 1;
+      setTimeout(() => finishMove(), 400);
+    } else {
+      pc.trackPos = result.pos;
+      updatePiecePositions();
+      pc.bounceT = 1;
+      setTimeout(() => {
+        checkCapture(pc);
+        finishMove();
+      }, 400);
+    }
+  } else if(pc.state === 'home_col') {
+    pc.homePos += diceValue;
+    if(pc.homePos >= 5) {
+      pc.homePos = 5;
+      pc.state = 'home';
+    }
+    updatePiecePositions();
+    pc.bounceT = 1;
+    setTimeout(() => finishMove(), 400);
+  }
+}
+
+function checkCapture(attacker) {
+  if(attacker.state !== 'track') return;
+  // Check if landing on safe square
+  if(SAFE_SQUARES.includes(attacker.trackPos)) return;
+
+  const victims = pieces.filter(p =>
+    p.player !== attacker.player &&
+    p.state === 'track' &&
+    p.trackPos === attacker.trackPos
+  );
+
+  // If there's a block (2+ same-color pieces), attacker bounces back
+  const sameColorCount = pieces.filter(p =>
+    p !== attacker &&
+    p.player !== attacker.player &&
+    p.state === 'track' &&
+    p.trackPos === attacker.trackPos
+  );
+
+  // Check if any single opponent piece (not a block)
+  for(const victim of victims) {
+    const friendsHere = pieces.filter(p =>
+      p !== victim &&
+      p.player === victim.player &&
+      p.state === 'track' &&
+      p.trackPos === victim.trackPos
+    ).length;
+
+    if(friendsHere === 0) {
+      // Capture!
+      victim.state = 'yard';
+      victim.trackPos = -1;
+      updatePiecePositions();
+      victim.bounceT = 1;
+      showMsg(COLORS[attacker.player].name + " captured " + COLORS[victim.player].name + "'s piece!");
+    }
+  }
+}
+
+function finishMove() {
+  animating = false;
+  movablePieces = [];
+
+  // Check win
+  if(countFinished(currentPlayer) === 4) {
+    gameOver = true;
+    showMsg(COLORS[currentPlayer].name + " wins! 🏆");
+    const wo = document.getElementById('winner-overlay');
+    document.getElementById('winner-text').textContent = '🏆 ' + COLORS[currentPlayer].name + ' Wins!';
+    document.getElementById('winner-text').style.color = COLORS[currentPlayer].hex;
+    document.getElementById('winner-sub').textContent = 'All 4 pieces reached home!';
+    wo.classList.add('show');
+    return;
+  }
+
+  // Bonus turn for rolling 6
+  if(diceValue === 6) {
+    diceRolled = false;
+    enableDice();
+    showMsg(COLORS[currentPlayer].name + "'s bonus turn — Roll again!");
+    if(currentPlayer >= numHumans) {
+      setTimeout(() => rollDice(), 800);
+    }
+  } else {
+    nextTurn();
+  }
+}
+
+function nextTurn() {
+  consecutiveSixes = 0;
+  currentPlayer = (currentPlayer + 1) % 4;
+  updateHUD();
+  diceRolled = false;
+  enableDice();
+  showMsg(COLORS[currentPlayer].name + "'s turn — Roll the dice!");
+
+  // AI auto-roll
+  if(currentPlayer >= numHumans && !gameOver) {
+    setTimeout(() => rollDice(), 800);
+  }
+}
+
+function aiSelectPiece() {
+  if(movablePieces.length === 0) return;
+
+  // Simple AI: prefer captures, then entering from yard, then furthest piece, then random
+  let bestIdx = movablePieces[0];
+  let bestScore = -999;
+
+  for(const idx of movablePieces) {
+    const pc = pieces[idx];
+    let score = 0;
+
+    if(pc.state === 'yard') {
+      score = 10; // Entering is good
+    } else if(pc.state === 'track') {
+      const result = getNewTrackPos(pc.player, pc.trackPos, diceValue);
+      if(result && result.type === 'home_col') {
+        score = 50 + result.pos; // Getting home is best
+      } else if(result && result.type === 'track') {
+        // Check for capture opportunity
+        const canCapture = pieces.some(p =>
+          p.player !== pc.player &&
+          p.state === 'track' &&
+          p.trackPos === result.pos &&
+          !SAFE_SQUARES.includes(result.pos)
+        );
+        if(canCapture) score = 40;
+        else {
+          // Prefer moving pieces that are further along
+          score = 5 + distanceFromStart(pc.player, result.pos) / 52 * 10;
+        }
+        // Prefer moving to safe squares
+        if(SAFE_SQUARES.includes(result.pos)) score += 5;
+      }
+    } else if(pc.state === 'home_col') {
+      score = 30 + pc.homePos; // Advance in home column
+    }
+
+    if(score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+
+  selectPiece(bestIdx);
+}
+
+function distanceFromStart(player, trackPos) {
+  const start = BOARD.starts[player];
+  if(trackPos >= start) return trackPos - start;
+  return 52 - start + trackPos;
+}
+
+// ==================== WEBGL RENDERING ====================
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', {antialias:true, alpha:false});
+
+if(!gl) {
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:20px"><h2>WebGL2 not supported.<br>Please use a modern browser.</h2></div>';
+}
+
+// Shaders
+const VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNorm;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+uniform mat3 uNormalMat;
+out vec3 vNorm;
+out vec3 vWorldPos;
+out vec3 vLocalPos;
+void main() {
+  vec4 worldPos = uModel * vec4(aPos, 1.0);
+  vWorldPos = worldPos.xyz;
+  vNorm = normalize(uNormalMat * aNorm);
+  vLocalPos = aPos;
+  gl_Position = uMVP * vec4(aPos, 1.0);
+}`;
+
+const FS = `#version 300 es
+precision highp float;
+in vec3 vNorm;
+in vec3 vWorldPos;
+in vec3 vLocalPos;
+uniform vec3 uColor;
+uniform vec3 uLightDir;
+uniform vec3 uCamPos;
+uniform float uAmbient;
+uniform float uSpecular;
+uniform float uEmission;
+uniform float uAlpha;
+out vec4 fragColor;
+void main() {
+  vec3 N = normalize(vNorm);
+  vec3 L = normalize(uLightDir);
+  vec3 V = normalize(uCamPos - vWorldPos);
+  vec3 H = normalize(L + V);
+  float diff = max(dot(N, L), 0.0);
+  float spec = pow(max(dot(N, H), 0.0), 32.0) * uSpecular;
+  // Secondary light from below-right
+  vec3 L2 = normalize(vec3(-0.3, 0.5, -0.5));
+  float diff2 = max(dot(N, L2), 0.0) * 0.25;
+  vec3 color = uColor * (uAmbient + diff * 0.6 + diff2) + vec3(spec) + uColor * uEmission;
+  // Rim light
+  float rim = 1.0 - max(dot(V, N), 0.0);
+  rim = pow(rim, 3.0) * 0.15;
+  color += vec3(rim);
+  fragColor = vec4(color, uAlpha);
+}`;
+
+function createShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+    return null;
+  }
+  return s;
+}
+
+const vs = createShader(gl.VERTEX_SHADER, VS);
+const fs = createShader(gl.FRAGMENT_SHADER, FS);
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const uMVP = gl.getUniformLocation(prog, 'uMVP');
+const uModel = gl.getUniformLocation(prog, 'uModel');
+const uNormalMat = gl.getUniformLocation(prog, 'uNormalMat');
+const uColor = gl.getUniformLocation(prog, 'uColor');
+const uLightDir = gl.getUniformLocation(prog, 'uLightDir');
+const uCamPos = gl.getUniformLocation(prog, 'uCamPos');
+const uAmbient = gl.getUniformLocation(prog, 'uAmbient');
+const uSpecular = gl.getUniformLocation(prog, 'uSpecular');
+const uEmission = gl.getUniformLocation(prog, 'uEmission');
+const uAlpha = gl.getUniformLocation(prog, 'uAlpha');
+
+gl.uniform3f(uLightDir, 0.5, 1.0, 0.3);
+gl.uniform1f(uAmbient, 0.35);
+gl.uniform1f(uSpecular, 0.5);
+gl.uniform1f(uEmission, 0.0);
+gl.uniform1f(uAlpha, 1.0);
+
+// ==================== GEOMETRY ====================
+function createBuffer(verts, norms) {
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+
+  const vb = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+  const nb = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, nb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(norms), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+  gl.bindVertexArray(null);
+  return {vao, count: verts.length / 3};
+}
+
+// Box geometry
+function makeBox(w, h, d) {
+  const hw=w/2, hh=h/2, hd=d/2;
+  const v=[], n=[];
+  // 6 faces
+  const faces = [
+    // Front
+    [[-hw,-hh,hd],[hw,-hh,hd],[hw,hh,hd],[-hw,-hh,hd],[hw,hh,hd],[-hw,hh,hd],[0,0,1]],
+    // Back
+    [[hw,-hh,-hd],[-hw,-hh,-hd],[-hw,hh,-hd],[hw,-hh,-hd],[-hw,hh,-hd],[hw,hh,-hd],[0,0,-1]],
+    // Top
+    [[-hw,hh,hd],[hw,hh,hd],[hw,hh,-hd],[-hw,hh,hd],[hw,hh,-hd],[-hw,hh,-hd],[0,1,0]],
+    // Bottom
+    [[-hw,-hh,-hd],[hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,hd],[0,-1,0]],
+    // Right
+    [[hw,-hh,hd],[hw,-hh,-hd],[hw,hh,-hd],[hw,-hh,hd],[hw,hh,-hd],[hw,hh,hd],[1,0,0]],
+    // Left
+    [[-hw,-hh,-hd],[-hw,-hh,hd],[-hw,hh,hd],[-hw,-hh,-hd],[-hw,hh,hd],[-hw,hh,-hd],[-1,0,0]],
+  ];
+  for(const f of faces) {
+    const norm = f[6];
+    for(let i=0;i<6;i++) {
+      v.push(...f[i]);
+      n.push(...norm);
+    }
+  }
+  return createBuffer(v, n);
+}
+
+// Sphere geometry
+function makeSphere(radius, segs) {
+  const v=[], n=[];
+  for(let i=0;i<segs;i++) {
+    for(let j=0;j<segs;j++) {
+      const t0 = Math.PI * i / segs;
+      const t1 = Math.PI * (i+1) / segs;
+      const p0 = 2*Math.PI * j / segs;
+      const p1 = 2*Math.PI * (j+1) / segs;
+
+      const pts = [
+        [Math.sin(t0)*Math.cos(p0), Math.cos(t0), Math.sin(t0)*Math.sin(p0)],
+        [Math.sin(t1)*Math.cos(p0), Math.cos(t1), Math.sin(t1)*Math.sin(p0)],
+        [Math.sin(t1)*Math.cos(p1), Math.cos(t1), Math.sin(t1)*Math.sin(p1)],
+        [Math.sin(t0)*Math.cos(p1), Math.cos(t0), Math.sin(t0)*Math.sin(p1)],
+      ];
+
+      const tri = [[0,1,2],[0,2,3]];
+      for(const t of tri) {
+        for(const idx of t) {
+          const p = pts[idx];
+          v.push(p[0]*radius, p[1]*radius, p[2]*radius);
+          n.push(p[0], p[1], p[2]);
+        }
+      }
+    }
+  }
+  return createBuffer(v, n);
+}
+
+// Cylinder geometry
+function makeCylinder(radius, height, segs) {
+  const v=[], n=[];
+  const hh = height/2;
+  for(let i=0;i<segs;i++) {
+    const a0 = 2*Math.PI*i/segs;
+    const a1 = 2*Math.PI*(i+1)/segs;
+    const c0 = Math.cos(a0), s0 = Math.sin(a0);
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+
+    // Side
+    v.push(c0*radius,-hh,s0*radius, c1*radius,-hh,s1*radius, c1*radius,hh,s1*radius);
+    n.push(c0,0,s0, c1,0,s1, c1,0,s1);
+    v.push(c0*radius,-hh,s0*radius, c1*radius,hh,s1*radius, c0*radius,hh,s0*radius);
+    n.push(c0,0,s0, c1,0,s1, c0,0,s0);
+
+    // Top cap
+    v.push(0,hh,0, c0*radius,hh,s0*radius, c1*radius,hh,s1*radius);
+    n.push(0,1,0, 0,1,0, 0,1,0);
+
+    // Bottom cap
+    v.push(0,-hh,0, c1*radius,-hh,s1*radius, c0*radius,-hh,s0*radius);
+    n.push(0,-1,0, 0,-1,0, 0,-1,0);
+  }
+  return createBuffer(v, n);
+}
+
+// Cone geometry for piece tops
+function makeCone(radius, height, segs) {
+  const v=[], n=[];
+  for(let i=0;i<segs;i++) {
+    const a0 = 2*Math.PI*i/segs;
+    const a1 = 2*Math.PI*(i+1)/segs;
+    const c0 = Math.cos(a0), s0 = Math.sin(a0);
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const ny = radius / Math.sqrt(radius*radius + height*height);
+    const nx = height / Math.sqrt(radius*radius + height*height);
+
+    // Side
+    v.push(0,height,0, c0*radius,0,s0*radius, c1*radius,0,s1*radius);
+    n.push(0,ny,0, c0*nx,ny,s0*nx, c1*nx,ny,s1*nx);
+
+    // Base
+    v.push(0,0,0, c1*radius,0,s1*radius, c0*radius,0,s0*radius);
+    n.push(0,-1,0, 0,-1,0, 0,-1,0);
+  }
+  return createBuffer(v, n);
+}
+
+// Triangle for home center
+function makeTriangle(base, height) {
+  const v = [
+    -base/2, 0, 0,
+    base/2, 0, 0,
+    0, 0, -height
+  ];
+  const n = [0,1,0, 0,1,0, 0,1,0];
+  return createBuffer(v, n);
+}
+
+const boxGeo = makeBox(1, 1, 1);
+const sphereGeo = makeSphere(1, 16);
+const cylinderGeo = makeCylinder(1, 1, 20);
+const coneGeo = makeCone(1, 1, 16);
+const pieceBaseGeo = makeCylinder(1, 1, 20);
+const pieceDomeGeo = makeSphere(1, 12);
+const flatBox = makeBox(1, 0.1, 1);
+
+// ==================== MATRIX MATH ====================
+function mat4() { return new Float32Array(16); }
+function identity(m) {
+  m.fill(0); m[0]=m[5]=m[10]=m[15]=1; return m;
+}
+function perspective(fov, aspect, near, far) {
+  const m = mat4();
+  const f = 1/Math.tan(fov/2);
+  m[0]=f/aspect; m[5]=f; m[10]=(far+near)/(near-far); m[11]=-1; m[14]=2*far*near/(near-far);
+  return m;
+}
+function lookAt(eye, target, up) {
+  const m = mat4();
+  let zx=eye[0]-target[0], zy=eye[1]-target[1], zz=eye[2]-target[2];
+  let len=Math.sqrt(zx*zx+zy*zy+zz*zz); zx/=len; zy/=len; zz/=len;
+  let xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
+  len=Math.sqrt(xx*xx+xy*xy+xz*xz); xx/=len; xy/=len; xz/=len;
+  let yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+  m[0]=xx; m[1]=yx; m[2]=zx; m[4]=xy; m[5]=yy; m[6]=zy;
+  m[8]=xz; m[9]=yz; m[10]=zz;
+  m[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+  m[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+  m[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+  m[15]=1;
+  return m;
+}
+function mul4(a, b) {
+  const m = mat4();
+  for(let i=0;i<4;i++) for(let j=0;j<4;j++) {
+    m[j*4+i] = a[i]*b[j*4] + a[4+i]*b[j*4+1] + a[8+i]*b[j*4+2] + a[12+i]*b[j*4+3];
+  }
+  return m;
+}
+function translate(x, y, z) {
+  const m = mat4(); identity(m); m[12]=x; m[13]=y; m[14]=z; return m;
+}
+function scale(x, y, z) {
+  const m = mat4(); m[0]=x; m[5]=y; m[10]=z; m[15]=1; return m;
+}
+function rotateY(angle) {
+  const m = mat4(); identity(m);
+  const c=Math.cos(angle), s=Math.sin(angle);
+  m[0]=c; m[8]=s; m[2]=-s; m[10]=c; return m;
+}
+function rotateX(angle) {
+  const m = mat4(); identity(m);
+  const c=Math.cos(angle), s=Math.sin(angle);
+  m[5]=c; m[9]=-s; m[6]=s; m[10]=c; return m;
+}
+function normalMat3(model) {
+  // Extract upper-left 3x3 and compute inverse transpose
+  const a=model[0],b=model[1],c=model[2],d=model[4],e=model[5],f=model[6],g=model[8],h=model[9],i=model[10];
+  const det = a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g);
+  const id = 1/det;
+  return new Float32Array([
+    (e*i-f*h)*id, (c*h-b*i)*id, (b*f-c*e)*id,
+    (f*g-d*i)*id, (a*i-c*g)*id, (c*d-a*f)*id,
+    (d*h-e*g)*id, (b*g-a*h)*id, (a*e-b*d)*id
+  ]);
+}
+
+// ==================== CAMERA ====================
+let camTheta = Math.PI/4;    // horizontal angle
+let camPhi = Math.PI/3.5;      // vertical angle (from top)
+let camDist = 18;
+let camTarget = [0, 0, 0];
+let isTopView = false;
+let targetTheta = camTheta;
+let targetPhi = camPhi;
+let targetDist = camDist;
+
+function getCamPos() {
+  const x = camDist * Math.sin(camPhi) * Math.cos(camTheta);
+  const y = camDist * Math.cos(camPhi);
+  const z = camDist * Math.sin(camPhi) * Math.sin(camTheta);
+  return [x + camTarget[0], y + camTarget[1], z + camTarget[2]];
+}
+
+function resetCamera() {
+  targetTheta = Math.PI/4;
+  targetPhi = Math.PI/3.5;
+  targetDist = 18;
+  isTopView = false;
+}
+
+function toggleTopView() {
+  isTopView = !isTopView;
+  if(isTopView) {
+    targetPhi = 0.05;
+    targetDist = 20;
+    targetTheta = 0;
+  } else {
+    resetCamera();
+  }
+}
+
+// Mouse/touch camera control
+let isDragging = false;
+let lastMX = 0, lastMY = 0;
+
+canvas.addEventListener('pointerdown', e => {
+  isDragging = true;
+  lastMX = e.clientX;
+  lastMY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', e => {
+  if(!isDragging) return;
+  const dx = e.clientX - lastMX;
+  const dy = e.clientY - lastMY;
+  targetTheta -= dx * 0.005;
+  targetPhi = Math.max(0.1, Math.min(Math.PI/2 - 0.05, targetPhi + dy * 0.005));
+  lastMX = e.clientX;
+  lastMY = e.clientY;
+  isTopView = false;
+});
+
+canvas.addEventListener('pointerup', e => {
+  if(!isDragging) return;
+  isDragging = false;
+  canvas.releasePointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  targetDist = Math.max(8, Math.min(35, targetDist + e.deltaY * 0.02));
+  isTopView = false;
+}, {passive:false});
+
+// Click/tap to select piece
+canvas.addEventListener('click', e => {
+  if(isDragging) return;
+  if(!diceRolled || animating || gameOver || movablePieces.length === 0) return;
+  if(currentPlayer >= numHumans) return;
+
+  // Ray-cast to find clicked piece
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width * 2 - 1;
+  const my = -((e.clientY - rect.top) / rect.height * 2 - 1);
+
+  const camPos = getCamPos();
+  const view = lookAt(camPos, camTarget, [0,1,0]);
+  const proj = perspective(Math.PI/4, canvas.width/canvas.height, 0.1, 100);
+  const vp = mul4(proj, view);
+
+  // Invert VP to get ray
+  const invVP = invertMat4(vp);
+  if(!invVP) return;
+
+  const nearPt = mulMat4Vec4(invVP, [mx, my, -1, 1]);
+  const farPt = mulMat4Vec4(invVP, [mx, my, 1, 1]);
+  const rayOrigin = [nearPt[0]/nearPt[3], nearPt[1]/nearPt[3], nearPt[2]/nearPt[3]];
+  const rayEnd = [farPt[0]/farPt[3], farPt[1]/farPt[3], farPt[2]/farPt[3]];
+  const rayDir = [rayEnd[0]-rayOrigin[0], rayEnd[1]-rayOrigin[1], rayEnd[2]-rayOrigin[2]];
+  const len = Math.sqrt(rayDir[0]**2+rayDir[1]**2+rayDir[2]**2);
+  rayDir[0]/=len; rayDir[1]/=len; rayDir[2]/=len;
+
+  // Test each movable piece
+  let bestDist = Infinity;
+  let bestPiece = -1;
+  const hitRadius = 0.6;
+
+  for(const idx of movablePieces) {
+    const pc = pieces[idx];
+    const px = pc.animX, py = pc.animY, pz = pc.animZ;
+
+    // Sphere intersection test
+    const ox = rayOrigin[0]-px, oy = rayOrigin[1]-py, oz = rayOrigin[2]-pz;
+    const a = rayDir[0]**2+rayDir[1]**2+rayDir[2]**2;
+    const b = 2*(ox*rayDir[0]+oy*rayDir[1]+oz*rayDir[2]);
+    const c = ox**2+oy**2+oz**2 - hitRadius**2;
+    const disc = b*b - 4*a*c;
+    if(disc >= 0) {
+      const t = (-b - Math.sqrt(disc)) / (2*a);
+      if(t > 0 && t < bestDist) {
+        bestDist = t;
+        bestPiece = idx;
+      }
+    }
+  }
+
+  if(bestPiece >= 0) {
+    selectPiece(bestPiece);
+  }
+});
+
+function invertMat4(m) {
+  const inv = mat4();
+  const m0=m[0],m1=m[1],m2=m[2],m3=m[3],m4=m[4],m5=m[5],m6=m[6],m7=m[7];
+  const m8=m[8],m9=m[9],m10=m[10],m11=m[11],m12=m[12],m13=m[13],m14=m[14],m15=m[15];
+
+  inv[0]=m5*(m10*m15-m11*m14)-m9*(m6*m15-m7*m14)+m13*(m6*m11-m7*m10);
+  inv[4]=-(m4*(m10*m15-m11*m14)-m8*(m6*m15-m7*m14)+m12*(m6*m11-m7*m10));
+  inv[8]=m4*(m9*m15-m11*m13)-m8*(m5*m15-m7*m13)+m12*(m5*m11-m7*m9);
+  inv[12]=-(m4*(m9*m14-m10*m13)-m8*(m5*m14-m6*m13)+m12*(m5*m10-m6*m9));
+  inv[1]=-(m1*(m10*m15-m11*m14)-m9*(m2*m15-m3*m14)+m13*(m2*m11-m3*m10));
+  inv[5]=m0*(m10*m15-m11*m14)-m8*(m2*m15-m3*m14)+m12*(m2*m11-m3*m10);
+  inv[9]=-(m0*(m9*m15-m11*m13)-m8*(m1*m15-m3*m13)+m12*(m1*m11-m3*m9));
+  inv[13]=m0*(m9*m14-m10*m13)-m8*(m1*m14-m2*m13)+m12*(m1*m10-m2*m9);
+  inv[2]=m1*(m6*m15-m7*m14)-m5*(m2*m15-m3*m14)+m13*(m2*m7-m3*m6);
+  inv[6]=-(m0*(m6*m15-m7*m14)-m4*(m2*m15-m3*m14)+m12*(m2*m7-m3*m6));
+  inv[10]=m0*(m5*m15-m7*m13)-m4*(m1*m15-m3*m13)+m12*(m1*m7-m3*m5);
+  inv[14]=-(m0*(m5*m14-m6*m13)-m4*(m1*m14-m2*m13)+m12*(m1*m6-m2*m5));
+  inv[3]=-(m1*(m6*m11-m7*m10)-m5*(m2*m11-m3*m10)+m9*(m2*m7-m3*m6));
+  inv[7]=m0*(m6*m11-m7*m10)-m4*(m2*m11-m3*m10)+m8*(m2*m7-m3*m6);
+  inv[11]=-(m0*(m5*m11-m7*m9)-m4*(m1*m11-m3*m9)+m8*(m1*m7-m3*m5));
+  inv[15]=m0*(m5*m10-m6*m9)-m4*(m1*m10-m2*m9)+m8*(m1*m6-m2*m5);
+
+  let det = m0*inv[0]+m1*inv[4]+m2*inv[8]+m3*inv[12];
+  if(Math.abs(det) < 1e-8) return null;
+  det = 1/det;
+  for(let i=0;i<16;i++) inv[i]*=det;
+  return inv;
+}
+
+function mulMat4Vec4(m, v) {
+  return [
+    m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3],
+    m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3],
+    m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3],
+    m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]
+  ];
+}
+
+// ==================== DRAW FUNCTIONS ====================
+function drawMesh(mesh, modelMat, color, emission=0, alpha=1, spec=0.5) {
+  const camPos = getCamPos();
+  const view = lookAt(camPos, camTarget, [0,1,0]);
+  const proj = perspective(Math.PI/4, canvas.width/canvas.height, 0.1, 100);
+  const mvp = mul4(proj, mul4(view, modelMat));
+
+  gl.uniformMatrix4fv(uMVP, false, mvp);
+  gl.uniformMatrix4fv(uModel, false, modelMat);
+  gl.uniformMatrix3fv(uNormalMat, false, normalMat3(modelMat));
+  gl.uniform3fv(uColor, color);
+  gl.uniform3fv(uCamPos, camPos);
+  gl.uniform1f(uEmission, emission);
+  gl.uniform1f(uAlpha, alpha);
+  gl.uniform1f(uSpecular, spec);
+
+  gl.bindVertexArray(mesh.vao);
+  gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+  gl.bindVertexArray(null);
+}
+
+// ==================== BOARD RENDERING ====================
+function drawBoard(time) {
+  // Main board base
+  const boardSize = 15 * CS;
+  const boardModel = mul4(translate(0, -0.15, 0), scale(boardSize + 0.4, 0.3, boardSize + 0.4));
+  drawMesh(boxGeo, boardModel, [0.12, 0.10, 0.08], 0, 1, 0.2);
+
+  // Board top surface
+  const surfModel = mul4(translate(0, 0.01, 0), scale(boardSize, 0.02, boardSize));
+  drawMesh(boxGeo, surfModel, [0.92, 0.89, 0.82], 0, 1, 0.1);
+
+  // Draw grid cells
+  drawTrackCells(time);
+  drawHomeColumns();
+  drawYards(time);
+  drawCenterHome(time);
+}
+
+function cellModel(row, col, height=0.03, sz=0.9) {
+  const [x,,z] = gridToWorld(row, col);
+  return mul4(translate(x, 0.02 + height/2, z), scale(CS*sz, height, CS*sz));
+}
+
+function drawTrackCells(time) {
+  // Draw each track cell
+  for(let i=0; i<52; i++) {
+    const [r, c] = BOARD.track[i];
+    let color = [0.85, 0.82, 0.75];
+    let emission = 0;
+
+    // Color start squares
+    if(i === 0) color = [COLORS[0].r, COLORS[0].g, COLORS[0].b]; // Red start
+    else if(i === 13) color = [COLORS[1].r, COLORS[1].g, COLORS[1].b]; // Green start
+    else if(i === 26) color = [COLORS[2].r, COLORS[2].g, COLORS[2].b]; // Yellow start
+    else if(i === 39) color = [COLORS[3].r, COLORS[3].g, COLORS[3].b]; // Blue start
+
+    // Safe squares get a star marker (slightly different color)
+    if(SAFE_SQUARES.includes(i) && ![0,13,26,39].includes(i)) {
+      color = [0.95, 0.92, 0.80];
+      emission = 0.05;
+    }
+
+    drawMesh(flatBox, cellModel(r, c, 0.04), color, emission, 1, 0.3);
+
+    // Star on safe squares
+    if(SAFE_SQUARES.includes(i)) {
+      const [x,,z] = gridToWorld(r, c);
+      const starModel = mul4(translate(x, 0.06, z), scale(0.25, 0.06, 0.25));
+      drawMesh(sphereGeo, starModel, [1, 0.9, 0.3], 0.2, 1, 0.5);
+    }
+  }
+}
+
+function drawHomeColumns() {
+  for(let p=0;p<4;p++) {
+    const col = COLORS[p];
+    for(let i=0;i<6;i++) {
+      const [r, c] = BOARD.homes[p][i];
+      const brightness = 0.6 + (i/5) * 0.4;
+      drawMesh(flatBox, cellModel(r, c, 0.04),
+        [col.r*brightness, col.g*brightness, col.b*brightness], 0.05, 1, 0.3);
+    }
+  }
+}
+
+function drawYards(time) {
+  // Draw colored yard areas
+  const yardDefs = [
+    {rows:[0,5], cols:[0,5], player:0},   // Red top-left
+    {rows:[0,5], cols:[9,14], player:1},   // Green top-right
+    {rows:[9,14], cols:[9,14], player:2},  // Yellow bottom-right
+    {rows:[9,14], cols:[0,5], player:3}    // Blue bottom-left
+  ];
+
+  for(const yd of yardDefs) {
+    const col = COLORS[yd.player];
+    // Yard background
+    const cx = ((yd.cols[0]+yd.cols[1])/2 - 7) * CS;
+    const cz = ((yd.rows[0]+yd.rows[1])/2 - 7) * CS;
+    const w = (yd.cols[1]-yd.cols[0]+1)*CS;
+    const h = (yd.rows[1]-yd.rows[0]+1)*CS;
+    const yardBase = mul4(translate(cx, 0.015, cz), scale(w*0.95, 0.03, h*0.95));
+    drawMesh(boxGeo, yardBase, [col.r*0.35, col.g*0.35, col.b*0.35], 0.02, 1, 0.2);
+
+    // Inner yard (lighter)
+    const innerModel = mul4(translate(cx, 0.025, cz), scale(w*0.6, 0.03, h*0.6));
+    drawMesh(boxGeo, innerModel, [col.r*0.5, col.g*0.5, col.b*0.5], 0.05, 1, 0.3);
+
+    // Yard piece positions
+    for(let i=0;i<4;i++) {
+      const [pr, pc] = BOARD.yards[yd.player][i];
+      const [px,,pz] = gridToWorld(pr, pc);
+      const spotModel = mul4(translate(px, 0.04, pz), scale(CS*0.7, 0.04, CS*0.7));
+      drawMesh(cylinderGeo, spotModel, [col.r*0.7, col.g*0.7, col.b*0.7], 0.05, 1, 0.3);
+    }
+  }
+}
+
+function drawCenterHome(time) {
+  // Center 3x3 area with colored triangles
+  const cx = 0, cz = 0;
+  const centerBase = mul4(translate(cx, 0.02, cz), scale(3*CS, 0.04, 3*CS));
+  drawMesh(boxGeo, centerBase, [0.25, 0.22, 0.20], 0.02, 1, 0.2);
+
+  // Four colored triangles pointing to center
+  for(let p=0;p<4;p++) {
+    const col = COLORS[p];
+    const angles = [Math.PI, Math.PI/2, 0, -Math.PI/2]; // Red=left, Green=top, Yellow=right, Blue=bottom
+    const a = angles[p];
+    const dx = Math.cos(a) * 0.7;
+    const dz = Math.sin(a) * 0.7;
+    const triModel = mul4(
+      mul4(translate(dx, 0.05, dz), rotateY(a + Math.PI/2)),
+      scale(1.2, 1, 1.2)
+    );
+    drawMesh(coneGeo, triModel, [col.r, col.g, col.b], 0.1, 1, 0.4);
+  }
+}
+
+// ==================== PIECE RENDERING ====================
+function drawPieces(time) {
+  for(const pc of pieces) {
+    // Smooth animation
+    const lerp = 0.15;
+    pc.animX += (pc.targetX - pc.animX) * lerp;
+    pc.animY += (pc.targetY - pc.animY) * lerp;
+    pc.animZ += (pc.targetZ - pc.animZ) * lerp;
+
+    // Bounce
+    if(pc.bounceT > 0) {
+      pc.bounceT -= 0.03;
+      if(pc.bounceT < 0) pc.bounceT = 0;
+    }
+    const bounce = Math.sin(pc.bounceT * Math.PI) * 0.5;
+
+    const px = pc.animX;
+    const py = pc.animY + bounce;
+    const pz = pc.animZ;
+    const col = COLORS[pc.player];
+
+    // Highlighted glow
+    const glow = pc.highlighted ? Math.sin(time * 5) * 0.15 + 0.2 : 0;
+
+    // Draw piece: base cylinder + body + dome top
+    // Base
+    const baseModel = mul4(translate(px, py - 0.15, pz), scale(0.35, 0.15, 0.35));
+    drawMesh(cylinderGeo, baseModel, col.light, glow, 1, 0.6);
+
+    // Body (tapered cylinder)
+    const bodyModel = mul4(translate(px, py + 0.15, pz), scale(0.25, 0.35, 0.25));
+    drawMesh(cylinderGeo, bodyModel, col.light, glow, 1, 0.6);
+
+    // Dome top
+    const domeModel = mul4(translate(px, py + 0.45, pz), scale(0.2, 0.2, 0.2));
+    drawMesh(sphereGeo, domeModel, col.light, glow + 0.1, 1, 0.8);
+
+    // Neck ring
+    const neckModel = mul4(translate(px, py + 0.33, pz), scale(0.28, 0.04, 0.28));
+    drawMesh(cylinderGeo, neckModel, [col.r*0.7, col.g*0.7, col.b*0.7], glow, 1, 0.4);
+
+    // Shadow (dark flat disc under piece)
+    if(bounce < 0.01) {
+      const shadowModel = mul4(translate(px, 0.025, pz), scale(0.35, 0.01, 0.35));
+      drawMesh(cylinderGeo, shadowModel, [0.05, 0.04, 0.03], 0, 1, 0);
+    }
+  }
+}
+
+// ==================== DICE 3D ====================
+let diceAnimT = 0;
+let diceSpinning = false;
+
+function drawDice3D(time) {
+  if(!gameStarted || !diceValue) return;
+
+  // Position the dice near the board edge for the current player
+  const angles = [Math.PI, Math.PI/2, 0, -Math.PI/2];
+  const a = angles[currentPlayer];
+  const dx = Math.cos(a) * 5;
+  const dz = Math.sin(a) * 5;
+  const dy = 0.5;
+
+  // Spin animation
+  const spin = isRolling ? time * 8 : 0;
+
+  const diceSize = 0.5;
+  const model = mul4(
+    mul4(translate(dx, dy + (isRolling ? Math.abs(Math.sin(time*6))*0.5 : 0), dz), rotateY(spin)),
+    mul4(rotateX(spin * 0.7), scale(diceSize, diceSize, diceSize))
+  );
+  drawMesh(boxGeo, model, [0.95, 0.95, 0.90], 0.05, 1, 0.5);
+
+  // Draw dots on dice (simplified — just colored spots on top face)
+  if(!isRolling && diceValue > 0) {
+    const dotSize = 0.08;
+    const dotPositions = {
+      1: [[0,0]],
+      2: [[-0.2,-0.2],[0.2,0.2]],
+      3: [[-0.2,-0.2],[0,0],[0.2,0.2]],
+      4: [[-0.2,-0.2],[0.2,-0.2],[-0.2,0.2],[0.2,0.2]],
+      5: [[-0.2,-0.2],[0.2,-0.2],[0,0],[-0.2,0.2],[0.2,0.2]],
+      6: [[-0.2,-0.2],[0.2,-0.2],[-0.2,0],[0.2,0],[-0.2,0.2],[0.2,0.2]]
+    };
+    const dots = dotPositions[diceValue] || [];
+    for(const [dotX, dotZ] of dots) {
+      const dotModel = mul4(translate(dx + dotX*diceSize, dy + diceSize/2 + 0.01, dz + dotZ*diceSize), scale(dotSize, dotSize*0.5, dotSize));
+      drawMesh(sphereGeo, dotModel, [0.1, 0.1, 0.1], 0, 1, 0.2);
+    }
+  }
+}
+
+// ==================== ENVIRONMENT ====================
+function drawEnvironment(time) {
+  // Floor
+  const floorModel = mul4(translate(0, -0.2, 0), scale(40, 0.1, 40));
+  drawMesh(boxGeo, floorModel, [0.08, 0.07, 0.12], 0.01, 1, 0.1);
+
+  // Subtle decorative corner posts
+  for(let i=0;i<4;i++) {
+    const a = Math.PI/4 + i * Math.PI/2;
+    const x = Math.cos(a) * 11;
+    const z = Math.sin(a) * 11;
+    const postModel = mul4(translate(x, 0.5, z), scale(0.15, 1.5, 0.15));
+    drawMesh(cylinderGeo, postModel, [0.3, 0.25, 0.15], 0.02, 1, 0.3);
+    // Ball on top
+    const ballModel = mul4(translate(x, 1.4, z), scale(0.2, 0.2, 0.2));
+    drawMesh(sphereGeo, ballModel, [0.5, 0.4, 0.2], 0.05, 1, 0.5);
+  }
+}
+
+// ==================== RENDER LOOP ====================
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+function render(time) {
+  time *= 0.001;
+  requestAnimationFrame(render);
+
+  // Smooth camera
+  camTheta += (targetTheta - camTheta) * 0.08;
+  camPhi += (targetPhi - camPhi) * 0.08;
+  camDist += (targetDist - camDist) * 0.08;
+
+  gl.clearColor(0.06, 0.05, 0.10, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+
+  drawEnvironment(time);
+  drawBoard(time);
+  drawPieces(time);
+  drawDice3D(time);
+}
+
+// ==================== DICE BUTTON ====================
+document.getElementById('dice-btn').addEventListener('click', () => {
+  if(currentPlayer < numHumans) {
+    rollDice();
+  }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if(e.code === 'Space' && !e.repeat) {
+    e.preventDefault();
+    if(currentPlayer < numHumans) rollDice();
+  }
+  if(e.code === 'KeyT') toggleTopView();
+  if(e.code === 'KeyR') resetCamera();
+  // Number keys to select piece
+  if(e.code >= 'Digit1' && e.code <= 'Digit4') {
+    const idx = currentPlayer * 4 + (parseInt(e.code.charAt(5)) - 1);
+    if(movablePieces.includes(idx)) selectPiece(idx);
+  }
+});
+
+// ==================== INIT ====================
+initPieces();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

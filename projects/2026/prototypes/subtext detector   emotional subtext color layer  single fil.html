@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Subtext Detector — Emotional Subtext Color Layer (Single File)</title>
+  <style>
+    :root{
+      --bg:#0b0c0c;
+      --panel:#151816;
+      --panel2:#1b1f1c;
+      --text:#e9eceb;
+      --muted:#a8b0ac;
+      --line:rgba(255,255,255,.10);
+      --accent:#d4a24f;
+      --good:#6fbf73;
+      --bad:#d06b6b;
+      --shadow: 0 18px 44px rgba(0,0,0,.50);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1100px 800px at 18% 10%, rgba(212,162,79,.10), transparent 55%),
+        radial-gradient(900px 650px at 90% 22%, rgba(120,170,210,.09), transparent 60%),
+        radial-gradient(1000px 900px at 50% 110%, rgba(184,95,73,.08), transparent 62%),
+        var(--bg);
+      overflow:hidden;
+    }
+    header{
+      position:fixed; left:0; right:0; top:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .title{display:flex; flex-direction:column; gap:2px}
+    .title h1{margin:0; font-size:14px; font-weight:950; letter-spacing:.2px}
+    .title .sub{margin:0; font-size:12px; color:var(--muted); line-height:1.25}
+    .hdrRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:12px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+    .pill b{color:var(--text); font-family:var(--mono); font-weight:900}
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:12.5px;
+      color:var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{background: linear-gradient(180deg, rgba(212,162,79,.18), rgba(212,162,79,.06));}
+    .btn.danger{background: linear-gradient(180deg, rgba(208,107,107,.18), rgba(208,107,107,.07));}
+
+    main{
+      position:fixed; inset:52px 0 0 0;
+      display:grid;
+      grid-template-columns: 420px 1fr 360px;
+      gap:14px;
+      padding:14px;
+    }
+    @media (max-width: 1100px){
+      main{grid-template-columns: 1fr}
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.22);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height: 220px;
+    }
+    .ph{
+      padding:10px 10px 8px;
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.14);
+    }
+    .ph .h{font-weight:950; font-size:12.5px; letter-spacing:.2px}
+    .ph .hint{font-size:12px; color:var(--muted); white-space:nowrap}
+    .pb{padding:10px; overflow:auto}
+
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px}
+    textarea, input[type="text"], select{
+      width:100%;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      border-radius: 12px;
+      padding:9px 10px;
+      outline:none;
+      font-size:13px;
+    }
+    textarea{min-height:160px; resize:vertical; line-height:1.35}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .row3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px}
+    .small{font-size:12px; color:var(--muted); line-height:1.35}
+    .k{
+      display:inline-block;
+      padding:1px 6px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:8px;
+      background: rgba(255,255,255,.03);
+      font-family: var(--mono);
+      color: var(--text);
+      font-size:11.5px;
+      margin:0 2px;
+    }
+
+    /* Conversation view */
+    #thread{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .msg{
+      position:relative;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      overflow:hidden;
+      background: rgba(0,0,0,.18);
+    }
+    .msg .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      padding:9px 10px 7px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.12);
+    }
+    .msg .who{font-weight:950; font-size:12.5px}
+    .msg .meta{font-family:var(--mono); font-size:11px; color:var(--muted)}
+    .msg .body{
+      position:relative;
+      padding:10px;
+      line-height:1.45;
+      font-size:13.5px;
+      white-space:pre-wrap;
+      z-index:2;
+    }
+    .subLayer{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      opacity:0.38;
+      pointer-events:none;
+      background: linear-gradient(90deg, rgba(0,0,0,0), rgba(0,0,0,0));
+      filter: blur(0px);
+      transform: translateZ(0);
+    }
+    .chips{
+      display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;
+    }
+    .chip{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:11px;
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+      font-family:var(--mono);
+    }
+    .chip b{color:var(--text); font-weight:900}
+    .warnBox{
+      border:1px solid rgba(212,162,79,.30);
+      background: rgba(212,162,79,.08);
+      padding:10px;
+      border-radius:12px;
+      color:var(--text);
+      font-size:12.5px;
+      line-height:1.35;
+    }
+    .warnBox b{color:var(--accent)}
+    .bar{
+      height:10px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(111,191,115,.85), rgba(212,162,79,.85), rgba(208,107,107,.85));
+    }
+    .table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    .table td{
+      padding:6px 0;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      color:var(--muted);
+    }
+    .table td b{color:var(--text)}
+    .table tr:last-child td{border-bottom:none}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="title">
+    <h1>Subtext Detector</h1>
+    <div class="sub">Type a conversation. The app reveals likely emotional subtext as a color layer under each message (offline heuristic “AI”).</div>
+  </div>
+  <div class="hdrRight">
+    <div class="pill">mode: <b id="pillMode">Offline</b></div>
+    <div class="pill">messages: <b id="pillCount">0</b></div>
+    <button class="btn" id="btnExample">Example</button>
+    <button class="btn danger" id="btnClear">Clear</button>
+    <button class="btn primary" id="btnAdd">Add message</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Input -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Compose</div>
+      <div class="hint">Keys: <span class="k">Ctrl</span>+<span class="k">Enter</span> add · <span class="k">/</span> search</div>
+    </div>
+    <div class="pb">
+      <div class="row">
+        <div>
+          <label for="who">Speaker</label>
+          <input id="who" type="text" placeholder="e.g., You / Alex" value="You"/>
+        </div>
+        <div>
+          <label for="tonePreset">Context</label>
+          <select id="tonePreset">
+            <option value="neutral" selected>Neutral</option>
+            <option value="work">Work / professional</option>
+            <option value="relationship">Relationship / personal</option>
+            <option value="customer">Customer support</option>
+            <option value="conflict">Conflict / argument</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="text">Message</label>
+      <textarea id="text" placeholder="Type the message… (the analyzer looks for pressure, warmth, avoidance, threat, apology, etc.)"></textarea>
+
+      <div class="row">
+        <div>
+          <label for="overlayStrength">Overlay strength</label>
+          <input id="overlayStrength" type="range" min="0" max="1" step="0.001" value="0.38"/>
+        </div>
+        <div>
+          <label for="overlayBlur">Overlay blur</label>
+          <input id="overlayBlur" type="range" min="0" max="12" step="0.1" value="2.2"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="sensitivity">Sensitivity</label>
+          <input id="sensitivity" type="range" min="0.5" max="2.0" step="0.01" value="1.15"/>
+        </div>
+        <div>
+          <label for="sarcasm">Sarcasm detector</label>
+          <select id="sarcasm">
+            <option value="0">Off</option>
+            <option value="1" selected>On (lightweight)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="warnBox" style="margin-top:10px">
+        <b>Note:</b> This is not mind‑reading. It’s pattern detection and may be wrong—especially with inside jokes, neurodivergent styles, or cultural differences.
+      </div>
+    </div>
+  </section>
+
+  <!-- CENTER: Conversation -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Conversation</div>
+      <div class="hint">Hover a message to see its subtext breakdown</div>
+    </div>
+    <div class="pb">
+      <div id="thread"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Inspector -->
+  <section class="panel">
+    <div class="ph">
+      <div class="h">Subtext Inspector</div>
+      <div class="hint" id="insHint">Select a message</div>
+    </div>
+    <div class="pb">
+      <div class="small" style="margin-bottom:10px">
+        <b>Legend (color layer):</b> warmth (green) · pressure/urgency (gold) · threat/hostility (red) · sadness (blue) · avoidance (purple) · apology (teal)
+      </div>
+
+      <div class="row3" style="margin-bottom:10px">
+        <div class="pill">valence: <b id="valence">—</b></div>
+        <div class="pill">arousal: <b id="arousal">—</b></div>
+        <div class="pill">confidence: <b id="conf">—</b></div>
+      </div>
+
+      <label>Overall drift</label>
+      <div class="bar"><i id="bar"></i></div>
+
+      <div style="height:10px"></div>
+
+      <table class="table">
+        <tr><td><b>Warmth</b></td><td id="m_warm">—</td></tr>
+        <tr><td><b>Pressure</b></td><td id="m_press">—</td></tr>
+        <tr><td><b>Hostility</b></td><td id="m_host">—</td></tr>
+        <tr><td><b>Sadness</b></td><td id="m_sad">—</td></tr>
+        <tr><td><b>Avoidance</b></td><td id="m_avoid">—</td></tr>
+        <tr><td><b>Apology</b></td><td id="m_apol">—</td></tr>
+        <tr><td><b>Power / control</b></td><td id="m_power">—</td></tr>
+        <tr><td><b>Need / vulnerability</b></td><td id="m_need">—</td></tr>
+        <tr><td><b>Boundary</b></td><td id="m_bound">—</td></tr>
+      </table>
+
+      <div class="chips" id="chips"></div>
+
+      <label for="search">Search in conversation</label>
+      <input id="search" type="text" placeholder="Filter by word / #tag"/>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnExport">Export JSON</button>
+        <button class="btn" id="btnImport">Import JSON</button>
+      </div>
+      <label for="io">Import/Export box</label>
+      <textarea id="io" class="mono" placeholder="Exported JSON appears here. Paste JSON here and click Import."></textarea>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const SAVE_KEY = "subtext_detector_v1";
+  const $ = (s) => document.querySelector(s);
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const norm = (s)=> (s||"").replace(/\s+/g," ").trim();
+  const esc = (s)=> (s??"").replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch]));
+
+  const UI = {
+    pillMode: $("#pillMode"),
+    pillCount: $("#pillCount"),
+    btnExample: $("#btnExample"),
+    btnClear: $("#btnClear"),
+    btnAdd: $("#btnAdd"),
+
+    who: $("#who"),
+    tonePreset: $("#tonePreset"),
+    text: $("#text"),
+    overlayStrength: $("#overlayStrength"),
+    overlayBlur: $("#overlayBlur"),
+    sensitivity: $("#sensitivity"),
+    sarcasm: $("#sarcasm"),
+
+    thread: $("#thread"),
+
+    insHint: $("#insHint"),
+    valence: $("#valence"),
+    arousal: $("#arousal"),
+    conf: $("#conf"),
+    bar: $("#bar"),
+    chips: $("#chips"),
+
+    m_warm: $("#m_warm"),
+    m_press: $("#m_press"),
+    m_host: $("#m_host"),
+    m_sad: $("#m_sad"),
+    m_avoid: $("#m_avoid"),
+    m_apol: $("#m_apol"),
+    m_power: $("#m_power"),
+    m_need: $("#m_need"),
+    m_bound: $("#m_bound"),
+
+    search: $("#search"),
+    btnExport: $("#btnExport"),
+    btnImport: $("#btnImport"),
+    io: $("#io"),
+  };
+
+  // Conversation storage (localStorage)
+  const S = {
+    v: 1,
+    msgs: [],
+    selected: null,
+    filter: "",
+  };
+
+  // --- Offline "AI": Lexicon + pattern scorer ---
+  // This is intentionally transparent and editable.
+  const LEX = {
+    warmth: [
+      "thanks","thank you","appreciate","glad","happy","love","care","proud","nice","great","awesome",
+      "no worries","all good","totally","of course","sure","sounds good","🙏","😊","🙂","<3"
+    ],
+    pressure: [
+      "asap","urgent","now","today","immediately","right away","by","deadline","need this","need it",
+      "quick","soon","follow up","reminder","still waiting","ping","??","!!!","time","must"
+    ],
+    hostility: [
+      "whatever","fine.","you always","you never","ridiculous","stupid","hate","annoying","fed up","unacceptable",
+      "are you kidding","seriously","pathetic","shut up","don't care"
+    ],
+    sadness: [
+      "sad","hurt","down","tired","exhausted","lonely","upset","cry","broken","miss you","can't do this",
+      "i can't","i'm done","overwhelmed"
+    ],
+    avoidance: [
+      "maybe","idk","i guess","not sure","later","we'll see","it depends","anyway","moving on",
+      "forget it","doesn't matter","nvm","nevermind","lol" // lol can mask discomfort
+    ],
+    apology: [
+      "sorry","my bad","apologies","i apologize","didn't mean","that's on me","forgive","regret"
+    ],
+    boundary: [
+      "i can't","i won't","not comfortable","please don't","stop","do not","can't do","won't do",
+      "that's not ok","not okay","boundary","i need space","leave me alone"
+    ],
+    power: [
+      "you need to","you must","i expect","required","policy","rule","final","end of discussion",
+      "do it","make sure","or else","consequences"
+    ],
+    need: [
+      "i need","can you","could you","help","please","i'm struggling","i feel","i want","i wish",
+      "i'm scared","i'm anxious"
+    ]
+  };
+
+  function tokenize(s){
+    return (s||"").toLowerCase()
+      .replace(/[\u2019']/g,"'")
+      .replace(/[^\p{L}\p{N}\s'!?.,@#-]/gu," ")
+      .split(/\s+/)
+      .filter(Boolean);
+  }
+
+  function countHits(text, phrases){
+    const t = (text||"").toLowerCase();
+    let c = 0;
+    for (const p of phrases){
+      if (!p) continue;
+      if (p.length <= 2){
+        // emojis / short tokens: count occurrences
+        const re = new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), "g");
+        const m = t.match(re);
+        c += m ? m.length : 0;
+      } else {
+        if (t.includes(p)) c += 1;
+      }
+    }
+    return c;
+  }
+
+  function punctuationFeatures(text){
+    const q = (text.match(/\?/g) || []).length;
+    const ex = (text.match(/!/g) || []).length;
+    const dots = (text.match(/\.\.\./g) || []).length;
+    const caps = (text.match(/\b[A-Z]{3,}\b/g) || []).length;
+    const ell = dots;
+    return { q, ex, caps, ell };
+  }
+
+  function sarcasmHint(text){
+    // extremely light heuristic
+    const t = (text||"").toLowerCase();
+    let s = 0;
+    if (/(yeah right|sure\.\.\.|sure\.|whatever|fine\.)/.test(t)) s += 1.2;
+    if (/(lol|lmao|😂|😅)/.test(t) && /(fine|sure|ok|whatever)/.test(t)) s += 0.6;
+    if (/(great\.)/.test(t) && /(not|never|can't|won't)/.test(t)) s += 0.4;
+    return s;
+  }
+
+  function analyze(text, context){
+    const sens = Number(UI.sensitivity.value);
+    const sarcOn = UI.sarcasm.value === "1";
+
+    const f = punctuationFeatures(text);
+    const len = Math.max(1, tokenize(text).length);
+
+    // base scores (0..1-ish)
+    let warm   = countHits(text, LEX.warmth)   / 4;
+    let press  = countHits(text, LEX.pressure) / 4;
+    let host   = countHits(text, LEX.hostility)/ 3;
+    let sad    = countHits(text, LEX.sadness)  / 3;
+    let avoid  = countHits(text, LEX.avoidance)/ 4;
+    let apol   = countHits(text, LEX.apology)  / 3;
+    let bound  = countHits(text, LEX.boundary) / 3;
+    let power  = countHits(text, LEX.power)    / 3;
+    let need   = countHits(text, LEX.need)     / 4;
+
+    // punctuation influences
+    press += (f.ex * 0.10) + (f.q * 0.06) + (f.caps * 0.20);
+    avoid += (f.ell * 0.12);
+
+    // context nudges
+    if (context === "work"){
+      power *= 1.10;
+      warm *= 0.92;
+      avoid *= 0.95;
+    } else if (context === "relationship"){
+      need *= 1.15;
+      sad *= 1.10;
+      warm *= 1.05;
+    } else if (context === "customer"){
+      warm *= 1.10;
+      power *= 0.95;
+      host *= 0.80;
+    } else if (context === "conflict"){
+      host *= 1.20;
+      press *= 1.10;
+      warm *= 0.80;
+    }
+
+    // sarcasm can invert warmth into hostility/avoidance slightly
+    const sarc = sarcOn ? sarcasmHint(text) : 0;
+    if (sarc > 0){
+      host += sarc * 0.35;
+      avoid += sarc * 0.20;
+      warm -= sarc * 0.18;
+    }
+
+    // normalize/clamp and apply sensitivity
+    function s01(x){ return clamp(x * sens, 0, 1.35); }
+    warm  = s01(warm);
+    press = s01(press);
+    host  = s01(host);
+    sad   = s01(sad);
+    avoid = s01(avoid);
+    apol  = s01(apol);
+    bound = s01(bound);
+    power = s01(power);
+    need  = s01(need);
+
+    // Derived valence/arousal (very rough)
+    // valence: warmth/apology/need minus hostility/pressure/boundary/sadness
+    const val = clamp((warm*0.9 + apol*0.6 + need*0.4) - (host*1.1 + press*0.6 + bound*0.7 + sad*0.7), -1, 1);
+    const ar  = clamp((press*0.9 + host*0.8 + bound*0.5 + f.ex*0.12 + f.caps*0.2) - (avoid*0.2), 0, 1.3);
+
+    // Confidence: more signals + longer text, less if all low
+    const signal = warm+press+host+sad+avoid+apol+bound+power+need;
+    const conf = clamp((signal/4) * (0.55 + Math.min(1, len/18)*0.45), 0, 1);
+
+    // Labels
+    const labels = [];
+    const pushIf = (k,v,th=0.35)=>{ if (v>=th) labels.push(`${k}:${v.toFixed(2)}`); };
+
+    pushIf("warmth", warm);
+    pushIf("pressure", press);
+    pushIf("hostility", host);
+    pushIf("sadness", sad);
+    pushIf("avoidance", avoid);
+    pushIf("apology", apol);
+    pushIf("boundary", bound);
+    pushIf("power", power);
+    pushIf("need", need);
+
+    // Gradient for subtext layer:
+    // We blend multiple "emotional inks" left-to-right by intensity.
+    const stops = [];
+    const addStop = (color, a) => { if (a>0.02) stops.push({ color, a }); };
+
+    // mapping to colors (not blue-dominant overall, but includes blue for sadness)
+    addStop(`rgba(111,191,115,${0.65*warm})`, warm);           // green warmth
+    addStop(`rgba(212,162,79,${0.75*press})`, press);          // gold pressure
+    addStop(`rgba(208,107,107,${0.85*host})`, host);           // red hostility
+    addStop(`rgba(120,170,255,${0.70*sad})`, sad);             // blue sadness
+    addStop(`rgba(180,120,220,${0.70*avoid})`, avoid);          // purple avoidance
+    addStop(`rgba(80,200,190,${0.70*apol})`, apol);             // teal apology
+    addStop(`rgba(240,240,240,${0.35*bound})`, bound);          // pale boundary
+    addStop(`rgba(255,120,60,${0.55*power})`, power);           // orange power
+    addStop(`rgba(255,210,140,${0.40*need})`, need);            // soft amber need
+
+    // Build CSS linear-gradient. If no stops, very faint neutral.
+    let gradient = "linear-gradient(90deg, rgba(0,0,0,0), rgba(0,0,0,0))";
+    if (stops.length){
+      // distribute stops
+      const N = stops.length;
+      const parts = [];
+      for (let i=0;i<N;i++){
+        const p = (i/(Math.max(1,N-1)))*100;
+        parts.push(`${stops[i].color} ${p.toFixed(1)}%`);
+      }
+      gradient = `linear-gradient(90deg, ${parts.join(", ")})`;
+    }
+
+    return {
+      warm, press, host, sad, avoid, apol, bound, power, need,
+      valence: val, arousal: clamp(ar/1.3, 0, 1),
+      conf,
+      labels,
+      gradient
+    };
+  }
+
+  // --- Rendering conversation ---
+  function render(){
+    const filter = norm(UI.search.value);
+    const fTok = filter ? filter.toLowerCase() : "";
+
+    UI.thread.innerHTML = "";
+    let shown = 0;
+
+    for (let i=0;i<S.msgs.length;i++){
+      const m = S.msgs[i];
+      const hay = (m.who + " " + m.text).toLowerCase();
+      if (fTok && !hay.includes(fTok)) continue;
+
+      shown++;
+      const div = document.createElement("div");
+      div.className = "msg";
+      div.dataset.id = m.id;
+
+      const sub = document.createElement("div");
+      sub.className = "subLayer";
+      sub.style.opacity = String(Number(UI.overlayStrength.value));
+      sub.style.filter = `blur(${Number(UI.overlayBlur.value)}px)`;
+      sub.style.background = m.analysis.gradient;
+
+      const top = document.createElement("div");
+      top.className = "top";
+      top.innerHTML = `
+        <div class="who">${esc(m.who || "Someone")}</div>
+        <div class="meta">${new Date(m.at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}</div>
+      `;
+
+      const body = document.createElement("div");
+      body.className = "body";
+      body.textContent = m.text;
+
+      div.appendChild(sub);
+      div.appendChild(top);
+      div.appendChild(body);
+
+      div.addEventListener("mouseenter", () => inspect(m.id));
+      div.addEventListener("click", () => inspect(m.id));
+      div.addEventListener("dblclick", () => {
+        if (confirm("Delete this message?")) {
+          S.msgs = S.msgs.filter(x => x.id !== m.id);
+          if (S.selected === m.id) S.selected = null;
+          persist();
+          render();
+          updatePills();
+        }
+      });
+
+      UI.thread.appendChild(div);
+    }
+
+    UI.pillCount.textContent = String(shown);
+  }
+
+  function pct(x){ return (x*100).toFixed(0) + "%"; }
+  function signed(x){
+    const v = x;
+    return (v>=0?"+":"") + v.toFixed(2);
+  }
+
+  function inspect(id){
+    const m = S.msgs.find(x=>x.id===id);
+    if (!m) return;
+    S.selected = id;
+
+    UI.insHint.textContent = `${m.who || "Someone"} · ${new Date(m.at).toLocaleString()}`;
+
+    UI.valence.textContent = signed(m.analysis.valence);
+    UI.arousal.textContent = pct(m.analysis.arousal);
+    UI.conf.textContent = pct(m.analysis.conf);
+
+    // overall "drift" bar: combine arousal + (1 - confidence) slightly, and negativity
+    const drift = clamp(
+      (m.analysis.arousal*0.55) +
+      (Math.max(0, -m.analysis.valence)*0.35) +
+      ((1-m.analysis.conf)*0.25),
+      0, 1
+    );
+    UI.bar.style.width = (drift*100).toFixed(1) + "%";
+
+    UI.m_warm.textContent  = pct(clamp(m.analysis.warm/1.35,0,1));
+    UI.m_press.textContent = pct(clamp(m.analysis.press/1.35,0,1));
+    UI.m_host.textContent  = pct(clamp(m.analysis.host/1.35,0,1));
+    UI.m_sad.textContent   = pct(clamp(m.analysis.sad/1.35,0,1));
+    UI.m_avoid.textContent = pct(clamp(m.analysis.avoid/1.35,0,1));
+    UI.m_apol.textContent  = pct(clamp(m.analysis.apol/1.35,0,1));
+    UI.m_power.textContent = pct(clamp(m.analysis.power/1.35,0,1));
+    UI.m_need.textContent  = pct(clamp(m.analysis.need/1.35,0,1));
+    UI.m_bound.textContent = pct(clamp(m.analysis.bound/1.35,0,1));
+
+    UI.chips.innerHTML = "";
+    const labs = m.analysis.labels.length ? m.analysis.labels : ["(no strong signals)"];
+    for (const s of labs.slice(0, 14)){
+      const c = document.createElement("div");
+      c.className = "chip";
+      const [k,v] = s.includes(":") ? s.split(":") : [s,""];
+      c.innerHTML = v ? `<b>${esc(k)}</b>&nbsp;${esc(v)}` : esc(s);
+      UI.chips.appendChild(c);
+    }
+  }
+
+  // --- Actions ---
+  function addMessage(){
+    const who = norm(UI.who.value) || "Someone";
+    const text = norm(UI.text.value);
+    if (!text) return;
+
+    const ctxPreset = UI.tonePreset.value;
+    const analysis = analyze(text, ctxPreset);
+
+    S.msgs.push({
+      id: crypto.randomUUID?.() || ("m_" + Math.random().toString(16).slice(2)),
+      who, text,
+      at: Date.now(),
+      ctx: ctxPreset,
+      analysis
+    });
+
+    UI.text.value = "";
+    persist();
+    render();
+    updatePills();
+    inspect(S.msgs[S.msgs.length-1].id);
+    // scroll to bottom
+    UI.thread.parentElement.scrollTop = UI.thread.parentElement.scrollHeight;
+  }
+
+  function example(){
+    S.msgs = [];
+    const convo = [
+      ["You",  "Hey — did you get a chance to look at the doc I sent?"],
+      ["Alex", "Not yet. Been slammed."],
+      ["You",  "Ok. I kind of need it today if possible."],
+      ["Alex", "Sure. I'll do it."],
+      ["You",  "Thanks. Also—about yesterday… I felt a little dismissed when you said 'whatever'."],
+      ["Alex", "I said whatever because I didn't want to argue. Sorry."],
+      ["You",  "I appreciate that. Can we just be clearer next time?"],
+      ["Alex", "Fine."],
+    ];
+    for (const [who, text] of convo){
+      const analysis = analyze(text, "work");
+      S.msgs.push({ id: crypto.randomUUID?.() || ("m_" + Math.random()), who, text, at: Date.now()+S.msgs.length*1000, ctx:"work", analysis });
+    }
+    persist();
+    render();
+    updatePills();
+    inspect(S.msgs[S.msgs.length-1].id);
+  }
+
+  function clearAll(){
+    if (!confirm("Clear conversation?")) return;
+    S.msgs = [];
+    S.selected = null;
+    persist();
+    render();
+    updatePills();
+    UI.insHint.textContent = "Select a message";
+    UI.chips.innerHTML = "";
+    UI.valence.textContent = UI.arousal.textContent = UI.conf.textContent = "—";
+    UI.bar.style.width = "0%";
+    UI.m_warm.textContent = UI.m_press.textContent = UI.m_host.textContent =
+      UI.m_sad.textContent = UI.m_avoid.textContent = UI.m_apol.textContent =
+      UI.m_power.textContent = UI.m_need.textContent = UI.m_bound.textContent = "—";
+  }
+
+  function updatePills(){
+    UI.pillCount.textContent = String(S.msgs.length);
+  }
+
+  function exportJSON(){
+    const payload = { v:S.v, exportedAt: Date.now(), msgs: S.msgs };
+    UI.io.value = JSON.stringify(payload, null, 2);
+    UI.io.focus(); UI.io.select();
+  }
+
+  function importJSON(){
+    const raw = norm(UI.io.value);
+    if (!raw){ alert("Paste JSON in the box first."); return; }
+    try{
+      const payload = JSON.parse(raw);
+      if (!Array.isArray(payload.msgs)) throw new Error("Invalid: msgs[] missing");
+      // re-analyze with current settings, in case sliders changed
+      S.msgs = payload.msgs.map(m => {
+        const who = norm(m.who) || "Someone";
+        const text = norm(m.text) || "";
+        const ctxPreset = m.ctx || UI.tonePreset.value;
+        const analysis = analyze(text, ctxPreset);
+        return { id: m.id || crypto.randomUUID?.() || ("m_" + Math.random()), who, text, at: m.at || Date.now(), ctx: ctxPreset, analysis };
+      });
+      persist();
+      render();
+      updatePills();
+      if (S.msgs.length) inspect(S.msgs[S.msgs.length-1].id);
+    } catch (e){
+      alert("Import failed: " + (e.message || e));
+    }
+  }
+
+  function persist(){
+    const d = {
+      v:S.v,
+      msgs:S.msgs,
+      ui:{
+        who:UI.who.value,
+        tonePreset:UI.tonePreset.value,
+        overlayStrength:UI.overlayStrength.value,
+        overlayBlur:UI.overlayBlur.value,
+        sensitivity:UI.sensitivity.value,
+        sarcasm:UI.sarcasm.value,
+      }
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
+  }
+
+  function restore(){
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    try{
+      const d = JSON.parse(raw);
+      if (d.ui){
+        UI.who.value = d.ui.who ?? UI.who.value;
+        UI.tonePreset.value = d.ui.tonePreset ?? UI.tonePreset.value;
+        UI.overlayStrength.value = d.ui.overlayStrength ?? UI.overlayStrength.value;
+        UI.overlayBlur.value = d.ui.overlayBlur ?? UI.overlayBlur.value;
+        UI.sensitivity.value = d.ui.sensitivity ?? UI.sensitivity.value;
+        UI.sarcasm.value = d.ui.sarcasm ?? UI.sarcasm.value;
+      }
+      if (Array.isArray(d.msgs)){
+        // re-analyze on load to match current algorithm version
+        S.msgs = d.msgs.map(m => {
+          const who = norm(m.who) || "Someone";
+          const text = norm(m.text) || "";
+          const ctxPreset = m.ctx || "neutral";
+          const analysis = analyze(text, ctxPreset);
+          return { id: m.id || crypto.randomUUID?.() || ("m_" + Math.random()), who, text, at: m.at || Date.now(), ctx: ctxPreset, analysis };
+        });
+      }
+    } catch {}
+  }
+
+  // --- Wiring ---
+  UI.btnAdd.addEventListener("click", addMessage);
+  UI.btnExample.addEventListener("click", example);
+  UI.btnClear.addEventListener("click", clearAll);
+
+  UI.overlayStrength.addEventListener("input", ()=>{ render(); persist(); });
+  UI.overlayBlur.addEventListener("input", ()=>{ render(); persist(); });
+  UI.sensitivity.addEventListener("input", ()=>{ // re-analyze all to reflect sensitivity
+    for (const m of S.msgs) m.analysis = analyze(m.text, m.ctx);
+    render(); persist();
+    if (S.selected) inspect(S.selected);
+  });
+  UI.sarcasm.addEventListener("change", ()=>{
+    for (const m of S.msgs) m.analysis = analyze(m.text, m.ctx);
+    render(); persist();
+    if (S.selected) inspect(S.selected);
+  });
+  UI.tonePreset.addEventListener("change", persist);
+  UI.who.addEventListener("input", persist);
+  UI.search.addEventListener("input", render);
+
+  UI.btnExport.addEventListener("click", exportJSON);
+  UI.btnImport.addEventListener("click", importJSON);
+
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+      e.preventDefault();
+      addMessage();
+    }
+    if (e.key === "/"){
+      e.preventDefault();
+      UI.search.focus();
+      UI.search.select();
+    }
+  });
+
+  // init
+  restore();
+  readUI();
+  render();
+  updatePills();
+  if (S.msgs.length) inspect(S.msgs[S.msgs.length-1].id);
+})();
+</script>
+</body>
+</html>

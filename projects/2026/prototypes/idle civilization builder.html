@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idle Civilization Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .civilization-name {
+            font-size: 1.2em;
+            color: #764ba2;
+            margin-bottom: 15px;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-rate {
+            font-size: 0.75em;
+            color: #28a745;
+            margin-top: 3px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .resource-item, .building-item, .tech-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .resource-item:hover, .building-item:hover, .tech-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .item-count {
+            font-size: 1.2em;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .item-description {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .cost {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .cost-item {
+            display: inline-block;
+            margin-right: 10px;
+            padding: 3px 8px;
+            background: white;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+        }
+
+        .unlocked {
+            background: #d4edda !important;
+            border-left: 4px solid #28a745;
+        }
+
+        .researching {
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+        }
+
+        .locked {
+            opacity: 0.6;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+            max-width: 300px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .milestone {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .building-count {
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-bar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚔️ Idle Civilization Builder</h1>
+            <div class="civilization-name" id="civName">The Great Civilization</div>
+            <div class="stats-bar" id="statsBar"></div>
+        </header>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📊 Resources</h2>
+                <div id="resourcesList"></div>
+            </div>
+
+            <div class="panel">
+                <h2>🏛️ Buildings</h2>
+                <div class="tabs">
+                    <button class="tab active" onclick="switchBuildingTab('production')">Production</button>
+                    <button class="tab" onclick="switchBuildingTab('military')">Military</button>
+                    <button class="tab" onclick="switchBuildingTab('special')">Special</button>
+                </div>
+                <div id="buildingsProduction" class="tab-content active"></div>
+                <div id="buildingsMilitary" class="tab-content"></div>
+                <div id="buildingsSpecial" class="tab-content"></div>
+            </div>
+
+            <div class="panel">
+                <h2>🔬 Technology Tree</h2>
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTechTab('economic')">Economic</button>
+                    <button class="tab" onclick="switchTechTab('military')">Military</button>
+                    <button class="tab" onclick="switchTechTab('cultural')">Cultural</button>
+                </div>
+                <div id="techEconomic" class="tab-content active"></div>
+                <div id="techMilitary" class="tab-content"></div>
+                <div id="techCultural" class="tab-content"></div>
+            </div>
+
+            <div class="panel">
+                <h2>🎯 Milestones & Achievements</h2>
+                <div id="milestonesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        const gameState = {
+            resources: {
+                food: { amount: 100, max: 200, rate: 0 },
+                wood: { amount: 50, max: 150, rate: 0 },
+                stone: { amount: 30, max: 100, rate: 0 },
+                gold: { amount: 0, max: 50, rate: 0 },
+                population: { amount: 10, max: 50, rate: 0 },
+                science: { amount: 0, max: 100, rate: 0 },
+                culture: { amount: 0, max: 100, rate: 0 },
+                military: { amount: 0, max: 20, rate: 0 }
+            },
+            buildings: {},
+            technologies: {},
+            achievements: {},
+            lastUpdate: Date.now(),
+            totalPlayTime: 0,
+            currentResearch: null,
+            researchProgress: 0
+        };
+
+        // Buildings Data
+        const buildingsData = {
+            farm: {
+                name: 'Farm',
+                category: 'production',
+                description: 'Produces food for your population',
+                baseCost: { wood: 20, stone: 10 },
+                produces: { food: 2 },
+                unlocked: true
+            },
+            lumberCamp: {
+                name: 'Lumber Camp',
+                category: 'production',
+                description: 'Produces wood for construction',
+                baseCost: { food: 15, stone: 5 },
+                produces: { wood: 1.5 },
+                unlocked: true
+            },
+            quarry: {
+                name: 'Quarry',
+                category: 'production',
+                description: 'Produces stone for buildings',
+                baseCost: { food: 20, wood: 15 },
+                produces: { stone: 1 },
+                unlocked: true
+            },
+            house: {
+                name: 'House',
+                category: 'production',
+                description: 'Increases max population',
+                baseCost: { wood: 30, stone: 20 },
+                increases: { population: 5 },
+                unlocked: true
+            },
+            goldMine: {
+                name: 'Gold Mine',
+                category: 'production',
+                description: 'Extracts precious gold',
+                baseCost: { wood: 50, stone: 40, food: 30 },
+                produces: { gold: 0.5 },
+                requires: 'mining',
+                unlocked: false
+            },
+            library: {
+                name: 'Library',
+                category: 'production',
+                description: 'Generates science points',
+                baseCost: { wood: 60, stone: 50, gold: 10 },
+                produces: { science: 1 },
+                requires: 'writing',
+                unlocked: false
+            },
+            temple: {
+                name: 'Temple',
+                category: 'special',
+                description: 'Generates culture points',
+                baseCost: { stone: 80, gold: 20 },
+                produces: { culture: 1.5 },
+                requires: 'religion',
+                unlocked: false
+            },
+            barracks: {
+                name: 'Barracks',
+                category: 'military',
+                description: 'Trains military units',
+                baseCost: { wood: 40, stone: 30, gold: 15 },
+                produces: { military: 0.3 },
+                requires: 'bronzeWorking',
+                unlocked: false
+            },
+            archeryRange: {
+                name: 'Archery Range',
+                category: 'military',
+                description: 'Trains archers',
+                baseCost: { wood: 60, stone: 20, gold: 20 },
+                produces: { military: 0.5 },
+                requires: 'archery',
+                unlocked: false
+            },
+            stable: {
+                name: 'Stable',
+                category: 'military',
+                description: 'Trains cavalry units',
+                baseCost: { wood: 80, stone: 40, gold: 30 },
+                produces: { military: 0.8 },
+                requires: 'horsebackRiding',
+                unlocked: false
+            },
+            marketplace: {
+                name: 'Marketplace',
+                category: 'special',
+                description: 'Increases gold production by 20%',
+                baseCost: { wood: 70, stone: 50, gold: 25 },
+                multiplier: { gold: 1.2 },
+                requires: 'currency',
+                unlocked: false
+            },
+            university: {
+                name: 'University',
+                category: 'special',
+                description: 'Increases science production by 50%',
+                baseCost: { wood: 100, stone: 80, gold: 40 },
+                multiplier: { science: 1.5 },
+                requires: 'education',
+                unlocked: false
+            },
+            monument: {
+                name: 'Monument',
+                category: 'special',
+                description: 'Increases culture production by 30%',
+                baseCost: { stone: 120, gold: 50 },
+                multiplier: { culture: 1.3 },
+                requires: 'construction',
+                unlocked: false
+            },
+            warehouse: {
+                name: 'Warehouse',
+                category: 'special',
+                description: 'Increases storage capacity by 50%',
+                baseCost: { wood: 80, stone: 60 },
+                storageBonus: 1.5,
+                requires: 'engineering',
+                unlocked: false
+            }
+        };
+
+        // Technologies Data
+        const technologiesData = {
+            agriculture: {
+                name: 'Agriculture',
+                category: 'economic',
+                description: 'Improves food production by 25%',
+                cost: { science: 20 },
+                effect: { foodMultiplier: 1.25 },
+                unlocked: true,
+                researched: false
+            },
+            mining: {
+                name: 'Mining',
+                category: 'economic',
+                description: 'Unlocks gold mines and improves stone production',
+                cost: { science: 40 },
+                effect: { stoneMultiplier: 1.3 },
+                unlocks: ['goldMine'],
+                unlocked: true,
+                researched: false
+            },
+            writing: {
+                name: 'Writing',
+                category: 'cultural',
+                description: 'Unlocks libraries and enables science production',
+                cost: { science: 30 },
+                unlocks: ['library'],
+                unlocked: true,
+                researched: false
+            },
+            bronzeWorking: {
+                name: 'Bronze Working',
+                category: 'military',
+                description: 'Unlocks military buildings',
+                cost: { science: 50 },
+                unlocks: ['barracks'],
+                unlocked: true,
+                researched: false
+            },
+            archery: {
+                name: 'Archery',
+                category: 'military',
+                description: 'Unlocks archery ranges',
+                cost: { science: 60 },
+                requires: 'bronzeWorking',
+                unlocks: ['archeryRange'],
+                unlocked: false,
+                researched: false
+            },
+            horsebackRiding: {
+                name: 'Horseback Riding',
+                category: 'military',
+                description: 'Unlocks stables and cavalry',
+                cost: { science: 80 },
+                requires: 'bronzeWorking',
+                unlocks: ['stable'],
+                unlocked: false,
+                researched: false
+            },
+            religion: {
+                name: 'Religion',
+                category: 'cultural',
+                description: 'Unlocks temples and culture production',
+                cost: { science: 50 },
+                requires: 'writing',
+                unlocks: ['temple'],
+                unlocked: false,
+                researched: false
+            },
+            currency: {
+                name: 'Currency',
+                category: 'economic',
+                description: 'Unlocks marketplace and improves gold by 20%',
+                cost: { science: 70 },
+                requires: 'mining',
+                effect: { goldMultiplier: 1.2 },
+                unlocks: ['marketplace'],
+                unlocked: false,
+                researched: false
+            },
+            construction: {
+                name: 'Construction',
+                category: 'economic',
+                description: 'Unlocks monuments and improves building efficiency',
+                cost: { science: 90 },
+                requires: 'mining',
+                unlocks: ['monument'],
+                unlocked: false,
+                researched: false
+            },
+            engineering: {
+                name: 'Engineering',
+                category: 'economic',
+                description: 'Unlocks warehouses and advanced structures',
+                cost: { science: 100 },
+                requires: 'construction',
+                unlocks: ['warehouse'],
+                unlocked: false,
+                researched: false
+            },
+            education: {
+                name: 'Education',
+                category: 'cultural',
+                description: 'Unlocks universities and doubles science gain',
+                cost: { science: 120, culture: 50 },
+                requires: 'writing',
+                effect: { scienceMultiplier: 2 },
+                unlocks: ['university'],
+                unlocked: false,
+                researched: false
+            },
+            philosophy: {
+                name: 'Philosophy',
+                category: 'cultural',
+                description: 'Increases culture production by 50%',
+                cost: { science: 80, culture: 40 },
+                requires: 'religion',
+                effect: { cultureMultiplier: 1.5 },
+                unlocked: false,
+                researched: false
+            },
+            ironWorking: {
+                name: 'Iron Working',
+                category: 'military',
+                description: 'Improves military production by 50%',
+                cost: { science: 100 },
+                requires: 'bronzeWorking',
+                effect: { militaryMultiplier: 1.5 },
+                unlocked: false,
+                researched: false
+            },
+            mathematics: {
+                name: 'Mathematics',
+                category: 'cultural',
+                description: 'Increases science production by 40%',
+                cost: { science: 110 },
+                requires: 'writing',
+                effect: { scienceMultiplier: 1.4 },
+                unlocked: false,
+                researched: false
+            }
+        };
+
+        // Achievements
+        const achievementsData = {
+            firstBuilding: { name: 'First Steps', description: 'Build your first building', condition: () => Object.keys(gameState.buildings).length > 0 },
+            tenBuildings: { name: 'Growing Settlement', description: 'Build 10 buildings', condition: () => getTotalBuildings() >= 10 },
+            firstTech: { name: 'Renaissance', description: 'Research your first technology', condition: () => Object.values(gameState.technologies).filter(t => t).length > 0 },
+            population50: { name: 'Thriving Population', description: 'Reach 50 population', condition: () => gameState.resources.population.amount >= 50 },
+            population200: { name: 'Metropolis', description: 'Reach 200 population', condition: () => gameState.resources.population.amount >= 200 },
+            gold100: { name: 'Wealthy', description: 'Accumulate 100 gold', condition: () => gameState.resources.gold.amount >= 100 },
+            allEconomicTech: { name: 'Economic Mastery', description: 'Research all economic technologies', condition: () => checkCategoryTech('economic') },
+            allMilitaryTech: { name: 'Military Supremacy', description: 'Research all military technologies', condition: () => checkCategoryTech('military') },
+            playOneDay: { name: 'Dedicated Builder', description: 'Play for 24 hours of total time', condition: () => gameState.totalPlayTime >= 86400000 }
+        };
+
+        // Initialize game
+        function initGame() {
+            loadGame();
+            updateUI();
+            setInterval(gameLoop, 100); // Update every 100ms
+            setInterval(saveGame, 5000); // Save every 5 seconds
+        }
+
+        // Main game loop
+        function gameLoop() {
+            const now = Date.now();
+            const deltaTime = (now - gameState.lastUpdate) / 1000; // seconds
+            gameState.lastUpdate = now;
+            gameState.totalPlayTime += deltaTime * 1000;
+
+            // Calculate production rates
+            calculateRates();
+
+            // Update resources
+            for (let resource in gameState.resources) {
+                const res = gameState.resources[resource];
+                if (res.rate !== 0) {
+                    res.amount += res.rate * deltaTime;
+                    res.amount = Math.max(0, Math.min(res.amount, res.max));
+                }
+            }
+
+            // Update population growth (limited by food)
+            if (gameState.resources.food.amount > gameState.resources.population.amount * 0.5) {
+                gameState.resources.population.rate = 0.01;
+            } else {
+                gameState.resources.population.rate = -0.02;
+            }
+
+            // Update research progress
+            if (gameState.currentResearch && gameState.resources.science.amount >= 1) {
+                const tech = technologiesData[gameState.currentResearch];
+                const researchSpeed = gameState.resources.science.rate * deltaTime;
+                gameState.researchProgress += researchSpeed;
+
+                if (gameState.researchProgress >= tech.cost.science) {
+                    completeTechnology(gameState.currentResearch);
+                }
+            }
+
+            // Check achievements
+            checkAchievements();
+
+            // Update UI
+            updateUI();
+        }
+
+        // Calculate production rates
+        function calculateRates() {
+            // Reset rates
+            for (let resource in gameState.resources) {
+                gameState.resources[resource].rate = 0;
+            }
+
+            // Calculate building production
+            for (let buildingId in gameState.buildings) {
+                const count = gameState.buildings[buildingId];
+                const building = buildingsData[buildingId];
+
+                if (building.produces) {
+                    for (let resource in building.produces) {
+                        gameState.resources[resource].rate += building.produces[resource] * count;
+                    }
+                }
+            }
+
+            // Apply technology multipliers
+            for (let techId in gameState.technologies) {
+                if (gameState.technologies[techId]) {
+                    const tech = technologiesData[techId];
+                    if (tech.effect) {
+                        if (tech.effect.foodMultiplier) gameState.resources.food.rate *= tech.effect.foodMultiplier;
+                        if (tech.effect.woodMultiplier) gameState.resources.wood.rate *= tech.effect.woodMultiplier;
+                        if (tech.effect.stoneMultiplier) gameState.resources.stone.rate *= tech.effect.stoneMultiplier;
+                        if (tech.effect.goldMultiplier) gameState.resources.gold.rate *= tech.effect.goldMultiplier;
+                        if (tech.effect.scienceMultiplier) gameState.resources.science.rate *= tech.effect.scienceMultiplier;
+                        if (tech.effect.cultureMultiplier) gameState.resources.culture.rate *= tech.effect.cultureMultiplier;
+                        if (tech.effect.militaryMultiplier) gameState.resources.military.rate *= tech.effect.militaryMultiplier;
+                    }
+                }
+            }
+
+            // Apply building multipliers
+            for (let buildingId in gameState.buildings) {
+                const count = gameState.buildings[buildingId];
+                const building = buildingsData[buildingId];
+
+                if (building.multiplier) {
+                    for (let resource in building.multiplier) {
+                        gameState.resources[resource].rate *= Math.pow(building.multiplier[resource], count);
+                    }
+                }
+            }
+        }
+
+        // Build a building
+        function buildBuilding(buildingId) {
+            const building = buildingsData[buildingId];
+            const count = gameState.buildings[buildingId] || 0;
+            const cost = calculateBuildingCost(buildingId, count);
+
+            // Check if can afford
+            for (let resource in cost) {
+                if (gameState.resources[resource].amount < cost[resource]) {
+                    showNotification('Not enough ' + resource + '!');
+                    return;
+                }
+            }
+
+            // Deduct resources
+            for (let resource in cost) {
+                gameState.resources[resource].amount -= cost[resource];
+            }
+
+            // Add building
+            gameState.buildings[buildingId] = (gameState.buildings[buildingId] || 0) + 1;
+
+            // Apply increases (like max population)
+            if (building.increases) {
+                for (let resource in building.increases) {
+                    gameState.resources[resource].max += building.increases[resource];
+                }
+            }
+
+            // Apply storage bonus
+            if (building.storageBonus) {
+                for (let resource in gameState.resources) {
+                    if (resource !== 'population') {
+                        gameState.resources[resource].max *= building.storageBonus;
+                    }
+                }
+            }
+
+            showNotification('Built ' + building.name + '!');
+            updateUI();
+        }
+
+        // Calculate building cost with scaling
+        function calculateBuildingCost(buildingId, currentCount) {
+            const building = buildingsData[buildingId];
+            const cost = {};
+            const scaleFactor = Math.pow(1.15, currentCount);
+
+            for (let resource in building.baseCost) {
+                cost[resource] = Math.floor(building.baseCost[resource] * scaleFactor);
+            }
+
+            return cost;
+        }
+
+        // Research technology
+        function researchTechnology(techId) {
+            const tech = technologiesData[techId];
+
+            if (gameState.technologies[techId]) {
+                showNotification('Already researched!');
+                return;
+            }
+
+            if (!tech.unlocked) {
+                showNotification('Technology not unlocked yet!');
+                return;
+            }
+
+            // Check if can afford
+            for (let resource in tech.cost) {
+                if (gameState.resources[resource].amount < tech.cost[resource]) {
+                    showNotification('Not enough ' + resource + '!');
+                    return;
+                }
+            }
+
+            gameState.currentResearch = techId;
+            gameState.researchProgress = 0;
+            showNotification('Researching ' + tech.name + '...');
+            updateUI();
+        }
+
+        // Complete technology
+        function completeTechnology(techId) {
+            const tech = technologiesData[techId];
+
+            // Deduct cost
+            for (let resource in tech.cost) {
+                gameState.resources[resource].amount -= tech.cost[resource];
+            }
+
+            gameState.technologies[techId] = true;
+            gameState.currentResearch = null;
+            gameState.researchProgress = 0;
+
+            // Unlock buildings
+            if (tech.unlocks) {
+                tech.unlocks.forEach(buildingId => {
+                    buildingsData[buildingId].unlocked = true;
+                });
+            }
+
+            // Unlock dependent technologies
+            for (let otherTechId in technologiesData) {
+                const otherTech = technologiesData[otherTechId];
+                if (otherTech.requires === techId) {
+                    otherTech.unlocked = true;
+                }
+            }
+
+            showNotification('Researched ' + tech.name + '!', 'success');
+            updateUI();
+        }
+
+        // UI Updates
+        function updateUI() {
+            updateStatsBar();
+            updateResourcesList();
+            updateBuildingsList();
+            updateTechTree();
+            updateMilestones();
+        }
+
+        function updateStatsBar() {
+            const statsBar = document.getElementById('statsBar');
+            const importantStats = ['food', 'wood', 'stone', 'gold', 'population', 'science'];
+            
+            statsBar.innerHTML = importantStats.map(resource => {
+                const res = gameState.resources[resource];
+                const rateStr = res.rate !== 0 ? `<div class="stat-rate">${res.rate > 0 ? '+' : ''}${res.rate.toFixed(2)}/s</div>` : '';
+                return `
+                    <div class="stat">
+                        <div class="stat-label">${resource.charAt(0).toUpperCase() + resource.slice(1)}</div>
+                        <div class="stat-value">${Math.floor(res.amount)} / ${Math.floor(res.max)}</div>
+                        ${rateStr}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateResourcesList() {
+            const resourcesList = document.getElementById('resourcesList');
+            resourcesList.innerHTML = Object.keys(gameState.resources).map(resource => {
+                const res = gameState.resources[resource];
+                const percentage = (res.amount / res.max) * 100;
+                return `
+                    <div class="resource-item">
+                        <div class="item-header">
+                            <span class="item-name">${resource.charAt(0).toUpperCase() + resource.slice(1)}</span>
+                            <span class="item-count">${Math.floor(res.amount)} / ${Math.floor(res.max)}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="item-description">Rate: ${res.rate > 0 ? '+' : ''}${res.rate.toFixed(2)}/s</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateBuildingsList() {
+            ['production', 'military', 'special'].forEach(category => {
+                const container = document.getElementById('buildings' + category.charAt(0).toUpperCase() + category.slice(1));
+                const buildings = Object.keys(buildingsData).filter(id => buildingsData[id].category === category);
+                
+                container.innerHTML = buildings.map(buildingId => {
+                    const building = buildingsData[buildingId];
+                    const count = gameState.buildings[buildingId] || 0;
+                    const cost = calculateBuildingCost(buildingId, count);
+                    const canAfford = Object.keys(cost).every(res => gameState.resources[res].amount >= cost[res]);
+                    
+                    if (!building.unlocked) return '';
+
+                    let effectText = '';
+                    if (building.produces) {
+                        effectText = 'Produces: ' + Object.keys(building.produces).map(r => `${building.produces[r]} ${r}/s`).join(', ');
+                    }
+                    if (building.increases) {
+                        effectText = 'Increases: ' + Object.keys(building.increases).map(r => `+${building.increases[r]} max ${r}`).join(', ');
+                    }
+                    if (building.multiplier) {
+                        effectText = 'Multiplier: ' + Object.keys(building.multiplier).map(r => `${(building.multiplier[r] * 100 - 100).toFixed(0)}% ${r}`).join(', ');
+                    }
+                    if (building.storageBonus) {
+                        effectText = `+${((building.storageBonus - 1) * 100).toFixed(0)}% storage capacity`;
+                    }
+
+                    return `
+                        <div class="building-item">
+                            <div class="item-header">
+                                <span class="item-name">${building.name}</span>
+                                <span class="building-count">×${count}</span>
+                            </div>
+                            <div class="item-description">${building.description}</div>
+                            <div class="item-description">${effectText}</div>
+                            <div class="cost">
+                                ${Object.keys(cost).map(res => `<span class="cost-item">${cost[res]} ${res}</span>`).join('')}
+                            </div>
+                            <div class="action-buttons">
+                                <button onclick="buildBuilding('${buildingId}')" ${!canAfford ? 'disabled' : ''}>Build</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('') || '<div class="item-description">No buildings available yet. Research technologies to unlock more!</div>';
+            });
+        }
+
+        function updateTechTree() {
+            ['economic', 'military', 'cultural'].forEach(category => {
+                const container = document.getElementById('tech' + category.charAt(0).toUpperCase() + category.slice(1));
+                const techs = Object.keys(technologiesData).filter(id => technologiesData[id].category === category);
+                
+                container.innerHTML = techs.map(techId => {
+                    const tech = technologiesData[techId];
+                    const isResearched = gameState.technologies[techId];
+                    const isResearching = gameState.currentResearch === techId;
+                    const canAfford = tech.unlocked && Object.keys(tech.cost).every(res => gameState.resources[res].amount >= tech.cost[res]);
+                    
+                    if (!tech.unlocked && !isResearched) return '';
+
+                    let className = 'tech-item';
+                    if (isResearched) className += ' unlocked';
+                    if (isResearching) className += ' researching';
+                    if (!tech.unlocked) className += ' locked';
+
+                    let progressBar = '';
+                    if (isResearching) {
+                        const progress = (gameState.researchProgress / tech.cost.science) * 100;
+                        progressBar = `
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="${className}">
+                            <div class="item-header">
+                                <span class="item-name">${tech.name}</span>
+                                ${isResearched ? '<span class="item-count">✓</span>' : ''}
+                            </div>
+                            <div class="item-description">${tech.description}</div>
+                            ${progressBar}
+                            ${!isResearched ? `
+                                <div class="cost">
+                                    ${Object.keys(tech.cost).map(res => `<span class="cost-item">${tech.cost[res]} ${res}</span>`).join('')}
+                                </div>
+                                <div class="action-buttons">
+                                    <button onclick="researchTechnology('${techId}')" ${!canAfford || isResearching ? 'disabled' : ''}>
+                                        ${isResearching ? 'Researching...' : 'Research'}
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('') || '<div class="item-description">No technologies available yet!</div>';
+            });
+        }
+
+        function updateMilestones() {
+            const milestonesList = document.getElementById('milestonesList');
+            milestonesList.innerHTML = Object.keys(achievementsData).map(achievementId => {
+                const achievement = achievementsData[achievementId];
+                const isUnlocked = gameState.achievements[achievementId];
+                
+                return `
+                    <div class="milestone ${isUnlocked ? 'unlocked' : ''}">
+                        <div class="item-header">
+                            <span class="item-name">${isUnlocked ? '🏆' : '🔒'} ${achievement.name}</span>
+                        </div>
+                        <div class="item-description" style="color: white; opacity: 0.9;">${achievement.description}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Helper functions
+        function getTotalBuildings() {
+            return Object.values(gameState.buildings).reduce((sum, count) => sum + count, 0);
+        }
+
+        function checkCategoryTech(category) {
+            const categoryTechs = Object.keys(technologiesData).filter(id => technologiesData[id].category === category);
+            return categoryTechs.every(id => gameState.technologies[id]);
+        }
+
+        function checkAchievements() {
+            for (let achievementId in achievementsData) {
+                if (!gameState.achievements[achievementId]) {
+                    const achievement = achievementsData[achievementId];
+                    if (achievement.condition()) {
+                        gameState.achievements[achievementId] = true;
+                        showNotification('🏆 Achievement Unlocked: ' + achievement.name, 'achievement');
+                    }
+                }
+            }
+        }
+
+        // Tab switching
+        function switchBuildingTab(tab) {
+            ['production', 'military', 'special'].forEach(t => {
+                document.getElementById('buildings' + t.charAt(0).toUpperCase() + t.slice(1)).classList.remove('active');
+            });
+            document.getElementById('buildings' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            
+            document.querySelectorAll('.panel:nth-child(2) .tab').forEach((tabBtn, idx) => {
+                tabBtn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function switchTechTab(tab) {
+            ['economic', 'military', 'cultural'].forEach(t => {
+                document.getElementById('tech' + t.charAt(0).toUpperCase() + t.slice(1)).classList.remove('active');
+            });
+            document.getElementById('tech' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            
+            document.querySelectorAll('.panel:nth-child(3) .tab').forEach((tabBtn, idx) => {
+                tabBtn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Notifications
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `<strong>${message}</strong>`;
+            
+            if (type === 'achievement') {
+                notification.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                notification.style.color = 'white';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Save/Load
+        function saveGame() {
+            localStorage.setItem('idleCivSave', JSON.stringify(gameState));
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('idleCivSave');
+            if (saved) {
+                const loadedState = JSON.parse(saved);
+                Object.assign(gameState, loadedState);
+                gameState.lastUpdate = Date.now();
+                
+                // Apply unlocked buildings and techs
+                for (let techId in gameState.technologies) {
+                    if (gameState.technologies[techId]) {
+                        const tech = technologiesData[techId];
+                        if (tech.unlocks) {
+                            tech.unlocks.forEach(buildingId => {
+                                buildingsData[buildingId].unlocked = true;
+                            });
+                        }
+                        
+                        // Unlock dependent techs
+                        for (let otherTechId in technologiesData) {
+                            const otherTech = technologiesData[otherTechId];
+                            if (otherTech.requires === techId) {
+                                otherTech.unlocked = true;
+                            }
+                        }
+                    }
+                }
+                
+                showNotification('Game loaded! Welcome back!');
+            }
+        }
+
+        // Start game when page loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>
